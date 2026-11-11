@@ -100,7 +100,14 @@
       (settled (:task-registry before) task-id)
       ;; the leader's process ends: everything it started goes with it
       (tasks/cancel-all! (:task-registry before))
-      (loop [i 0] (when (and (seq (filter :live? (channel/sessions leader))) (< i 100)) (Thread/sleep 100) (recur (inc i))))
+      ;; A member is a whole `jolt run:byj --serve` going down; under six
+      ;; shards that once took past the 10 s this waited, and the resumed
+      ;; leader found it still live (byj-4ps). A minute, and said plainly
+      ;; when even that is not enough, rather than three assertions later.
+      (let [deadline (+ (System/currentTimeMillis) 60000)]
+        (loop [] (when (and (seq (filter :live? (channel/sessions leader))) (< (System/currentTimeMillis) deadline))
+                   (Thread/sleep 100) (recur))))
+      (is (empty? (filter :live? (channel/sessions leader))) "the member went down with its leader")
       (let [after {:config leader :task-registry (tasks/registry)}]
         (try
           (testing "the resumed leader sees its team, the member down, and what it was waiting on lost"
