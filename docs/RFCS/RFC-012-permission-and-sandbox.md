@@ -446,6 +446,48 @@ costs 0.66–0.68 s (median of 10, a refused Write and a passed Read), of which
 byj's own start is 0.59 s (`byj --version`). Under `:auto`, a gate that would
 ask runs the classifier first (above), a model's verdict on that call.
 
+**Where the start goes, and the way out** (2026-11-11, `byj-fim`; jolt
+v0.8.24, `target/byj` of 106 MB, the same laptop). A call is 0.68–0.69 s
+(`dev/hook-latency.sh`, median of 10). Deciding is not the cost: inside a
+byj that is already up, loading the payload's config and putting the call
+through the gates takes about 1 ms. Starting is. Under `JOLT_STARTUP_PROFILE=1`,
+building the heap from the image takes 0.40 s and the namespaces' loads
+another 0.20 s before `-main` runs at 0.58 s. A trivial jolt binary (12 MB)
+starts in 0.08 s, so the cost grows with what the image holds, and the two
+ways out `byj-fim` named measure differently:
+
+- **A binary of the hook alone** does not get there. One whose entry
+  requires only `brainyard.config`, `brainyard.json` and `brainyard.tool-hook`
+  is 82 MB and starts in 0.48 s (a call 0.50 s): the gates reach
+  `brainyard.agent`, and through it most of byj. Getting near 0.08 s would
+  mean cutting the gates loose from the agent and the classifier's providers,
+  which is a second copy of the gates in all but name.
+- **A process that stays up** does. A byj answering the same request on a
+  unix socket (`dev/brainyard/dev/hook_server_spike.clj`, the session
+  channel's transport) answers a call in about 1 ms; with a shell client
+  (`nc -U`, the payload escaped into the channel's EDN line by `perl`), a
+  call is 32–52 ms, median 33 ms, all but a millisecond of it the client's
+  (`dev/hook-latency.sh --resident` reproduces it; a rerun gave medians of
+  27–30 ms against 641–647 ms for the same calls through `target/byj`).
+  The first call to a fresh server is 0.49 s.
+
+So the decision is a resident `byj hook serve` that a thin client asks,
+loading the payload's config on every request as the hook does now, so the
+gates and their config stay the one source of the decision. It starts
+itself: a hook call that finds nothing answering is answered by today's
+`byj hook pretooluse`, which then starts the server detached for the next
+call. The server exits after an idle time, and when the byj it was started
+from changes on disk, so an upgrade is picked up by the next call. Which
+client the hook command is remains open in the bead that builds it:
+`curl --unix-socket` against a minimal HTTP answer is one path for both
+agents, needs no escaping and is on macOS and nearly every Linux; Claude
+Code's own `http` hook type reaches only a TCP URL (its hooks reference,
+not tried here), and Codex's hooks run commands only.
+
+It is not built yet, because nothing installs the hook by default
+(`:claude-settings` is nil, and Codex gets it only through `byj hook
+codex-flags`): today 0.7 s a call is paid only by whoever opts in.
+
 ### Config and flags
 
 | key | default | flag |
@@ -550,9 +592,9 @@ takes `:permission-mode-box`, and a subagent inherits both.
 
 ## Known gaps
 
-- **`byj hook pretooluse` pays byj's start on every tool call** (0.6 s,
-  above): a process that stays up would answer in milliseconds —
-  `byj-fim`.
+- **`byj hook pretooluse` pays byj's start on every tool call** (0.7 s,
+  above). The way out is decided and measured, a resident `byj hook serve`
+  that a thin client asks, and not built — `byj-ywp`.
 - **An allow-list is not a capability boundary.** It refuses what it cannot
   segment, but a shell can still reach a listed program's own escapes — `git`
   has `-c core.pager=…`, `bd` shells out for its editor. Where that matters,
