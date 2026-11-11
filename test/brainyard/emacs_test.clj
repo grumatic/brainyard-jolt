@@ -41,6 +41,17 @@
     (fx/sh {:out :string :err :string} "chmod" "+x" (.getPath f))
     (.getPath f)))
 
+(defn- stand-in-time
+  "A stand-in is a shell running sed and cp, and byj bounds a call to Emacs
+  at 5 s (`terminal/*editor-timeout-ms*`). Under six shards one call ran past
+  it, was killed before its `cp`, and the test found no args.json
+  (byj-gly.470). No test here is about that bound — the real daemon's call
+  passes its own — so the namespace gives a call a minute."
+  [f]
+  (binding [terminal/*editor-timeout-ms* 60000] (f)))
+
+(clojure.test/use-fixtures :each stand-in-time)
+
 (deftest which-emacs-is-the-projects-unless-named
   (let [dir (fresh-dir "which")
         tag (terminal/project-tag dir)]
@@ -672,7 +683,7 @@
     (spit sock "")
     (testing "a relative path is the working directory's, not Emacs's"
       (binding [emacs/*emacsclient* (stand-in dir {:answer "{\"ok\": {}}"})]
-        ((:fn (tool "emacs$read")) {:file "src/a.clj"} {})
+        (is (= {} ((:fn (tool "emacs$read")) {:file "src/a.clj"} {})) "the stand-in answered")
         (is (= (str dir "/src/a.clj") (:file (json/read-str (slurp (io/file dir "args.json"))))))))
     (testing "targets outside the writable directories: refused, and Emacs never asked to tangle"
       (binding [emacs/*emacsclient* (stand-in dir {:answer "{\"ok\": {\"targets\": [\"/etc/byj-x.sh\"]}}"})]
