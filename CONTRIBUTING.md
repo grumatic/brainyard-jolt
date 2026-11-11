@@ -19,6 +19,11 @@ are in [AGENTS.md](AGENTS.md), which people and coding agents both follow.
   is intended. An intended one is recorded in `docs/divergences.md` and
   `docs/divergences.edn`; one that exists because the port is incomplete is
   an issue.
+- **Finding something to work on:** the maintainers track planned work in
+  [beads](https://github.com/gastownhall/beads) (`bd`), kept in this
+  repository: after `bd bootstrap` in a clone, `bd ready` lists what is open
+  and unblocked. You need no `bd` to contribute: an issue is how you reach
+  us, and a bead that came from one points back at it (AGENTS.md "Issues").
 
 ## Set up
 

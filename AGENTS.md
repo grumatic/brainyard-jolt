@@ -68,7 +68,7 @@ is measured, not remembered.
 - An intentional difference goes in `docs/divergences.md` **and**
   `docs/divergences.edn` in the same change; `divergences-test` fails
   otherwise. A difference that exists only because the port is incomplete
-  is an issue, not a divergence.
+  is a bead, not a divergence.
 - Replace JVM dependencies with jolt-native ones (RFC-008 "Substitutions").
 
 ## Jolt is not the JVM
@@ -111,26 +111,70 @@ protocol, invariants with what enforces each, known gaps. See
 - An invariant names its enforcer — a test as `ns-test/test-name`, or says
   plainly that nothing enforces it. `divergences-test` checks that every
   test a document cites is there.
-- A known gap names its issue. Closing the issue removes the line.
-- A decision closes with an RFC that records the measurements behind it, and
-  a spike under `dev/` that reproduces them (e.g. RFC-009,
-  `dev/brainyard/dev/effect_spike.clj`).
+- A known gap names its bead (`byj-…`), or its GitHub issue (`#n`) when
+  the gap came in as one. Closing it removes the line.
+- A decision (a bead of `-t decision`) closes with an RFC that records the
+  measurements behind it, and a spike under `dev/` that reproduces them
+  (e.g. RFC-009, `dev/brainyard/dev/effect_spike.clj`).
 
 `docs/provenance.md` indexes past defects that code comments cite as
 `(provenance P-n)`. When a guard exists because of a specific failure, add a
 row and cite it. The numbers have gaps: rows about programs built on byj
 were not published with it.
 
-Ids like `byj-gly.181` in RFCs, comments and commit messages name the
-tracker the project kept before it was public. They are history; new work
-is tracked in GitHub issues.
+## Issues: beads and GitHub issues
 
-## Issues
+Two trackers, each with its own job.
 
-Bugs, proposals and questions are GitHub issues on this repository, from
-its templates. Anything left to follow up from a change is an issue too —
-work you chose not to do as well, with why — and the RFC's known gaps name
-it.
+- **GitHub issues** are the door in. Bugs, proposals and questions from
+  anyone come as GitHub issues on this repository, from its templates, and
+  are answered there.
+- **Beads** (`bd`, prefix `byj`) are where the work is tracked: what is
+  planned, what blocks what, who has claimed it, and what an RFC's known
+  gaps name. Anything left to follow up from a change is filed as a bead —
+  work you chose not to do as well, with why — with `bd dep add` for real
+  blockers.
+- A GitHub issue taken up as work gets a bead that points at it
+  (`bd create … --external-ref gh-<n>`), and the issue is linked back to the
+  bead in a comment. The pull request that does it says `Fixes #<n>`; the
+  bead is closed with `--reason` when it merges.
+- Claim before working (`bd update <id> --claim`); close with `--reason`,
+  which is what lasts: the record of what happened that the next session
+  reads.
+- **Beads are public.** Their Dolt data syncs to this repository's `origin`
+  under `refs/dolt/data` beside the source branches (`sync.remote` in
+  `.beads/config.yaml`): `bd dolt push` publishes it, `bd dolt pull` brings
+  it back, and a fresh clone runs `bd bootstrap`. Nothing goes in a bead
+  that could not go in a public issue, and a vulnerability never does
+  ([SECURITY.md](SECURITY.md)).
+- **Pull before creating, push after.** A bead's id, and a child's number
+  under `--parent`, is counted in the local Dolt database, so two clones
+  that create without syncing both make the same next one. Run
+  `bd dolt pull` immediately before `bd create` and `bd dolt push`
+  immediately after the creates and their `bd dep add`s. Any other bead
+  change (a claim, a close, a comment) goes with the next create, or when
+  asked. A pull that conflicts is not resolved by deleting the other side's
+  beads: keep theirs, re-create yours from your saved copy
+  (`bd show <id> --json`) under a new id, and fix every reference to the
+  old one.
+- Ids like `byj-gly.181` in RFCs, comments and commit messages name the
+  tracker the project kept before it was public. The beads still open there
+  were moved here under the same ids (2026-11-11); the closed ones stayed
+  behind and are history. That tracker counted `byj-gly`'s children up to
+  `byj-gly.488`, so a new child of `byj-gly` here would reuse a number that
+  already names something else: new work is a top-level bead, or a child of
+  an epic made here.
+- At session start `bd prime` is run by `.claude/settings.json` (Claude
+  Code) and `.codex/hooks.json` (Codex; `/hooks` shows them). If beads
+  context is missing, run it. The beads skill is at
+  `.agents/skills/beads/SKILL.md`.
+- `bd init` pointed `core.hooksPath` at `.beads/hooks`, so nothing in
+  `.git/hooks` runs. Some `bd` commands commit their own files — check
+  `git log` after `bd init` or `bd setup`, and say so if one did.
+- The Beads blocks at the end of this file are written by `bd setup claude`
+  and `bd setup codex` and replaced whole whenever they run; what is written
+  by hand inside them is lost. The policy is this section, and where the
+  two disagree, it wins.
 
 ## Build & test
 
@@ -260,3 +304,82 @@ An agent hangs on a y/n prompt it has no way to answer, and `cp`, `mv` and
 `rm` are aliased with `-i` on some machines. Pass the force flag every time
 (`cp -f`, `mv -f`, `rm -f`, `rm -rf`), and likewise `apt-get -y`,
 `HOMEBREW_NO_AUTO_UPDATE=1` for `brew` and `-o BatchMode=yes` for `ssh`.
+
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:1105d646 -->
+## Beads Issue Tracker
+
+This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+
+### Quick Reference
+
+```bash
+bd ready              # Find available work
+bd show <id>          # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>         # Complete work
+```
+
+### Rules
+
+- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
+- Run `bd prime` for detailed command reference and session close protocol
+- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+
+**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/core-concepts/sync-concepts.md for details and anti-patterns.
+
+## Agent Context Profiles
+
+The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
+
+- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
+- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
+- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
+
+## Session Completion
+
+This protocol applies when ending a Beads implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
+
+1. **File issues for remaining work** - Create beads for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **Handle git/sync by active profile**:
+   ```bash
+   # Conservative/minimal/default: report status and proposed commands; wait for approval.
+   git status
+
+   # Team-maintainer opt-in only, unless current instructions forbid it:
+   git pull --rebase
+   git push
+   git status
+   ```
+5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
+
+**Critical rules:**
+- Explicit user or orchestrator instructions override this Beads block.
+- Do not commit or push without clear authority from the active profile or the current user request.
+- If a required sync or push is blocked, stop and report the exact command and error.
+<!-- END BEADS INTEGRATION -->
+
+<!-- BEGIN BEADS CODEX SETUP: generated by bd setup codex -->
+## Beads Issue Tracker
+
+Use Beads (`bd`) for durable task tracking in repositories that include it. Use the `beads` skill at `.agents/skills/beads/SKILL.md` (project install) or `~/.agents/skills/beads/SKILL.md` (global install) for Beads workflow guidance, then use the `bd` CLI for issue operations.
+
+### Quick Reference
+
+```bash
+bd ready                # Find available work
+bd show <id>            # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>           # Complete work
+bd prime                # Refresh Beads context
+```
+
+### Rules
+
+- Use `bd` for all task tracking; do not create markdown TODO lists.
+- Run `bd prime` when Beads context is missing or stale. Codex 0.129.0+ can load Beads context automatically through native hooks; use `/hooks` to inspect or toggle them.
+- Keep persistent project memory in Beads via `bd remember`; do not create ad hoc memory files.
+
+**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/core-concepts/sync-concepts.md for details and anti-patterns.
+<!-- END BEADS CODEX SETUP -->
