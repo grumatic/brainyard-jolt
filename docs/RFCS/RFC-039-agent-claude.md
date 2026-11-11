@@ -254,6 +254,14 @@ over the 17 s round — reading the bead, two edits, the tests, the commit, its
 report — then the judgement, the PR text and the declined publish, each as it
 happened.
 
+"New" is counted from where the session stood when it was last spoken to or
+last waited on, kept in the delegation's record as `:activity-mark` (the
+transcript the steps are numbered in, and the newest number): `claude$say`
+sets it before it types, a new session starts at 0, and each wait leaves it
+where it stopped. Counting from where the session stood when the wait began
+lost a reply that landed between `claude$say` and the wait, which the
+suite's load made happen once (`byj-gly.482`).
+
 ### Bead to pull request (`.4`)
 
 Decided with the user on 2026-10-07: the person is asked before anything is
@@ -546,7 +554,7 @@ Checked live (haiku, so accept edits):
 | A session Claude Code continued under a new id is read from the newest transcript of the chain, never settled on the old one's turn, its usage summed across it; `turn_duration` ends a turn. | `claude-host-test/a-session-continued-under-a-new-id-is-read-where-it-went-on`, `claude-sessions-test/the-newest-turn-is-read-as-the-transcript-grows` |
 | Driven end to end (a stand-in for Claude Code, a tmux server of the test's own): past the trust dialog by Down until Yes; the brief's turn settled only once its reply is written after the idle; a second start refused; a dash-first line typed and a second refused while its turn runs; more than one line refused; a permission dialog stops the wait at once with the screen, and No ends the turn; `/exit` leaves, and the session is gone. | `claude-host-test/a-session-is-briefed-guided-and-watched-to-the-end-of-each-turn` |
 | What Claude Code does is read as numbered steps — a tool call by what it works on, text by its first line, thinking not at all — the newest kept. | `claude-sessions-test/what-claude-code-does-is-read-as-numbered-steps` |
-| Every step of the loop says it started and what it kept, and Claude Code's work streams while its turn is awaited. | `claude-agent-test/the-loop-briefs-guides-and-reports` |
+| Every step of the loop says it started and what it kept, and Claude Code's work streams while its turn is awaited — a reply that landed before the wait began included, and nothing an earlier wait streamed. | `claude-agent-test/the-loop-briefs-guides-and-reports`, `claude-agent-test/a-reply-before-the-wait-is-still-streamed` |
 | The newest turn is read as the transcript grows: a tool call does not end it, its thinking does, past a line bigger than any tail, a half-written line waits, a stopped turn is ended, a file rewritten shorter is read anew. | `claude-sessions-test/the-newest-turn-is-read-as-the-transcript-grows` |
 | A worktree is added on a branch of its own; every worktree is listed from any of them, the main first, a gone one left out; a directory in no repository is its own only one. | `worktree-test/a-projects-worktrees-are-added-and-listed` |
 | A project's sessions include those in its worktrees, saved and live, each naming its worktree. | `worktree-test/sessions-in-a-projects-worktrees-are-its-own` |

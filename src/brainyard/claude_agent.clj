@@ -161,9 +161,19 @@
   taken for data, a long one arrives cut)."
   300)
 
+(defn- activity-mark
+  "How far Claude Code's steps in session `sid` have gone, from an
+  observation: the transcript they are numbered in (a continued session
+  numbers its own from 1) and the newest step's number."
+  [sid o]
+  {:in (or (:transcript-id o) sid) :n (or (some-> o :activity last :n) 0)})
+
 (defn say
   "Deliver `text` to session `sid` as the person's own words: typed when it is
-  one short line, else written to a file and a line typed that points at it."
+  one short line, else written to a file and a line typed that points at it.
+  Where its steps stood before the line went is recorded (`:activity-mark`),
+  so the wait that follows streams what it did with it from there, even what
+  it did before the wait began (byj-gly.482)."
   [config sid text]
   (let [text (str/trim (str text))
         line (if (or (> (count text) typed-chars) (str/includes? text "\n"))
@@ -171,8 +181,12 @@
                text)]
     (if (str/blank? text)
       {:error "nothing to say"}
-      (let [r (run (host/type-line sid line {:home (home config)}) 15000)]
-        (if (:error r) r (do (update-record! config sid assoc :state "working") {:sent true :via (if (= line text) "typed" "file")}))))))
+      (let [mark (activity-mark sid (host/observe sid {:home (home config) :dir (:dir (read-record config sid))}))
+            r (run (host/type-line sid line {:home (home config)}) 15000)]
+        (if (:error r)
+          r
+          (do (update-record! config sid assoc :state "working" :activity-mark mark)
+              {:sent true :via (if (= line text) "typed" "file")}))))))
 
 (defn- arg-list [args]
   (cond (sequential? args) (vec (map str args))
@@ -362,7 +376,9 @@
                                     ;; starts over too: a continued session's record kept the last
                                     ;; delegation's, and the first wait's :usage-cost-usd came out
                                     ;; as the difference (byj-1wv.17)
-                                    :round 0 :baseline-cost-usd baseline :cost-usd 0.0 :started-at (System/currentTimeMillis)})
+                                    :round 0 :baseline-cost-usd baseline :cost-usd 0.0 :started-at (System/currentTimeMillis)}
+                                   ;; a new session's every step is the brief's (byj-gly.482)
+                                   (when (= how "new") {:activity-mark {:in sid :n 0}}))
                    {:session-id sid :dir dir :how how :branch (or branch "")
                     :where (str "Claude Code session " sid " (tmux " (host/tmux-name sid) ") in " dir
                                 (when branch (str ", branch " branch))
@@ -419,8 +435,16 @@
         dir (or (:dir rec) (project config))
         timeout-ms (or timeout-ms (:claude-turn-timeout-ms config 1800000))
         ;; what Claude Code does while it is waited on, as the step's progress
-        ;; (byj-gly.299): only what it does from now on
-        seen (atom (or (some-> (host/observe session-id {:home h :dir dir}) :activity last :n) 0))
+        ;; (byj-gly.299): what it has done since it was last spoken to or last
+        ;; waited on (`:activity-mark`), else from now on. Counting from now
+        ;; alone lost a reply that landed between claude$say and this wait,
+        ;; under the suite's load (byj-gly.482).
+        now (activity-mark session-id (host/observe session-id {:home h :dir dir}))
+        mark (:activity-mark rec)
+        seen (atom (cond (nil? mark) (:n now)
+                         (= (:in mark) (:in now)) (:n mark)
+                         ;; continued in another transcript since: all of it is new
+                         :else 0))
         on-observe (when (:on-event ctx)
                      (fn [o]
                        (doseq [{:keys [n line]} (:activity o) :when (> n @seen)]
@@ -437,7 +461,8 @@
         since (max 0.0 (- spent (or (:cost-usd rec) 0.0)))
         cap (or max-cost-usd (:claude-max-cost-usd config 5.0))
         rec (update-record! config session-id #(-> % (update :round (fnil inc 0))
-                                                   (assoc :state (name (:settled o)) :cost-usd spent)))]
+                                                   (assoc :state (name (:settled o)) :cost-usd spent
+                                                          :activity-mark (update (activity-mark session-id o) :n max @seen))))]
     {:settled (name (:settled o))
      :answer (or (:answer o) "")
      :prompt (or (:prompt o) "")

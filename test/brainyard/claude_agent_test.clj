@@ -129,6 +129,36 @@
        (testing "a session that is not here is refused, with what to give instead"
          (is (str/includes? (:error (ca/open config {:session "nope" :brief "x"})) "give \"new\"")))))))
 
+(deftest a-reply-before-the-wait-is-still-streamed
+  ;; byj-gly.482: await-turn counted progress from where the session stood
+  ;; when the wait began, so a reply that landed between claude$say (or the
+  ;; brief) and the wait — under the suite's load — was never streamed. It
+  ;; counts from where the session stood when it was spoken to.
+  (when (host/tmux?)
+    (let [{:keys [config]} (world "early-reply")]
+      (on-own-tmux
+       (let [sid (:session-id (ca/open config {:session "new" :brief "write the parser"}))
+             replied (fn [answer]
+                       (fx/run!! (fx/poll-until 100 ::not-yet #(if (= answer (:answer (host/observe sid {:home (:claude-home config)})))
+                                                                 :yes ::not-yet))
+                                 15000))
+             streamed (fn []
+                        (let [lines (atom [])]
+                          (ca/await-turn config {:session-id sid}
+                                         {:on-event (fn [e d] (when (= :agent.tree/step-progress e) (swap! lines conj (:line d))))})
+                          @lines))]
+         (testing "a new session's reply to its brief, landed before the wait"
+           (is (= {:ok :yes} (replied "echo: write the parser")))
+           (is (some #(str/includes? % "echo: write the parser") (streamed))))
+         (testing "a reply to what was said, landed before the wait"
+           (is (= {:sent true :via "typed"} (ca/say config sid "now the tests")))
+           (is (= {:ok :yes} (replied "echo: now the tests")))
+           (let [lines (streamed)]
+             (is (some #(str/includes? % "echo: now the tests") lines))
+             (is (not-any? #(str/includes? % "write the parser") lines) "what an earlier wait streamed is not streamed again")))
+         (testing "a wait with nothing said since streams nothing"
+           (is (empty? (streamed)))))))))
+
 (defn- loop-mock
   "The two predictors, answered by which one is asking: plan starts a new
   session in a worktree; progress guides the first turn and accepts the
