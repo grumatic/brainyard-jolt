@@ -310,13 +310,26 @@
     (is (false? @!ran))))
 
 (deftest debounce-emits-only-after-quiet
-  (let [!a (atom 0)
-        writer (future (doseq [v [1 2 3]] (Thread/sleep 10) (reset! !a v)))
+  ;; The writes are 10 ms apart and the window is 500. It was 100, and once
+  ;; under six shards the writer was starved past it between 2 and 3, so 2
+  ;; was rightly emitted (byj-gly.448). A writer starved past even 500 makes
+  ;; an earlier value the right answer, so the gaps it actually left are
+  ;; measured and only a run whose gaps all fell well inside the window is
+  ;; held to 3.
+  (let [window 500
+        !a (atom 0)
+        !at (atom [])
+        writer (future (doseq [v [1 2 3]]
+                         (Thread/sleep 10)
+                         (reset! !a v)
+                         (swap! !at conj (System/currentTimeMillis))))
         r (fx/run!! (m/reduce (fn [_ v] (reduced v)) nil
-                              (fx/debounce 100 (m/eduction (remove zero?) (fx/watch-flow !a))))
-                    3000)]
+                              (fx/debounce window (m/eduction (remove zero?) (fx/watch-flow !a))))
+                    5000)]
     @writer
-    (is (= {:ok 3} r) "values superseded within the quiet window are never emitted")))
+    (if (every? #(< % (/ window 2)) (map - (rest @!at) @!at))
+      (is (= {:ok 3} r) "values superseded within the quiet window are never emitted")
+      (is (contains? #{1 2 3} (:ok r)) "a writer starved past the window: an earlier value is right"))))
 
 (deftest cancelled-includes-the-interrupt-via-blk-surfaces
   (is (fx/cancelled? (InterruptedException. "x")))
