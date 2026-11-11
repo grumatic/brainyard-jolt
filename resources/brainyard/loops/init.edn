@@ -1,0 +1,66 @@
+;; agent$init's loop (RFC-040): make a directory a project brainyard works well
+;; in, and say what this machine lacks.
+;;
+;;   where things stand                 → init$check (mechanism, read-only)
+;;   what to do, from the person's words → a predictor (init/plan)
+;;   the project's own AGENTS.md section → init$survey, then init/agents-md
+;;   writing, beads, installing          → init$scaffold, init$beads, init$install
+;;   starter issues, what to do next     → init$onboard, init$next
+;;   the order                           → this file
+;;
+;; The scaffold runs before beads: given a CLAUDE.md that imports AGENTS.md,
+;; bd leaves it alone, and AGENTS.md already has the project's header for bd
+;; to append to (RFC-040 "Beads"). The answer is what was done, then the
+;; check again — for a request that only checks, the check alone — then what
+;; to do next (init$next, from init/next-steps.edn).
+;;
+;; Check it before changing it: `by flow check brainyard/loops/init.edn`.
+[:sequence {:id :init/turn}
+ [:action {:id :init/start :fn :react/init}]
+ [:action {:id :init/seed :fn :mem/set
+           :set {:scaffold false :beads false :draft false :install "" :prefix ""
+                 :onboard false
+                 :survey "" :notes "" :examples "" :wrote "" :beads-done "" :onboarded "" :installed "" :after "" :next ""}}]
+ [:action {:id :init/check :fn :tool/run :tool "init$check" :out {:report :text}}]
+ [:action {:id :init/plan :fn :predictor/run :predictor "init/plan"
+           :in {:request :question :report :report}
+           :out {:scaffold :scaffold :beads :beads :draft :draft :onboard :onboard :install :install :prefix :prefix}}]
+
+ [:fallback {:id :init/draft?}
+  [:condition {:id :init/no-draft? :fn :mem/match? :key :draft :pattern "^false$"}]
+  [:sequence {:id :init/draft}
+   [:action {:id :init/survey :fn :tool/run :tool "init$survey" :on-error :success :out {:survey :text}}]
+   [:action {:id :init/agents-md :fn :predictor/run :predictor "init/agents-md"
+             :in {:request :question :survey :survey} :out {:notes :notes :examples :examples}}]]
+  [:action {:id :init/no-notes :fn :mem/set :set {}}]]
+
+ [:fallback {:id :init/scaffold?}
+  [:condition {:id :init/no-scaffold? :fn :mem/match? :key :scaffold :pattern "^false$"}]
+  [:action {:id :init/scaffold :fn :tool/run :tool "init$scaffold" :on-error :success
+            :in {:notes :notes} :out {:wrote :text}}]]
+
+ [:fallback {:id :init/beads?}
+  [:condition {:id :init/no-beads? :fn :mem/match? :key :beads :pattern "^false$"}]
+  [:action {:id :init/beads :fn :tool/run :tool "init$beads" :on-error :success
+            :in {:prefix :prefix} :out {:beads-done :text}}]]
+
+ ;; starter issues, once beads is there, so `bd ready` has a first step
+ [:fallback {:id :init/onboard?}
+  [:condition {:id :init/no-onboard? :fn :mem/match? :key :onboard :pattern "^false$"}]
+  [:action {:id :init/onboard :fn :tool/run :tool "init$onboard" :on-error :success
+            :out {:onboarded :text}}]]
+
+ [:fallback {:id :init/install?}
+  [:condition {:id :init/no-install? :fn :mem/match? :key :install :pattern "^\\s*$"}]
+  [:action {:id :init/install :fn :tool/run :tool "init$install" :on-error :success
+            :in {:tools :install} :out {:installed :text}}]]
+
+ ;; where it stands now, after whatever was done
+ [:action {:id :init/recheck :fn :tool/run :tool "init$check" :out {:after :text}}]
+ ;; and what to do next, the first of it offered as the next prompt
+ [:action {:id :init/next :fn :tool/run :tool "init$next" :on-error :success
+           :in {:examples :examples} :out {:next :text :next-user-prompt :prompt}}]
+ [:action {:id :init/report :fn :mem/join
+           :in {:a :wrote :b :beads-done :c :onboarded :d :installed :e :after :f :next} :out {:answer :joined}}]
+ [:action {:id :init/stamp :fn :react/stamp-answer}]
+ [:action {:id :init/store :fn :react/store-trajectory}]]

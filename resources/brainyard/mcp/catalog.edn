@@ -1,0 +1,75 @@
+;; MCP servers `/mcp find` offers and `/mcp add NAME` copies into a project's
+;; :mcp-servers (RFC-024, byj-gly.183). A RESOURCE, not code (RFC-001): which
+;; servers are worth offering changes as they are published, and saying so
+;; should not need a rebuild. A project adds or overrides entries by name with
+;; its own .brainyard/mcp/catalog.edn.
+;;
+;; brainyard's seeds (agent/mcp/integration.clj `create-seed-mcp-config`), for
+;; a port that speaks stdio only: a hosted server is reached through the
+;; `mcp-remote` bridge, as brainyard's own `notion` seed does, and a
+;; machine-specific path (`/opt/homebrew/bin/uvx`) is the bare command. Left
+;; out: `github2`, `notion2`, `linear`'s native HTTP+OAuth form and the
+;; `api-server` example, which need the HTTP transport (divergence
+;; `mcp-is-stdio-only`). Added: the reference servers of
+;; modelcontextprotocol/servers that need nothing but a runtime.
+;;
+;; `${VAR}` in :args and :env is expanded from the run's environment (.env
+;; included) when the server starts, and `${VAR:-default}` falls back — so an
+;; entry names a token without the token ever being written to config.edn.
+;; `:needs` lists the variables that must be set for it to start.
+[{:name "everything" :tags ["reference" "test"]
+  :description "The protocol's reference server: every kind of tool, resource and prompt, for trying MCP out"
+  :command "npx" :args ["-y" "@modelcontextprotocol/server-everything"]}
+ {:name "fetch" :tags ["web" "reference"]
+  :description "Fetch a URL and return it as markdown"
+  :command "uvx" :args ["mcp-server-fetch"]}
+ {:name "time" :tags ["reference"]
+  :description "The current time, and conversions between time zones"
+  :command "uvx" :args ["mcp-server-time"]}
+ {:name "memory" :tags ["memory" "reference"]
+  :description "A knowledge graph the agent keeps between sessions"
+  :command "npx" :args ["-y" "@modelcontextprotocol/server-memory"]}
+ {:name "sequential-thinking" :tags ["reasoning" "reference"]
+  :description "A tool for thinking a problem through step by step, revising as it goes"
+  :command "npx" :args ["-y" "@modelcontextprotocol/server-sequential-thinking"]}
+ {:name "git" :tags ["git" "reference"]
+  :description "Read and search the git repository in the working directory"
+  :command "uvx" :args ["mcp-server-git" "--repository" "."]}
+ {:name "filesystem" :tags ["files"]
+  :description "Read and write files under a directory (the working directory unless MCP_FILESYSTEM_ROOT says otherwise)"
+  :command "npx" :args ["-y" "@modelcontextprotocol/server-filesystem" "${MCP_FILESYSTEM_ROOT:-.}"]}
+ {:name "github" :tags ["git" "github"]
+  :description "Issues, pull requests, files and search on GitHub"
+  :command "npx" :args ["-y" "@modelcontextprotocol/server-github"]
+  :env {"GITHUB_PERSONAL_ACCESS_TOKEN" "${GITHUB_PERSONAL_ACCESS_TOKEN}"}
+  :needs ["GITHUB_PERSONAL_ACCESS_TOKEN"]}
+ {:name "postgres" :tags ["database"]
+  :description "Read-only SQL against a PostgreSQL database"
+  :command "npx" :args ["-y" "@modelcontextprotocol/server-postgres" "${POSTGRES_CONNECTION_STRING}"]
+  :needs ["POSTGRES_CONNECTION_STRING"]}
+ {:name "redis" :tags ["database"]
+  :description "Get, set and list keys in a Redis database (REDIS_URL, else localhost)"
+  :command "npx" :args ["-y" "@modelcontextprotocol/server-redis" "${REDIS_URL:-redis://localhost:6379}"]}
+ {:name "playwright" :tags ["web" "browser"]
+  :description "Drive a browser: open pages, click, type, read what is on the screen"
+  :command "npx" :args ["-y" "@playwright/mcp@latest"]}
+ {:name "clojure-mcp" :tags ["clojure" "repl"]
+  :description "Clojure tools over an nREPL on port 7888 (clojure -X:mcp in the project)"
+  :command "bash" :args ["-c" "clojure -X:mcp :port 7888"]}
+ {:name "aws-mcp" :tags ["aws" "cloud"]
+  :description "AWS's hosted MCP server, through its local proxy (the AWS CLI's credentials)"
+  :command "uvx" :args ["mcp-proxy-for-aws@latest" "https://aws-mcp.us-east-1.api.aws/mcp"]}
+ {:name "notion" :tags ["docs" "hosted"]
+  :description "Notion pages and databases, through the mcp-remote bridge (a browser sign-in on first use)"
+  :command "npx" :args ["-y" "mcp-remote" "https://mcp.notion.com/mcp"]
+  :connect-timeout-ms 180000}
+ {:name "linear" :tags ["issues" "hosted"]
+  :description "Linear issues and projects, through the mcp-remote bridge (a browser sign-in on first use)"
+  :command "npx" :args ["-y" "mcp-remote" "https://mcp.linear.app/mcp"]
+  :connect-timeout-ms 180000}
+ {:name "google-workspace" :tags ["mail" "calendar" "google"]
+  :description "Gmail and Google Calendar (a Google OAuth client, and a browser consent once)"
+  :command "bash"
+  :args ["-c" "GOOGLE_OAUTH_CLIENT_ID=\"$GCP_OAUTH_CLIENT_ID\" GOOGLE_OAUTH_CLIENT_SECRET=\"$GCP_OAUTH_CLIENT_SECRET\" OAUTHLIB_INSECURE_TRANSPORT=1 exec uvx workspace-mcp --single-user --tools gmail calendar"]
+  :needs ["GCP_OAUTH_CLIENT_ID" "GCP_OAUTH_CLIENT_SECRET"]
+  :connect-timeout-ms 180000 :timeout-ms 120000}]

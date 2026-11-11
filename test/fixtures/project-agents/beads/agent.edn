@@ -1,0 +1,32 @@
+;; A bead-keeper: the project's issue tracker, kept by an agent rather than by
+;; the loop itself. This repository's own, not shipped to every project
+;; (byj-gly.316): brainyard has no such agent, and the workflow it serves is
+;; this repository's. A project agent: its instruction is instruction.md beside
+;; this file, and it shadows nothing — no built-in has its name. It composes with the `beads` skill when a project ships one
+;; (`skill$beads`), which is where a project's own rules live.
+;;
+;; It needs `bash` to run `bd`, and its :config holds it there: the command gate
+;; (RFC-012) reads every command line this child runs and refuses a program that
+;; is not `bd`. The instruction says the same thing in prose, but the gate is
+;; what enforces it — including for a command the agent backgrounds.
+{:description
+ "Files, claims and closes work in this project's beads (bd) tracker, and reports what it touched. Delegate the bookkeeping rather than spending your own iterations on it. Says so and stops if the project has no Beads workspace."
+
+ :tools ["bash" "read-file" "grep" "list-dir"
+         "skill$beads" "skills$find" "skills$read"]
+
+ ;; it files work, it does not delegate it
+ :deny-tools ["agent$*"]
+
+ ;; bookkeeping is mechanical; a caller may ask for more when the issue needs
+ ;; judgement about what to record
+ :tier :light
+ :max-tier :standard
+
+ :max-iterations 12
+
+ :config {:tool-authoring? false
+          :hook-authoring? false
+          :user-tools? false
+          ;; the shell it has runs bd and nothing else (RFC-012)
+          :bash-allow-commands ["bd"]}}

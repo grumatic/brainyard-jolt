@@ -1,0 +1,39 @@
+#+title: Asking Emacs itself
+#+lesson: help
+#+summary: Find out what a key does, what a command is called, what keys run it, and read the manual — from Emacs, about this Emacs.
+
+# A lesson for /emacs coach emacs: (RFC-067 phase 9). Each step names the
+# commands that show it done (:COMMANDS:), never keys: the coach looks the
+# keys up in the person's own Emacs with emacs$describe, and checks a step
+# with emacs$habits. A project's .brainyard/emacs/lessons/ and the person's
+# ~/.brainyard/emacs/lessons/ replace a lesson of the same file name.
+
+* What does this key do?
+:PROPERTIES:
+:COMMANDS: describe-key
+:END:
+Ask Emacs what a key runs here, then press the key you were curious about. The answer is this Emacs's, with its own init and modes: a key may do something else in another mode.
+
+* What is this command, and its keys?
+:PROPERTIES:
+:COMMANDS: describe-function where-is
+:END:
+Look a command up by name: what it does, and which keys run it here. Where it has no key, it is run by name.
+
+* Find a command by words
+:PROPERTIES:
+:COMMANDS: apropos-command
+:END:
+Search the commands whose names have some words — 'rename', 'buffer', 'window' — when you know what you want but not its name.
+
+* What does this mode give me?
+:PROPERTIES:
+:COMMANDS: describe-mode
+:END:
+List the keys the modes of this buffer give you. Each major mode adds its own.
+
+* Read the manual
+:PROPERTIES:
+:COMMANDS: info
+:END:
+Open the Emacs manual inside Emacs. Its tour chapter is a good start.

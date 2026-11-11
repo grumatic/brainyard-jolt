@@ -1,0 +1,3 @@
+;; Built-in tools, in listing order. An index because a built binary cannot
+;; list a resource directory.
+["bash" "read-file" "write-file" "update-file" "grep" "list-dir"]

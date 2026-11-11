@@ -1,0 +1,1 @@
+The body's delimiters did not balance, so its closing delimiters were rebuilt from its indentation, and that is the body saved. The lines below are the ones of yours that changed, as they now read; tool$read shows the body as saved. If one closes a form where you did not mean it to, fix the indentation or the closers and create the tool again; test it with tool$test either way.

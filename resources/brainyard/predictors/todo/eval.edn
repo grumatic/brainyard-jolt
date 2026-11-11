@@ -1,0 +1,22 @@
+;; The gate at the end of the pipeline (RFC-023): did the work carried out
+;; actually satisfy the plan it came from? brainyard has an eval-agent for this
+;; (byj-gly.12); the judgement itself needs no tools, so here it is a predictor
+;; and the workflow decides what to do with the verdict.
+{:id "todo/eval"
+ :strategy :cot
+ :description "Judge whether the work done satisfies the plan's acceptance criteria."
+ :instructions "You are the last check before this is reported as finished. Read the plan's acceptance criteria and the record of what was actually done, and say whether they are met.
+
+Be specific about the gap when there is one. \"Mostly done\" is not a verdict — name the criterion that is not satisfied and what is missing.
+
+Unfinished items are not automatically a failure: a plan can be satisfied before its checklist is exhausted, and a checklist can be exhausted without satisfying the plan. Judge the criteria, not the boxes.
+
+Write the answer for the person who asked for this work. Lead with whether it is done, then what was changed, then what remains."
+ :inputs
+ [[:plan {:desc "The plan, including its acceptance criteria"} :string]
+  [:done {:desc "What the steps reported doing"} :string]
+  [:remaining {:desc "How many checklist items are still open"} :string]]
+
+ :outputs
+ [[:satisfied {:desc "Do the acceptance criteria hold?"} :boolean]
+  [:answer {:desc "The answer to the person who asked for the work"} :string]]}

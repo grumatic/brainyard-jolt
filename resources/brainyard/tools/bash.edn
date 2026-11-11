@@ -1,0 +1,13 @@
+;; A primitive tool (RFC-010): the spec is data, :impl names the kernel fn
+;; (brainyard.tools/impls). :output-schema is a malli schema (RFC-030): results are
+;; checked against it, and the model reads the line written from it. :effects
+;; are shown to the model and used by composites' static analysis.
+{:name "bash"
+ :description "Run a bash command in the working directory. stdout and stderr are merged; stdin is closed."
+ :input-schema [:map [:command [:string {:desc "The bash command to run"}]]
+                     [:timeout {:optional true} [:int {:desc "Timeout in ms (default 120000)"}]]]
+ :output-schema [:map [:status [:enum "completed" "failed" "timeout"]] [:exit-code [:maybe :int]] [:output :string] [:left-running {:optional true} [:vector :any]]]
+ ;; read as a shell command line by the command gate (RFC-012)
+ :command-params [:command]
+ :effects #{:process}
+ :impl :brainyard.tools/bash}

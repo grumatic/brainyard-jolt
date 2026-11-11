@@ -1,0 +1,4 @@
+;; The roster shipped in the binary, in listing order. An index, because a
+;; built binary cannot list a resource directory (as tools/index.edn is).
+;; A project overrides one by name: .brainyard/agents/explore/ replaces this.
+["explore" "plan" "edit" "claude" "codex" "init"]

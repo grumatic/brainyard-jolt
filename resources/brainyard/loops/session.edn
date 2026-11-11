@@ -1,0 +1,171 @@
+;; The multi-turn session loop — brainyard's `by run`, as data.
+;;
+;; The OUTER loop reads user input and routes it: end of input, a slash
+;; command, or an agent turn. An agent turn runs the whole ReAct loop
+;; (loops/react.edn) nested via :include, inside a :scope so each turn gets a
+;; fresh st-memory — exactly as brainyard's `ask` resets st-memory per turn —
+;; while the session's own memory (history, totals) lives out here.
+;;
+;; Data flows across the boundary only through the scope's :in / :out maps:
+;;   in:  inner :question        ← outer :input
+;;        inner :history-context ← outer :history-context  (previous turns)
+;;        inner :turn-number     ← outer :turn-count
+;;   out: outer :turn            ← the whole inner memory (:*)
+;;
+;; After the turn, :session/recap runs the session/recap predictor when the
+;; turn was long enough, or is every Nth turn
+;; (:recap?, :recap-after-ms, :recap-every-nth-turns).
+;;
+;; Every leaf is in brainyard.session/registry (outer) or
+;; brainyard.agent/registry (inner). Edit or swap with `run --loop file.edn`.
+[:sequence {:id :session/run}
+ [:action {:id :session/init :fn :session/init}]
+ [:repeat {:id :session/turns
+           :max-n :config/max-turns
+           :until :session/ended?}
+  [:sequence {:id :session/turn}
+   [:action {:id :session/read-input :fn :session/read-input}]
+   [:fallback {:id :session/dispatch}
+    ;; EOF (Ctrl-D, or the end of piped input)
+    [:sequence {:id :session/eof-path}
+     [:condition {:id :session/eof? :fn :session/eof?}]
+     [:action {:id :session/end :fn :session/end}]]
+    ;; empty line — prompt again
+    [:condition {:id :session/blank? :fn :session/blank?}]
+    ;; a command or a direct call handed over by the session channel — another
+    ;; session, a team leader — is refused, not run: commands are the
+    ;; person's to type (byj-gly.282)
+    [:sequence {:id :session/channel-command-path}
+     [:condition {:id :session/channel-command? :fn :session/channel-command?}]
+     [:action {:id :session/refuse-channel-command :fn :session/refuse-channel-command}]]
+    ;; `:<tool> …` — a tool called directly, gated like a model's call, told
+    ;; to the next turn (byj-gly.273.3)
+    [:sequence {:id :session/direct-path}
+     [:condition {:id :session/direct-call? :fn :session/direct-call?}]
+     [:action {:id :session/direct-call :fn :session/direct-call}]]
+    ;; /quit /clear /history /usage /help
+    [:sequence {:id :session/command-path}
+     [:condition {:id :session/command? :fn :session/command?}]
+     ;; /compact summarizes earlier turns through this predictor (byj-gly.144)
+     [:action {:id :session/run-command :fn :session/run-command
+               :compact-predictor "session/compact"}]]
+    ;; an agent turn — the nested ReAct loop
+    [:sequence {:id :session/agent-turn}
+     ;; `/<tool> args` is a turn that asks the model to call that tool —
+     ;; brainyard's slash path, worded by prompts/tool-request.edn (byj-gly.273.2)
+;; `/loop [interval] <prompt>`: scheduled, and run now — or run now,
+     ;; self-paced (byj-gly.325); its words in prompts/loop.edn
+     ;; a command that stands for an agent (/init) is a turn too: its line
+     ;; becomes the request the agent is asked, which it does by calling the
+     ;; command's subagent as a tool — rephrased in the light of the turns so
+     ;; far by this predictor, or from the command's template when there are
+     ;; none (resources/brainyard/commands/, byj-gly.350)
+     [:action {:id :session/command-request :fn :session/command-request
+               :predictor "session/rephrase-command"}]
+     [:action {:id :session/loop-request :fn :session/loop-request}]
+     [:action {:id :session/tool-request :fn :session/tool-request}]
+     [:action {:id :session/begin-turn :fn :session/begin-turn}]
+     ;; the memories this question is about, by their keys, for the turn's
+     ;; user-context (byj-gly.335, RFC-042) — :memory-hint?, on by default. The
+     ;; thresholds are what dev/brainyard/dev/memory_hint_spike.clj measured:
+     ;; a word in common, scoring 4.5 or more (about two rare words) and at
+     ;; least half the best match's
+     [:action {:id :session/memory-hint :fn :session/memory-hint
+               :min-terms 1 :min-score 4.5 :min-share 0.5 :max 3 :line-chars 120 :refresh-ms 300000}]
+     ;; what the person is looking at in their editor, when the question
+     ;; mentions :mention (byj-gly.453): read from a running editor of the
+     ;; project's as the turn begins, worded by prompts/editor-context.edn,
+     ;; for the turn's user-context — never left to the model to ask for
+     [:action {:id :session/editor-context :fn :session/editor-context :mention "@here"}]
+     ;; while the session coaches the person toward a goal (/emacs coach,
+     ;; RFC-067): the goal and how to coach, prompts/coach.edn filled from the
+     ;; session's coach.edn, for the turn's user-context
+     [:action {:id :session/coach-context :fn :session/coach-context}]
+     [:fallback {:id :session/turn-guard}
+      ;; :cancellable — the canceller registered under :turn (Ctrl-C in the
+      ;; CLI) cancels this turn's loop alone; its memory gets :on-cancel and
+      ;; the session carries on with the next input
+      [:scope {:id :session/react-scope
+               :in {:question :input
+                    :history-context :history-context
+                    ;; the turns themselves, not only the rendered block: a
+                    ;; dispatch renders its own k of them for the parent trail
+                    ;; (RFC-018), and cannot re-cut a string someone else made
+                    :previous-turns :previous-turns
+                    :turn-number :turn-count
+                    :memory-hint :memory-hint
+                    :editor-context :editor-context
+                    :coach-context :coach-context
+                    ;; who put the turn in the session over its channel, for
+                    ;; the trajectory (RFC-043) — never the prompt
+                    :injected-by :injected-by
+                    ;; the command it was typed as, when it was one, for the
+                    ;; trajectory (byj-gly.350)
+                    :command-input :command-input}
+               :out {:turn :*}
+               :cancellable :turn
+               :on-cancel {:answer "*(Turn cancelled.)*"
+                           :terminated true
+                           :terminated-by :cancelled}}
+       [:include {:tree "brainyard/loops/react.edn"}]]
+      ;; a failed inner loop must not end the session
+      [:action {:id :session/turn-failed :fn :session/turn-failed}]]
+     [:action {:id :session/end-turn :fn :session/end-turn}]
+     ;; a long turn ends with a recap of where the work stands and what is
+     ;; next, for whoever looked away while it ran. Optional by construction:
+     ;; the empty sequence succeeds, so a turn without one is still a turn
+     [:fallback {:id :session/recap-guard}
+      [:sequence {:id :session/recap-path}
+       [:condition {:id :session/recap? :fn :session/recap?}]
+       [:action {:id :session/recap :fn :session/recap :predictor "session/recap"}]]
+      [:sequence {:id :session/no-recap}]]
+     ;; self-improvement (RFC-017), off unless :enable-skill-distillation or
+     ;; :enable-skill-refinement. A turn that answered in two or more tool
+     ;; calls is kept as a candidate, and the candidates not yet judged are one
+     ;; window, sent to session/distill-skill as soon as it shows a procedure —
+     ;; the same tool sequence in :repeats turns (at least :min-shape tools
+     ;; long), or one turn of :long-steps steps; a check after every turn that
+     ;; costs nothing — and at the latest every :skill-distill-judge-window
+     ;; turns. A failed turn that used a skill may show the skill was wrong.
+     ;; Whatever a judge drafts is staged under .brainyard/skills/proposals for
+     ;; a person to accept (/proposals); nothing here changes a live skill
+     [:action {:id :session/note-skill-candidate :fn :session/note-skill-candidate}]
+     [:fallback {:id :session/distill-guard}
+      [:sequence {:id :session/distill-window-path}
+       [:condition {:id :session/distill-window? :fn :session/distill-window?
+                    :auto {:repeats 2 :min-shape 2 :long-steps 8}}]
+       [:action {:id :session/distill-window :fn :session/distill-window :predictor "session/distill-skill"
+                 :auto {:repeats 2 :min-shape 2 :long-steps 8}}]]
+      [:sequence {:id :session/no-distill}]]
+     [:fallback {:id :session/refine-guard}
+      [:sequence {:id :session/refine-path}
+       [:condition {:id :session/refine? :fn :session/refine?}]
+       [:action {:id :session/refine :fn :session/refine :predictor "session/refine-skill"}]]
+      [:sequence {:id :session/no-refine}]]
+     ;; tool distillation (RFC-010), off unless :enable-tool-distillation. A
+     ;; tool$run body that worked in a turn that answered is a candidate; when
+     ;; the candidates show one worth keeping — a body of one shape run
+     ;; :repeats times, or one calling :multi-tools distinct tools — a judge
+     ;; generalises it into a user tool, the kernel proves the draft by
+     ;; replaying what it did, and a proved one is staged at /proposals
+     [:action {:id :session/note-tool-candidate :fn :session/note-tool-candidate}]
+     [:fallback {:id :session/tool-distill-guard}
+      [:sequence {:id :session/tool-distill-path}
+       [:condition {:id :session/tool-distill? :fn :session/tool-distill? :auto {:repeats 2 :multi-tools 2}}]
+       [:action {:id :session/tool-distill :fn :session/tool-distill :predictor "session/distill-tool"
+                 :auto {:repeats 2 :multi-tools 2}}]]
+      [:sequence {:id :session/no-tool-distill}]]]]]]
+ ;; the judges still running off the turn get a
+ ;; short grace to finish
+ ;; (brainyard's await-background-jobs!) before close cancels what is left
+ [:action {:id :session/drain-self-improve :fn :session/drain-self-improve}]
+ ;; the turns a window never reached, judged before the session closes:
+ ;; brainyard's session-end flush — here, not off the turn, since nothing after
+ ;; it would wait for it
+ [:fallback {:id :session/distill-leftover-guard}
+  [:sequence {:id :session/distill-leftover-path}
+   [:condition {:id :session/distill-leftover? :fn :session/distill-leftover?}]
+   [:action {:id :session/distill-leftover :fn :session/distill-window :predictor "session/distill-skill"
+             :trigger :session-end :inline true}]]
+  [:sequence {:id :session/no-leftover}]]
+ [:action {:id :session/close :fn :session/close}]]

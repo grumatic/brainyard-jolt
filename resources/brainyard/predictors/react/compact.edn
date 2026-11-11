@@ -1,0 +1,46 @@
+;; Tier 2 compaction (RFC-014, byj-gly.34) — the iterations older than the
+;; verbatim floor, summarized into the one record that takes their place, when
+;; eliding their results was not enough. brainyard collapses the same span into
+;; a "summary" record too, but deterministically (coact_agent.clj
+;; :collapse-iterations prints the records); this asks a model. On by default
+;; since the A/B in RFC-014 (byj-gly.168): dropping lost the plan once, and
+;; the summary never did, at about the same cost when both finished.
+;;
+;; What the loop runs it from: the :context/enforce nodes in loops/react.edn
+;; name it. The summary is read by the SAME agent on its next iteration, so it
+;; is written for that reader: what it would otherwise have to redo.
+;;
+;; `kept` (byj-gly.383): the identifiers, apart from the prose and its word cap.
+;; Without it the summary kept about a quarter of what the later iterations
+;; used on either model — 250 words cannot hold more.
+;;
+;; :tier :light (byj-gly.378): on six recorded long turns, haiku kept 27% of
+;; the identifiers the later iterations used and sonnet 21% — no worse, and
+;; this fires on its own inside a long turn, as often as the budget asks
+;; (dev/brainyard/dev/compaction_tier_spike.clj). session/compact stays on the
+;; session's model: there haiku kept 63% to sonnet's 75%.
+{:id "react/compact"
+ :strategy :predict
+ :tier :light
+ :description "Summarize an agent's older iterations into one record it can continue from."
+ :instructions "You compress the older part of an agent's working record so it fits its context window. The agent reads your summary in place of these iterations and continues the task from it, with its most recent iterations still verbatim after it.
+
+Write what the agent would otherwise have to redo:
+- what it has established: facts, values, file paths, line numbers, names, errors, command results;
+- what it tried that did not work, and why, so it does not try it again;
+- decisions it made and what they rest on;
+- where cut or elided text went: keep every path it cites — `the whole of it is <path>` and `full text at <path>` — so the agent can read a line range back instead of repeating the call.
+
+Then, in `kept`, list the exact identifiers the agent established and may need again, one per line, verbatim: file paths (with line numbers where it has them), symbols, commands, values, ids, hashes, error messages. Every one the record established, not only those the summary mentions, at most 40; none it did not.
+
+Rules:
+- Keep identifiers exact — paths, symbols, numbers, error messages. Paraphrase the reasoning, never the facts.
+- State only what the record shows. Do not add conclusions it did not reach, and do not say the task is done unless the record says so.
+- A summary record already in the span is earlier work: fold it in, oldest first.
+- Plain prose or terse lines, no headings. At most 250 words in `summary` — `kept` is not counted — and the two together shorter than what you were given, or it is no use."
+ :inputs
+ [[:question {:desc "The task the agent is working on"} :string]
+  [:records {:desc "The iterations to compress, oldest first: each one's thought, tool calls and results (old results already elided to a pointer)"} :string]]
+ :outputs
+ [[:summary {:desc "What the agent has established, tried and decided, for it to continue from"} :string]
+  [:kept {:desc "The exact identifiers it established and may need again, one per line, verbatim"} :string]]}

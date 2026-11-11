@@ -1,0 +1,24 @@
+;; The pull request for work a Claude Code session finished (RFC-039,
+;; byj-gly.290.4): its title and description, from the task and the report.
+;; Handed to whoever gave agent$claude the task, who opens it (claude$handoff,
+;; byj-gly.307).
+{:id "claude/pr"
+ :strategy :predict
+ :description "Write the pull request for finished delegated work."
+ :instructions "Write the pull request for work that is finished, from the task it was for and the report of what was done.
+
+The title: one line, under 72 characters, saying what the change does, in the repository's own terms. Name the bead in it when the task names one, as \"(byj-123)\" at the end.
+
+The description, in Markdown:
+- what changed and why, in a few sentences;
+- how it was checked, as the report says — and nothing it does not say;
+- what is left, if anything.
+
+Say what the change is, not who or what made it: no names of people, tools, agents or models, no \"generated with\" line, no signature, no links to sessions."
+ :inputs
+ [[:task {:desc "The task the work was for"} :string]
+  [:report {:desc "The report of what was done"} :string]
+  [:branch {:desc "The branch it is on"} :string]]
+ :outputs
+ [[:title {:desc "The pull request's title"} :string]
+  [:body {:desc "The pull request's description, Markdown"} :string]]}

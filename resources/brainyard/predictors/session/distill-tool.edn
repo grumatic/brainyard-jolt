@@ -1,0 +1,67 @@
+;; Can the tool$run bodies of recent turns become a user tool?
+;; The port's own (RFC-010, byj-gly.249) — brainyard distils skills only.
+;;
+;; The session tree runs it (loops/session.edn, :session/tool-distill) when the
+;; candidate runs show a body worth keeping: one shape run twice, or a body that
+;; composes two or more tools. What it drafts is PROVED before anything is staged
+;; — compiled, and when it only reads, run again with :replay-args and compared
+;; with what each run returned — then staged under .brainyard/tools/proposals for
+;; a person to accept at /proposals.
+{:id "session/distill-tool"
+ :strategy :cot
+ :description "Generalise the tool$run bodies of recent turns into one reusable user tool, if they hold one."
+ :instructions "You judge whether a set of Tool Lisp bodies, each run once through tool$run in a
+turn that succeeded, hold ONE reusable tool — and if so you write it.
+
+A tool is worth writing ONLY when ALL hold:
+- The runs did the SAME job to different data (a directory, a file, a pattern,
+  a threshold), or one run did a job that will plausibly be asked again.
+- The job generalises: its differences are ARGUMENTS, not a different program.
+- No tool in `existing-tools` already does it.
+Most sets hold none — return :reusable false, a low :score and empty fields
+when in doubt. A narrow tool is worse than none.
+
+When the set IS worth a tool:
+- :reusable       true
+- :score          confidence 0.0..1.0
+- :proposed-name  lowercase-kebab, leading letter (^[a-z][a-z0-9-]*$), short,
+                  saying what it does; not an existing tool's name
+- :description    one line: what it returns, from what
+- :input-schema   a malli map schema as EDN text naming every argument, e.g.
+                  \"[:map [:dir [:string {:desc \\\"Directory to count\\\"}]] [:min {:optional true} :int]]\"
+- :output-schema  a malli schema as EDN text for what the body returns, read
+                  from the body's every branch, e.g. \"[:map-of :string :int]\".
+                  A body that can also return an error — a called tool's
+                  {:error-message ...} passed on — is an [:or]:
+                  \"[:or [:map [:count :int]] [:map [:error-message :string]]]\".
+                  A part whose shape the runs do not fix is :any. Never
+                  prose: results are checked against it, and prose is refused
+- :body           ONE Tool Lisp form, (fn [args] ...), the runs' own logic with
+                  every literal that differed between them — or that a caller
+                  would change — read from args instead: (:dir args). Keep what
+                  the runs did exactly; do not add features. It must stay valid
+                  Tool Lisp (see `tool-lisp`).
+- :replay-args    EDN text: a vector of {:run N :args {...}}, one per run you
+                  generalised, giving the args under which your body does
+                  EXACTLY what run N did — it is run again with them and must
+                  return the same value, or nothing is staged
+- :rationale      one or two sentences: what the tool does and which runs it
+                  came from
+
+When NOT worth a tool: :reusable false, :score low, :rationale one line on why,
+every other field \"\"."
+ :inputs
+ [[:runs {:desc "The candidate runs, each numbered with its turn and question, its args, its body whole, and the start of what it returned"} :string]
+  [:run-count {:desc "How many runs there are"} :string]
+  [:existing-tools {:desc "Existing user tools, name — description, one per line — do NOT duplicate any"} :string]
+  [:tool-lisp {:desc "The Tool Lisp language: what a body may use, and what is refused"} :string]]
+ :outputs
+ [[:reusable {:desc "True only when the runs hold a reusable tool not already there"} :boolean]
+  [:score {:desc "0.0..1.0 — confidence the tool is worth keeping"} [:double {:min 0.0 :max 1.0}]]
+  [:proposed-name {:desc "Tool name: lowercase-kebab, leading letter (empty when not reusable)"} :string]
+  [:description {:desc "One line: what the tool returns, from what (empty when not reusable)"} :string]
+  [:input-schema {:desc "The arguments as a malli [:map ...], EDN text (empty when not reusable)"} :string]
+  [:output-schema {:desc "What it returns as a malli schema in EDN text, never prose (empty when not reusable)"} :string]
+  [:body {:desc "The tool's Tool Lisp body, (fn [args] ...) (empty when not reusable)"} :string]
+  [:replay-args {:desc "EDN text: [{:run N :args {...}} ...] reproducing each generalised run (empty when not reusable)"} :string]
+  [:rationale {:desc "One or two sentences on the tool and its runs, or why there is none"} :string]]}

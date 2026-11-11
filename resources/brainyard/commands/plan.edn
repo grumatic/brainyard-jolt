@@ -1,0 +1,27 @@
+;; /plan (byj-gly.360): a plan, written by agent$plan. A turn, as every
+;; command that stands for an agent is (RFC-004): the session's agent hands
+;; agent$plan the goal and what the conversation has established, and deals
+;; with its three answers — a saved plan, one question (Need:), or a refusal
+;; naming what should handle the request instead. The plan agent writes only
+;; under .brainyard/plans/; nothing is built here.
+;;
+;; `/plan WORDS` plans what the words ask; `/plan` alone, the work the
+;; conversation is about — with no turns yet the plan agent asks what it is.
+;; Not in brainyard, which has no /plan command.
+{:command "/plan"
+ :agent "plan"
+ :rephrase :predictor
+
+ :default-request
+ "Write a plan for the work this conversation is about."
+
+ :purpose
+ "write a plan — checked first for whether there is enough to plan, then saved under .brainyard/plans/ and graded — for what the words ask, or for the work the conversation is about"
+
+ :usage
+ "Call agent$plan with :question stating the goal in full: the request, and what this conversation has already established that the plan needs — decisions made, constraints, the files and commands involved — since the plan agent cannot see the conversation. Read its answer. `Saved plan:` — end with the plan's path, its approach and its grade as it gave them. `Need:` — when the conversation already answers its question, call agent$plan again with the answer added; otherwise end with its question, word for word, for the person to answer. `Refused:` — say why, and what it says should handle the request instead. Do not start carrying out the plan."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

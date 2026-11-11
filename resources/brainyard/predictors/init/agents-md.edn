@@ -1,0 +1,24 @@
+;; agent$init's draft of a project's own section of AGENTS.md (RFC-040), as
+;; Claude Code's /init drafts CLAUDE.md: from what the repository shows of
+;; itself (init$survey). init$scaffold puts it in a block of its own, so a
+;; later /init replaces it and the person's text is never touched.
+{:id "init/agents-md"
+ :strategy :cot
+ :description "Draft the project's section of AGENTS.md from what the repository shows."
+ :instructions "Write the section of AGENTS.md that tells a coding agent what this project is and how to work in it, from the survey of the repository below. Start it with the heading \"## This project\".
+
+Say, in this order, only what the survey shows:
+- what the project is, in one or two sentences;
+- how to build it, run it and run its tests — the exact commands from its build files, scripts and README, in a fenced block;
+- how it is laid out: the directories that matter and what is in each;
+- conventions the files state (style, commit messages, branches, where tests go).
+
+Never invent a command, tool or rule the survey does not show; leave out what it does not say rather than guess. When AGENTS.md or CLAUDE.md already say something, do not repeat it. Keep it short — under forty lines. Plain Markdown; no attribution, signature or note about who wrote it.
+
+Then, separately, three example requests the person could type to brainyard to start working on this project, one a line: one about understanding it, one that runs its tests or build by the commands you found, and one small, real improvement the survey suggests. Each names this project's own things — its commands, directories, files — under fifteen words, as the person would type it, with no numbering or quotes."
+ :inputs
+ [[:request {:desc "What the person asked /init to do"} :string]
+  [:survey {:desc "What the repository shows of itself: entries, CI, commits, README and build files"} :string]]
+ :outputs
+ [[:notes {:desc "The section, Markdown, starting with ## This project"} :string]
+  [:examples {:desc "Three example requests for this project, one a line"} :string]]}

@@ -1,0 +1,33 @@
+#+title: Searching and replacing
+#+lesson: searching
+#+summary: Find text as you type, list every match, and replace with a question at each.
+
+# A lesson for /emacs coach emacs: (RFC-067 phase 9). Each step names the
+# commands that show it done (:COMMANDS:), never keys: the coach looks the
+# keys up in the person's own Emacs with emacs$describe, and checks a step
+# with emacs$habits. A project's .brainyard/emacs/lessons/ and the person's
+# ~/.brainyard/emacs/lessons/ replace a lesson of the same file name.
+
+* Search as you type
+:PROPERTIES:
+:COMMANDS: isearch-forward isearch-backward
+:END:
+Start a search and type: Emacs moves to the first match as you go, and to the next each time you repeat the search key. End it where you want to be.
+
+* Every match, listed
+:PROPERTIES:
+:COMMANDS: occur
+:END:
+List every line that matches in a buffer of its own, and jump to one from there.
+
+* Replace, asked each time
+:PROPERTIES:
+:COMMANDS: query-replace
+:END:
+Replace text, saying yes or no at each place.
+
+* Search the whole project
+:PROPERTIES:
+:COMMANDS: project-find-regexp
+:END:
+Find a pattern in every file of the project.

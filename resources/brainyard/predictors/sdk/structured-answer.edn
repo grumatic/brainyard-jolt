@@ -1,0 +1,22 @@
+;; A turn's answer as the data an application asked for (RFC-053, byj-g5n.10):
+;; run after a turn whose prompt carried an outputSchema, on the question and
+;; the answer the turn gave. Its :outputs are the schema's fields, given at
+;; the call (`sdk/structure-answer`); the words are here, where a project
+;; tunes them with params for this id like any predictor's.
+;;
+;; :predict: the answer is already reasoned; this restates it, it does not
+;; think again. When the answer does not say something a field asks for, the
+;; field is null rather than invented.
+{:id "sdk/structured-answer"
+ :strategy :predict
+ :description "Restate an agent's answer as the typed fields an application asked for."
+ :instructions "An agent has answered a question. Restate its answer as the fields asked for, one value each.
+
+Take every value from the answer. Do not add facts it does not state, and do not correct it: when the answer and the question disagree, the answer is what you restate. When a field asks for something the answer does not say, give null.
+
+Use each field's type exactly: a number as a number, a list as a list, a choice as one of its values."
+ :inputs
+ [[:question {:desc "What the agent was asked"} :string]
+  [:answer {:desc "The agent's answer, in full"} :string]]
+ :outputs
+ [[:value {:desc "Replaced at the call by the fields of the application's schema"} :any]]}

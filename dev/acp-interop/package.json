@@ -1,0 +1,7 @@
+{
+  "name": "acp-interop",
+  "private": true,
+  "type": "module",
+  "description": "byj-g5n.4: the official ACP TypeScript client against byj acp. dev/acp-interop.sh runs it.",
+  "dependencies": { "@agentclientprotocol/sdk": "1.9.0" }
+}

@@ -1,0 +1,8 @@
+;; brainyard's ::tool-permission-gate (agent/common/tool_permission.clj), RFC-012.
+{:id "tool-permission-gate"
+ :event :agent.tool-use/pre
+ :priority 85
+ :on-error :throw
+ :doc "A tool matching :tool-approval-patterns (and not :tool-allow-tools), or carrying an effect in :tool-ask-effects, needs permission: :auto-approve allows, :deny-by-default refuses, :ask-each-time asks the session."
+ :impl :brainyard.permission/permission-gate
+ :opts {}}

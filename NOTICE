@@ -1,0 +1,92 @@
+byj
+Copyright (c) 2026 Grumatic, Inc.
+Licensed under the MIT License (LICENSE).
+
+byj is ported from brainyard (https://github.com/grumatic/brainyard,
+Grumatic, Inc., MIT) and follows the approach of samizdat
+(https://github.com/yogthos/samizdat); it contains no samizdat code.
+
+byj's own source is under the MIT License. A byj binary also carries the
+works of others, listed below; each stays under the license its authors gave
+it. The source of every one is at the address given, at the revision named.
+
+
+Embedded in every byj binary
+----------------------------
+
+jolt, the runtime
+  https://github.com/jolt-lang/jolt
+  Copyright (c) Dmitri Sotnikov and contributors
+  Eclipse Public License 2.0
+  A byj binary is a jolt binary: it embeds jolt's runtime and the works jolt
+  embeds in every binary it builds — Chez Scheme (Apache License 2.0), zlib,
+  LZ4 (BSD 2-Clause), irregex (BSD-style), babashka.fs and babashka.process
+  (EPL 1.0), babashka.cli (MIT), and code adapted from Clojure, ClojureScript
+  and others (EPL 1.0). jolt's NOTICE, in its repository and beside every
+  jolt install, lists them in full with their copyrights. A release is
+  built on the jolt dev/jolt-verified.edn names.
+
+
+Libraries byj depends on
+------------------------
+
+As deps.edn resolves them. A release binary holds those its namespaces load.
+
+jolt-lang/http-client      v0.0.8 (ccce992d)   Eclipse Public License 2.0
+  https://github.com/jolt-lang/http-client
+clj-commons/clj-http-lite  5bc2a989            MIT License
+  https://github.com/clj-commons/clj-http-lite
+jolt-lang/jolt-crypto      44da69ba            Eclipse Public License 2.0
+  https://github.com/jolt-lang/jolt-crypto
+org.clojure/data.json      94463ffb            Eclipse Public License 1.0
+  https://github.com/clojure/data.json
+jolt-lang/time             753905d0            Eclipse Public License 2.0
+  https://github.com/jolt-lang/time
+  (with time-literals, MIT, vendored in it)
+juxt/tick                  3c2cc4e8            MIT License
+  https://github.com/juxt/tick
+  Copyright (c) 2016-2018 JUXT LTD.
+com.widdindustries/cljc.java-time  0.1.22      MIT License
+  https://github.com/henryw374/cljc.java-time
+com.widdindustries/time-literals   0.1.10      MIT License
+  https://github.com/henryw374/time-literals
+jolt-lang/glimmer-tui      v0.2.14 (ced35cfc)  MIT License
+  https://github.com/jolt-lang/glimmer-tui
+  Copyright (c) 2026 Dmitri Sotnikov
+jolt-lang/glimmer          d81af8fb            MIT License
+  https://github.com/jolt-lang/glimmer
+  Copyright (c) 2026 Dmitri Sotnikov
+jlt-commons/ebb            v0.1.4 (15f6f7c0)   Eclipse Public License 2.0
+  https://github.com/jlt-commons/ebb
+metosin/malli              0.20.2 (76603d58)   Eclipse Public License 2.0
+  https://github.com/metosin/malli
+  and what malli depends on:
+  borkdude/dynaload        0.3.5               Eclipse Public License 1.0
+  borkdude/edamame         1.6.44              Eclipse Public License 1.0
+  fipp/fipp                0.6.29              Eclipse Public License 1.0
+  mvxcvi/arrangement       2.1.0               Public Domain
+  org.clojure/tools.reader 1.5.2               Eclipse Public License 1.0
+  org.clojure/core.rrb-vector 0.1.2            Eclipse Public License 1.0
+  org.clojure/test.check   1.1.3               Eclipse Public License 1.0
+
+
+Used, not distributed
+---------------------
+
+OpenSSL (https://www.openssl.org, Apache License 2.0) is loaded when byj
+starts, from the system's own install (Homebrew's openssl@3 on macOS); no
+byj binary contains it.
+
+jolt-lang/nrepl v0.1.2 (6e8cfa21, https://github.com/jolt-lang/nrepl,
+Eclipse Public License 2.0) is a development dependency (deps.edn's :dev alias) and is in no
+binary, as are the npm packages the ACP interoperability check and the SDK
+spike install (dev/acp-interop, dev/sdk-acp-spike; their package-lock.json
+files name them).
+
+
+The Agent SDK
+-------------
+
+sdk/ is licensed on its own: sdk/LICENSE (MIT), with sdk/typescript and
+sdk/python each carrying a copy. Its dependencies are named in
+sdk/typescript/package-lock.json and sdk/python/uv.lock.

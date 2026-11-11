@@ -1,0 +1,53 @@
+;; /emacs (RFC-067, byj-gly.459): work done with and in the person's Emacs —
+;; the one :emacs-server names, the project's own daemon unless they named
+;; theirs — by the session's agent with the emacs$* tools (emacs.clj, byj.el)
+;; beside its own. What the agent may do in Emacs, and how it reads a buffer
+;; that holds unsaved edits, is said here, not in src/ (RFC-001).
+;;
+;; Bare /emacs says where Emacs stands; /emacs WORDS does what the words ask:
+;; explain @here, show where something is, review the unsaved changes, make
+;; Emacs do something new for the person. emacs$eval runs code as the person,
+;; so the permission gate asks before each (:tool-ask-effects #{:editor/eval}).
+;; Literate org (byj-gly.460): the org tools, and the rule that the org file
+;; is the source, which the tangled-file-guard hook holds write-file and
+;; update-file to; emacs$org-execute runs a block as the person, so it is
+;; asked about too (:editor/execute). Coaching (byj-gly.461): /emacs coach
+;; GOAL starts it with coach$set, /emacs coach stop ends it; how to coach is
+;; prompts/coach.edn, which every turn gets while it is on. The command makes
+;; that call itself, ahead of the turn (:before, byj-gly.468): a model once
+;; answered as a coach without it, and kept no stance; the level is beginner
+;; when the words say so, else coach$set's own default, practitioner. /emacs
+;; coach emacs: GOAL coaches Emacs itself (byj-gly.477): coach$set's :subject
+;; emacs, from a lesson (resources/brainyard/emacs/lessons/), checked with
+;; emacs$habits; /emacs tips gives one tip from the same, and /emacs how
+;; finds a command and shows it with emacs$suggest. /emacs setup LANG
+;; (byj-gly.478): emacs$features says what the person's Emacs has, and a
+;; setting is tried with emacs$eval and saved only where they say. What Emacs knows
+;; (byj-gly.463): emacs$xref and emacs$diagnostics, asked before grep. What
+;; this Emacs says about itself (byj-gly.471): emacs$describe, through which
+;; every key and command is checked before the person is told it — a model
+;; remembers some other Emacs's keys.
+;;
+;; Not in brainyard, which has no Emacs layer.
+{:command "/emacs"
+ :tools ["emacs$*" "coach$set" "todo$*" "terminal$context"]
+ :before [{:when "(?i)^coach\\s+(?:stop|end|done|끝|종료)\\s*$" :call "coach$set" :args {:stop true}}
+          {:when "(?i)^coach\\s+emacs\\s*:?\\s*(.*(?:beginner|new to|초보|처음).*)$" :call "coach$set" :args {:goal "$1" :subject "emacs" :level "beginner"}}
+          {:when "(?i)^coach\\s+emacs\\s*:?\\s*(.+)$" :call "coach$set" :args {:goal "$1" :subject "emacs"}}
+          {:when "(?i)^coach\\s+(.*(?:beginner|new to|초보|처음).*)$" :call "coach$set" :args {:goal "$1" :level "beginner"}}
+          {:when "(?i)^coach\\s+(.+)$" :call "coach$set" :args {:goal "$1"}}]
+ :rephrase :predictor
+
+ :default-request
+ "Say where Emacs stands: which Emacs this session reaches and whether it is up, the file in front of me and whether it has unsaved edits, and what /emacs can do here."
+
+ :purpose
+ "work with the person in their Emacs — what they are looking at, their buffers as Emacs has them, what their language server and checkers know, the keys and commands their own Emacs has, places shown to them on their screen, literate programs in org tangled and run there, coaching toward a goal they write the code for, and Emacs made to do something new for them — and do what the words ask there"
+
+ :usage
+ "When the words begin with coach, the command has already called coach$set before this turn, as its line at the end says, with what it answered: when that stopped coaching, say coaching ended; when it started coaching, follow the coaching section you are given, starting now — make the checklist of steps, and give the first hint; when it failed, say why. Call coach$set yourself only when the person later asks for another goal or level. Call emacs$status first. When the words ask for tips on using Emacs (tips, 팁): call emacs$habits; when observing is off, explain what byj-observe-mode keeps — command names in their Emacs's memory, never what they type — and ask them to turn it on with M-x byj-observe-mode. Otherwise first say whether an earlier tip was taken up (its :used-since), then choose one habit worth changing — a long run of a small move, a command with a key run through M-x, a frequent command that has a better one — and give one tip: the better command, its key from emacs$describe, and why; show it with emacs$suggest, and record it with emacs$habits :tip and :why. One tip a time. When it says Emacs is not up and the words are not coaching, say how to start it, as it says, and stop; coaching goes on without it, in your answers. Otherwise do what the words ask with the emacs$* tools beside your own. When they say this, here or the selection, read emacs$context. Read a file the person has open with emacs$read, not read-file: the buffer may hold edits not yet saved, and those are what they see. Never write a file whose buffer has unsaved edits (emacs$status and emacs$read say :modified): say what you would change and let them save first. To point out something on a line without changing it, leave a note with emacs$note; to show a change in a buffer the person has open, make it with emacs$edit, which they keep by saving or undo. To find where a name is defined or used, ask emacs$xref before grep, and for what is wrong with a file ask emacs$diagnostics — they are what the person's language server and checkers say; a null :backend means Emacs has none for that file, so fall back to grep and running the build. Before telling the person a key or a command, check it in their Emacs with emacs$describe — :key for what a key runs in that buffer, :command for a command's keys, :apropos to find a command by words, :prefix for what follows a prefix, :modes for the modes on — and say only what it answers: their init, a starter kit or evil may bind keys differently from the Emacs you remember, and a command may not be installed. When they ask how to do something in Emacs, find the command (emacs$describe :apropos), show it with emacs$suggest, give its key, and let them press it. When explaining code, show each place you discuss with emacs$show, a short :message saying what to look at, one place at a time. In a literate project — an org file whose src blocks tangle to the code (emacs$org-outline shows each block's :tangle target) — the org file is the source: change a block in the org file, never the file it tangles to, then emacs$org-tangle it, then build or run the tests on what it wrote; when a block exists to check another, run it with emacs$org-execute and read its results. Save nothing the person has not saved: tangling is refused while the org buffer holds unsaved edits, and so is emacs$org-execute's :save. When the words ask to set Emacs up for something (setup, 설정 — a language, a tool): ask emacs$features first — the features and packages it needs, the programs on exec-path, and with a file of that language its mode and the language server eglot would start — and say what is missing and why it matters (why emacs$xref or emacs$diagnostics have no backend, say). Suggest the smallest setting that fixes it; try it with emacs$eval only when they agree; installing a package or a program is theirs to do or to agree to; and save the setting only where they say — a file their init loads, such as ~/.emacs.d/byj-suggested.el, never their init itself unasked. To make Emacs do something new for the person — a command, a key, a setting — write the Emacs Lisp, try it with emacs$eval, and save it only where they say (their init, the project's .dir-locals.el); call emacs$eval for nothing else unless the words ask, and never to change files, run programs or reach the network. End with what was done in Emacs, and what you did around it."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

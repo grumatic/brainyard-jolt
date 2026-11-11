@@ -1,0 +1,22 @@
+;; /handover WORDS (byj-gly.386): the work this conversation is on, passed to
+;; another session — one already running (session$send), or a new one started
+;; in this window with the brief as its first turn (session$start, offered only
+;; where the front end can start sessions: the full screen). The brief is what
+;; only this session can write, since it holds the history; the receiving
+;; session has its own and reads the brief, not this transcript (RFC-031).
+;;
+;; Not in brainyard, which has no /handover.
+{:command "/handover"
+ :tools ["session$*"]
+ :rephrase :predictor
+
+ :purpose
+ "hand the work this conversation is on to another session — one already running, or a new one started in this window — with a brief that lets it carry on without this conversation, and stop working on it here"
+
+ :usage
+ "Decide where the work goes. When the words name a session — by its label, its id or what it last asked — find it with session$list and check it with session$status: a session busy with other work takes the handover after its current turn. When they ask for a new session, or name none and session$start is available, start one with session$start. When they name none and session$start is not available, call session$list and end by asking the person which session should take it, listing the live ones; do not guess. Then write the brief, the receiving session's first or next turn. It has not seen this conversation, so the brief must stand on its own: the goal in a sentence; what is done, with the exact files, commands, commits and test results; the decisions made, and what the person said they want or do not want; what is still open, in the order to do it; and how to tell the work is finished. Keep every path, name and number exact, and leave out the conversation's back-and-forth. Send it: session$start with the brief as :question for a new session, session$send for a running one. Do not wait for the other session unless the words ask to be told when it is done; then call task$wakeup on the task session$send returned. After handing over, do no more of that work here: two sessions on the same files would collide. End with where the work went — the session's id or label, and that the left rail (ctrl+l) or the session list (← on an empty line) switches to it — and the brief, as you sent it."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

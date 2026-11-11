@@ -1,0 +1,26 @@
+{
+  "name": "@grumatic/byj-agent-sdk",
+  "version": "0.1.0",
+  "description": "The Brainyard Agent SDK: run byj's agent from your application — sessions, streamed turns, permission answers, your own tools and hooks, predictors (RFC-053).",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js" }
+  },
+  "files": ["dist/src", "README.md"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.json && node --test --test-concurrency=1 dist/test/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.21",
+    "typescript": "5.9.3"
+  },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/grumatic/brainyard-sdk.git", "directory": "typescript" },
+  "homepage": "https://github.com/grumatic/brainyard-sdk",
+  "private": true
+}

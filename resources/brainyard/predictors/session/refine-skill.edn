@@ -1,0 +1,41 @@
+;; Was the skill at fault when a turn that used it failed? brainyard's
+;; `SkillRefinement`, word for word but for its first line: brainyard fills the
+;; skill's name into the instruction, and a predictor's instruction here is
+;; fixed text, so it points at the `skill-name` input instead.
+;;
+;; The session tree runs it (loops/session.edn, :session/refine) once per skill
+;; the failed turn loaded, and for a skill that ran itself and failed, when
+;; :enable-skill-refinement is on. A revision is STAGED as a proposal of kind
+;; :refinement; accepting it rewrites the skill.
+{:id "session/refine-skill"
+ :strategy :cot
+ :description "Judge whether a failed run of a skill was the SKILL.md's fault, and rewrite it if so."
+ :instructions "A run of the skill named in `skill-name` (a SKILL.md procedure) just FAILED. You
+decide whether the SKILL.md itself should be revised, and if so you rewrite it.
+
+Revise ONLY when the failure points to a defect in the DOCUMENT — a missing
+step, a wrong/outdated assumption, an unhandled input, an ambiguous instruction
+the runner plausibly followed into the failure. Do NOT revise for:
+- transient/environmental failures (network, missing credential, flaky tool),
+- user/caller error (bad input the skill can't be expected to handle),
+- a one-off that no general doc change would prevent.
+
+When (and only when) the document is at fault:
+- :should-revise   true
+- :revised-md      the COMPLETE updated SKILL.md (front-matter + body), a
+                   focused edit of the current one that addresses THIS failure
+                   without gratuitous rewrites; keep the same name/intent. No
+                   secrets, no machine-specific absolute paths.
+- :rationale       one or two sentences: what was wrong and what you changed.
+
+When the document is NOT at fault: :should-revise false, :revised-md \"\",
+:rationale one line on why the failure is not a doc defect."
+ :inputs
+ [[:skill-name {:desc "The skill that failed (no skill$ prefix)"} :string]
+  [:current-skill-md {:desc "The current SKILL.md content, verbatim"} :string]
+  [:invocation-args {:desc "The args the skill was called with (pr-str)"} :string]
+  [:failure-evidence {:desc "The error/result the failed invocation returned"} :string]]
+ :outputs
+ [[:should-revise {:desc "True only when the SKILL.md document itself is at fault for the failure"} :boolean]
+  [:revised-md {:desc "Complete revised SKILL.md when should-revise; empty string otherwise"} :string]
+  [:rationale {:desc "One or two sentences: what was wrong and what changed (or why no revision)"} :string]]}

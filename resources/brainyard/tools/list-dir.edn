@@ -1,0 +1,11 @@
+;; A primitive tool (RFC-010): the spec is data, :impl names the kernel fn
+;; (brainyard.tools/impls). :output-schema is a malli schema (RFC-030): results are
+;; checked against it, and the model reads the line written from it. :effects
+;; are shown to the model and used by composites' static analysis.
+{:name "list-dir"
+ :description "List a directory's entries (directories end with /)."
+ :input-schema [:map [:path {:optional true} [:string {:desc "Directory (default .)"}]]]
+ :output-schema [:or {:desc "directory entries end with /"} [:map [:path :string] [:entries [:vector :string]]] [:map [:error :string]]]
+ :path-params [:path]
+ :effects #{:fs/read}
+ :impl :brainyard.tools/list-dir}

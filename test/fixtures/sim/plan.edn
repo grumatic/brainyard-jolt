@@ -1,0 +1,20 @@
+;; A simulation plan for sim-test (byj-gly.315.2): two stages on the mock
+;; provider — one that passes its check, one whose typed call raises a
+;; permission prompt for the runner to refuse, and whose check fails.
+{:id "mock-sim"
+ :provider "mock"
+ :permission-mode :auto
+ :timeout-s 120
+ :cap-usd 1.0
+ :answers [{:match "pkill" :answer "n"}]
+ :stages [{:id :long
+           ;; past MAX_CANON (1024): lost in a canonical-mode terminal (byj-gly.315.12)
+           :lines ["long word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word"]
+           :checks [{:type :command :name "true" :run "true"}]}
+          {:id :hello
+           :lines ["hello"]
+           :checks [{:type :command :name "true" :run "true"}
+                    {:type :command :name "script" :run "sh {{plan}}/check.sh"}]}
+          {:id :ask
+           :lines [":bash {:command \"pkill -f byj-sim-nothing-here\"}"]
+           :checks [{:type :file :name "nope" :path "nope.txt"}]}]}

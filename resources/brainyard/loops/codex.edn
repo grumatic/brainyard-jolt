@@ -1,0 +1,92 @@
+;; agent$codex's loop (RFC-049, byj-gly.430.6): hand a task to a Codex session
+;; and see it through, one of its turns at a time — agent$claude's loop
+;; (loops/claude.edn) with the codex$* commands.
+;;
+;;   which session, what it is told   → a predictor (codex/plan)
+;;   starting, typing, waiting        → the codex$* commands (mechanism)
+;;   is it done, what to say next     → a predictor (codex/progress)
+;;   the order, and when to stop      → this file
+;;
+;; The answer is what Codex itself said at the end of its last turn, then a
+;; blank line and the supervisor's report; then the hand-off. A Codex session
+;; never publishes: its sandbox keeps it off the network and out of .git, so
+;; codex$handoff commits what it changed and says how to publish it.
+;;
+;; The session is an interactive Codex in tmux (byj-cx-<thread>), so a person
+;; can attach to it at any time; its record is .brainyard/codex-agents/<thread>.edn.
+;; Asked again (agent-registry$ask), the same instance finds the session it
+;; drives marked YOURS and continues it.
+[:sequence {:id :cx/turn}
+ [:action {:id :cx/init :fn :react/init}]
+ [:action {:id :cx/seed :fn :mem/set
+           :set {:finished false :verdict "ask-person" :settled "" :codex-answer "" :report "" :screen ""
+                 :round "0" :over-budget "no" :guidance "" :where "" :done-when "" :choice "" :work-branch ""
+                 :title "" :body ""
+                 :answer "Codex was not reached."}}]
+
+ [:fallback {:id :cx/run}
+  [:sequence {:id :cx/delegate}
+   [:action {:id :cx/sessions :fn :tool/run :tool "codex$sessions" :out {:sessions :text}}]
+   [:action {:id :cx/plan :fn :predictor/run :predictor "codex/plan"
+             :in {:task :question :sessions :sessions}
+             :out {:session :session :model :model :args :args :worktree :worktree
+                   :branch :branch :brief :brief :done-when :done-when :choice :choice :bead :bead}}]
+   ;; the person's answer to a dialog the session waits on goes to the
+   ;; dialog; anything else is a brief. A failed step leaves its error as the answer.
+   [:fallback {:id :cx/start}
+    [:sequence {:id :cx/answer-dialog}
+     [:condition {:id :cx/choice? :fn :mem/match? :key :choice :pattern "^[0-9]$"}]
+     [:action {:id :cx/choose :fn :tool/run :tool "codex$choose"
+               :in {:session-id :session :choice :choice}
+               :out {:session-id :session-id :where :where :work-branch :branch :answer :error}}]]
+    [:sequence {:id :cx/brief}
+     [:condition {:id :cx/no-choice? :fn :mem/match? :key :choice :pattern "^\\s*$"}]
+     [:action {:id :cx/open :fn :tool/run :tool "codex$open"
+               :in {:session :session :brief :brief :model :model :args :args
+                    :worktree :worktree :branch :branch :task :question :bead :bead}
+               :out {:session-id :session-id :where :where :work-branch :branch :answer :error}}]]]
+
+   ;; one of its turns a round: wait for it to end, judge it, and either nudge
+   ;; it on or stop. A nudge that cannot be delivered stops it too.
+   [:repeat {:id :cx/watch :max-n :config/codex-max-rounds :until :mem/true? :key :finished}
+    [:sequence {:id :cx/round}
+     [:action {:id :cx/await :fn :tool/run :tool "codex$await"
+               :in {:session-id :session-id}
+               :out {:settled :settled :codex-answer :answer :screen :screen
+                     :round :round :over-budget :over-budget}}]
+     [:action {:id :cx/judge :fn :predictor/run :predictor "codex/progress"
+               :in {:task :question :done-when :done-when :settled :settled :answer :codex-answer
+                    :screen :screen :round :round :over-budget :over-budget :where :where}
+               :out {:verdict :verdict :guidance :guidance :report :report}}]
+     ;; Codex's own words first, the report after them
+     [:action {:id :cx/compose :fn :mem/join :in {:a :codex-answer :b :report} :out {:answer :joined}}]
+     [:fallback {:id :cx/next}
+      [:sequence {:id :cx/nudge}
+       [:condition {:id :cx/guide? :fn :mem/match? :key :verdict :pattern "^guide$"}]
+       [:action {:id :cx/say :fn :tool/run :tool "codex$say"
+                 :in {:session-id :session-id :text :guidance}}]]
+      [:action {:id :cx/stop :fn :mem/set :set {:finished true}}]]]]
+
+   ;; finished work on a branch of its own is committed and handed back, with
+   ;; the pull request's text and the commands that publish it
+   [:fallback {:id :cx/hand-off}
+    [:sequence {:id :cx/ship}
+     [:condition {:id :cx/done? :fn :mem/match? :key :verdict :pattern "^done$"}]
+     [:condition {:id :cx/branched? :fn :mem/match? :key :work-branch :pattern "\\S"}]
+     [:action {:id :cx/pr :fn :predictor/run :predictor "claude/pr"
+               :in {:task :question :report :report :branch :work-branch}
+               :out {:title :title :body :body}}]
+     [:action {:id :cx/handoff :fn :tool/run :tool "codex$handoff" :on-error :success
+               :in {:session-id :session-id :title :title :body :body}
+               :out {:handed :summary}}]
+     [:action {:id :cx/tell :fn :mem/join :in {:a :answer :b :handed} :out {:answer :joined}}]]
+    [:action {:id :cx/no-hand-off :fn :mem/set :set {}}]]
+
+   [:action {:id :cx/finish :fn :tool/run :tool "codex$finish" :on-error :success
+             :in {:session-id :session-id :verdict :verdict :report :report}}]]
+
+  ;; it never got as far as a session: the answer says why
+  [:action {:id :cx/unreached :fn :mem/set :set {}}]]
+
+ [:action {:id :cx/stamp :fn :react/stamp-answer}]
+ [:action {:id :cx/store :fn :react/store-trajectory}]]

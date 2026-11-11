@@ -1,0 +1,48 @@
+;; byj's tree (RFC-070 "Standing alone"): the paths, from the repository's
+;; root, that are byj's and go into its public repository; a directory is
+;; everything under it. Its README, AGENTS.md and CHANGELOG are replaced in
+;; the export by the public ones in dev/byj-public, which add CONTRIBUTING and
+;; the issue and pull request templates; this repository's CHANGELOG-latest.md
+;; is not byj's, and the public documents carry the public repository's own,
+;; its first release's notes (byj-ahf.12, byj-ahf.13). Whatever is not listed is not byj's — another
+;; program's, or this repository's internal metadata (the tracker, the
+;; agents' settings and skills). byj's export lays out these paths alone and
+;; builds and tests them there (byj-ahf.2); split-test holds each to existing
+;; and byj's documents and scripts among them to naming no program built on
+;; byj but by the protocol it speaks.
+{:paths
+ [;; the program
+  "src" "resources" "deps.edn" "dev-malli"
+  ;; its tests and the contract it exports
+  "test" "contract"
+  ;; the Agent SDK
+  "sdk"
+  ;; documents
+  "README.md" "AGENTS.md" "CLAUDE.md" "design.md" "CHANGELOG.md"
+  "docs/RFCS" "docs/divergences.md" "docs/divergences.edn" "docs/provenance.md"
+  ".env.example" ".gitignore"
+  ;; CI
+  ".github/workflows/release.yml" ".github/workflows/nightly.yml"
+  ;; dev: the image's namespaces, spikes and their data
+  "dev/brainyard"
+  ;; dev: the suite's and the build's
+  "dev/cold-load.sh" "dev/flake-hunt.sh" "dev/test-times.edn" "dev/jolt-verified.edn"
+  "dev/ci-jolt.sh" "dev/stamp-version.sh" "dev/install.sh" "dev/roadmap-drift.sh"
+  "dev/byj-tree.edn"
+  ;; dev: releasing
+  "dev/release-stage.sh" "dev/release-verify.sh" "dev/release-mirror.sh" "dev/brew-formula.sh"
+  ;; dev: the SDK and ACP
+  "dev/sdk-test.sh" "dev/sdk-publish.sh" "dev/sdk-acp-spike" "dev/acp-interop.sh" "dev/acp-interop"
+  ;; dev: samizdat's text kept out
+  "dev/samizdat-check.sh" "dev/samizdat-check.edn"
+  ;; dev: the dogfood simulation (RFC-041) and measurements
+  "dev/sim" "dev/hook-latency.sh" "dev/glyph-probe.sh" "dev/ob-clojure-spike.sh"]
+
+ ;; byj's paths that still name a program built on byj beyond its protocol,
+ ;; each until its bead closes; none since byj is released alone (byj-ahf.9)
+ :until {}
+
+ ;; byj's paths that name a program built on byj for good, each with why
+ :named
+ {"test/brainyard/split_test.clj" "it names them to find them"
+  "src/brainyard/config.clj" "a login another program keeps under ~/.config is among the paths no tool reads"}}

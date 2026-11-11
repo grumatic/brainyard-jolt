@@ -1,0 +1,10 @@
+;; Path-scoped permission (RFC-012): brainyard checks paths inside each tool
+;; (common/reference.clj validate-write-path / resolve-allowed-path); here one
+;; gate covers every tool that declares :path-params, nested calls included.
+{:id "path-permission-gate"
+ :event :agent.tool-use/pre
+ :priority 90
+ :on-error :throw
+ :doc "Every path a call names must be under :allowed-dirs; one that is not is asked about, or refused."
+ :impl :brainyard.permission/path-gate
+ :opts {}}

@@ -1,0 +1,9 @@
+;; The slash commands that stand for an agent (RFC-004 "Commands that stand
+;; for an agent", byj-gly.350), in listing order. An index, because a built
+;; binary cannot list a resource directory (as agents/index.edn is). Each
+;; names commands/<name>.edn.
+;;
+;; Such a command is not run as a direct call: its line becomes the turn's
+;; input, rephrased for the agent the session runs, which then drives the
+;; subagent the command stands for across its own iterations.
+["init" "review" "plan" "edit" "claude" "codex" "share" "team" "handover" "emacs"]

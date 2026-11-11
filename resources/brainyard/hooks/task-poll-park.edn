@@ -1,0 +1,11 @@
+;; A built-in hook (RFC-011): the spec is data, :impl names the kernel fn
+;; (brainyard.hookbox/impls), :opts is what that fn works on.
+;; brainyard's auto-park (agent/common/auto_notify.clj `deflect-decision`).
+{:id "task-poll-park"
+ :event :agent.tool-use/pre
+ :priority 50
+ :doc "After :auto-park-after-polls polls of the same still-running background task in one turn, end the turn and park it — the session gives it a fresh turn when the task lands."
+ :impl :brainyard.hookbox/task-poll-park
+ ;; brainyard's set: the two commands that target ONE task and that a weaker
+ ;; model spams. task$list is a survey, not a poll, and is not counted.
+ :opts {:poll-tools #{"task$detail" "task$wait"}}}

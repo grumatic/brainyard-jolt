@@ -1,0 +1,14 @@
+;; A primitive tool (RFC-010): the spec is data, :impl names the kernel fn
+;; (brainyard.tools/impls). :output-schema is a malli schema (RFC-030): results are
+;; checked against it, and the model reads the line written from it. :effects
+;; are shown to the model and used by composites' static analysis.
+{:name "grep"
+ :description "Recursively search files for an extended regex; returns path:line:text matches."
+ :input-schema [:map [:pattern [:string {:desc "Extended regular expression"}]]
+                     [:path {:optional true} [:string {:desc "Directory or file (default .)"}]]
+                     [:max-results {:optional true} [:int {:desc "Default 50"}]]
+                     [:include-exts {:optional true} [:vector {:desc "File extensions to include, e.g. [\"clj\"]"} :string]]]
+ :output-schema [:or {:desc "each match is path:line:text"} [:map [:matches [:vector :string]] [:total :int] [:truncated :boolean]] [:map [:error :string]]]
+ :path-params [:path]
+ :effects #{:process :fs/read}
+ :impl :brainyard.tools/grep}

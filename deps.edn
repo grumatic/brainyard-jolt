@@ -1,0 +1,133 @@
+{:jolt/min-version "0.8.15"
+
+ :paths ["src" "resources"]
+
+ ;; OpenSSL on macOS, where jolt-crypto's own candidates name only Apple
+ ;; silicon's Homebrew and then /usr/lib/libcrypto.dylib — a stub macOS aborts
+ ;; the process for loading ("loading libcrypto in an unsafe way"), so an Intel
+ ;; Mac, whose Homebrew is /usr/local, could never start byj (provenance P-36,
+ ;; byj-gly.181.5). The project's spec wins the :darwin key and jolt-crypto's
+ ;; :linux candidates still apply; with none of these present, jolt says which
+ ;; it tried instead of aborting. The Homebrew formula depends on openssl@3.
+ :jolt/native [{:name "crypto"
+                :darwin ["/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib"
+                         "/usr/local/opt/openssl@3/lib/libcrypto.3.dylib"
+                         "/opt/local/lib/libcrypto.3.dylib"]}
+               {:name "ssl"
+                :darwin ["/opt/homebrew/opt/openssl@3/lib/libssl.3.dylib"
+                         "/usr/local/opt/openssl@3/lib/libssl.3.dylib"
+                         "/opt/local/lib/libssl.3.dylib"]}]
+
+ :deps {;; provider calls — clj-http-lite over jolt.ffi sockets + OpenSSL
+        jolt-lang/http-client
+        {:git/url "https://github.com/jolt-lang/http-client"
+         :git/tag "v0.0.8"
+         :git/sha "ccce992d6e3d0035a5ffd1d4364cdb39df4af2f0"}
+        org.clojure/data.json
+        {:git/url "https://github.com/clojure/data.json"
+         :git/sha "94463ffb54482427fd9b31f264b06bff6dcfd557"}
+        ;; java.time host shim; data.json needs DateTimeFormatter at load.
+        ;; jolt 0.8.24 prints a ChronoField as the JDK's display name, which
+        ;; bc85090 took for an unsupported field as malli loaded; 753905d
+        ;; reads its .name (byj-gly.469)
+        jolt-lang/time
+        {:git/url "https://github.com/jolt-lang/time"
+         :git/sha "753905d0e694600f593b9904e880a8a8379fb7b1"}
+        ;; the full-screen renderer's toolkit (RFC-028): glimmer's reactive
+        ;; core and component model, over a terminal backend that paints
+        ;; through a swappable screen — which is how `brainyard.tui` is tested
+        ;; with no tty. Pulls jolt-lang/glimmer transitively.
+        jolt-lang/glimmer-tui
+        {:git/url "https://github.com/jolt-lang/glimmer-tui"
+         :git/tag "v0.2.14"
+         :git/sha "ced35cfc60a57be53c290d777b770d772570222b"}
+        ;; effects: missionary ported to jolt, behind brainyard.effect (RFC-009).
+        ;; v0.1.3 fixes a cancelled ap spinning forever (ebb PR #7); v0.1.4
+        ;; builds timer deadlines on the clock jolt's timer reads, monotonic
+        ;; from jolt 0.8.21 — on v0.1.3 there every sleep and timeout waited
+        ;; forever (byj-b06).
+        jlt-commons/ebb
+        {:git/url "https://github.com/jlt-commons/ebb"
+         :git/tag "v0.1.4"
+         :git/sha "15f6f7c0ee8b54a862e9f981b5867fab23459498"}
+        ;; tool schemas: arguments checked and coerced, brainyard's own
+        ;; :input-schema read natively (RFC-030, measured before adopting).
+        ;; malli.transform needs jolt.time loaded first — brainyard.schema
+        ;; requires brainyard.json, which does
+        metosin/malli
+        {:git/url "https://github.com/metosin/malli"
+         :git/tag "0.20.2"
+         :git/sha "76603d587553c5a8d60fa64c9e631fa3addb4b2e"}}
+
+ ;; bake the loop tree and prompts into a built binary
+ :jolt/build {:embed ["resources"]}
+
+ ;; The nREPL server's middleware for a dev image: sessions, an eval that can be
+ ;; interrupted, completion and lookup. Only the :dev alias carries the dep; see
+ ;; AGENTS.md "Developing in a live nREPL image".
+ :nrepl/middleware [nrepl.middleware/default-middleware]
+
+ :aliases {:test {:extra-paths ["test"]
+                  :main-opts ["-m" "brainyard.test-runner"]}
+           ;; the dev tree (nREPL eval client, brainyard replay tools) plus the
+           ;; tests, so a live image runs the suite without paying startup:
+           ;;   jolt -A:dev nrepl-server 7899
+           :dev  {:extra-paths ["dev" "test"]
+                  :extra-deps
+                  {;; same sha samizdat pins; v0.1.2 makes client recv interruptible
+                   jolt-lang/nrepl
+                   {:git/url "https://github.com/jolt-lang/nrepl"
+                    :git/tag "v0.1.2"
+                    :git/sha "6e8cfa214dbd43c9ed72358f3d1191bb29a695cd"}}}
+           ;; the malli decision's binary measurement (byj-gly.196, RFC-030):
+           ;;   jolt -A:malli build -m brainyard.dev.malli-main
+           :malli {:extra-paths ["dev-malli"]}}
+
+ ;; tasks are family:target, brainyard's `bb` style (`build:ata`, `install:ata`):
+ ;; the family is what it does, the target what it does it to. A bare `run` or
+ ;; `build` would be shadowed by jolt's own command (provenance P-8); a
+ ;; prefixed name never is.
+ :tasks {ask:byj {:doc "run the agent: jolt ask:byj [options] \"question\""
+                   :main-opts ["-m" "brainyard.main" "ask"]}
+         run:byj {:doc "interactive multi-turn session (brainyard's `by run`): jolt run:byj [options]"
+                   :main-opts ["-m" "brainyard.main" "run"]}
+         ;; this project's sessions that listen (RFC-031): jolt sessions:byj list [--live] [--json]
+         sessions:byj {:doc "list the sessions that listen: jolt sessions:byj list [--live] [--json]"
+                        :main-opts ["-m" "brainyard.main" "sessions"]}
+         ;; the suite in parallel: its namespaces sharded across processes by
+         ;; measured time, BY_TEST_SHARDS of them (default half the cores, at
+         ;; most 6) — ~1 min against ~4 serially (byj-gly.333)
+         test:byj "jolt -M:test"
+         ;; the suite in ONE image: the only run that sees a test leave global
+         ;; state that breaks another namespace (provenance P-18) — before a
+         ;; substantial commit, or when the parallel run passes and a feature fails
+         test-serial:byj "BY_TEST_SHARDS=1 jolt -M:test"
+         ;; the version the binary will carry (RFC-029): git describe, sha, time
+         version:byj "dev/stamp-version.sh"
+         ;; a release (RFC-029): this platform's binary, SHA256SUMS and
+         ;; BUILD-INFO.txt into release/, refused unless tagged and clean; then
+         ;; the staged set, or a published release, checked against SHA256SUMS
+         release-stage:byj "dev/release-stage.sh"
+         release-verify:byj "dev/release-verify.sh --dir release"
+         ;; byj's Homebrew formula for a published release, into a tap checkout
+         ;; (RFC-029 "Homebrew", byj-gly.181.5): jolt brew-formula:byj vX.Y.Z ../homebrew-tap
+         ;; a map with :task, not a string: a string task drops the arguments
+         brew-formula:byj {:task (apply shell "dev/brew-formula.sh" *command-line-args*)}
+         ;; a published release copied to the public tap, so anyone installs
+         ;; with no token (byj-gly.181.10): jolt release-mirror:byj vX.Y.Z
+         release-mirror:byj {:task (apply shell "dev/release-mirror.sh" *command-line-args*)}
+         ;; --no-direct-link: nothing under src rebinds a var any more — the
+         ;; reader went upstream (byj-gly.272), which was the flag's reason
+         ;; (provenance P-24) — but on jolt 0.8.15 it is also the smaller and
+         ;; faster build: 67 MB against 83 MB, a mock ask 0.36 s against 0.40 s
+         build:byj "dev/stamp-version.sh && mkdir -p target && jolt build -m brainyard.main -o target/byj --no-direct-link"
+         ;; the SDK's client libraries against byj from this checkout (RFC-053)
+         test:sdk "dev/sdk-test.sh"
+         ;; brainyard's `bb install:ata`: target/byj as byj in
+         ;; ~/.local/bin (or BY_INSTALL_DIR), the old one kept as .prev
+         install:byj "dev/install.sh"
+         ;; the dogfood simulation (RFC-041): brainyard builds a project from
+         ;; scratch while this plays the person — jolt sim:byj dev/sim/playground/plan.edn
+         sim:byj {:doc "play a simulation plan, or compare two runs: jolt sim:byj compare RUN-A RUN-B | jolt sim:byj PLAN [--dir D | --continue D] [--stages a,b] [-p P -m M] [--keep-going] [--no-resume]"
+                   :main-opts ["-m" "brainyard.sim"]}
+         }}

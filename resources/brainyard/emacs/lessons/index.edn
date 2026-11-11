@@ -1,0 +1,3 @@
+;; The lessons shipped with byj, in teaching order. An index because a built
+;; binary cannot list a resource directory.
+["help" "moving" "searching" "editing" "buffers-and-windows" "files-and-projects" "org"]

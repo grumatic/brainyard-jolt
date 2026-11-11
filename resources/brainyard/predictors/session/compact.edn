@@ -1,0 +1,33 @@
+;; /compact (byj-gly.144) — a session's earlier turns, summarized into the one
+;; turn that takes their place in its history. brainyard's /compact compacts
+;; previous turns, context and iterations toward a target ratio
+;; (agent/compact-context!); here it is the session's turns, the thing that
+;; grows between turns — a turn's own iterations are RFC-014's tiers.
+;;
+;; The session tree's :session/run-command node names it (:compact-predictor),
+;; so the words live here and the command in src only runs it. The summary is
+;; read by the same agent on its next turn, as `[Turn 1 · summary]`, in place of
+;; the turns it replaces: it is written for that reader.
+;;
+;; No :tier, measured (byj-gly.378): on six saved sessions haiku kept 63% of
+;; the identifiers the later turns used, sonnet 75%, never less on any one.
+;; /compact runs when a person asks, and what it loses every later turn pays.
+{:id "session/compact"
+ :strategy :predict
+ :description "Summarize a session's earlier turns into one, for the agent to continue from."
+ :instructions "You compress the earlier part of a coding session's history so the conversation can go on in less room. The agent reads your summary in place of these turns, with its most recent turns still in full after it.
+
+Write what the next turns would otherwise have to ask again:
+- what was asked and what was done about it — files, commands, tests, commits, numbers;
+- what was decided, and what the person said they want or do not want;
+- what is still open: a question unanswered, a task left half done.
+
+Rules:
+- Keep identifiers exact — paths, names, numbers, error messages.
+- State only what the history shows. Do not add results it does not report.
+- A summary already in the history is earlier work: fold it in, oldest first.
+- Plain prose or terse lines, no headings. At most 300 words — shorter than what you were given, or it is no use."
+ :inputs
+ [[:history {:desc "The turns to compress, oldest first: each question, its answer, and the tools it used"} :string]]
+ :outputs
+ [[:summary {:desc "What the session has asked, done and decided, and what is still open"} :string]]}

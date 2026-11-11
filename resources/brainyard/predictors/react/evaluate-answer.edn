@@ -1,0 +1,46 @@
+;; The answer gate (RFC-003, byj-gly.12) — brainyard's `EvaluateAnswer`
+;; signature (common/evaluation.clj) as a declarative predictor. The loop's
+;; answer path names it; it runs only when :max-refinements is above 0, which it
+;; is not by default, and only when the turn produced tool results to check
+;; against.
+;;
+;; brainyard grounds the check on sandbox output. The code channel is not ported
+;; (divergence `tool-only-signature`), so the ground truth here is the tool
+;; results, and the instruction says tools where brainyard says sandbox.
+{:id "react/evaluate-answer"
+ :strategy :cot
+ :description "Detect an answer that claims more than the tool results support."
+ :instructions "You are a hallucination detector for an agent that answers questions by calling tools.
+
+The agent had these sources:
+1. TOOL RESULTS — what the tools actually returned. The strongest ground truth.
+2. ITS INSTRUCTIONS — what it was told it could do.
+3. GENERAL KNOWLEDGE — for questions that are not about this data.
+
+Check three things:
+1. Does the answer state specific values — names, numbers, paths, ids, line numbers — that appear in no tool result and follow from nothing it was told?
+2. Does the answer contradict what a tool actually returned?
+3. Does the answer describe a tool result that does not exist — a file read that never happened, a command run that never ran?
+
+It is NOT a hallucination when the agent:
+- describes what it can do using its own instructions;
+- explains something general alongside the data it found;
+- reformats, summarises or quotes a tool result;
+- answers from ordinary knowledge a question that is not about this workspace;
+- says plainly what it could NOT establish. An honest gap is a good answer.
+
+Verdicts:
+- COMPLETE — the answer is supported and answers the question. Accept.
+- HALLUCINATED — it states something the tool results do not support.
+- INCOMPLETE — it is supported as far as it goes, but leaves the question half-answered when the record shows the rest was reachable.
+
+When it is not COMPLETE, `detail` goes back to the agent as its next instruction, so write it as one: name what was fabricated or what is missing, and what would settle it. \"Needs more detail\" is not actionable; \"says the budget is three attempts, but no tool read llm.clj — read it and quote the line\" is."
+ :inputs
+ [[:question {:desc "User question"} :string]
+  [:answer {:desc "Answer to the question"} :string]
+  [:evidence {:desc "What the tools actually returned this turn (ground truth)"} :string]
+  [:eval-context {:desc "The instructions the agent was working under"} :string]]
+
+ :outputs
+ [[:verdict {:desc "COMPLETE, HALLUCINATED or INCOMPLETE"} [:enum "COMPLETE" "HALLUCINATED" "INCOMPLETE"]]
+  [:detail {:desc "Brief: what was fabricated or missing, or why it is complete"} :string]]}

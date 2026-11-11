@@ -1,0 +1,19 @@
+;; What a turn is told about what the person did between turns — the tools
+;; they called directly (`:<tool> …`, byj-gly.273.3), brainyard's console
+;; activity (artifacts.clj), which records each colon command "so the next
+;; turn sees what the user just inspected", and the files they put back with
+;; /rewind and /undo-turn (RFC-069), which the agent must not assume are as
+;; it left them. The tool lines under the heading are `toolshelf/digest`'s;
+;; a rewind's is one of the templates below, {name} filled in. What was done
+;; to a session's files from outside it — `byj turns rewind`, `undo-turn`,
+;; `undo` from another process, a `/fork` that put them back, a fork that
+;; kept files its conversation does not remember — is left as a note and
+;; told its next turn the same way (byj-gly.488): :outside wraps the line.
+{:heading "The person did these directly between turns (their own tool calls and commands, newest last, results cut short):"
+ :rewind "/rewind {turn}: the person put the work tree back as it was when turn {turn} {point}. Changed on disk: {files}. What was written to those files after that is no longer there: read a file again before relying on what it held."
+ :undo-turn "/undo-turn {turn}: the person took back what turn {turn} changed, alone; what came after it stays. Changed on disk: {files}.{conflicts} Read a file again before relying on what it held."
+ :conflicts " Left with conflict markers for the person to resolve: {files}."
+ :undo-rewind "/rewind undo: the person took back their last rewind; the work tree is as it was before it. Changed on disk: {files}."
+ :outside "{line} (Done from outside this session, with byj turns {sub}.)"
+ :forked-away "/fork {turn}: the person forked a new session ({session}) from this conversation before turn {turn}, and put the work tree back as it was when turn {turn} began. Changed on disk: {files}. What was written to those files after that is no longer there: read a file again before relying on what it held."
+ :fork-kept "This session was forked from session {from} before its turn {turn}, keeping the files as they were: the work tree still holds what that session's turns {turn} and after wrote, which this conversation does not include. Read a file before relying on what you think it holds."}

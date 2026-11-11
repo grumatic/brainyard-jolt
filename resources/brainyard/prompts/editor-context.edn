@@ -1,0 +1,57 @@
+;; What a turn is told when its question mentions @here (byj-gly.453): what
+;; the person is looking at in a running editor of the project's, read from
+;; it as the turn begins (emacs/context! for the Emacs :emacs-server names,
+;; else terminal/context!, RFC-067), so
+;; "this" is never left for the model to guess or to remember to ask about.
+;; Added to the turn's user-context zone, as the memory hint is. Read by the
+;; model, so a resource (RFC-001). The session tree's :session/editor-context
+;; node says which word is the mention.
+;;
+;; {program} the editor's name in the Terminal view; {where} the :file or
+;; :buffer line; {line} {column}; {modified} the :modified words or nothing;
+;; {org} in an org file the :org-heading and :org-block lines, each with
+;; its own leading newline, or nothing (RFC-067);
+;; {region} the :region or :no-region words; {text} the selection; {why} what
+;; kept the editor from saying.
+{:context
+ "## @here — what the person is looking at
+
+When they wrote @here they meant this, in {program}:
+{where}
+- Cursor at line {line}, column {column}{modified}{org}
+
+{region}"
+ :file "- File: `{file}`"
+ :buffer "- Buffer: `{buffer}` (visiting no file)"
+ :modified " — with unsaved edits, so the file on disk is not what they see"
+ :org-heading "\n- Under the org heading: {heading}"
+ :org-block "\n- In the{name} src block of {language} that starts at line {line}"
+ :region "They have selected:
+```
+{text}
+```"
+ :no-region "Nothing is selected: they mean the code around that line. Read the file there before answering."
+ ;; @visible and @trail (RFC-067 phase 10): Emacs only. {rows} the lines
+ ;; below, one a place; {mention} the word; {why} what kept Emacs from saying.
+ :visible
+ "## @visible — what is on the person's screen
+
+When they wrote @visible they meant the windows in front of them:
+{rows}"
+ :visible-row "- `{where}`, lines {start}–{end}, cursor at line {line}{selected}"
+ :selected " — the window they are in"
+ :trail
+ "## @trail — where the person has been, most recent first
+
+When they wrote @trail they meant the files they have just been reading, which say what they are looking into:
+{rows}"
+ :trail-row "- `{file}` at line {line}{ago}"
+ :ago ", {minutes} min ago"
+ :places-none
+ "## {mention}
+
+The person wrote {mention}, meaning their Emacs's windows or the files they visited, but it could not be read ({why}). Ask them rather than guessing."
+ :none
+ "## @here
+
+The person wrote @here, meaning what they are looking at in their editor, but it could not be read ({why}). Ask them which file and lines they mean rather than guessing."}

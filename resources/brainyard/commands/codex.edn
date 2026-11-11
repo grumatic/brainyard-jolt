@@ -1,0 +1,22 @@
+;; /codex (byj-gly.430.6): work handed to Codex through agent$codex, with the
+;; session's agent as its evaluator — /claude (commands/claude.edn) for Codex.
+;; A turn, as every command that stands for an agent is (RFC-004): the
+;; session's agent briefs agent$codex, checks what comes back with its own
+;; tools, and sends what is missing to the SAME agent$codex instance with
+;; agent-registry$ask, so one Codex session does the follow-ups.
+;;
+;; `/codex WORDS` only: with no words there is no task.
+{:command "/codex"
+ :agent "codex"
+ :rephrase :predictor
+
+ :purpose
+ "hand the work to Codex through agent$codex, check each result yourself, and send what is missing to the same Codex session until the work is done"
+
+ :usage
+ "When this conversation already has an agent$codex instance — the subagent-id an earlier call returned, which agent-registry$list shows — continue it with agent-registry$ask, so the same Codex session carries on. Otherwise call agent$codex with :question stating the task in full: what to do and what done looks like, and the files, decisions and constraints this conversation established, since it cannot see the conversation; name the Codex thread id when the conversation names one to continue. Its answer is Codex's last reply, then a report naming the session and branch, and — when the work is done on a branch — the commits made for it and the commands that publish it. A call can take minutes and run in the background: wait for its result with task$wait rather than answering without it. Judge every answer yourself, as its evaluator: read the files or the diff it names and run the checks the task needs with your own tools, rather than taking the report's word for it. When something is missing or wrong, ask the same instance again with agent-registry$ask, saying exactly what to fix or do next. Never dispatch agent$codex afresh for the same work, which starts a new Codex session; only when the instance is gone, call agent$codex again naming the thread id its last report gave. Stop when the work meets the request, when the report asks a question only the person can answer (end with that question, word for word), or when a follow-up made no progress. Do not push, open a pull request or merge unless the request says to. End with what Codex did, what you checked and how, the thread id and branch, and the commands its report gave for publishing and cleaning up, exactly as given."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

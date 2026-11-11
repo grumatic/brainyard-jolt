@@ -1,0 +1,49 @@
+;; brainyard's `common/edit_agent.clj` in the small (RFC-018, byj-gly.41).
+;;
+;; brainyard's runs on `edit$apply`, one command that probes, applies, verifies,
+;; persists a record and rolls back atomically. That command is not ported, and
+;; its instruction carries the INLINE pipeline for exactly that case — probe,
+;; apply once, verify, roll back — which needs only tools this port has. So the
+;; discipline is ported and the transaction is not; what a record would have
+;; held goes in the answer instead (divergence `edit-agent-has-no-transaction`).
+;;
+;; The match-count guard survives intact: `update-file` takes `:expect-count`,
+;; so a pattern that matches a different number of times than the agent stated
+;; refuses and writes nothing.
+{:description
+ "Changes ONE file safely: probes it, writes once, verifies the diff, and rolls back the moment a check fails. Delegate a specific edit here rather than spending your own turn on the probe-and-verify discipline. Refuses a dirty file, and refuses a request spanning several files."
+
+ :instruction-resource "brainyard/prompts/agents/edit.md"
+
+ :tools ["read-file" "update-file" "write-file" "grep" "list-dir" "bash"
+         "search" "list-tools" "get-tool-info"
+         "skills$list" "skills$find" "skills$read"]
+
+ ;; it edits one file; a request spanning several is refused back to the caller,
+ ;; which is brainyard's rule 3 — so it has no reason to delegate
+ :deny-tools ["agent$*"]
+
+ ;; brainyard's :agent-tier-map — {:default :standard :max :deep}
+ :tier :standard
+ :max-tier :deep
+
+ ;; probe (3) + apply (1) + verify (3-5) + the reading around them
+ :max-iterations 20
+
+ :config {:tool-authoring? false
+          :hook-authoring? false
+          :user-tools? false
+          ;; brainyard's instruction lists the read-only shell commands it may
+          ;; run; here the gate enforces the half that is enforceable (RFC-012).
+          ;; It bounds the PROGRAM, so `cat > file`, `tee` and `sed -i` cannot
+          ;; run at all — while `git commit` is a subcommand the gate cannot
+          ;; see, and the instruction forbids it.
+          :bash-allow-commands ["git" "rg" "grep" "wc" "test" "command"
+                                "clj-kondo" "python3" "jq" "yamllint" "rm"]
+          ;; python3 is here for `python3 -m py_compile`; the gate cannot see
+          ;; its arguments, and `python3 -c "open(…, 'w')…"` writes any file
+          ;; past update-file's guard. A tripwire on the whole line, added to
+          ;; the session's own (byj-gly.356): a script file, stdin, or
+          ;; combined flags (`-Sc`) slip past it, which the instruction forbids
+          ;; (byj-gly.359).
+          :bash-deny-commands ["*python3* -c*"]}}

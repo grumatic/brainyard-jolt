@@ -1,0 +1,14 @@
+;; A primitive tool (RFC-010): the spec is data, :impl names the kernel fn
+;; (brainyard.tools/impls). :output-schema is a malli schema (RFC-030): results are
+;; checked against it, and the model reads the line written from it. :effects
+;; are shown to the model and used by composites' static analysis.
+{:name "read-file"
+ :description "Read file content. With offset/limit, returns numbered lines. A read that would not fit in one result comes back as a page of numbered lines, with :total-lines, :next-offset, :next-column and a :note — read on from there, or grep it. A line longer than a page comes in pieces: continue it with :column."
+ :input-schema [:map [:path [:string {:desc "File path (relative to the working directory or absolute)"}]]
+                     [:offset {:optional true} [:int {:desc "1-based first line"}]]
+                     [:limit {:optional true} [:int {:desc "Maximum number of lines"}]]
+                     [:column {:optional true} [:int {:desc "1-based character of the first line to start at, to read on inside a line longer than a page"}]]]
+ :output-schema [:or {:desc "with offset/limit/column, or for a file past one result, :content is numbered lines, and :next-offset/:next-column/:note say where to read on when the page ended early"} [:map [:path :string] [:size :int] [:content :string] [:total-lines :int] [:next-offset {:optional true} :int] [:next-column {:optional true} :int] [:note {:optional true} :string]] [:map [:error :string]]]
+ :path-params [:path]
+ :effects #{:fs/read}
+ :impl :brainyard.tools/read-file}

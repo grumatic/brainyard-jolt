@@ -1,0 +1,61 @@
+;; What /init's answer ends with: what to do next (RFC-040 "Next steps",
+;; byj-gly.337.1). /init in a new directory had answered with a report alone —
+;; files, tools, the check — and left the person with an empty tracker and no
+;; idea what to type.
+;;
+;; init$next shows, in this order, each entry whose :when facts all hold for
+;; the project as it stands after /init, and offers the first :suggest among
+;; them as the session's suggested next prompt (the empty input line).
+;;
+;; The facts (init/next-facts, from init/project-status):
+;;   :git          a git repository          :no-git        not one
+;;   :code         it has build files        :no-code       none yet
+;;   :draft-pending code, and AGENTS.md's project section still the placeholder
+;;   :uncommitted  /init's files not committed; {files} in :command names them
+;;   :beads        .beads/ is there
+;;   :onboarding   open starter issues (init$onboard, init/onboarding.edn)
+;;
+;; :examples? — the entry's prompts are the draft's own for this project when
+;; /init drafted AGENTS.md (init/agents-md's examples), the first of them its
+;; suggestion; its own :prompts otherwise.
+;;
+;; Prompts are what a person could type as is; text in <angle brackets> is
+;; theirs to fill in.
+[{:id :commit
+  :when #{:git :uncommitted}
+  :text "Commit what /init wrote, so every clone and every agent reads the same instructions:"
+  :command "git add -- {files} && git commit -m \"Set up brainyard\""}
+
+ {:id :starter
+  :when #{:onboarding}
+  :text "Start with the starter issues /init filed in beads: \"bd ready\" lists them, \"work on <id>\" does one."
+  :suggest "run bd ready and show me the starter issues"}
+
+ {:id :draft
+  :when #{:draft-pending}
+  :text "Run /init again: it drafts this project's section of AGENTS.md from the code."
+  :suggest "/init"}
+
+ {:id :start-empty
+  :when #{:no-code}
+  :text "Say what you want to build: brainyard can plan it and start on the first part. For example:"
+  :prompts ["I want to build <what>. Plan it, then start on the first part."
+            "set up a <language> project here with one passing test and a README"]
+  :suggest "I want to build"}
+
+ {:id :start-code
+  :when #{:code}
+  :examples? true
+  :text "Ask about the code or hand it a task. For example:"
+  :prompts ["explain how this project is organized, and how to build and test it"
+            "run the tests and fix what fails"
+            "review my uncommitted changes"]
+  :suggest "explain how this project is organized, and how to build and test it"}
+
+ {:id :beads
+  :when #{:beads}
+  :text "Keep the work in beads: \"bd ready\" lists what is ready, \"work on <id>\" has brainyard claim it and do it, and \"file a beads issue for <task>\" records one for later. Agents read the workflow from `bd prime`."}
+
+ {:id :help
+  :when #{}
+  :text "/help lists the session's commands; /init check says again what this machine and project lack."}]

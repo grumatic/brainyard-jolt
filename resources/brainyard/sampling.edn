@@ -1,0 +1,17 @@
+;; Models that refuse a sampling parameter every request would otherwise carry
+;; (byj-gly.369). A RESOURCE, not code (RFC-001): a vendor deprecating one is
+;; a fact about its models, and saying so should not need a rebuild.
+;;
+;; :no-temperature — model ids, as regexes found anywhere in the id, that
+;; answer any temperature with a validation error; a request to one leaves
+;; temperature out (llm/takes-temperature?). Measured on Bedrock
+;; (us-east-1, 2026-10-17) with temperature 0:
+;;   refused  claude-opus-4-7, opus-4-8, opus-5, sonnet-5, opus-5-5, sonnet-5-5,
+;;            haiku-5-5 — "`temperature` is deprecated for this model";
+;;            gpt-5.6-sol — "This model doesn't support the temperature field"
+;;   accepted claude-opus-4-5, opus-4-6, sonnet-4-5, sonnet-4-6, haiku-4-5,
+;;            gpt-oss-120b
+;; Fable 5 and 5.1 failed first on their data retention mode, so are listed
+;; with the 5.x family they belong to, not measured.
+{:no-temperature ["claude-(opus|sonnet|haiku|fable)-(4-[7-9]|5)"
+                  "gpt-5\\.6"]}

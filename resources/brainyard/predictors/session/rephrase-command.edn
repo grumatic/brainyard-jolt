@@ -1,0 +1,38 @@
+;; A slash command a file defines, said as the turn's question (RFC-004
+;; "Commands that stand for an agent", byj-gly.350): one that stands for a
+;; subagent, for other tools, or for none — a prompt (byj-gly.362.1). The session tree
+;; runs it before a turn (loops/session.edn, :session/command-request) when
+;; the line is a command in resources/brainyard/commands/ whose :rephrase is
+;; :predictor, the session already has turns, and :command-rephrase? is on.
+;; With no turns there is nothing to adapt the request to, and the command's
+;; template is used instead — as it is when this predictor fails.
+;;
+;; Not a brainyard predictor: brainyard's /init calls its init-agent directly
+;; (divergence `slash-commands-become-turns`). :predict, not :cot — it
+;; rewrites a request; a reasoning field would cost more than the line it
+;; precedes. :tier :light, as session/recap has, measured the same way.
+{:id "session/rephrase-command"
+ :strategy :predict
+ :tier :light
+ :description "Say a slash command as the request the session's agent is asked, in the light of the conversation so far."
+ :instructions "A person typed a slash command in a coding session. The agent you are writing for — the one running this session — will be asked to do what the command means. The command may name the tools it is done with: a subagent, called as a tool as many times as the work needs, each report read before the next call; or other tools; or none, leaving the agent its own.
+
+Write `question`: the request that agent is asked, as the person's own request, in the first person. It must:
+- say what the command is for, and carry the person's own words after the command exactly as typed — never drop, soften or reinterpret them;
+- when the command names tools, name them, say what to call first, and say when to call again, following the command's usage; when it names none, follow the usage alone;
+- use the conversation so far only to make the request fit where the work stands — what was already done, installed, written or refused — and say that plainly (\"bd was installed in the last turn, so …\"). Do not invent anything the record does not show;
+- keep a request to only look (\"check\", \"dry run\", \"just report\") as only looking: ask for nothing to be written or installed;
+- never ask for an install, a deletion or a write the person did not ask for;
+- be at most 120 words, plain prose, no headings.
+
+Write `shown`: one line, under 15 words, telling the person what their agent is being asked — starting with the command, then an arrow, for example `/init → check the tools again, now that bd is installed`."
+ :inputs
+ [[:command {:desc "The line as the person typed it"} :string]
+  [:request {:desc "What the command asks, in words: the person's words after the command, or, when they gave none, the command's default request"} :string]
+  [:purpose {:desc "What the command is for"} :string]
+  [:usage {:desc "How the session's agent should do it across its iterations"} :string]
+  [:tools {:desc "The tools the command names, each with what it does and what it takes — or a line saying it names none"} :string]
+  [:history {:desc "The session's earlier turns, oldest first: question, answer, and the last tools each used"} :string]]
+ :outputs
+ [[:question {:desc "The request the session's agent is asked, as the person's own"} :string]
+  [:shown {:desc "One line for the person: the command, an arrow, what their agent is asked"} :string]]}

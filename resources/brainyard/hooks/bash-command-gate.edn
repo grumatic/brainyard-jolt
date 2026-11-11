@@ -1,0 +1,13 @@
+;; RFC-012. Not brainyard's: it checks a bash command's PATHS for task$run
+;; alone (validate-bash-paths) and has no command list at all. This gate reads
+;; every argument a tool declares in :command-params as a shell command line.
+;;
+;; :on-error :throw as the other gates: a gate that cannot decide must not
+;; quietly let the call through.
+{:id "bash-command-gate"
+ :event :agent.tool-use/pre
+ :priority 92
+ :on-error :throw
+ :doc "Refuse a command matching :bash-deny-commands, one whose program is not in :bash-allow-commands, or one naming a path outside :allowed-dirs."
+ :impl :brainyard.permission/command-gate
+ :opts {}}

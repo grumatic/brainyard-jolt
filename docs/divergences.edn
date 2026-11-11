@@ -1,0 +1,493 @@
+;; The machine-readable half of docs/divergences.md. brainyard.divergences-test
+;; checks the pair: every :id here is anchored there with
+;; <!-- divergence: id -->, every anchor there has an entry here, and every
+;; entry names the test that pins it (:test "ns-test/test-name", resolving to a
+;; real test var) or says why none can (:why).
+[{:id "parallel-tools-off"
+  :brainyard "agent/common/coact_agent.clj coact-tool-dispatch-action (pmap)"
+  :test "brainyard.divergences-test/parallel-tools-default"}
+ {:id "usage-in-is-total"
+  :brainyard "analytics/core/trajectory.clj cache-metric (hit-rate = read/(read + in), where :in is fresh input)"
+  :test "brainyard.analytics-test/a-cache-write-is-neither-fresh-nor-a-miss"}
+ {:id "no-streaming"
+  :brainyard "clj-llm/core/{sse,sse_flow}.clj, claude_code.clj chat-completion-stream"
+  :why "An absence; tracked as byj-gly.8."}
+ {:id "project-root-git-walk"
+  :brainyard "agent/core/config.clj find-git-root (.isDirectory check, so a worktree's .git file does not count)"
+  :test "brainyard.config-test/the-project-root-is-the-git-root"}
+ {:id "search-skips-agent-state"
+  :brainyard "agent/common/tools.clj grep-files / reference.clj list-files (no exclusions)"
+  :test "brainyard.discovery-test/searching-skips-the-agents-own-state"}
+ {:id "capture-is-the-sessions-transcript"
+  :brainyard "bases/agent-tui/.../commands.clj capture-cmd (spits @layout/!scrollback; refuses without a path)"
+  :test "brainyard.session-test/capture-writes-what-was-said"}
+ {:id "usage-breakdown-by-zone"
+  :brainyard "bases/agent-tui/.../commands.clj usage + format-usage-table (per-call system/signature/user split)"
+  :test "brainyard.session-test/usage-tables-the-calls-the-totals-are-made-of"}
+ {:id "directive-without-code-blocks"
+  :brainyard "clj-llm/core/claude_code.clj structured-output-directive"
+  :test "brainyard.divergences-test/directive-names-no-code-channel"}
+ {:id "native-tool-calls-recovered"
+  :brainyard "clj-llm/core/claude_code.clj structured-output-directive, normalize-response (native tool_use ignored)"
+  :test "brainyard.agent-test/native-tool-calls-recovered"}
+ {:id "tool-only-signature"
+  :brainyard "agent/common/coact_agent.clj ThinkActCode (context-briefing, recalled-memory, code-blocks)"
+  :test "brainyard.agent-test/output-normalization"}
+ {:id "instructions-pre-rendered"
+  :brainyard "agent/common/coact_agent.clj coact-instructions-template via selmer"
+  :why "The resource is the rendered text; the difference is the absence of a template, which no test can observe."}
+ {:id "history-fixed-depth"
+  :brainyard "agent/common/previous_turns.clj append-turn (batched demotion)"
+  :test "brainyard.session-test/tool-trail-is-kept-for-recent-turns"}
+ {:id "effect-cancelled-includes-interrupt"
+  :brainyard "effect/core/policy.clj cancelled? (instance? missionary.Cancelled)"
+  :test "brainyard.effect-test/cancelled-includes-the-interrupt-via-blk-surfaces"}
+ {:id "effect-brick-scope"
+  :brainyard "effect/interface.clj from-future, sample-lines, smoke-report, smoke-main!; mulog warnings"
+  :test "brainyard.effect-test/failures-nobody-awaits-are-reported"}
+ {:id "supervisor-registers-before-running"
+  :brainyard "effect/core/supervisor.clj start! (run, then register; deregister by label)"
+  :test "brainyard.effect-test/supervisor-registry-is-not-raced-by-late-callbacks"}
+ {:id "turn-cancel-is-structural"
+  :brainyard "agent/core/runtime.clj cancel-run (flag, stream .close, bt canceller, thread interrupt, pause condition)"
+  :test "brainyard.cancellation-test/a-cancelled-turn-does-not-end-the-session"}
+ {:id "user-tool-bodies-interpreted"
+  :brainyard "agent/common/user_tools.clj install-body! (SCI eval of the body source)"
+  :test "brainyard.toolbox-test/bodies-never-reach-host-eval"}
+ {:id "user-tools-no-recursion"
+  :brainyard "agent/common/user_tools.clj bind-peer-symbol! (composition by symbol, recursion possible)"
+  :test "brainyard.toolbox-test/composition-effects-and-cycles"}
+ {:id "tool-lisp-reach"
+  :brainyard "agent/common/user_tools.clj install-body! (bodies evaluated in the SCI code sandbox: unbounded pmap, atoms)"
+  :test "brainyard.toolbox-test/pmap-runs-a-bodys-calls-a-few-at-a-time"}
+ {:id "user-tool-output-schema-declared"
+  :brainyard "agent/common/user_tools.clj register! (:output-schema [:map] for every user tool; none is taken)"
+  :test "brainyard.schema-test/a-user-tools-output-schema-is-checked-by-tool-test"}
+ {:id "link-open-lifts-brainyard-limits"
+  :brainyard "bases/agent-tui/src/ai/brainyard/agent_tui/links.clj (editor-argv-suffix: $EDITOR only, line without column; recover-target within the fragment's kind)"
+  :test "brainyard.links-test/an-editor-is-told-where-to-go-in-its-own-convention"}
+ {:id "agent-page-lists-claude-code-sessions"
+  :brainyard "bases/agent-tui/src/ai/brainyard/agent_tui (the agents overlay lists the host's own sessions only)"
+  :test "brainyard.tui-test/claude-codes-sessions-are-rows-of-their-own"}
+ {:id "channel-requests-are-questions"
+  :brainyard "bases/agent-tui/src/ai/brainyard/agent_tui/core.clj handle-ask-op -> inject-side-ask! (agent/enqueue! on the input queue, taken as typed)"
+  :test "brainyard.channel-test/a-session-answers-over-its-own-socket"}
+ {:id "auto-mode-classifier"
+  :brainyard "agent/core/config.clj resolve-permission-mode (:auto -> :auto-approve in a container, else :ask-each-time; no classifier)"
+  :test "brainyard.permission-test/auto-mode-asks-the-classifier-where-it-would-ask-the-person"}
+ {:id "allow-path-is-the-persons"
+  :brainyard "bases/agent-tui/src/ai/brainyard/agent_tui/permissions.clj handle-allow-path-command (agent/set-allowed-dirs!, no origin check)"
+  :test "brainyard.session-test/allow-path-is-the-persons-and-the-sessions"}
+ {:id "no-sandbox-eval-command"
+  :brainyard "bases/agent-tui/src/ai/brainyard/agent_tui/commands.clj handle-sandbox-command (clj-sandbox/eval-code)"
+  :test "brainyard.session-test/brainyards-pause-and-sandbox-are-not-commands"}
+ {:id "no-pause-command"
+  :brainyard "bases/agent-tui/src/ai/brainyard/agent_tui/commands.clj handle-pause-run-command, handle-continue-command (agent/pause-run, resume-run, continue-iterations)"
+  :test "brainyard.session-test/brainyards-pause-and-sandbox-are-not-commands"}
+ {:id "direct-calls-are-gated"
+  :brainyard "agent_tui/commands.clj handle-tool-invoke -> agent/invoke-tool (BARE: no hooks, no permissions)"
+  :test "brainyard.session-test/a-colon-tool-is-called-directly-and-gated"}
+ {:id "tools-are-browsed"
+  :brainyard "agent_tui autocomplete.clj (name completion after / and :) and the list-tools / get-tool-info tools; no browser, picker or detail pane"
+  :test "brainyard.tui-test/tools-are-browsed-with-each-ones-spec-beside-it"}
+ {:id "byj-updates-itself"
+  :brainyard "bin/install.sh (run again to update; latest from the public releases/latest, no token); no update command"
+  :test "brainyard.update-test/a-binary-is-replaced-only-by-what-its-checksum-says"}
+ {:id "tool-commands-renamed"
+  :brainyard "agent/common/user_tools.clj tool-agent$create/list/read/delete/validate (no test command)"
+  :test "brainyard.toolbox-test/composition-effects-and-cycles"}
+ {:id "hooks-per-ctx"
+  :brainyard "agent/core/hooks.clj !hooks (defonce, process-global)"
+  :test "brainyard.hooks-test/a-turn-fires-brainyards-events"}
+ {:id "user-hook-bodies-tool-lisp"
+  :brainyard "agent/common/user_hooks.clj install-body! / run-body (SCI, 30000 ms)"
+  :test "brainyard.hooks-test/user-hooks"}
+ {:id "user-hooks-may-gate"
+  :brainyard "agent/common/user_hooks.clj define-hook (rejects gated events: observer-only in v1)"
+  :test "brainyard.hooks-test/user-hooks-gate-tool-calls"}
+ {:id "session-hook-payload-is-a-value"
+  :brainyard "components/agent core/session.clj get-or-create-session / InMemorySessionStore delete-session (hooks/fire! :agent.session/created|closed {:session-id :user-id :session !s}); core/hooks.clj event-catalog lists :agent.session/resumed, fired nowhere"
+  :test "brainyard.hooks-test/a-session-fires-created-or-resumed-and-closed"}
+ {:id "hook-commands-renamed"
+  :brainyard "agent/common/user_hooks.clj hook-agent$* (hooks-commands, bound in hook_agent.clj)"
+  :test "brainyard.hooks-test/user-hooks"}
+ {:id "tool-blocked-terminated-by"
+  :brainyard "agent/common/coact_agent.clj coact-tool-dispatch-action (block path; :terminated-by stays nil → :answer)"
+  :test "brainyard.hooks-test/a-blocked-tool-call-ends-the-turn"}
+ {:id "bedrock-via-cli"
+  :brainyard "clj-llm/core/bedrock.clj (SigV4-signed HTTP to bedrock-runtime)"
+  :test "brainyard.cache-test/bedrock-invocation-and-usage"}
+ {:id "config-files-merge"
+  :brainyard "agent/core/config.clj resolve-scope-dir :auto (project file if present, else user)"
+  :test "brainyard.config-test/layers"}
+ {:id "config-file-never-throws"
+  :brainyard "agent/core/config.clj read-edn-config (unguarded edn/read-string)"
+  :test "brainyard.config-test/the-file-is-brainyards-shape"}
+ {:id "config-env-from-type"
+  :brainyard "agent/core/config.clj config-schema :env-fn (73 hand-written fns)"
+  :test "brainyard.config-test/environment"}
+ {:id "permission-by-effects"
+  :brainyard "agent/common/tool_permission.clj gate-matches? / deny-matches? (tool-name globs only)"
+  :test "brainyard.permission-test/permission-gate"}
+ {:id "path-match-by-segment"
+  :brainyard "agent/common/reference.clj resolve-allowed-path (string prefix) vs agent-tui permissions.clj within-allowed-dir? (segment-aware)"
+  :test "brainyard.permission-test/path-gate"}
+ {:id "write-paths-use-allowed-dirs"
+  :brainyard "agent/common/reference.clj validate-write-path (/tmp, java.io.tmpdir and .brainyard only)"
+  :test "brainyard.permission-test/path-gate"}
+ {:id "logins-and-keys-are-denied-paths"
+  :brainyard "agent/common/reference.clj resolve-allowed-path (no path refused inside :allowed-dirs; default-allowed-dirs takes ~/.brainyard)"
+  :test "brainyard.permission-test/a-login-or-a-key-is-read-by-no-tool"}
+ {:id "permission-prompt-cli"
+  :brainyard "bases/agent-tui/.../permissions.clj tool-permission-confirm (TUI prompt, 30s timeout)"
+  :test "brainyard.permission-test/the-ask-channel"}
+ {:id "sandbox-self-exec"
+  :brainyard "components/os-sandbox core.clj self-exec-argv (native-image executable, then `which by`)"
+  :test "brainyard.permission-test/sandbox-argv"}
+ {:id "search-walks-all-files"
+  :brainyard "agent/common/tools.clj search → reference.clj list-files \"**/*\""
+  :test "brainyard.discovery-test/search"}
+ {:id "tool-args-coerced-leniently"
+  :brainyard "agent/core/tool.clj call-tool (malli decode + validate with llm-args-transformer only; :output-schema checked in tests)"
+  :test "brainyard.schema-test/every-tool-keeps-the-coercions-models-taught-the-port"}
+ {:id "agent-tool-ids"
+  :brainyard "agent/core/tool.clj defagent (bare symbol) and common/user_agents.clj (user$agent$<name>)"
+  :test "brainyard.agents-test/an-agent-is-a-tool"}
+ {:id "subagent-cycle-guard"
+  :brainyard "agent/core/tool.clj do-call-tool--agent (pushes the caller's instance id, tests the target's registry id)"
+  :test "brainyard.agents-test/the-three-guards"}
+ {:id "subagent-turn-budget"
+  :brainyard "agent/core/agent.clj evict-subagents-to-cap! (an LRU cap on live instances, and no bound at all on spending)"
+  :test "brainyard.agents-test/the-three-guards"}
+ {:id "subagent-instances-are-data"
+  :brainyard "agent/core/agent.clj !agent-registry (live agent objects, with .close unwinding sandbox and memory manager)"
+  :test "brainyard.agents-test/an-instance-stays-alive-and-remembers"}
+ {:id "subagent-guards-in-config"
+  :brainyard "agent/core/protocol.clj *call-depth* / *call-chain* (dynamic vars)"
+  :test "brainyard.agents-test/the-three-guards"}
+ {:id "skill-dispatch-synthesizes-an-agent"
+  :brainyard "agent/common/skills.clj delegate-to-skill-agent (invokes the registered :skill-agent defagent with the body as :agent-context)"
+  :test "brainyard.skills-test/a-skill-may-run-itself-in-an-agent"}
+ {:id "claude-cli-takes-its-settings-credential"
+  :brainyard "clj-llm claude-code provider (claude -p --setting-sources \"\": none of Claude Code's settings, its env's credential included)"
+  :test "brainyard.agent-test/claude-cli-signs-in-from-its-settings-credential"}
+ {:id "authored-agents-are-prose-only"
+  :brainyard "agent/common/user_agents.clj meta-agent$create (:instruction and :tool-context; tools are never bound)"
+  :test "brainyard.agents-test/defining-an-agent-is-checked-and-versioned"}
+ {:id "authoring-off-by-default"
+  :brainyard "agent/common/user_agents.clj meta-agent$* (registered with the rest of the command palette)"
+  :test "brainyard.agents-test/authoring-is-off-unless-asked-for"}
+ {:id "task-output-is-not-streamed"
+  :brainyard "agent/task/{manager,executor}.clj (line-by-line streaming, a 300ms drain, :last-output-age-ms)"
+  :test "brainyard.tasks-test/task-run-starts-a-job"}
+ {:id "agent-tier-in-the-spec"
+  :brainyard "agent/core/config.clj :agent-tier-map (config only, keyed by defagent type)"
+  :test "brainyard.agents-test/a-tier-is-clamped-into-the-agents-window"}
+ {:id "skill-description-matches"
+  :brainyard "agent/common/skills.clj find-skills (a flat 6 for any description hit, under the 10 a match needs)"
+  :test "brainyard.skills-test/a-skill-is-found-by-what-its-description-says-it-is-for"}
+ {:id "skills-results-carry-their-tool-id"
+  :brainyard "agent/common/skills.clj skills$list / skills$find (entries :name :type :scope …, no tool id)"
+  :test "brainyard.skills-test/a-skill-is-a-tool-whose-body-arrives-only-when-called"}
+ {:id "project-scope-harness-skills"
+  :brainyard "agent/common/skills.clj roots (~/.claude/skills and ~/.agents/skills, user scope only)"
+  :test "brainyard.skills-test/a-project-may-keep-skills-where-its-other-harnesses-do"}
+ {:id "bash-command-gate"
+  :brainyard "agent/task/commands.clj validate-bash-paths (paths only, task$run only); no command allow or deny list"
+  :test "brainyard.permission-test/an-allow-list-refuses-what-it-cannot-read"}
+ {:id "compact-tool-listing"
+  :brainyard "agent/core/context/formatters.clj format-agent-tools (ReAct) vs format-agent-tools-compact (CoAct, ids only)"
+  :test "brainyard.discovery-test/the-tool-listing-is-one-line-each"}
+ {:id "memory-is-an-external-command"
+  :brainyard "components/memory/** (SQLite, FTS5, sqlite-vec, L1/L2/L3, context graph, capture sidecar)"
+  :test "brainyard.memory-test/a-store-is-a-command"}
+ {:id "memory-is-never-injected"
+  :brainyard "agent/common/context_actions.clj prepare-recalled-memory-action (## Recalled Memory in every turn; :recall-mode conditional gates on :recall-min-terms)"
+  :test "brainyard.session-test/a-turn-is-told-the-memories-its-question-is-about"}
+ {:id "search-has-no-memory-section"
+  :brainyard "agent/common/tools.clj search, block 4 (mem/contextual-recall)"
+  :test "brainyard.memory-test/search-has-no-memory-section"}
+ {:id "no-http-streaming"
+  :brainyard "clj-llm/core/{sse,sse_flow,http_flow,sse_publisher}.clj (SSE for every HTTP provider, on java.net.http BodyHandlers/ofPublisher)"
+  :test "brainyard.agent-test/streaming-is-off-unless-asked-for"}
+
+ {:id "evaluation-passes-params-explicitly"
+  :brainyard "clj-llm/core/evaluate.clj evaluate-pass (bound-fn over a thread pool, conveying *params* and *trace*)"
+  :test "brainyard.programs-test/demos-are-proposed-only-when-they-beat-no-demos"}
+
+ {:id "evaluation-does-not-re-retry"
+  :brainyard "clj-llm/core/evaluate.clj run-one (:transient retried up to :max-transient-retries)"
+  :test "brainyard.programs-test/what-a-failing-call-costs-the-run"}
+
+ {:id "comparison-is-paired-over-examples"
+  :brainyard "clj-llm/core/evaluate.clj compare-scores (Welch's t over the two runs' per-pass means)"
+  :test "brainyard.programs-test/a-comparison-is-paired-over-examples"}
+
+ {:id "spend-cap-is-not-dollars"
+  :brainyard "clj-llm/core/evaluate.clj :budget-usd, from the trace's [:usage :cost :total-cost]"
+  :test "brainyard.programs-test/what-a-failing-call-costs-the-run"}
+
+ {:id "seeded-shuffle-is-fisher-yates"
+  :brainyard "clj-llm/core/optimize.clj shuffle-seeded (java.util.Collections/shuffle)"
+  :test "brainyard.programs-test/optimizers-propose-demos-and-apply-nothing"}
+
+ {:id "mcp-reads-raw-bytes"
+  :brainyard "agent/mcp/client.clj connect! (BufferedReader over the child's InputStream, .readLine per message)"
+  :test "brainyard.mcp-test/a-notification-is-not-mistaken-for-a-reply"}
+
+ {:id "mcp-results-are-flattened"
+  :brainyard "agent/mcp/integration.clj call-server-tool (the raw :content vector reaches the model; isError is never read)"
+  :test "brainyard.mcp-test/a-result-is-flattened-to-what-a-model-can-read"}
+
+ {:id "mcp-errors-carry-their-code"
+  :brainyard "agent/mcp/client.clj send-request! (the JSON-RPC :code/:message live in ex-data; only a generic string reaches the model)"
+  :test "brainyard.mcp-test/a-protocol-error-reaches-the-model-with-its-code"}
+
+ {:id "mcp-capabilities-shape"
+  :brainyard "agent/mcp/client.clj connect! (stdio sends :sampling beside :capabilities rather than inside it)"
+  :why "The MCP specification puts sampling inside capabilities, and brainyard's own HTTP path does; only its stdio path differs, which is a bug rather than a decision. Nothing here can test a server's reaction, since a server that ignores an unknown top-level key behaves identically either way."}
+
+ {:id "mcp-answers-elicitation"
+  :brainyard "agent/mcp/client.clj (a server's request is skipped while the client waits for its reply)"
+  :test "brainyard.mcp-test/a-server-may-ask-the-person-mid-call"}
+
+ {:id "other-programs-declare-config-keys"
+  :brainyard "agent/core/config.clj (every key outside the schema reported)"
+  :test "brainyard.config-test/a-key-another-program-declares-is-not-called-unknown"}
+
+ {:id "mcp-is-stdio-only"
+  :brainyard "agent/mcp/client.clj HttpMCPClient + clj-oauth (Streamable HTTP, RFC 9728 discovery, device/loopback OAuth, session ids)"
+  :test "brainyard.mcp-test/a-server-becomes-tools"}
+
+ {:id "mcp-has-no-call-proxy"
+  :brainyard "agent/mcp/commands.clj mcp$tools :op :call (a batch proxy beside the mcp$<server>$<tool> bindings)"
+  :test "brainyard.mcp-test/mcp-tools-are-tools-like-any-other"}
+
+ {:id "refusal-rides-the-notice-channel"
+  :brainyard "agent/common/coact_agent.clj append-evaluation-record! (a synthetic [evaluation] iteration record with :rejected-answer, :verdict and :feedback)"
+  :test "brainyard.agent-test/an-answer-the-tools-do-not-support-is-refused"}
+
+ {:id "edit-agent-has-no-transaction"
+  :brainyard "agent/common/edit_agent.clj + common/edit.clj edit$apply (probe/apply/verify/persist/rollback in one command, plus an edit record)"
+  :test "brainyard.agents-test/the-shipped-roster"}
+
+ {:id "plan-agent-has-no-dossier"
+  :brainyard "agent/common/plan_agent.clj (a dossier every turn, read back by todo-agent and exec-agent via plan$read-dossier)"
+  :test "brainyard.agents-test/the-shipped-roster"}
+
+ {:id "set-f1-is-nameable"
+  :brainyard "agent/common/programs.clj metrics (exact-match, schema-valid, graph-extract-f1)"
+  :test "brainyard.programs-test/a-metric-is-named-and-an-unknown-one-says-what-exists"}
+ {:id "trajectory-success-is-an-allowlist"
+  :brainyard "agent/common/coact_agent.clj coact-store-results-action (success = answer non-blank AND terminated-by not in #{:max-iterations-exhausted :llm-error :none-channel-loop-guard})"
+  :test "brainyard.trajectory-test/a-record-says-how-the-turn-ended-and-whether-that-counts-as-success"}
+ {:id "event-log-is-line-oriented"
+  :brainyard "components/mulog publisher.clj make-rotating-pretty-file-publisher (pprint'd EDN paragraphs to ~/.brainyard/logs/agent-tui-app.log, 50 MiB x 3); agent/common/log.clj reads them by splitting on blank lines"
+  :test "brainyard.eventlog-test/a-torn-line-costs-only-itself"}
+ {:id "config-never-writes-permissions"
+  :brainyard "agent/common/config.clj writable-prefixes (includes [:permissions :mode] and [:permissions :allowed-dirs]) with sensitive-prefixes guarding them only against self-confirm under :auto?"
+  :test "brainyard.configbox-test/a-permission-key-is-never-written-whoever-asks"}
+ {:id "config-writes-are-atomic"
+  :brainyard "agent/core/config.clj write-edn-config! (spit of pprint output, no temp file, no rename)"
+  :test "brainyard.configbox-test/a-write-leaves-no-half-written-file"}
+ {:id "config-auto-scope-is-the-project"
+  :brainyard "agent/core/config.clj resolve-scope (:auto = the project file when it EXISTS, else the user's) vs write-edn-config!'s own :auto (the project DIRECTORY when it resolves)"
+  :test "brainyard.configbox-test/auto-is-the-project-never-the-users-own-config"}
+ {:id "list-tools-summarises"
+  :brainyard "agent/common/tools.clj list-tools → grouped-tool-index {:total :families {family [{:id :description}]}} (every tool) and tool-family (segment before the first $)"
+  :test "brainyard.discovery-test/list-tools"}
+ {:id "mcp-registry-search"
+  :brainyard "none — agent/mcp/integration.clj create-seed-mcp-config is the whole set brainyard offers"
+  :test "brainyard.mcp-test/slash-mcp-searches-the-registry-and-adds-from-it-disabled"}
+ {:id "mcp-catalogue-is-separate"
+  :brainyard "agent/mcp/integration.clj create-seed-mcp-config / builtin-default-servers (seeds deep-merged under [:mcp :servers]) and persist-server-enabled!"
+  :test "brainyard.mcp-test/slash-mcp-finds-adds-and-removes"}
+ {:id "mcp-command-manages-the-set"
+  :brainyard "bases/agent-tui commands.clj handle-mcp-command (/mcp NAME start|stop|auth|status) and agent/mcp commands.clj mcp$lifecycle (persists :enabled)"
+  :test "brainyard.mcp-test/slash-mcp-manages-the-servers-and-their-tools"}
+ {:id "compact-keeps-recent-turns"
+  :brainyard "bases/agent-tui commands.clj compact-cmd (/compact [ratio 0.05-0.9]) → agent/compact-context! over previous turns, agent context and iterations"
+  :test "brainyard.session-test/compact-summarizes-the-earlier-turns"}
+ {:id "output-style-is-a-config-key"
+  :brainyard "bases/agent-tui commands.clj /display-format quiet|normal|verbose|debug"
+  :test "brainyard.session-test/output-style-sets-how-much-is-shown"}
+ {:id "sessions-are-a-list"
+  :brainyard "bases/agent-tui commands.clj /session tabs|switch|new|close|rename, Ctrl-N/Ctrl-P, and the origin-session settling in tui/renderer.md"
+  :test "brainyard.tui-test/several-sessions-are-a-list"}
+ {:id "compaction-summary-is-a-model-call"
+  :brainyard "agent/common/coact_agent.clj :collapse-iterations (summarize-iterations-deterministic = format-iterations-block of the older iterations)"
+  :test "brainyard.context-test/tier-2-summarizes-before-dropping"}
+ {:id "feature-is-part-of-config"
+  :brainyard "bases/agent-tui commands.clj handle-config-command (all keys, alphabetical) beside handle-feature-command (the same config grouped by family, on|off per feature)"
+  :test "brainyard.session-test/config-is-a-command"}
+ {:id "permission-mode-cycles-with-shift-tab"
+  :brainyard "agent/core/config.clj :permission-mode, read once from config and --permission-mode; agent-tui has no binding that changes it"
+  :test "brainyard.tui-test/the-footer-shows-the-permission-mode-and-shift-tab-cycles-it"}
+ {:id "config-reload-reports-rather-than-applies"
+  :brainyard "agent/common/config.clj config$reload (swaps the cached !global-config so the new values are live)"
+  :test "brainyard.session-test/an-edited-config-applies-from-the-next-turn"}
+ {:id "auto-park-reuses-the-wakeup"
+  :brainyard "agent/common/auto_notify.clj (a second watch mechanism beside task/commands.clj task$wakeup: hooks/register-hook! on :task/completed with its own !armed-tasks, !inbox, !resume-armed and !resume-counts, mirroring the wakeup watch's add-watch)"
+  :test "brainyard.tasks-test/polling-one-task-twice-parks-the-turn"}
+ {:id "task-notify-arms-once-per-turn"
+  :brainyard "agent/common/auto_notify.clj arm-auto-notify! (one :task/completed watch per task, coalesced at maybe-resume!)"
+  :test "brainyard.tasks-test/a-turn-that-leaves-tasks-running-arms-one-wakeup"}
+ {:id "parent-trail-off-by-default"
+  :brainyard "agent/core/config.clj :parent-trail-k {:default 3}, resolved on the CALLER in common/coact_agent.clj parent-handoff-st-memory"
+  :test "brainyard.agents-test/a-child-is-shown-nothing-of-the-caller-unless-it-asks"}
+ {:id "unknown-cost-is-not-free"
+  :brainyard "clj-llm/core/usage.clj calculate-cost (an unpriced model returns {:total-cost 0.0 ...} and logs ::no-pricing-found at debug)"
+  :test "brainyard.cost-test/an-unpriced-call-costs-nil-not-zero"}
+ {:id "prices-are-a-resource"
+  :brainyard "clj-llm/core/usage.clj default-pricing (a Clojure literal in source, snapshotted into a defonce atom, overridable only by calling set-pricing!)"
+  :test "brainyard.cost-test/a-project-can-correct-a-price-without-a-rebuild"} {:id "wire-headers-redacted"
+  :brainyard "clj-llm/core/llm.clj (headers bound at the call site, never logged)"
+  :test "brainyard.wire-test/a-recorded-call-carries-no-credential"}
+ {:id "bedrock-global-and-long-context-prices"
+  :brainyard "clj-llm/core/usage.clj normalize-bedrock-model-id + default-pricing (the region prefix stripped, one flat-rate row per model)"
+  :test "brainyard.cost-test/a-bedrock-global-endpoint-is-priced-apart-from-a-regional-one"}
+ {:id "schedule-fires-into-the-session"
+  :brainyard "agent/common/schedule.clj default-execute-job + ensure-scheduler! (a daemon ticker, a separate agent run per job, its answer to a file; off unless :enable-scheduler)"
+  :test "brainyard.schedule-test/a-due-job-is-its-sessions-next-turn"}
+ {:id "models-ahead-of-brainyard"
+  :brainyard "clj-llm/core/providers.clj model-catalog (curated through Opus 5, Sonnet 5, Haiku 4.5, Fable 5, Mythos 5)"
+  :test "brainyard.cost-test/every-curated-claude-model-is-priced"}
+ {:id "answer-markdown-is-laid-out"
+  :brainyard "bases/agent-tui/render.clj markdown-line / apply-inline-md (line-at-a-time ANSI styling: no table layout, no hanging indent, *italic* as ANSI italic)"
+  :test "brainyard.tui-test/a-pipe-table-is-laid-out-as-a-table"}
+ {:id "a-turn-is-a-column-of-bullets"
+  :brainyard "bases/agent-tui/render.clj iteration-header ([+] Iteration N / M above each iteration's calls)"
+  :test "brainyard.tui-test/an-iteration-says-what-it-is-doing-without--v"}
+ {:id "the-input-is-framed-not-under-a-status-bar"
+  :brainyard "docs/tui/renderer.md + layout.clj format-status (one status bar with idle/running/paused, queue, tasks, calls, tokens, cost, above the prompt)"
+  :test "brainyard.tui-test/the-input-sits-between-two-rules-under-what-is-running"}
+ {:id "a-long-turn-ends-with-a-recap"
+  :brainyard "none — a turn ends with its answer and the status bar (docs/tui/renderer.md); coact_agent.clj's 'recap' is an iteration summary for the model, not the person"
+  :test "brainyard.session-test/a-long-turn-ends-with-a-recap"}
+ {:id "a-resume-replays-the-kernels-transcript"
+  :brainyard "bases/agent-tui persist_bridge.clj tee-scrollback! + core.clj :resume-tail (the rendered scrollback's bytes, replayed on resume)"
+  :test "brainyard.persist-test/a-resume-says-again-what-was-said"}
+ {:id "a-subagent-has-its-own-buffer"
+  :brainyard "docs/tui/renderer.md + persist_bridge.clj tee-sub-output-scrollback! (one shared sub-output tab per root, labelled with a ↓ suffix)"
+  :test "brainyard.tui-test/a-subagent-has-a-transcript-of-its-own"}
+ {:id "a-fold-is-clicked-open"
+  :brainyard "components/display-block display_block_ui.clj ([*Collapsed:<id>*] markers; Tab steps between them while scrolled back, Enter toggles, the body can go to $EDITOR)"
+  :test "brainyard.tui-test/a-long-result-folds-and-opens-in-an-editor"}
+ {:id "grapheme-width-is-assumed"
+  :brainyard "docs/tui/renderer.md 'Wide-character width' (BY_GRAPHEME_WIDTH=auto, DECRQM 2027 probe, ~/.brainyard/terminal-caps.edn cache, tmux scratch-pane measurement)"
+  :test "brainyard.tui-test/the-glyph-widths-the-renderer-assumes"}
+ {:id "provider-key-shapes-are-recognised"
+  :brainyard "agent/common/config.clj (sk-[A-Za-z0-9]{20,}) and trajectory_export.clj (sk-[A-Za-z0-9]{16,}): neither matches sk-ant-api03-… or sk-proj-…"
+  :test "brainyard.trajectory-export-test/refusing-and-redacting-do-not-use-the-same-list"}
+ {:id "a-drag-selects-in-the-app"
+  :brainyard "bases/agent-tui/layout.clj mouse-reporting note (selection needs the terminal's bypass modifier while mouse reporting is on) + clipboard.clj copy! for explicit copies"
+  :test "brainyard.tui-test/a-drag-selects-and-copies"}
+ {:id "a-line-break-escaped-twice-is-decoded"
+  :brainyard "clj-llm core/predict.clj (lift-flattened-collection, then coercion) takes a string output as the JSON decodes it; nothing repairs doubly escaped line breaks"
+  :test "brainyard.agent-test/a-line-break-escaped-twice-is-a-line-break"}
+ {:id "a-reply-outside-its-schema-is-repaired"
+  :brainyard "clj-llm core/predict.clj + chain_of_thought.clj: validate-output, then mulog/warn ::output-validation-failed and the reply is used"
+  :test "brainyard.agent-test/a-reply-is-held-to-its-schema"}
+ {:id "a-tool-call-is-name-and-args"
+  :brainyard "agent/common/schema.clj ::tool-call [:tool-name :tool-args] (coact_agent.clj ThinkActCode :tool-calls ::acs/tool-calls)"
+  :test "brainyard.agent-test/a-reply-is-held-to-its-schema"}
+ {:id "skills-write-is-the-agents-own"
+  :brainyard "agent/common/skills.clj skills$write (bound only on skill_agent.clj; the base agents get skills-read-subset) + skill_watch.clj (reload at the end of the turn)"
+  :test "brainyard.skills-test/skills-write-creates-updates-and-removes-a-skill"}
+ {:id "a-staged-proposal-is-announced"
+  :brainyard "agent/common/self_improve_nudge.clj (a notice attached to the next turn's iteration record, telling the model to tell the user)"
+  :test "brainyard.self-improve-test/a-window-of-one-judges-each-turn-as-it-ends"}
+ {:id "one-proposals-gate"
+  :brainyard "agent/common/skill_distill/proposals.clj + skill-proposal$list/$read/$accept/$reject; programs reviewed apart"
+  :test "brainyard.proposals-test/every-kind-waits-in-one-list"}
+ {:id "skills-cli-as-it-is"
+  :brainyard "agent/common/skills.clj cli-find / cli-install / cli-sync (--target claude|agents on every npx skills call)"
+  :test "brainyard.skills-test/a-package-is-found-installed-and-synced-through-npx-skills"}
+ {:id "tool-distillation"
+  :brainyard "agent/common/skill_distill.clj (skills only; code blocks are read as trajectory text, never kept as tools)"
+  :test "brainyard.tool-distill-test/a-body-run-twice-becomes-a-proved-proposal"}
+ {:id "refinement-judges-only-writable-skills"
+  :brainyard "agent/common/skill_refine.clj turn-refine-handler (judges every loaded skill$; accept-proposal! then calls skills$write :update, which refuses a non-brainyard skill)"
+  :test "brainyard.self-improve-test/a-failed-turn-names-the-skills-it-used"}
+ {:id "one-distiller-for-every-window"
+  :brainyard "agent/common/skill_distill.clj :skill-distill-mode #{:per-turn :at-cadence} + skill_distill/signatures.clj SkillDistillation (one turn) and SkillDistillationBatch (a window)"
+  :test "brainyard.self-improve-test/a-window-of-one-judges-each-turn-as-it-ends"}
+ {:id "distillation-auto-mode"
+  :brainyard "agent/common/skill_distill.clj (a window is judged only when the turn tally reaches :skill-distill-every-n-turns, or at session end)"
+  :test "brainyard.self-improve-test/a-window-is-judged-as-soon-as-a-procedure-repeats"}
+ {:id "an-injected-turn-names-its-sender"
+  :brainyard "bases/agent-tui core.clj tui-queue-process-fn :processing notify (a side-ask's input is echoed into the tab as ordinary user text, with no badge)"
+  :test "brainyard.channel-test/a-session-answers-over-its-own-socket"}
+ {:id "the-channel-names-its-frame-version"
+  :brainyard "components/ask-channel (the :status reply and meta.edn carry no version; every ask.sock client is built with the session)"
+  :test "brainyard.channel-test/the-queue-is-bounded-and-a-timeout-does-not-withdraw"}
+ {:id "an-agent-sdk"
+  :brainyard "components/acp, acp-client, bases/acp-stub-agent: an ACP client of other agents, no SDK and no ACP agent of its own"
+  :test "brainyard.sdk-test/an-sdk-session-is-an-ordinary-session"}
+ {:id "a-session-is-shared-through-a-sidecar"
+  :brainyard "none — brainyard shares a session only as a screen (--web, ttyd); ask.sock has no :inject :as :note, no :approval, and the permission gate publishes no events"
+  :test "brainyard.share-test/a-note-is-for-people-only"}
+ {:id "a-piped-session-has-no-channel"
+  :brainyard "bases/agent-tui core.clj start-ask-listener! (every session with the feature on listens; a TTY-less host is by run --serve)"
+  :test "brainyard.channel-test/a-session-answers-over-its-own-socket"}
+ {:id "sessions-ask-each-other"
+  :brainyard "projects/agent-tui-app main.clj cmd-ask-attach / cmd-sessions-list (senders are the CLI and scripts; --attach takes the session id; the model has no session tools)"
+  :test "brainyard.channel-test/a-session-finds-and-asks-its-peers"}
+ {:id "a-headless-session-has-a-persona-and-a-name"
+  :brainyard "docs/session-channel.md 'by run --serve -s <id>' (a headless host resumes or starts a session of the default agent; it is named by its session id and :rename-session)"
+  :test "brainyard.channel-test/a-headless-session-takes-an-agents-persona"}
+ {:id "agent-teams"
+  :brainyard "none — brainyard has no leader/member teams: one host process may hold several sessions (:new-session and friends), and A2A peers are the only agent-to-agent calls"
+  :test "brainyard.teams-test/a-leader-runs-a-team-of-live-sessions"}
+ {:id "one-session-per-process"
+  :brainyard "bases/agent-tui core.clj ask-handle-fn :new-session :resume-session :switch-session (one host process holds several sessions, each reachable through any session's socket)"
+  :test "brainyard.channel-test/the-other-ops-reach-the-session"}
+ {:id "a-run-resumes-as-a-set"
+  :brainyard "bases/agent-tui core.clj :resume-session / format-resume-hint (one session per --resume; the exit hint lists each tab's id)"
+  :test "brainyard.persist-test/a-run-remembers-the-set-it-had-open"}
+ {:id "the-default-model-is-config"
+  :brainyard "clj-llm core/providers.clj get-default-lm (a process-wide default LM from LLM_PROVIDER and the providers config; :lm-config is read-only, switched with /model)"
+  :test "brainyard.main-test/a-run-asks-the-configured-model-not-whichever-key-is-set"}
+ {:id "update-file-takes-old-new"
+  :brainyard "components/agent/src/ai/brainyard/agent/core/tool.clj arg-alias->canonical (old_string/new_string and spellings, every tool, canonical wins)"
+  :test "brainyard.agent-test/update-file-takes-the-names-models-send"}
+ {:id "a-wakeup-carries-its-request"
+  :brainyard "agent/common/task/commands.clj task$wakeup and auto_notify.clj (the resume turn names the task, its status and the note)"
+  :test "brainyard.tasks-test/a-woken-turn-is-given-the-request-it-parked-from"}
+ {:id "side-tasks-run-light"
+  :brainyard "components/agent core/config.clj resolve-tier-lm (:agent-lm-tiers ships all-nil; an unmapped tier leaves the call on its LM)"
+  :test "brainyard.predictor-test/lm-resolution-order"}
+ {:id "tool-lisp-indent-repair"
+  :brainyard "components/clj-sandbox core/sandbox.clj try-repair-eof / repair-code (appends the closers edamame expects at EOF, silently; logged at debug)"
+  :test "brainyard.toolbox-test/an-unbalanced-body-is-repaired-from-its-indentation"}
+ {:id "the-thought-is-for-the-person-watching"
+  :brainyard "clj-llm core/prompt.clj reasoning-field-desc (one reasoning description for every CoT signature: 'Brief reasoning leading to the answer … State the decision and why')"
+  :test "brainyard.predictor-test/the-loops-thought-is-for-the-person-watching"}
+ {:id "claude-agent-in-tmux"
+  :brainyard "components/agent common/acp_agent.clj acp-agent :claude-code (a session-shared ACP connection: an AcpClient subprocess with one model-pinned ACP session; docs/design/acp-agent-management.md)"
+  :test "brainyard.claude-agent-test/the-loop-briefs-guides-and-reports"}
+ {:id "init-sets-up-the-project"
+  :brainyard "components/agent common/init_agent.clj and common/init.clj (/init authors .brainyard/BRAINYARD.md, seeded from CLAUDE.md/AGENTS.md; docs/design/init-agent-design.md)"
+  :test "brainyard.session-test/init-is-a-turn-that-drives-agent-init"}
+ {:id "login-runs-the-cli"
+  :brainyard "bases/agent-tui commands.clj handle-login-command and components/agent common/auth.clj (:cli-delegate targets are detect-and-instruct; docs/design/login-auth-methods.md follow-up 4: PTY takeover)"
+  :test "brainyard.auth-test/signing-in-runs-the-clis-own-login-with-the-terminal"}
+ {:id "explore-shell-is-held-to-reading"
+  :brainyard "components/agent common/explore_agent.clj (bash among explore-agent's tools, limited only by its instruction: find/git log/git grep/tree/rg/fd)"
+  :test "brainyard.agents-test/the-shipped-roster"}
+ {:id "slash-commands-become-turns"
+  :brainyard "bases/agent-tui commands.clj handle-init-command (/init dispatches init-agent directly through agent/call-tool)"
+  :test "brainyard.session-test/init-is-a-turn-that-drives-agent-init"}
+ {:id "an-export-takes-a-turn-range"
+  :brainyard "components/agent common/trajectory_export.clj trajectory$export (:session-id or :all; every turn record of the sessions, no range)"
+  :test "brainyard.trajectory-export-test/only-the-turns-asked-for-are-exported"}
+ {:id "trajectory-keeps-the-permission-mode"
+  :brainyard "components/agent common/trajectory.clj build-record (no permission mode in a turn's record)"
+  :test "brainyard.trajectory-test/a-record-keeps-the-permission-mode-it-ran-under"}
+ {:id "session-and-agent-are-singular"
+  :brainyard "projects/agent-tui-app main.clj cli spec (:command \"sessions\", cmd-sessions-list)"
+  :test "brainyard.main-test/session-and-agent-are-singular-and-answer-to-their-old-names"}
+ {:id "session-list-shows-saved-sessions"
+  :brainyard "projects/agent-tui-app main.clj cmd-sessions-list (enriched-summaries: sessions with an :ask-socket-path only)"
+  :test "brainyard.sdk-test/an-sdk-session-is-listed-by-session-list-as-saved"}
+]

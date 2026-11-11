@@ -1,0 +1,92 @@
+#!/bin/bash
+# A stand-in for an interactive Claude Code, for claude-host-test (byj-gly.290.2):
+# what agent$claude reads and types, and nothing more. It writes the live record
+# (<home>/sessions/<pid>.json) and the transcript
+# (<home>/projects/<key>/<id>.jsonl) as Claude Code does (RFC-033, RFC-039), and
+# reads the person's lines from its terminal.
+#
+#   fake-claude --fake-home H [--fake-trust] --session-id ID [claude's flags] [prompt]
+#
+# --fake-trust: the folder-trust dialog first, cursor on "No, exit"; Enter there
+#   exits 1, as Claude Code does.
+# A prompt containing ASK puts up a permission dialog (status waiting): 1 answers
+#   it and the turn ends; 3 interrupts the turn.
+# A turn: status busy, the prompt written, 0.3 s, status idle, and only 0.6 s
+#   later the reply — the transcript lags the record, as Claude Code's does.
+# --fake-busy S: busy for S seconds instead of 0.3 — 0 is a turn whose busy
+#   no poll catches, as a short one on a loaded machine (byj-gly.419).
+
+HOME_DIR=""; ID=""; PROMPT=""; TRUST=""; BUSY=0.3
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --fake-home) HOME_DIR=$2; shift 2;;
+    --fake-trust) TRUST=1; shift;;
+    --fake-busy) BUSY=$2; shift 2;;
+    --resume) ID=$2; RESUMED=1; shift 2;;
+    --permission-mode) MODE=$2; shift 2;;
+    --session-id|--model|--settings) [ "$1" = --session-id ] && ID=$2; shift 2;;
+    --add-dir) shift 2;;
+    -*) shift;;
+    *) PROMPT=$1; shift;;
+  esac
+done
+
+CWD=$(pwd -P)
+KEY=$(printf '%s' "$CWD" | sed 's/[^A-Za-z0-9]/-/g')
+REC="$HOME_DIR/sessions/$$.json"
+LOG="$HOME_DIR/projects/$KEY/$ID.jsonl"
+N=0
+
+esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+# inside tmux, Claude Code's record names its pane: session:@window.%pane
+TMUXF=""; [ -n "$TMUX_PANE" ] && TMUXF=",\"tmux\":\"fake:@0.$TMUX_PANE\""
+status() { mkdir -p "$HOME_DIR/sessions"
+  printf '{"pid":%s,"sessionId":"%s","cwd":"%s","kind":"interactive","status":"%s","updatedAt":%s%s}\n' \
+    $$ "$ID" "$CWD" "$1" "$(date +%s)000" "$TMUXF" > "$REC.tmp" && mv -f "$REC.tmp" "$REC"; }
+line() { mkdir -p "$(dirname "$LOG")"; printf '%s\n' "$1" >> "$LOG"; }
+user() { line "{\"type\":\"user\",\"sessionId\":\"$ID\",\"message\":{\"role\":\"user\",\"content\":\"$(esc "$1")\"}}"; }
+reply() { N=$((N+1)); line "{\"type\":\"assistant\",\"sessionId\":\"$ID\",\"message\":{\"id\":\"m-$N\",\"model\":\"claude-haiku-4-5\",\"stop_reason\":\"end_turn\",\"content\":[{\"type\":\"text\",\"text\":\"$(esc "$1")\"}],\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}"; }
+trap 'rm -f "$REC"' EXIT
+# closed (its tmux session killed), it takes a moment to exit, as Claude Code
+# can: its record says it is live until then (byj-gly.291)
+trap 'sleep 1; exit 0' HUP
+
+if [ -n "$TRUST" ]; then
+  cursor=0
+  draw() { clear; echo " Accessing workspace:"; echo " $CWD"
+    if [ $cursor = 0 ]; then echo " ❯ No, exit"; echo "   Yes, I trust this folder"
+    else echo "   No, exit"; echo " ❯ Yes, I trust this folder"; fi; }
+  draw
+  while true; do
+    IFS= read -rsn1 k
+    if [ "$k" = $'\e' ]; then read -rsn2 rest; [ "$rest" = "[B" ] && cursor=1; [ "$rest" = "[A" ] && cursor=0; draw
+    elif [ -z "$k" ]; then [ $cursor = 0 ] && exit 1; break; fi
+  done
+  clear
+fi
+
+turn() {
+  status busy; user "$1"; echo "❯ $1"
+  if [[ "$1" == *ASK* ]]; then
+    sleep 0.2; status waiting; echo " Do you want to proceed?"; echo " ❯ 1. Yes"; echo "   3. No"
+    IFS= read -rsn1 k
+    if [ "$k" = 3 ]; then status idle; line '{"type":"user","message":{"content":"[Request interrupted by user]"}}'; echo "Interrupted"; return; fi
+    status busy
+  fi
+  sleep "$BUSY"; status idle; sleep 0.6; reply "echo: $1"; echo "⏺ echo: $1"
+}
+
+# resumed, Claude Code writes its record before it says it is idle
+if [ -n "$RESUMED" ]; then
+  mkdir -p "$HOME_DIR/sessions"
+  printf '{"pid":%s,"sessionId":"%s","cwd":"%s","kind":"interactive"}\n' $$ "$ID" "$CWD" > "$REC"
+  sleep 1
+fi
+status idle
+# the footer that says the permission mode, as Claude Code's does
+case "$MODE" in auto) echo "  ⏵⏵ auto mode on";; acceptEdits) echo "  ⏵⏵ accept edits on";; *) echo "  ⏸ manual mode on";; esac
+[ -n "$PROMPT" ] && turn "$PROMPT"
+while IFS= read -r l; do
+  [ "$l" = "/exit" ] && exit 0
+  [ -n "$l" ] && turn "$l"
+done

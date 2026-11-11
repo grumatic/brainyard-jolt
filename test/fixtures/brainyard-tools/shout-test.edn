@@ -1,0 +1,3 @@
+{:name "shout-test",
+ :description "Uppercase the text.",
+ :input-schema [:map [:text :string]]}

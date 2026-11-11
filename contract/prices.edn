@@ -1,0 +1,185 @@
+;; What a model costs, in USD per 1,000,000 tokens (RFC-025).
+;;
+;; A RESOURCE, not code, because a price is not a fact about this program: it
+;; changes when a vendor changes it, and correcting one should not need a
+;; rebuild (RFC-001). A project overrides or extends this with its own
+;; `.brainyard/prices.edn`, merged over the top per provider.
+;;
+;; brainyard keeps the same table as a Clojure literal in
+;; `clj-llm/core/usage.clj`, keyed `[provider model]`. Nested here because this
+;; is a file people edit, and a nested map diffs and reads better than a
+;; hundred two-element vector keys.
+;;
+;; `:cache-read` and `:cache-write` are ABSOLUTE rates, not multipliers of
+;; `:input`. A model with no prompt caching simply omits them — and note that
+;; an absent rate costs exactly what a zero would, since the token counts are
+;; zero too.
+;;
+;; **A price is curation.** Nothing here is generated or refreshed
+;; automatically, which is brainyard's policy and worth keeping: a wrong price
+;; that arrived by itself is harder to notice than a missing one, because a
+;; missing one reports as UNKNOWN (RFC-025) rather than as a number.
+;;
+;; Only the providers this port can actually reach are priced. `claude-code`
+;; is absent on purpose — the CLI reports its own `total_cost_usd`, which is
+;; what it really billed, and a table cannot beat that. `openrouter` and
+;; `freellm` resell at their own margins, so the underlying model's rate would
+;; be a guess; `ollama` is local and `mock` is free. `codex` (Codex CLI on a
+;; ChatGPT plan, byj-gly.430.9) is priced from `:openai`, as the API would bill
+;; its model (`cost/rates-for`): its CLI reports tokens, not a cost.
+
+{:anthropic
+ ;; https://platform.claude.com/docs/en/about-claude/pricing — checked 2026-10-09.
+ ;; :cache-write is the 5-minute write (1.25x input). :cache-read is 0.1x input
+ ;; except where the vendor says otherwise: 0.05x on Opus 5.5 and Sonnet 5.5
+ ;; (Sonnet 5.5's halved on 2026-10-07), 0.025x on Fable 5.1 and Mythos 5.1.
+ ;; Sonnet 5's launch price ($2/$10) became its standard one; the rise to
+ ;; $3/$15 announced for 2026-09-01 did not happen. Haiku 5.5 is priced by a
+ ;; call's prompt length: over 100,000 input tokens, cache included, its
+ ;; :long-context rates (`cost/rates-at`).
+ {"claude-opus-5-5"           {:input 4.00  :output 20.00 :cache-read 0.20 :cache-write 5.00}
+  "claude-opus-5"             {:input 5.00  :output 25.00 :cache-read 0.50 :cache-write 6.25}
+  "claude-sonnet-5-5"         {:input 2.00  :output 10.00 :cache-read 0.10 :cache-write 2.50}
+  "claude-sonnet-5"           {:input 2.00  :output 10.00 :cache-read 0.20 :cache-write 2.50}
+  "claude-haiku-5-5"          {:input 0.10  :output 0.50  :cache-read 0.01 :cache-write 0.125
+                               :long-context {:over 100000 :input 0.50 :output 2.50 :cache-read 0.05 :cache-write 0.625}}
+  "claude-opus-4-8"           {:input 5.00  :output 25.00 :cache-read 0.50 :cache-write 6.25}
+  "claude-opus-4-7"           {:input 5.00  :output 25.00 :cache-read 0.50 :cache-write 6.25}
+  "claude-opus-4-6"           {:input 5.00  :output 25.00 :cache-read 0.50 :cache-write 6.25}
+  "claude-opus-4-5"           {:input 5.00  :output 25.00 :cache-read 0.50 :cache-write 6.25}
+  "claude-opus-4-1"           {:input 15.00 :output 75.00 :cache-read 1.50 :cache-write 18.75}
+  "claude-fable-5-1"          {:input 10.00 :output 50.00 :cache-read 0.25 :cache-write 12.50}
+  "claude-mythos-5-1"         {:input 10.00 :output 50.00 :cache-read 0.25 :cache-write 12.50}
+  "claude-mythos-5"           {:input 10.00 :output 50.00 :cache-read 1.00 :cache-write 12.50}
+  "claude-fable-5"            {:input 10.00 :output 50.00 :cache-read 1.00 :cache-write 12.50}
+  "claude-sonnet-4-6"         {:input 3.00  :output 15.00 :cache-read 0.30 :cache-write 3.75}
+  "claude-sonnet-4-5"         {:input 3.00  :output 15.00 :cache-read 0.30 :cache-write 3.75}
+  "claude-sonnet-4-0"         {:input 3.00  :output 15.00 :cache-read 0.30 :cache-write 3.75}
+  "claude-haiku-4-5"          {:input 1.00  :output 5.00  :cache-read 0.10 :cache-write 1.25}
+  "claude-3-5-sonnet"         {:input 3.00  :output 15.00 :cache-read 0.30 :cache-write 3.75}
+  "claude-3-5-haiku"          {:input 0.80  :output 4.00  :cache-read 0.08 :cache-write 1.00}
+  "claude-3-haiku"            {:input 0.25  :output 1.25  :cache-read 0.03 :cache-write 0.30}}
+
+ :openai
+ {"gpt-5"          {:input 1.25  :output 10.00 :cache-read 0.625 :cache-write 1.25}
+  "gpt-5.1"        {:input 1.25  :output 10.00 :cache-read 0.125 :cache-write 1.25}
+  "gpt-5.2"        {:input 1.75  :output 14.00 :cache-read 0.175 :cache-write 1.75}
+  "gpt-5.4"        {:input 2.50  :output 15.00 :cache-read 0.25  :cache-write 2.50}
+  "gpt-5.4-mini"   {:input 0.40  :output 2.00  :cache-read 0.20  :cache-write 0.40}
+  "gpt-5.4-nano"   {:input 0.10  :output 0.50  :cache-read 0.05  :cache-write 0.10}
+  "gpt-5.5"        {:input 5.00  :output 25.00 :cache-read 2.50  :cache-write 5.00}
+  "gpt-5.5-mini"   {:input 1.00  :output 5.00  :cache-read 0.50  :cache-write 1.00}
+  "gpt-5.6-luna"   {:input 0.20  :output 1.20  :cache-read 0.02  :cache-write 0.20}
+  "gpt-5.6-sol"    {:input 5.00  :output 30.00 :cache-read 0.50  :cache-write 5.00}
+  "gpt-5.6-terra"  {:input 2.00  :output 12.00 :cache-read 0.20  :cache-write 2.00}
+  "gpt-5-pro"      {:input 15.00 :output 75.00 :cache-read 7.50  :cache-write 15.00}
+  "gpt-5-mini"     {:input 0.25  :output 2.00  :cache-read 0.125 :cache-write 0.25}
+  "gpt-5-nano"     {:input 0.05  :output 0.40  :cache-read 0.025 :cache-write 0.05}
+  "gpt-4.1"        {:input 2.00  :output 8.00  :cache-read 0.50  :cache-write 2.00}
+  "gpt-4.1-mini"   {:input 0.40  :output 1.60  :cache-read 0.10  :cache-write 0.40}
+  "gpt-4.1-nano"   {:input 0.10  :output 0.40  :cache-read 0.025 :cache-write 0.10}
+  "gpt-4o"         {:input 2.50  :output 10.00 :cache-read 1.25  :cache-write 2.50}
+  "gpt-4o-mini"    {:input 0.15  :output 0.60  :cache-read 0.075 :cache-write 0.15}
+  "gpt-4-turbo"    {:input 10.00 :output 30.00 :cache-read 5.00  :cache-write 10.00}
+  "o1"             {:input 15.00 :output 60.00 :cache-read 7.50  :cache-write 15.00}
+  "o1-mini"        {:input 3.00  :output 12.00 :cache-read 1.50  :cache-write 3.00}
+  "o3"             {:input 2.00  :output 8.00  :cache-read 1.00  :cache-write 2.00}
+  "o3-mini"        {:input 1.10  :output 4.40  :cache-read 0.55  :cache-write 1.10}
+  "o3-pro"         {:input 10.00 :output 40.00 :cache-read 5.00  :cache-write 10.00}
+  "o4-mini"        {:input 1.10  :output 4.40  :cache-read 0.55  :cache-write 1.10}}
+
+ :bedrock
+ ;; ids after normalising: the region prefix, a -vN(:M) suffix and a date
+ ;; stamp are stripped before the lookup. AWS invoices its own prices — from
+ ;; its price list (pricing.us-east-1.amazonaws.com, offer
+ ;; AmazonBedrockFoundationModels, published 2026-10-08), us-east-1, on
+ ;; demand, standard tier, checked 2026-10-09 (byj-ewq).
+ ;;
+ ;; Two prices a model from Claude 4.5 on: a regional endpoint (an in-region
+ ;; id, or a us./eu./apac. profile) is 10% over a `global.` one, which is
+ ;; Anthropic's own price. The region-less key is the regional price; a
+ ;; `global.` key, the global, is found first for a `global.` id
+ ;; (`cost/rates-for`). Earlier models have one price everywhere.
+ {"anthropic.claude-opus-5-5"          {:input 4.40  :output 22.00 :cache-read 0.22  :cache-write 5.50}
+  "global.anthropic.claude-opus-5-5"   {:input 4.00  :output 20.00 :cache-read 0.20  :cache-write 5.00}
+  "anthropic.claude-opus-5"            {:input 5.50  :output 27.50 :cache-read 0.55  :cache-write 6.875}
+  "global.anthropic.claude-opus-5"     {:input 5.00  :output 25.00 :cache-read 0.50  :cache-write 6.25}
+  "anthropic.claude-sonnet-5-5"        {:input 2.20  :output 11.00 :cache-read 0.11  :cache-write 2.75}
+  "global.anthropic.claude-sonnet-5-5" {:input 2.00  :output 10.00 :cache-read 0.10  :cache-write 2.50}
+  "anthropic.claude-sonnet-5"          {:input 2.20  :output 11.00 :cache-read 0.22  :cache-write 2.75}
+  "global.anthropic.claude-sonnet-5"   {:input 2.00  :output 10.00 :cache-read 0.20  :cache-write 2.50}
+  "anthropic.claude-haiku-5-5"         {:input 0.11  :output 0.55  :cache-read 0.011 :cache-write 0.1375
+                                        :long-context {:over 100000 :input 0.55 :output 2.75 :cache-read 0.055 :cache-write 0.6875}}
+  "global.anthropic.claude-haiku-5-5"  {:input 0.10  :output 0.50  :cache-read 0.01  :cache-write 0.125
+                                        :long-context {:over 100000 :input 0.50 :output 2.50 :cache-read 0.05 :cache-write 0.625}}
+  "anthropic.claude-fable-5-1"         {:input 11.00 :output 55.00 :cache-read 0.275 :cache-write 13.75}
+  "global.anthropic.claude-fable-5-1"  {:input 10.00 :output 50.00 :cache-read 0.25  :cache-write 12.50}
+  "anthropic.claude-mythos-5-1"        {:input 11.00 :output 55.00 :cache-read 0.275 :cache-write 13.75}
+  "global.anthropic.claude-mythos-5-1" {:input 10.00 :output 50.00 :cache-read 0.25  :cache-write 12.50}
+  "anthropic.claude-fable-5"           {:input 11.00 :output 55.00 :cache-read 1.10  :cache-write 13.75}
+  "global.anthropic.claude-fable-5"    {:input 10.00 :output 50.00 :cache-read 1.00  :cache-write 12.50}
+  ;; no global endpoint listed
+  "anthropic.claude-mythos-5"          {:input 11.00 :output 55.00 :cache-read 1.10  :cache-write 13.75}
+  "anthropic.claude-opus-4-8"          {:input 5.50  :output 27.50 :cache-read 0.55  :cache-write 6.875}
+  "global.anthropic.claude-opus-4-8"   {:input 5.00  :output 25.00 :cache-read 0.50  :cache-write 6.25}
+  "anthropic.claude-opus-4-7"          {:input 5.50  :output 27.50 :cache-read 0.55  :cache-write 6.875}
+  "global.anthropic.claude-opus-4-7"   {:input 5.00  :output 25.00 :cache-read 0.50  :cache-write 6.25}
+  "anthropic.claude-opus-4-6"          {:input 5.50  :output 27.50 :cache-read 0.55  :cache-write 6.875}
+  "global.anthropic.claude-opus-4-6"   {:input 5.00  :output 25.00 :cache-read 0.50  :cache-write 6.25}
+  "anthropic.claude-opus-4-5"          {:input 5.50  :output 27.50 :cache-read 0.55  :cache-write 6.875}
+  "global.anthropic.claude-opus-4-5"   {:input 5.00  :output 25.00 :cache-read 0.50  :cache-write 6.25}
+  "anthropic.claude-sonnet-4-6"        {:input 3.30  :output 16.50 :cache-read 0.33  :cache-write 4.125}
+  "global.anthropic.claude-sonnet-4-6" {:input 3.00  :output 15.00 :cache-read 0.30  :cache-write 3.75}
+  "anthropic.claude-sonnet-4-5"        {:input 3.30  :output 16.50 :cache-read 0.33  :cache-write 4.125}
+  "global.anthropic.claude-sonnet-4-5" {:input 3.00  :output 15.00 :cache-read 0.30  :cache-write 3.75}
+  "anthropic.claude-haiku-4-5"         {:input 1.10  :output 5.50  :cache-read 0.11  :cache-write 1.375}
+  "global.anthropic.claude-haiku-4-5"  {:input 1.00  :output 5.00  :cache-read 0.10  :cache-write 1.25}
+  ;; one price, regional or global
+  "anthropic.claude-sonnet-4-0"        {:input 3.00  :output 15.00 :cache-read 0.30  :cache-write 3.75}
+  ;; `anthropic.claude-sonnet-4-20250514-v1:0` normalises to
+  ;; `anthropic.claude-sonnet-4` and NOT to the `-4-0` alias, so without this
+  ;; key the dated Sonnet 4 id billed nothing. brainyard found it the same way.
+  "anthropic.claude-sonnet-4"          {:input 3.00  :output 15.00 :cache-read 0.30  :cache-write 3.75}
+  "anthropic.claude-opus-4-1"          {:input 15.00 :output 75.00 :cache-read 1.50  :cache-write 18.75}
+  "anthropic.claude-3-5-sonnet"        {:input 3.00  :output 15.00 :cache-read 0.30  :cache-write 3.75}
+  "anthropic.claude-3-5-haiku"         {:input 0.80  :output 4.00  :cache-read 0.08  :cache-write 1.00}
+  "anthropic.claude-3-haiku"           {:input 0.25  :output 1.25  :cache-read 0.03  :cache-write 0.30}
+  "amazon.nova-pro"             {:input 0.80  :output 3.20  :cache-read 0.20    :cache-write 1.00}
+  "amazon.nova-lite"            {:input 0.06  :output 0.24  :cache-read 0.015   :cache-write 0.075}
+  "amazon.nova-micro"           {:input 0.035 :output 0.14  :cache-read 0.00875 :cache-write 0.04375}
+  "amazon.nova-2-lite"          {:input 0.33  :output 2.75  :cache-read 0.0825}
+  "amazon.nova-premier"         {:input 2.50  :output 12.50 :cache-read 0.625}
+  ;; no prompt caching on these
+  "meta.llama3-3-70b-instruct"  {:input 0.72 :output 0.72}
+  "meta.llama3-1-70b-instruct"  {:input 0.99 :output 0.99}
+  "meta.llama3-1-8b-instruct"   {:input 0.22 :output 0.22}
+  "mistral.mistral-large-2407"  {:input 2.00 :output 6.00}
+  "mistral.mistral-small-2402"  {:input 1.00 :output 3.00}
+  "cohere.command-r-plus"       {:input 3.00 :output 15.00}
+  "cohere.command-r"            {:input 0.50 :output 1.50}
+  "deepseek.r1"                 {:input 1.35 :output 5.40}
+  "deepseek.v3.2"               {:input 0.28 :output 0.42}
+  ;; From the AWS Pricing API (service codes AmazonBedrock and, for AI21 and
+  ;; Writer, AmazonBedrockFoundationModels), us-east-1 on-demand standard
+  ;; tier, per 1M tokens, fetched 2026-10-17 (byj-gly.372): until then these
+  ;; calls cost nothing as far as byj knew. gpt-oss's ids keep their `-1:0`,
+  ;; which normalize-bedrock does not strip.
+  "openai.gpt-oss-120b-1:0"     {:input 0.15 :output 0.60}
+  "openai.gpt-oss-20b-1:0"      {:input 0.07 :output 0.30}
+  "qwen.qwen3-32b"              {:input 0.15 :output 0.60}
+  "qwen.qwen3-coder-30b-a3b"    {:input 0.15 :output 0.60}
+  "qwen.qwen3-vl-235b-a22b"     {:input 0.53 :output 2.66}
+  "mistral.mistral-large-3-675b-instruct" {:input 0.50 :output 1.50}
+  "zai.glm-5"                   {:input 1.00 :output 3.20}
+  "minimax.minimax-m2.5"        {:input 0.30 :output 1.20}
+  "moonshotai.kimi-k2.5"        {:input 0.60 :output 3.00}
+  "ai21.jamba-1-5-large"        {:input 2.00 :output 8.00}
+  "writer.palmyra-x5"           {:input 0.60 :output 6.00}
+  ;; the global cross-region rate (its `-global-standard` usage type)
+  "xai.grok-4.6"                {:input 2.00 :output 6.00 :cache-read 0.50}
+  ;; GPT-5.6 is in the Pricing API only for GovCloud (us-gov-west-1), at 1.32x
+  ;; OpenAI's own on every rate; for the commercial regions, OpenAI's own.
+  ;; Converse caches them by itself: the cache reads are priced as OpenAI's
+  "openai.gpt-5.6-sol"          {:input 5.00 :output 30.00 :cache-read 0.50 :cache-write 5.00}
+  "openai.gpt-5.6-terra"        {:input 2.00 :output 12.00 :cache-read 0.20 :cache-write 2.00}
+  "openai.gpt-5.6-luna"         {:input 0.20 :output 1.20  :cache-read 0.02 :cache-write 0.20}}}

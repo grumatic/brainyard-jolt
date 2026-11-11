@@ -1,0 +1,13 @@
+;; A built-in hook (RFC-011): the spec is data, :impl names the kernel fn
+;; (brainyard.hookbox/impls), :opts is what that fn works on.
+;; brainyard's default loop guard (agent/common/loop_guard_hook.clj).
+{:id "redundant-tool-call-guard"
+ :event :agent.tool-use/pre
+ :priority 100
+ :doc "Block the 3rd consecutive identical tool call, or an idempotent tool thrashing across the last 2 iterations, and end the turn with the latest result."
+ :impl :brainyard.hookbox/redundant-tool-call-guard
+ :opts {:window 2
+        ;; brainyard's list names tools this port does not have (config$read,
+        ;; env-detect$rescan, agent-runtime$config, config$list-snapshots,
+        ;; mcp$lifecycle); add read-only tools here as they arrive
+        :idempotent-tools #{}}}

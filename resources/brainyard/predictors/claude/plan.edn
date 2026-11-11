@@ -1,0 +1,48 @@
+;; agent$claude's first decision (RFC-039): which Claude Code session takes the
+;; task, on what, where, and what it is told. The tree carries the choice out
+;; with the claude$* commands; nothing in src/ makes it.
+{:id "claude/plan"
+ :strategy :cot
+ :description "Choose the Claude Code session for a task and write its brief."
+ :instructions "You hand a task to Claude Code, a coding agent that works in its own terminal session. Decide which session takes it and write what it is told.
+
+Choosing the session:
+- A session marked YOURS is one you already drive. When the task continues that work (a follow-up, an answer to a question it asked, \"carry on\"), reuse it.
+- A session \"delegated earlier\" for the same bead or the same work was yours before a restart: continue it the same way, rather than start the work over.
+- Reuse another session only when the task names its id or plainly asks for it, and only one \"running here\" or \"saved\" — never one in \"another terminal\".
+- Otherwise start a new one: session \"new\".
+
+Model and options: only what the task asks for. A model alias (opus, sonnet, haiku) or id when it names one, else empty. Extra claude CLI options only when the task gives them, space separated, else empty.
+
+Publishing: publish is true only when the task explicitly tells you to push the work or open a pull request for it (\"push it\", \"open a PR\", \"publish\") — otherwise false, and the work is handed back to whoever gave you the task, who publishes it. cleanup is true only when the task explicitly asks for the worktree or branch to be cleaned up or removed afterwards, else false. The clean-up is done after the session, not by it: never tell it to remove its worktree or delete its branch. Never infer either from what would be convenient.
+
+Worktree: true for a NEW session whose task changes code, so its edits stay off the project's own checkout; false otherwise. The branch is bd/<bead-id> when the task names a bead (an id like byj-123 or byj-gly.290.4), else a short kebab-case name for the work, starting with cc/.
+
+The brief is everything Claude Code knows of the task: it has not seen this conversation. Make it stand on its own:
+- the goal, in the task's own terms, and any context the task gives;
+- when a bead is named: read it first with `bd show <id>` and follow the repository's own instructions (AGENTS.md / CLAUDE.md);
+- when in a worktree: it is on branch <branch>; commit there with clear messages, staging the files it changed by name (`git add <path>…`) — never `git add -A` or `git add .`, which sweep in whatever the session's own tools left in the directory;
+- when publish is false: do not push and do not open a pull request — that is done after it, from its report;
+- when publish is true: once the work is committed and checked, push the branch (`git push -u origin <branch>`) and open a pull request for it with `gh pr create`, its description saying what changed and how it was checked, with no attribution, signature or session link; never merge it; give the pull request's URL in the report;
+- when finished, or blocked, end the turn with a short report: what changed, the commits, how it was checked, and what is left or what it needs.
+When continuing a session to publish work it already finished, the brief is just that: push the branch, open the pull request, and report its URL.
+When continuing a session, the brief is just the new message to it.
+
+choice: only when the session you continue is \"waiting\" on a dialog and the task answers it — 1 to allow what it asked, 3 to refuse — else empty. With a choice, the brief is not sent: the session carries on with its turn.
+
+done-when says how you will tell the work is finished, from what Claude Code reports: the observable criteria, not \"the task is done\"."
+ :inputs
+ [[:task {:desc "The task, as the caller gave it"} :string]
+  [:sessions {:desc "The project's Claude Code sessions, one a line"} :string]]
+ :outputs
+ [[:session {:desc "\"new\", or the id of the session to use"} :string]
+  [:model {:desc "A model alias or id, or empty"} :string]
+  [:args {:desc "Extra claude CLI options, or empty"} :string]
+  [:worktree {:desc "Work in a git worktree of its own?"} :boolean]
+  [:branch {:desc "The branch for the work"} :string]
+  [:brief {:desc "What Claude Code is told"} :string]
+  [:done-when {:desc "How a finished task will show in its report"} :string]
+  [:choice {:desc "1 or 3 to answer the dialog a waiting session shows, else empty"} :string]
+  [:bead {:desc "The bead id the task is for, or empty"} :string]
+  [:publish {:desc "Does the task explicitly tell the session to push and open a pull request?"} :boolean]
+  [:cleanup {:desc "Does the task explicitly ask for the worktree and branch to be removed afterwards?"} :boolean]]}

@@ -1,0 +1,24 @@
+;; A primitive tool (RFC-010): the spec is data, :impl names the kernel fn
+;; (brainyard.tools/impls). :output-schema is a malli schema (RFC-030): results are
+;; checked against it, and the model reads the line written from it. :effects
+;; are shown to the model and used by composites' static analysis.
+;; :arg-aliases are other names a call may use for an argument (RFC-010).
+{:name "update-file"
+ :description "Replace a literal substring in a file. Fails if the pattern is missing or ambiguous."
+ :input-schema [:map [:path [:string {:desc "File path"}]]
+                     [:pattern [:string {:desc "Exact text to find (also taken as `old`)"}]]
+                     [:replacement [:string {:desc "Replacement text (also taken as `new`)"}]]
+                     [:all? {:optional true} [:boolean {:desc "Replace every occurrence"}]]
+                     [:expect-count {:optional true} [:int {:desc "Fail unless exactly this many occurrences"}]]]
+ ;; the names models trained on other tools send (byj-gly.394): every update-file
+ ;; call the logs refused sent old/new; old_string/new_string and their kebab
+ ;; and run-together spellings are brainyard's `arg-alias->canonical`
+ ;; (byj-gly.395). Renamed before the schema is checked (tools/apply-aliases);
+ ;; a call is recorded as sent.
+ :arg-aliases {:old :pattern :old_string :pattern :old-string :pattern :oldstring :pattern
+               :new :replacement :new_string :replacement :new-string :replacement :newstring :replacement
+               :replace_all :all?}
+ :output-schema [:or [:map [:path :string] [:replaced :int]] [:map [:error :string]]]
+ :path-params [:path]
+ :effects #{:fs/read :fs/write}
+ :impl :brainyard.tools/update-file}

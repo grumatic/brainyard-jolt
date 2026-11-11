@@ -1,0 +1,28 @@
+;; What a command file says when its entry does not (RFC-004, byj-gly.351,
+;; byj-gly.362.1): a project's .brainyard/commands/<name>.edn needs only
+;; :command, :purpose and what it stands for — :agent "x", :tools [names or
+;; globs], or neither, a prompt command; these fill the rest. :usage is an
+;; agent's, :tools-usage the one for tools, :prompt-usage a prompt's.
+;; {agent-tool} is the agent's tool, agent$<name>; {tools} the names or globs
+;; given; the template's {request}, {purpose}, {usage} and {command} are
+;; filled as for a bundled entry.
+{:rephrase :predictor
+
+ :usage
+ "Do it through {agent-tool}: call it with :question set to the request — the person's own words — and read its report. Call it again only when the report says the next step waits on something you can now give it, and never ask it for an install, a deletion or a write the person did not ask for. End with what it found, and say what you did around it."
+
+ :tools-usage
+ "Do it with {tools}: read what each does before the first call, call what the request needs, and read each result before the next call. Never use them for an install, a deletion or a write the person did not ask for. End with what was done, and what you did around it."
+
+ :prompt-usage
+ "Do it with your own tools, as the request asks and no further: never an install, a deletion or a write the person did not ask for. End with what was done."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"
+
+ ;; what a turn is told when its command's :before made a call ahead of it
+ ;; (byj-gly.468): {call} and {args} as made, {result} what it answered
+ :before-note
+ "[{command}] Before this turn the command itself called {call} with {args}, which answered {result}. That step is done: do not call {call} again for it."}

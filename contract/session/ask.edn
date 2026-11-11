@@ -1,0 +1,1 @@
+{:status :ok, :answer "the note says hello", :usage {:input-tokens 0, :output-tokens 0, :llm-calls 2, :cache-read-tokens 0, :cache-write-tokens 0, :cost 0.0}}

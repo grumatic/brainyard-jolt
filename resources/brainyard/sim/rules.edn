@@ -1,0 +1,36 @@
+;; What counts as a finding in a simulation stage (RFC-041, byj-gly.315.3):
+;; each rule names a detector brainyard.sim provides, its parameters, and how
+;; serious a hit is — :defect (something is wrong), :warn (worth a look),
+;; :info (recorded). A plan's own :rules are added to these; a plan rule with
+;; the same :id replaces one here.
+[{:id :claimed-but-failed :detector :claimed-but-failed :severity :defect
+  :doc "a check failed while the stage's last answer claims success"
+  :pattern "(?i)\\b(done|passed|passes|completed?|closed|works|built)\\b"}
+ {:id :stuck-turn :detector :stuck-turn :severity :defect
+  :doc "a turn ran out of time, or a typed line never started one"}
+ {:id :iteration-limit :detector :iteration-limit :severity :defect
+  :doc "a turn ended because it ran out of iterations"}
+ {:id :repeated-call :detector :repeated-call :severity :warn :at-least 3
+  :doc "the same tool with the same arguments, again and again"}
+ {:id :refused-calls :detector :refused-calls :severity :warn :at-least 2
+  :doc "calls a gate refused"}
+ {:id :failed-calls :detector :failed-calls :severity :info :at-least 3
+  :doc "calls that failed: an error, a non-zero exit, a timeout"}
+ {:id :permission-prompt :detector :permission-prompt :severity :warn
+  :doc "a permission prompt in a scripted run: its answer was the plan's, not a person's"}
+ {:id :server-left-running :detector :server-left-running :severity :info
+  :doc "a process with its working directory in the project still listening on a port when the stage's turns end — the agent left it; the session ending should stop it (see outlived-session)"}
+ {:id :outlived-session :detector :outlived-session :severity :defect
+  :doc "a process with its working directory in the project still listening after the session that started it ended (byj-gly.315.16) — stopped once recorded"}
+ {:id :path-outside :detector :path-outside :severity :warn
+  :allow ["/tmp" "/private/tmp" "/var/folders" "/private/var/folders"]
+  :doc "a file tool given a path outside the project"}
+ {:id :attribution :detector :attribution :severity :defect
+  :pattern "(?i)(co-authored-by|generated with|claude-session:)"
+  :doc "a commit made in the stage carries an AI attribution"}
+ {:id :sweeping-add :detector :sweeping-add :severity :warn
+  :doc "git add -A, --all or . — which sweeps in whatever tools left lying about"}
+ {:id :asks-the-person :detector :asks-the-person :severity :info
+  :doc "the stage's last answer ends with a question to the person"}
+ {:id :stage-cost :detector :stage-cost :severity :warn
+  :doc "a stage cost more than its cap (the plan's :stage-cap-usd, else 2.00)"}]

@@ -1,0 +1,3 @@
+;; Built-in hooks, installed in this order. An index because a built binary
+;; cannot list a resource directory.
+["redundant-tool-call-guard" "tool-deny-gate" "bash-command-gate" "path-permission-gate" "tangled-file-guard" "tool-permission-gate" "task-poll-park"]

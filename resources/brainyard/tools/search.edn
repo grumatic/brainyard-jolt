@@ -1,0 +1,8 @@
+;; brainyard's `search` (agent/common/tools.clj). Memory recall is not ported
+;; yet (byj-gly.19).
+{:name "search"
+ :description "Search project files, config files and registered tools."
+ :input-schema [:map [:query [:string {:desc "Search query. Whitespace-split; tokens <3 chars dropped (AND, case-insensitive)."}]]]
+ :output-schema [:map {:desc "a section is absent when nothing matched"} [:project-files {:optional true} [:vector :string]] [:config-files {:optional true} [:vector :string]] [:tools {:optional true} [:vector [:map [:id :string] [:type :string] [:description [:maybe :string]]]]]]
+ :effects #{:fs/read}
+ :impl :brainyard.discovery/search}

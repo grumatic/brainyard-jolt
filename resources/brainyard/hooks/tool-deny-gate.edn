@@ -1,0 +1,10 @@
+;; brainyard's ::tool-deny-gate (agent/common/tool_permission.clj), RFC-012.
+;; :on-error :throw as in brainyard: a gate that cannot decide must not quietly
+;; let the call through.
+{:id "tool-deny-gate"
+ :event :agent.tool-use/pre
+ :priority 95
+ :on-error :throw
+ :doc "Refuse a tool matching :tool-deny-tools, or carrying an effect in :tool-deny-effects. No permission mode overrides it."
+ :impl :brainyard.permission/deny-gate
+ :opts {}}

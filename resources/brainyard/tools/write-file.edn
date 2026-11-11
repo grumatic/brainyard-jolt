@@ -1,0 +1,13 @@
+;; A primitive tool (RFC-010): the spec is data, :impl names the kernel fn
+;; (brainyard.tools/impls). :output-schema is a malli schema (RFC-030): results are
+;; checked against it, and the model reads the line written from it. :effects
+;; are shown to the model and used by composites' static analysis.
+{:name "write-file"
+ :description "Write content to a file, creating parent directories."
+ :input-schema [:map [:path [:string {:desc "File path"}]]
+                     [:content [:string {:desc "Full file content"}]]
+                     [:append {:optional true} [:boolean {:desc "Append instead of overwrite"}]]]
+ :output-schema [:map [:path :string] [:chars :int]]
+ :path-params [:path]
+ :effects #{:fs/write}
+ :impl :brainyard.tools/write-file}

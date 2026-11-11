@@ -1,0 +1,36 @@
+;; The recap after a long turn — a short account of where the work stands and
+;; what to do next, for a person who looked away while it ran. Not a brainyard
+;; predictor: brainyard has no recap (divergence `a-long-turn-ends-with-a-recap`).
+;;
+;; The session tree runs it (loops/session.edn, :session/recap) after a turn
+;; that took at least :recap-after-ms, and after every :recap-every-nth-turns-th
+;; turn, when :recap? is on. :predict, not :cot:
+;; it summarises what is already written down, and a reasoning field would
+;; cost more than the recap it precedes.
+;;
+;; :tier :light: it runs on the session provider's light model (claude-code's
+;; haiku), unless :agent-lm-tiers or this id's params name another — measured
+;; on five recorded recaps, haiku kept the same facts at a seventeenth of
+;; sonnet's cost (byj-gly.367, dev/brainyard/dev/light_tier_spike.clj).
+{:id "session/recap"
+ :strategy :predict
+ :tier :light
+ :description "Recap where the work stands after a long turn, and suggest the next step."
+ :instructions "You write the recap a person reads when they come back to a coding session after looking away. They know the project; they do not know what just happened.
+
+From the conversation so far and the turn that just ended, write:
+- `recap`: one or two sentences on where the work stands NOW — what is done, and what state it was left in. Lead with the goal in plain words (\"We're making X do Y\"), then the outcome. Name concrete things: files, tests, commits, numbers.
+- `next-step`: one sentence on what happens next — the step the turn itself pointed to, or the decision waiting on the person. If nothing is pending, say so briefly.
+- `conversation-title`: a name for the whole conversation so far, not only this turn — at most five lowercase words joined by hyphens, like `fix-drag-performance-and-crashes`. Name the work, not the chat: no `discussion-about-`, no `question-on-`. Keep the one it had if the work is still the same.
+
+Rules:
+- Past and present tense, first person plural (\"we\"), no preamble, no headings, no bullet points, no markdown.
+- State only what the record shows. Do not invent results, and do not claim a test passed unless the record says it did.
+- Keep the two fields together under 60 words."
+ :inputs
+ [[:history {:desc "The session's earlier turns, oldest first: question, answer, and the last tools each used"} :string]
+  [:this-turn {:desc "The turn that just ended: the question, each tool call with the start of its result, and the answer"} :string]]
+ :outputs
+ [[:recap {:desc "Where the work stands now, in one or two sentences"} :string]
+  [:next-step {:desc "What happens next, in one sentence"} :string]
+  [:conversation-title {:desc "The conversation's name: at most five lowercase words joined by hyphens"} :string]]}

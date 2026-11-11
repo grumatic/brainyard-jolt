@@ -1,0 +1,64 @@
+# byj's checks on every pull request and every push to main (CONTRIBUTING.md
+# "Policy"): the suite on the mock model, every namespace loaded on its own,
+# and, on a pull request, every commit signed off by its author (the
+# Developer Certificate of Origin). No model is spent and no secret is given.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the version stamp is `git describe`: it needs the tags
+          fetch-depth: 0
+
+      - name: jolt, the version the suite was verified against
+        run: dev/ci-jolt.sh
+
+      - name: tmux and lsof, which byj's tests drive
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tmux lsof
+
+      - name: the suite
+        run: jolt test:byj
+
+      - name: every namespace loads on its own
+        run: dev/cold-load.sh
+
+  sign-off:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: every commit signed off by its author
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bad=0
+          for c in $(git rev-list --no-merges "$BASE..$HEAD"); do
+            author="$(git log -1 --format='%an <%ae>' "$c")"
+            if ! git log -1 --format=%B "$c" | grep -qiF "Signed-off-by: $author"; then
+              echo "::error::$(git log -1 --format='%h %s' "$c") is not signed off by its author, $author — git commit --amend -s (or git rebase --signoff) and push again"
+              bad=1
+            fi
+          done
+          exit "$bad"

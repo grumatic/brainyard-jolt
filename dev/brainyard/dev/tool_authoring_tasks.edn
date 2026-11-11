@@ -1,0 +1,75 @@
+;; Tasks for brainyard.dev.tool-authoring-eval (brainyard.dev.tool-lisp-spike's,
+;; renamed to the tool$* commands and user$tool$<name> ids). Each prompt names the tool id, its
+;; params and the exact return shape; `cases` are run against the defined tool
+;; after the turn, comparing only the keys in :expect.
+[{:id :count-lines
+  :tool-id "user$tool$count-lines"
+  :prompt "Using tool$create, create a user tool named `count-lines` with one string param `path`. It reads the file and returns a map {:lines n} where n is the number of newline-separated lines. Test it with tool$test on notes.txt, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"notes.txt" "alpha\nbeta\ngamma\n" "one.txt" "single"}
+  :cases [{:args {:path "notes.txt"} :expect {:lines 3}}
+          {:args {:path "one.txt"} :expect {:lines 1}}]}
+
+ {:id :count-words
+  :tool-id "user$tool$count-words"
+  :prompt "Using tool$create, create a user tool named `count-words` with one string param `path`. It reads the file and returns {:word-count n}: the number of whitespace-separated words (a file with no words gives 0). Test it with tool$test on a.txt, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"a.txt" "the quick  brown\nfox\n" "empty.txt" ""}
+  :cases [{:args {:path "a.txt"} :expect {:word-count 4}}
+          {:args {:path "empty.txt"} :expect {:word-count 0}}]}
+
+ {:id :shout
+  :tool-id "user$tool$shout"
+  :prompt "Using tool$create, create a user tool named `shout` with one string param `text` that returns {:loud s} where s is the text upper-cased. Test it with tool$test, then answer with a one-line confirmation."
+  :fixtures {}
+  :cases [{:args {:text "hi there"} :expect {:loud "HI THERE"}}]}
+
+ {:id :file-stats
+  :tool-id "user$tool$file-stats"
+  :prompt "Tools `user$tool$count-lines` (param `path`, returns {:path :lines}) and `user$tool$count-words` (param `path`, returns {:path :word-count}) already exist. Using tool$create, create a user tool named `file-stats` with one array param `paths`. It must call those two tools for each path and return {:stats [...]} where each entry is a map with :path, :lines and :word-count, in the order of `paths`. Test it with tool$test on [\"a.txt\", \"b.txt\"], fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"a.txt" "the quick  brown\nfox\n" "b.txt" "x\n"}
+  :pre [{:name "count-lines" :input-schema "[:map [:path :string]]"
+         :body "(fn [args] (let [path (:path args) res (read-file {:path path}) content (:content res)] (if content {:path path :lines (count (clojure.string/split-lines content))} {:error (str \"Could not read file: \" path) :path path})))"}
+        {:name "count-words" :input-schema "[:map [:path :string]]"
+         :body "(fn [args] (let [content (or (:content (read-file {:path (:path args)})) \"\") words (remove clojure.string/blank? (clojure.string/split content (re-pattern \"\\\\s+\")))] {:path (:path args) :word-count (count words)}))"}]
+  :cases [{:args {:paths ["a.txt" "b.txt"]}
+           :expect {:stats [{:path "a.txt" :lines 2 :word-count 4} {:path "b.txt" :lines 1 :word-count 1}]}}]}
+
+ {:id :todo-report
+  :tool-id "user$tool$todo-report"
+  :prompt "Using tool$create, create a user tool named `todo-report` with one string param `dir`. Using the grep tool, find every line containing TODO under that directory and return {:count n :files m}: n is the number of matching lines, m the number of distinct files containing them. Test it with tool$test on dir \".\", fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"src/a.clj" "(ns a)\n;; TODO one\n;; TODO two\n" "src/b.clj" "(ns b)\n" "README.md" "TODO: docs\n"}
+  :cases [{:args {:dir "."} :expect {:count 3 :files 2}}]}
+
+ {:id :largest-file
+  :tool-id "user$tool$largest-file"
+  :prompt "Using tool$create, create a user tool named `largest-file` with one string param `dir`. It lists that directory (not recursively), ignores subdirectories, and returns {:name n :size s} for the file with the most characters (use the :size that read-file reports). Test it with tool$test on dir \".\", fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"small.txt" "ab" "big.txt" "abcdefghij" "sub/x.txt" "zzzzzzzzzzzzzzzzzzzzzz"}
+  :cases [{:args {:dir "."} :expect {:name "big.txt" :size 10}}]}
+
+ {:id :tail
+  :tool-id "user$tool$tail"
+  :prompt "Using tool$create, create a user tool named `tail` with a string param `path` and an integer param `n`. It returns {:lines [...]}: the last n lines of the file, in order (all lines if the file has fewer). Test it with tool$test on log.txt with n 2, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"log.txt" "a\nb\nc\nd\ne\n"}
+  :cases [{:args {:path "log.txt" :n 2} :expect {:lines ["d" "e"]}}
+          {:args {:path "log.txt" :n 10} :expect {:lines ["a" "b" "c" "d" "e"]}}]}
+
+ {:id :top-words
+  :tool-id "user$tool$top-words"
+  :prompt "Using tool$create, create a user tool named `top-words` with a string param `path` and an integer param `k`. It lower-cases the file's text, splits it into words on any non-letter characters, counts each word, and returns {:top [[word count] ...]}: the k most frequent words, most frequent first, ties broken alphabetically. Test it with tool$test on t.txt with k 2, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"t.txt" "The cat and the dog. The CAT!"}
+  :cases [{:args {:path "t.txt" :k 2} :expect {:top [["the" 3] ["cat" 2]]}}
+          {:args {:path "t.txt" :k 4} :expect {:top [["the" 3] ["cat" 2] ["and" 1] ["dog" 1]]}}]}
+
+ {:id :json-field
+  :tool-id "user$tool$json-field"
+  :prompt "Using tool$create, create a user tool named `json-field` with string params `path` and `field`. It reads a JSON file and returns {:value v}, the top-level value under that field name (nil when absent). Test it with tool$test on config.json with field \"version\", fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"config.json" "{\"name\": \"brainyard\", \"version\": 3, \"tags\": [\"a\", \"b\"]}"}
+  :cases [{:args {:path "config.json" :field "version"} :expect {:value 3}}
+          {:args {:path "config.json" :field "tags"} :expect {:value ["a" "b"]}}
+          {:args {:path "config.json" :field "missing"} :expect {:value nil}}]}
+
+ {:id :count-occurrences
+  :tool-id "user$tool$count-occurrences"
+  :prompt "Using tool$create, create a user tool named `count-occurrences` with string params `path` and `needle`. It returns {:count n}: how many times the needle occurs in the file as a LITERAL substring (non-overlapping; characters like . or * have no special meaning). Test it with tool$test on p.txt with needle \"ab\" and q.txt with needle \"a.b\", fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"p.txt" "ab ab xab\ncab" "q.txt" "a.b axb a.b"}
+  :cases [{:args {:path "p.txt" :needle "ab"} :expect {:count 4}}
+          {:args {:path "q.txt" :needle "a.b"} :expect {:count 2}}]}]

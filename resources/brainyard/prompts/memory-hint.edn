@@ -1,0 +1,13 @@
+;; What a turn is told of the project's memories that match its question
+;; (byj-gly.335, RFC-042): the keys and their first lines, never the contents —
+;; those stay a pull, memory$read. Added to the turn's user-context zone, the
+;; volatile tail of the prompt, so the cached prefix is untouched. Read by the
+;; model, so a resource (RFC-001). {items} the :item lines, one per memory;
+;; {key} a memory's key, {line} its first line, clipped.
+{:hint
+ "## Possibly relevant memories
+
+Written down in an earlier session and sharing words with this question — a match on words, not a judgement that they apply:
+{items}
+Read one whole with memory$read, giving the name above as :key, before relying on it; ignore any that do not bear on the question."
+ :item "- `{key}` — {line}"}

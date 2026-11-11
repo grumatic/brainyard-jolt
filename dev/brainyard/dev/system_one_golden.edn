@@ -1,0 +1,4 @@
+;; Fingerprints of the decisions as verified. A drift FAIL means the
+;; wording changed and the numbers no longer describe what ships:
+;; re-verify, then re-record. Do not record to make a failure go away.
+{"permission/destructive" "-140570827", "permission/needs-approval" "-682682078", "permission/needs-approval-no-policy" "-856394727"}

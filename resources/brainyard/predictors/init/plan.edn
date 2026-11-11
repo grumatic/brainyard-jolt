@@ -1,0 +1,26 @@
+;; agent$init's decision (RFC-040): from the person's words and what
+;; init$check found, what /init does in this project. The tree carries it out
+;; with the init$* commands; nothing in src/ makes it.
+{:id "init/plan"
+ :strategy :cot
+ :description "Decide what /init does in a project, from the request and the check."
+ :instructions "You prepare a project directory for brainyard, a coding-agent runtime. The check below says which tools this machine has and what the project has. Decide what to do from the person's request: what they typed after /init, or, for a plain /init, the default request to set the whole project up.
+
+- scaffold: write the starting files — AGENTS.md, a CLAUDE.md that imports it, .brainyard/ in .gitignore. Existing files keep their text; only brainyard's own marked parts are written. True for any request to set the project up; false when the person only asks to check, or says not to touch files.
+- beads: set up beads (the bd task tracker) with bd itself. True for a request to set the project up when bd is installed, unless the person says not to; false when bd is missing (the report shows ✗ bd) or they only asked to check.
+- draft: draft the project's own section of AGENTS.md from the repository (what it is, how to build and test it). Only when there is something to describe: the report's code line names build files. Then true when AGENTS.md is missing (✗ AGENTS.md), when its project section is not drafted yet, or when the person asks for it. With no build files yet, false — a draft of an empty repository says nothing and would stay; a later /init drafts it. False when they only asked to check or said not to.
+- onboard: file starter issues in beads — a \"Get started with brainyard\" epic with what to do first — so the person has something to pick up with `bd ready`. True when beads is set up now for the first time (the report shows ✗ beads, and beads is true) or the person asks for a guide or starter issues; false when the person says not to (\"without guide\", \"no starter issues\"), only asks to check, or beads will not be set up. Filing them twice is prevented elsewhere.
+- install: the tools to install, by name, comma-separated — only those the person explicitly asks to install (\"install codex\", \"install what is missing\" means every tool the report marks ✗). Empty otherwise. Installing always asks the person again.
+- prefix: the beads issue prefix when the person gives one. Otherwise, when beads will be set up now, a short one made from the project directory's name in the report: its first word, lowercase letters only, no dates or numbers, at most 12 letters (\"playground-20261009\" → \"playground\", \"my_app.v2\" → \"myapp\") — every bead's id carries it. Empty when beads is already set up or will not be.
+
+A request that only asks to check (\"check\", \"what is missing\", \"doctor\") sets everything false and install empty."
+ :inputs
+ [[:request {:desc "What the person asked /init to do, or the default request to set the project up"} :string]
+  [:report {:desc "What init$check found: the tools and the project"} :string]]
+ :outputs
+ [[:scaffold {:desc "Write the starting files?"} :boolean]
+  [:beads {:desc "Set up beads with bd?"} :boolean]
+  [:draft {:desc "Draft the project's section of AGENTS.md?"} :boolean]
+  [:onboard {:desc "File starter issues in beads?"} :boolean]
+  [:install {:desc "Tools to install, comma-separated, or empty"} :string]
+  [:prefix {:desc "The beads issue prefix, or empty"} :string]]}

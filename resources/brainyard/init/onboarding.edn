@@ -1,0 +1,45 @@
+;; The starter issues /init files in a project it set beads up in (RFC-040
+;; "Starter issues", byj-gly.337.2), so that `bd ready` — the first thing
+;; anyone runs in a beads project — shows how to start rather than nothing.
+;;
+;; init$onboard files the epic, then each issue whose :when facts all hold
+;; (init/next-facts: :git :no-git :code :no-code :draft-pending :uncommitted
+;; :beads), as a child of it, with every issue labelled :label — a project
+;; that has any issue with that label, closed or not, gets nothing more, so a
+;; second /init files nothing. :after names issues of this file that must be
+;; done first (bd dep add). :tool is filed once for each tool init$check finds
+;; missing that is optional or for a feature; {name}, {for} and {install} are
+;; that tool's.
+{:label "brainyard-onboarding"
+
+ :epic {:title "Get started with brainyard"
+        :type "epic" :priority 3
+        :description "Starter issues /init filed when it set this project up. Work through them with `bd ready`, `bd show <id>`, and `bd close <id>` — or ask brainyard: \"work on <id>\". Close this epic when they are done; /init will not file them again."}
+
+ :issues
+ [{:id :commit
+   :when #{:git :uncommitted}
+   :title "Commit the files /init wrote"
+   :type "task" :priority 2
+   :description "AGENTS.md, CLAUDE.md, .gitignore and the .claude/skills links are what every agent working here reads. Commit them so every clone has them: `git status` lists them, and /init's answer named the command."}
+
+  {:id :policy
+   :title "Write this project's own rules in AGENTS.md"
+   :type "task" :priority 3
+   :description "AGENTS.md is the instruction file brainyard, Claude Code and Codex read on every turn. The marked blocks (<!-- BEGIN … -->) belong to /init and bd and are rewritten by them; anything outside them is yours. Add what an agent should know here: how to build and test, conventions, what not to touch."}
+
+  {:id :goal
+   :title "Say what this project is for, and what you want to do in it first"
+   :type "task" :priority 2
+   :description "brainyard knows this project only from its files. Tell it, in this session and in your own words, what the project is for and what you want to do first — for example \"I want to build <what>. Plan it, then start on the first part.\" — and it can file that plan here as issues and start on it. Agent working on this issue: the person is already in a session with you, so do not send them to start one; ask them what the project is for and what they want to do first, write that as this project's goal (the project section of AGENTS.md, or an epic with its first issues), then close this issue."}
+
+  {:id :draft
+   :when #{:no-code}
+   :after [:goal]
+   :title "Run /init again once there is code, to draft AGENTS.md's project section"
+   :type "task" :priority 3
+   :description "/init drafts this project's section of AGENTS.md (what it is, how to build and test it) from the repository. With no code yet it left the placeholder; once there is code, run /init in a session here."}]
+
+ :tool {:title "Install {name} (optional) — {for}"
+        :type "chore" :priority 4
+        :description "/init found {name} missing. It is not required; it is for {for}. To install it: {install}"}}

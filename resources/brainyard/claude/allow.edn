@@ -1,0 +1,30 @@
+;; What a delegated Claude Code session may run without asking (byj-gly.292,
+;; RFC-039), as Claude Code permission rules. Merged into the session's
+;; settings (claude-agent/session-settings) beneath its deny rules and the
+;; publish guard, which win over anything here — pushing stays the person's.
+;;
+;; Read-only commands, and writes that stay on this machine and in the
+;; session's own worktree or bead. A `:*` rule matches by prefix, and Claude
+;; Code splits a line on && ; | before matching, so `cat x && rm y` is not let
+;; through by `cat` (checked live, RFC-039).
+;;
+;; Deliberately absent, though some look harmless:
+;;   find          -delete and -exec make it a write tool
+;;   sed           -i edits in place
+;;   xargs env sh -c bash -c   each runs whatever follows it
+;;   git checkout reset clean stash rebase   can destroy work
+;;   rm mv
+;;   test runners  they run the project's code, and differ per project: a
+;;                 project adds its own with :claude-allow
+;;
+;; A project extends this with :claude-allow, or drops it with
+;; :claude-allow-defaults? false.
+[;; read-only
+ "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)"
+ "Bash(git branch:*)" "Bash(git rev-parse:*)"
+ "Bash(ls:*)" "Bash(cat:*)" "Bash(head:*)" "Bash(tail:*)" "Bash(wc:*)"
+ "Bash(grep:*)" "Bash(rg:*)"
+ "Bash(bd show:*)" "Bash(bd list:*)" "Bash(bd ready:*)" "Bash(bd where:*)" "Bash(bd prime:*)"
+ ;; local writes: the worktree's own commits, the bead's own notes
+ "Bash(git add:*)" "Bash(git commit:*)"
+ "Bash(bd note:*)" "Bash(bd update:*)"]

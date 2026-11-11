@@ -1,0 +1,14 @@
+;; How the prompt introduces the instruction files it carries (RFC-040,
+;; byj-gly.314): the section titles and what each tells the model about the
+;; files and how they rank. Each file follows, quoted whole between
+;; <instructions source="…"> tags (brainyard.instructions).
+;;
+;; The order of authority: the agent's own instructions above these sections,
+;; then the project's, then the person's — as Claude Code ranks a project's
+;; CLAUDE.md over the user's.
+{:project {:title "Project Instructions"
+           :intro "The project's own instructions, from its files, each quoted whole between <instructions> tags with the file it came from. Follow them in your work here. Where one conflicts with your own instructions above — your answer channel, the tools you have, a permission or safety rule — yours stand, and you say which you followed."}
+ :user {:title "User Instructions"
+        :intro "The person's own instructions, kept for every project, each quoted whole between <instructions> tags. Follow them unless they conflict with the project's instructions above, which win, or with your own."}
+ ;; where an import line was, when the file it imports is quoted too
+ :import-note "({file} is quoted {where}, not repeated here.)"}

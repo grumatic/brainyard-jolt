@@ -1,0 +1,27 @@
+[project]
+name = "byj-agent-sdk"
+version = "0.1.0"
+description = "The Brainyard Agent SDK: run byj's agent from your application — sessions, streamed turns, permission answers, your own tools and hooks, predictors (RFC-053)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Grumatic, Inc." }]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/grumatic/brainyard-sdk"
+Source = "https://github.com/grumatic/brainyard-sdk/tree/main/python"
+
+[project.optional-dependencies]
+test = ["pytest==8.4.2"]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/byj_agent_sdk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

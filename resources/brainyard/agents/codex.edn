@@ -1,0 +1,26 @@
+;; agent$codex (RFC-049, byj-gly.430.6): hands a task — usually a bead — to
+;; Codex and sees it through, a turn at a time, in a session a person can
+;; attach to. agent$claude (agents/claude.edn) for Codex.
+;;
+;; Its own loop is the whole agent: brainyard/loops/codex.edn chooses the
+;; session and writes the brief (predictor codex/plan), drives it with the
+;; codex$* commands, and judges each of its turns (predictor codex/progress).
+;; No model turn of its own calls a tool, so its tools are the commands alone,
+;; and its :config is what registers them.
+{:description
+ "Hands a task to a Codex session and sees it through to a report: it picks or starts the session (in a git worktree of its own for code changes), briefs it, waits out each of its turns, nudges it on, and stops when the work is done or a person must decide. Give it the task as you would a colleague — a bead id, what done looks like, a model or codex CLI options if you want them, a thread id to continue a session. A Codex session cannot commit or publish in its sandbox: its changes are committed for it on its branch, and its answer ends with the commits and the exact commands to push the branch, open the pull request and clean up the worktree — yours to run. Takes minutes to hours."
+
+ :instruction-resource "brainyard/prompts/agents/codex.md"
+
+ :loop "brainyard/loops/codex.edn"
+
+ :tools ["codex$*"]
+ :deny-tools ["agent$*"]
+
+ ;; two judgements a turn, each read by a person in the end
+ :tier :standard
+
+ :config {:codex-tools? true
+          :tool-authoring? false
+          :hook-authoring? false
+          :user-tools? false}}

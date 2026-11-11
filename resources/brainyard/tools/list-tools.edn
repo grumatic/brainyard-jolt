@@ -1,0 +1,13 @@
+;; brainyard's `list-tools` (agent/common/tools.clj), over the live registry (RFC-007).
+;; With no arguments it summarises rather than lists (divergence
+;; `list-tools-summarises`): a family per line with a few ids, and how to narrow.
+{:name "list-tools"
+ :description "List registered tools. With no arguments, a SUMMARY: each family, its tool count and a few ids — not every tool. Narrow it: `family` (e.g. \"config\", \"mcp$linear\") lists that family's tools with their descriptions; `pattern` (case-insensitive regex over id and description) finds tools by what they do. Then call `get-tool-info` for the one tool you are about to use. `grouped` false lists everything flat; `detail` true inlines :input-schema/:output-schema."
+ :input-schema [:map [:family {:optional true} [:string {:desc "One family's tools, with their descriptions: the id segment before `$` (\"config\"), an MCP server (\"mcp$linear\"), or \"_ungrouped\""}]]
+                     [:pattern {:optional true} [:string {:desc "Regex (case-insensitive) over id/description; returns a flat list"}]]
+                     [:type {:optional true} [:string {:desc "Filter by tool type: \"tool\", \"command\", \"skill\" or \"agent\""}]]
+                     [:grouped {:optional true} [:boolean {:desc "Pass false to list every tool flat — large once MCP servers are connected"}]]
+                     [:detail {:optional true} [:boolean {:desc "Inline :input-schema/:output-schema per entry (implies a flat list); prefer get-tool-info for the one tool you are about to call"}]]]
+ :output-schema [:or {:desc "the summary with no arguments; the flat list with :family, :pattern, :grouped false or :detail; every id by family when that list would not fit"} [:map [:total :int] [:families [:vector [:map [:family :string] [:count :int] [:tools [:vector :string]] [:more {:optional true} :int]]]] [:next :string]] [:vector [:map [:id :string] [:type :string] [:description [:maybe :string]] [:input-schema {:optional true} [:vector :any]] [:output-schema {:optional true} :any]]] [:map [:total :int] [:tools [:map-of :string [:vector :string]]] [:note :string]] [:map [:error-message :string]]]
+ :effects #{}
+ :impl :brainyard.discovery/list-tools}

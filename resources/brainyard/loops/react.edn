@@ -1,0 +1,100 @@
+;; The ReAct agent loop, as data.
+;;
+;; A port of brainyard's `coact-behavior-tree` / `coact-loop-subtree`
+;; (components/agent/.../common/coact_agent.clj) with the code channel off —
+;; i.e. brainyard's `react-agent`. Every leaf names a fn in
+;; brainyard.agent/registry; nothing here is compiled, so the loop can be
+;; edited (or swapped with `--loop other.edn`) without rebuilding.
+;;
+;; Omitted from the original: await-pending (brainyard blocks the loop on
+;; in-flight tasks; here harvest-tasks reports them instead), rebudget
+;; (context compaction), the answer refine/eval gate (off by default there,
+;; :max-refinements 0), display-* nodes (replaced by :on-event tracing).
+[:sequence {:id :react/turn}
+ [:action {:id :react/init :fn :react/init}]
+ ;; hook points are nodes (RFC-011): the event, and the payload built from
+ ;; st-memory (keywords) and config (:config/…)
+ [:action {:id :react/hook-ask-pre :fn :hooks/fire :event :agent.ask/pre :payload {:input :question}}]
+ ;; the prompt is measured here and again every nth iteration (RFC-014); a loop
+ ;; that wants no compaction drops these two nodes. :predictor is tier 2's
+ ;; summarizer, used only when :compaction-summary? is on
+ [:action {:id :react/budget :fn :context/enforce :predictor "react/compact"}]
+ [:fallback {:id :react/loop-guard}
+  [:repeat {:id :react/iterate
+            :max-n :config/max-iterations
+            :until :react/terminated?}
+   [:sequence {:id :react/iteration}
+    [:action {:id :react/inc-iter :fn :react/inc-iter}]
+    [:action {:id :react/rebudget :fn :context/enforce :every-n :config/rebudget-every-n-iter
+              :predictor "react/compact"}]
+    ;; background work that finished while the model was doing something else
+    ;; (RFC-019): the marker it was given is rewritten with the real result, and
+    ;; anything still running is named
+    [:action {:id :react/harvest-tasks :fn :react/harvest-tasks}]
+    [:action {:id :react/hook-iteration-pre :fn :hooks/fire :event :agent.iteration/pre
+              :payload {:iteration :iteration-count :max-iterations :config/max-iterations}}]
+    [:fallback {:id :react/llm-guard}
+     ;; the LLM step is a declarative predictor (predictors/react/think-act.edn)
+     ;; with the system-prompt zones it sees, in brainyard's order
+     [:action {:id :react/think-act :fn :react/think-act
+               :predictor "react/think-act"
+               :zones [:agent-core :session-context :history-context :user-context]}]
+     [:action {:id :react/repair-llm :fn :react/repair}]]
+    ;; tools the model called natively and was told do not exist (provenance
+    ;; P-12). :lookups are what it calls next to find a tool it was told is
+    ;; missing: left out of a batch that calls anything else (byj-gly.352)
+    [:action {:id :react/recover-native-tool-calls :fn :react/recover-native-tool-calls
+              :lookups ["list-tools" "get-tool-info" "search"]}]
+    [:action {:id :react/strip-unbound-tools :fn :react/strip-unbound-tools}]
+    [:action {:id :react/resolve-channel-conflicts :fn :react/resolve-channel-conflicts}]
+    [:fallback {:id :react/router}
+     ;; Path A — answer
+     [:sequence {:id :react/answer-path}
+      [:condition {:id :react/answer-non-blank? :fn :react/answer-non-blank?}]
+      ;; the answer gate (byj-gly.12) — brainyard's hybrid, in the answer path
+      ;; rather than an outer loop, so a refused answer is just the same loop
+      ;; going round again with the reason in front of it.
+      ;;
+      ;; It is INERT unless :max-refinements is above 0: at 0 the decision is
+      ;; :accept before anything is asked, so this costs no model call and the
+      ;; path is what it was.
+      [:action {:id :react/answer-decision :fn :react/answer-decision}]
+      [:fallback {:id :react/answer-gate}
+       ;; the gate is off, or its budget is spent
+       [:sequence {:id :react/accept}
+        [:condition {:id :react/accept-answer? :fn :react/accept-answer?}]
+        [:action {:id :react/stamp-answer :fn :react/stamp-answer}]]
+       ;; the model itself said the goal was not met — believe it, and spend
+       ;; nothing asking a second opinion for the same verdict
+       [:sequence {:id :react/self-refine}
+        [:condition {:id :react/refine-self? :fn :react/refine-self?}]
+        [:action {:id :react/refine-self :fn :react/refine}]]
+       ;; otherwise check the answer against what the tools returned
+       [:sequence {:id :react/confirm}
+        [:condition {:id :react/evaluate-answer :fn :react/evaluate-answer
+                     :predictor "react/evaluate-answer"}]
+        [:action {:id :react/stamp-checked :fn :react/stamp-answer}]]
+       ;; refused: the reason goes back and the loop gets another pass
+       [:action {:id :react/refine-eval :fn :react/refine}]]]
+     ;; Path C — tool channel (path B, code, is disabled in react-agent)
+     [:sequence {:id :react/tool-path}
+      [:condition {:id :react/has-tool-calls? :fn :react/has-tool-calls?}]
+      [:action {:id :react/tool-dispatch :fn :react/tool-dispatch}]]
+     ;; Path D — nothing populated
+     [:action {:id :react/repair :fn :react/repair}]]
+    [:action {:id :react/accumulate :fn :react/accumulate}]
+    [:action {:id :react/hook-iteration-post :fn :hooks/fire :event :agent.iteration/post
+              :payload {:iteration :iteration-count :max-iterations :config/max-iterations
+                        :channel :last-channel :last-reasoning :last-reasoning :goal-achieved :goal-achieved}}]]]
+  [:action {:id :react/loop-fallback :fn :react/loop-fallback}]]
+ [:action {:id :react/ensure-answer :fn :react/ensure-answer}]
+ ;; a task this turn leaves running will finish after the last iteration, where
+ ;; nothing harvests it — arm one wakeup so the session hears about it (RFC-019)
+ [:action {:id :react/arm-task-notify :fn :react/arm-task-notify}]
+ ;; what this turn did, appended to the session's trajectory (RFC-025). A
+ ;; node, not a hidden sink: a loop that should not record drops this line.
+ [:action {:id :react/store-trajectory :fn :react/store-trajectory}]
+ [:action {:id :react/hook-ask-post :fn :hooks/fire :event :agent.ask/post
+           :payload {:input :question :terminated-by :terminated-by
+                     :result {:answer :answer :terminated-by :terminated-by :goal-achieved :goal-achieved
+                              :iteration-count :iteration-count :usage :usage}}}]]

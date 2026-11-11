@@ -1,0 +1,23 @@
+;; /share WORDS (byj-gly.362.3): a request to share, in words, done by the
+;; session's agent with the share$* tools — the operations /share itself runs
+;; (share_tools.clj). /share keeps its verbs: bare, start REF…, stop, pause,
+;; resume, kick, allow and refuse run at once, as before; only a line those
+;; do not take reaches this file (session/share-takes?, RFC-004 "A built-in
+;; that hands words to a file"). share$start publishes, so the permission gate
+;; asks before each one (:tool-ask-effects #{:share/publish}).
+;;
+;; Not in brainyard, which has no /share.
+{:command "/share"
+ :tools ["share$*"]
+ :rephrase :predictor
+
+ :purpose
+ "share what the words ask — this session, or other sessions, terminals or agents — and say where it is and how people are invited"
+
+ :usage
+ "Do it with the share$* tools. Call share$status first: what is shared now, and who is watching. To share another session, a terminal or an agent, find its reference with share$ls unless the words give it. Then call share$start — with no :refs for this session, or the references the words mean — with only the :target, :record and terminal or agent options the words ask for. Call share$control to stop, pause or resume a share, or to remove someone, only for one the words name; call share$record only when the words ask to record a running share or to stop recording it. Start nothing the words did not ask to share: a share shows what it shares to everyone invited. When share$start says this device is not logged in, or share$status says byj-share is logged in to another relay, call share$login: give the person the link and the code it returns, word for word, to approve in a browser, then task$wait on its task (up to 300000 ms) and, once it completes, call share$start again. Never run `byj-share login` with bash: it waits for the approval and shows nothing. For what these tools do not cover, read `byj-share --help` with bash before running byj-share. End with what is shared now: each share's page and the coach and watch links share$start gave, exactly as given, or why nothing was shared."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

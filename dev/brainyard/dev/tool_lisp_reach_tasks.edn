@@ -1,0 +1,31 @@
+;; Tasks for byj-gly.278: does Tool Lisp's tier D (reach: pmap, now/now-ms,
+;; store$get/put/keys) make the tools an agent writes for itself better, on the
+;; tasks that want it? Run by brainyard.dev.tool-authoring-eval with
+;; TASKS_FILE pointing here, with EXT=vocabulary,forms,control and again with
+;; ,reach added.
+;;
+;; Each is doable WITHOUT reach, which is what makes the comparison fair:
+;; visit-count can keep its state in a file (write-file / read-file), stamp
+;; can ask bash for the date, and line-counts can read its files one by one.
+;; The prompts name nothing of either language.
+[{:id :visit-count
+  :tool-id "user$tool$visit-count"
+  :prompt "Using tool$create, create a user tool named `visit-count` with one string param `page`. Each call records one visit to that page and returns {:page p :visits n}: how many times it has been called for that page so far — counting earlier calls, including ones from earlier sessions of this project. Test it with tool$test on \"home\" twice (the second should say 2), fix it if needed, then answer with a one-line confirmation."
+  :fixtures {}
+  :cases [{:args {:page "home"} :expect {:page "home" :visits 1}}
+          {:args {:page "home"} :expect {:page "home" :visits 2}}
+          {:args {:page "about"} :expect {:page "about" :visits 1}}
+          {:args {:page "home"} :expect {:page "home" :visits 3}}]}
+
+ {:id :stamp
+  :tool-id "user$tool$stamp"
+  :prompt "Using tool$create, create a user tool named `stamp` with one string param `path`. It returns {:lines n :checked-at t}: the file's line count, and the current time as an ISO-8601 UTC timestamp such as 2026-01-02T03:04:05Z (fractional seconds allowed). Test it with tool$test on notes.txt, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"notes.txt" "a\nb\nc\n"}
+  :cases [{:args {:path "notes.txt"} :expect {:lines 3}
+           :matches {:checked-at "\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d+)?Z"}}]}
+
+ {:id :line-counts
+  :tool-id "user$tool$line-counts"
+  :prompt "Using tool$create, create a user tool named `line-counts` with one string param `dir`. It returns {:counts m}: a map from the name of each file directly in that directory (not in subdirectories) to its number of lines. A directory may hold many files; reading them at the same time rather than one after another is welcome where the language allows it. Test it with tool$test on logs, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"logs/f01.log" "x" "logs/f02.log" "x\nx" "logs/f03.log" "x\nx\nx" "logs/f04.log" "x\nx\nx\nx" "logs/f05.log" "x\nx\nx\nx\nx" "logs/f06.log" "x\nx\nx\nx\nx\nx" "logs/f07.log" "x\nx\nx\nx\nx\nx\nx" "logs/f08.log" "x\nx\nx\nx\nx\nx\nx\nx" "logs/f09.log" "x\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f10.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f11.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f12.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f13.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f14.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f15.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f16.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f17.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f18.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f19.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f20.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f21.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f22.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f23.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx" "logs/f24.log" "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx"  "logs/old/skip.log" "x"}
+  :cases [{:args {:dir "logs"} :expect {:counts {"f01.log" 1 "f02.log" 2 "f03.log" 3 "f04.log" 4 "f05.log" 5 "f06.log" 6 "f07.log" 7 "f08.log" 8 "f09.log" 9 "f10.log" 10 "f11.log" 11 "f12.log" 12 "f13.log" 13 "f14.log" 14 "f15.log" 15 "f16.log" 16 "f17.log" 17 "f18.log" 18 "f19.log" 19 "f20.log" 20 "f21.log" 21 "f22.log" 22 "f23.log" 23 "f24.log" 24}}}]}]

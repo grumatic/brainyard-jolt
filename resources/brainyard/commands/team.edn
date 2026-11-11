@@ -1,0 +1,22 @@
+;; /team WORDS: work split across a team of live sessions that work at once,
+;; led by the session's agent with the team$* tools (RFC-032, teams.clj). The
+;; usage follows prompts/team-lead.md, which team$create also hands back:
+;; plan the split, start only the members it needs, put independent parts on
+;; the board, wait once, verify what comes back, merge, close. A bare /team
+;; has nothing to ask and says its usage.
+;;
+;; Not in brainyard, whose agent teams are not a slash command.
+{:command "/team"
+ :tools ["team$*"]
+ :rephrase :predictor
+
+ :purpose
+ "split the work the words describe across a team of live sessions working at once — plan the parts, start a member for each with the role it needs, hand each a task that stands on its own, check what comes back, and put it together"
+
+ :usage
+ "Call team$status first. When this session already leads a team, lead that one (after a resume, team$resume brings its members back); otherwise call team$create with a short :name, and read the protocol it returns before starting anyone. Plan the split before starting anyone: the parts that can go on at the same time, who does each, and what each hands back. When the work is one chain of steps, say so and do it yourself, without a team: every member costs model turns. Start a member with team$spawn for each part the plan needs, no more: a short :name, an :agent role where one fits (agent$list names them; explore only reads), and :worktree true for any member that edits code beside another. Hand out the parts with team$assign, each a task that stands on its own — the goal, the files, names and decisions it needs, what to do and not to touch, and what to report back — since a member has not seen this conversation. Put independent parts on the board (no :member); name a :member only when a part belongs to its role or worktree. Assign every part that can start now, then call task$wakeup once on the dispatcher, say what you are waiting for, and end your turn. When the answers are back, check each against what you asked — read the files, run the tests — and send what is missing to the member with team$assign rather than doing its part yourself. Merge what is right from each member's branch, and say what you did not merge and why. Then close the team with team$close, unless the words ask to keep it: closing stops the members and removes nothing — their worktrees and branches stay, for you or the person to merge or remove later — so a team left open is only members still running. Do not push, open a pull request or remove a worktree unless the words ask to. End with what each member did, what you verified and how, the branches and worktrees left, and what is still open."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

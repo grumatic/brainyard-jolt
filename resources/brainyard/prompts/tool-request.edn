@@ -1,0 +1,6 @@
+;; What `/<tool> args` asks the model (byj-gly.273.2) — brainyard's slash path,
+;; word for word (agent_tui/commands.clj handle-tool-dispatch). A nudge, not a
+;; forced call: the model reads it as the person's question and may answer it
+;; another way. {tool} is the tool's id, {args} the rest of the line as typed.
+{:with-args "call directly as a tool: {tool} for {args}"
+ :no-args "call directly as a tool: {tool}"}

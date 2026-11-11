@@ -1,0 +1,12 @@
+Tool Lisp:
+- Special forms: fn (#(...) works too; a named fn may call itself) let if when when-not if-let when-let if-some when-some when-first if-not cond condp case do and or -> ->> some-> some->> cond-> cond->> as->. Destructuring with {:keys [...] :as x} and [a b & more] in fn params and let.
+- Call a tool with a map of its arguments: (read-file {:path p}) or (user$tool$count-lines {:path p}). A tool returns the map a tool call would — its `Outputs:` line, or the output-schema get-tool-info gives — but whole: read-file does not page a large file inside a body; a failed tool returns {:error-message "..."} or {:error "..."}.
+- Keywords, maps and sets work as functions: (:content res), (map :name xs).
+- Literals: strings, numbers, keywords, vectors, maps, sets, nil, true, false, regex #"\s+".
+- json/read parses a JSON string into a map with KEYWORD keys; json/write does the reverse.
+- String functions require strings: pass (:content (read-file ...)), not the result map.
+- Comprehensions and effects: (for [x xs :when p :let [y ...]] ...) returns a vector; (doseq [x xs] (write-file ...)) and (dotimes [i n] ...) run for their effects.
+- Loops and recursion: (loop [i 0 acc []] (if ... (recur (inc i) (conj acc x)) acc)), recur in a fn, (letfn [(walk [d] ...)] ...), a named fn. Every step counts against the body's budget.
+- Failure: (try ... (catch Exception e (ex-message e))) catches what a body raises — never a cancelled turn or an exhausted budget; (throw (ex-info "why" {...})) stops with a reason; catch ExceptionInfo for ex-info only. parse-long and parse-double do NOT throw on text that is not a number: they return nil, so test for nil rather than catching.
+- Also: clojure.set/*, clojure.walk/* (keywordize-keys, postwalk), clojure.edn/read-string, clojure.data/diff, fnil, compare, key/val, partition-by, update-vals, tree-seq.
+- NOT allowed: def, defn, eval, atoms, Java interop, and any function not in the list below. A tool may not call itself, directly or through other tools.

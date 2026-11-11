@@ -1,0 +1,40 @@
+;; What brainyard relies on, for /init's check (RFC-040, byj-gly.309.2): each
+;; tool's command, how its version is read (tmux and dolt take no --version),
+;; whether it is needed, what for, and how it is installed, per platform —
+;; brew first on macOS. Detection only reads; nothing here is run to install.
+;;
+;; :need  :required — brainyard's own work stops without it
+;;        :feature  — a feature named in :for needs it
+;;        :optional — nothing of brainyard's needs it
+;; Install commands checked against Homebrew on 2026-10-08 (formulae beads,
+;; tmux, gh; cask codex).
+[{:name "git" :command "git" :version ["--version"] :need :required
+  :for "the project's history; worktrees for delegated work (RFC-039)"
+  :install {:macos ["xcode-select --install" "brew install git"]
+            :linux ["sudo apt-get install -y git"]}}
+ {:name "bd" :command "bd" :version ["--version"] :need :required
+  :for "beads, the task tracker brainyard projects keep their work in"
+  :install {:macos ["brew install beads"]
+            :linux ["see https://github.com/gastownhall/beads#installation"]}
+  :url "https://github.com/gastownhall/beads"}
+ {:name "tmux" :command "tmux" :version ["-V"] :need :feature
+  :for "Claude Code sessions on the agent page and agent$claude (RFC-033, RFC-039)"
+  :install {:macos ["brew install tmux"]
+            :linux ["sudo apt-get install -y tmux"]}}
+ {:name "ttyd" :command "ttyd" :version ["--version"] :need :feature
+  :for "sharing a session in the browser: byj run --web (byj-gly.22)"
+  :install {:macos ["brew install ttyd"]
+            :linux ["sudo apt-get install -y ttyd"]}}
+ {:name "claude" :command "claude" :version ["--version"] :need :feature
+  :for "agent$claude and the claude-code provider"
+  :install {:macos ["curl -fsSL https://claude.ai/install.sh | bash"]
+            :linux ["curl -fsSL https://claude.ai/install.sh | bash"]}
+  :url "https://docs.claude.com/en/docs/claude-code/setup"}
+ {:name "gh" :command "gh" :version ["--version"] :need :feature
+  :for "pull requests: finding and opening them (RFC-039)"
+  :install {:macos ["brew install gh"]
+            :linux ["see https://github.com/cli/cli#installation"]}}
+ {:name "codex" :command "codex" :version ["--version"] :need :optional
+  :for "Codex sessions, and bd's Codex setup (bd setup codex)"
+  :install {:macos ["brew install --cask codex" "npm install -g @openai/codex"]
+            :linux ["npm install -g @openai/codex"]}}]

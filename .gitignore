@@ -1,0 +1,74 @@
+target/
+.cpcache/
+.jolt/
+*.so
+.omc/
+.brainyard/*
+# this repository's own agents are kept with it (byj-gly.316)
+!.brainyard/agents/
+
+# A run whose working directory is this repo writes where its tools are told
+# to, and a user hook logging to a relative path lands here. One such log was
+# committed once (byj-gly.74); this is so the next one is not.
+*.log
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*
+.nrepl-port
+
+# the build stamp (RFC-029): written by dev/stamp-version.sh, embedded in the binary
+resources/brainyard/build-version.edn
+
+# credentials (main.clj env-fn reads it); .env.example is the committed template
+.env
+# but an exam kit's planted one, a fake key its guard question is about (RFC-055)
+!dev/exam-kits/office-fluency/project/.env
+!dev/exam-bank/*/project/.env
+
+# staged release assets (dev/release-stage.sh)
+release/
+
+# macOS Finder metadata
+.DS_Store
+
+# notes and reports written for the person, not the repository
+/Claude outputs/
+
+# the share web client (RFC-043): its dependencies and its build
+share/main/web/node_modules/
+share/main/web/dist/
+# its screenshot tool's (dev/share-shots)
+dev/share-shots/node_modules/
+
+# RFC-051's video spike: its dependencies and each run's raw results
+dev/video-spike/node_modules/
+dev/video-spike/results/
+
+# what byj exam validate and calibrate keep in a kit (RFC-048)
+dev/exam-kits/*/hidden/checks/
+dev/exam-bank/*/hidden/checks/
+dev/sdk-acp-spike/node_modules/
+dev/acp-interop/node_modules/
+sdk/typescript/node_modules/
+sdk/typescript/dist/
+sdk/python/.venv/
+sdk/python/**/__pycache__/
+sdk/python/.pytest_cache/
+
+# local, never committed: agent-shell's per-project state, and tutorials kept beside the checkout
+/.agent-shell/
+/tutorials/
+
+# a `go build` run inside a command's own directory leaves its binary there;
+# one was committed once (byj-1wv.154). Builds go to target/ (jolt build:share).
+share/engine/cmd/byj-a2a/byj-a2a
+share/engine/cmd/byj-share/byj-share
+# and from the module's root, `go build ./cmd/byj-share` without -o (byj-ahf.7)
+share/engine/byj-share
+share/engine/byj-a2a
+share/main/cmd/byj-main/byj-main
+share/portal/cmd/byj-portal/byj-portal

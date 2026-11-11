@@ -1,0 +1,121 @@
+;; The implementation pipeline, as a tree (RFC-023).
+;;
+;;     jolt ask:byj -l brainyard/loops/plan-act-eval.edn "add a retry budget to the LLM layer"
+;;
+;; brainyard runs this as four conversational specialists handing each other
+;; dossiers on disk: plan-agent → todo-agent → exec-agent → eval-agent, each
+;; parsing the previous one's frontmatter and refusing unless its post-flight
+;; passed. That is a WORKFLOW, and this port already has one (RFC-022), so the
+;; chain is a tree and the dossiers are blackboard keys — checked by
+;; `flow$check` before the pipeline runs rather than by three parsers while it
+;; does.
+;;
+;; Each kind of step lands where it belongs:
+;;
+;;   judgement with tools      → an agent    (agent$plan, agent$edit)
+;;   judgement without tools   → a predictor (todo/from-plan, todo/eval)
+;;   state that outlives a turn→ a substrate (todo$*)
+;;   the order and the gates   → this file
+;;
+;; Check it before changing it: `by flow check brainyard/loops/plan-act-eval.edn`.
+[:sequence {:id :impl/turn}
+ [:action {:id :impl/init :fn :react/init}]
+ [:action {:id :impl/seed :fn :mem/set
+           :set {:step "no steps were carried out"
+                 ;; which checklist to continue, when the caller named one
+                 ;; (`by ask --todo <slug>`); nil means plan a new one
+                 :todo-slug :config/todo-slug}}]
+
+ ;; Either there is work to do and this does it, or there is not and the plan
+ ;; agent's own answer — a refusal, or the one question it needs answered — is
+ ;; what the turn says. `agent$plan` is built to decline, and a pipeline that
+ ;; carried on regardless would turn a considered refusal into busywork.
+ [:fallback {:id :impl/turn-guard}
+  [:sequence {:id :impl/implement}
+
+   ;; 1-2. RESUME, or PLAN AND AUTHOR.
+   ;;
+   ;; A checklist outlives its turn, so a run cut short — by an iteration
+   ;; ceiling, by a failed step, by the person stopping it — should carry on
+   ;; with the list rather than plan a second one over the top of the first.
+   ;; Naming the list is the caller's: only they know which piece of work this
+   ;; turn continues.
+   [:fallback {:id :impl/start}
+    [:sequence {:id :impl/resume}
+     ;; a slug was given …
+     [:condition {:id :impl/named? :fn :mem/true? :key :todo-slug}]
+     ;; … it exists (a missing one fails here and falls through to planning) …
+     [:action {:id :impl/existing :fn :tool/run :tool "todo$read"
+               :in {:slug :todo-slug}
+               :out {:plan :plan :remaining :remaining :todo-has-work :has-work}}]
+     ;; … and it still has something to do. :has-work is a boolean because a
+     ;; count of 0 is truthy, and resuming a finished list would re-run the gate
+     ;; forever.
+     [:condition {:id :impl/work-left? :fn :mem/true? :key :todo-has-work}]]
+
+    [:sequence {:id :impl/fresh}
+     ;; the specialist decides whether it knows enough, writes the plan, grades it
+     [:action {:id :impl/plan :fn :tool/run :tool "agent$plan"
+               :in {:question :question}
+               ;; its answer lands on BOTH keys: as the plan to work from, and
+               ;; as the turn's answer should there be nothing to work from
+               :out {:plan :answer :answer :answer}}]
+     ;; … and it may not have planned. It refuses a task too small to plan and
+     ;; asks a question when it lacks one; its instruction prefixes a real plan
+     ;; with `Saved plan:`. Without this the refusal itself reached the
+     ;; checklist author, which duly wrote a checklist out of a refusal message
+     ;; (byj-gly.69, found by the byj-gly.17 measurement).
+     [:condition {:id :impl/planned? :fn :mem/match? :key :plan
+                  :pattern "Saved plan:"}]
+     ;; the plan becomes a checklist. The judgement is a predictor; the
+     ;; durability is the substrate.
+     [:action {:id :impl/items :fn :predictor/run :predictor "todo/from-plan"
+               :in {:plan :plan}
+               :out {:todo-slug :slug :items :items}
+               :zones [:agent-core]}]
+     ;; the list remembers the plan it came from, so a later run has something
+     ;; for the gate to judge against
+     [:action {:id :impl/todo :fn :tool/run :tool "todo$create"
+               :in {:slug :todo-slug :items :items :plan :plan}
+               :out {:todo-path :path :todo-count :count :remaining :count}}]]]
+
+   ;; 3. DRIVE — one item at a time. The checklist is the state, so a turn that
+   ;;    runs out of iterations leaves it half-ticked on disk and the next turn
+   ;;    picks up at the first unticked item. That is the whole reason the list
+   ;;    is a file and not a blackboard key.
+   [:repeat {:id :impl/drive :max-n :config/max-iterations
+             :until :mem/true? :key :todo-exhausted}
+    [:sequence {:id :impl/step}
+     [:action {:id :impl/next :fn :tool/run :tool "todo$next"
+               :in {:slug :todo-slug}
+               :out {:item :text :item-index :index :todo-exhausted :exhausted
+                     :item-via :via}}]
+     [:fallback {:id :impl/step-guard}
+      ;; nothing left: succeed, and let :until end the loop
+      [:condition {:id :impl/drained? :fn :mem/true? :key :todo-exhausted}]
+      [:sequence {:id :impl/work}
+       ;; `via` rides along as context when the item carries one. It is a
+       ;; REFERENCE, not a route: the tree does not branch on it, because a
+       ;; branch per tag would be a second place to keep in step with the
+       ;; vocabulary, and the agent doing the work is better placed to read a
+       ;; hint than the tree is to act on one (`byj-gly.68`). An item with no
+       ;; `via` passes no context — a nil arg is dropped, not sent empty.
+       [:action {:id :impl/do :fn :tool/run :tool "agent$edit"
+                 :in {:question :item :agent-context :item-via}
+                 :out {:step :answer}}]
+       ;; only reached when the step succeeded — a failed edit leaves the box
+       ;; unticked, which is what lets a later turn retry it
+       [:action {:id :impl/mark :fn :tool/run :tool "todo$done"
+                 :in {:slug :todo-slug :index :item-index}
+                 :out {:remaining :remaining}}]]]]]
+
+   ;; 4. EVAL — the gate. Judge the plan's acceptance criteria, not the boxes.
+   [:action {:id :impl/eval :fn :predictor/run :predictor "todo/eval"
+             :in {:plan :plan :done :step :remaining :remaining}
+             :out {:answer :answer :satisfied :satisfied}
+             :zones [:agent-core]}]
+   [:action {:id :impl/stamp :fn :react/stamp-answer}]]
+
+  ;; nothing to implement. The specialist's answer is already on :answer, so
+  ;; the turn ends with what it actually said — the refusal, or the question.
+  [:action {:id :impl/hand-back :fn :react/stamp-answer}]]]

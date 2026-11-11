@@ -1,0 +1,27 @@
+;; agent$init (RFC-040): /init. Makes a directory a project brainyard works
+;; well in — the tools checked with how to install the missing ones, AGENTS.md
+;; and a CLAUDE.md that imports it, beads set up by bd — and drafts the
+;; project's own section of AGENTS.md.
+;;
+;; Its own loop is the whole agent (brainyard/loops/init.edn): no model turn of
+;; its own calls a tool, so its tools are the init$* commands alone, and its
+;; :config is what registers them.
+;;
+;; brainyard's /init authors .brainyard/BRAINYARD.md instead (init-agent):
+;; divergence `init-sets-up-the-project`.
+{:description
+ "Prepares this project for brainyard: checks the tools brainyard relies on (git, bd, tmux, claude, gh, codex) and says how to install the missing ones; writes AGENTS.md and a CLAUDE.md that imports it, keeping any text already there; sets up beads with bd; drafts the project's section of AGENTS.md from the repository. Say \"check\" to only report. Installs a tool only when asked to, and only after the person says yes."
+
+ :instruction-resource "brainyard/prompts/agents/init.md"
+
+ :loop "brainyard/loops/init.edn"
+
+ :tools ["init$*"]
+ :deny-tools ["agent$*"]
+
+ :tier :standard
+
+ :config {:init-tools? true
+          :tool-authoring? false
+          :hook-authoring? false
+          :user-tools? false}}

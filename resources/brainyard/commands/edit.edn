@@ -1,0 +1,23 @@
+;; /edit (byj-gly.360): a change made by agent$edit, which changes ONE file a
+;; call — probes it, writes once, verifies the diff, rolls back when a check
+;; fails, and refuses a dirty file or a request spanning several. A turn, as
+;; every command that stands for an agent is (RFC-004): the session's agent
+;; works out which file each part of the change is in and hands agent$edit
+;; one at a time, writing nothing itself.
+;;
+;; `/edit WORDS` only: with no words there is nothing to change, so a bare
+;; /edit says how to use it. Not in brainyard, which has no /edit command.
+{:command "/edit"
+ :agent "edit"
+ :rephrase :predictor
+
+ :purpose
+ "make the change the words describe, one file at a time, each edit probed, verified and rolled back if a check fails"
+
+ :usage
+ "Work out which file or files the change touches — read or grep first when the request does not name them. Then call agent$edit with :question naming ONE file and the exact change in it: the text to replace and what replaces it, or the content of a new file. For several files, call it once per file, in order, each only after the last one succeeded; stop at the first that rolls back or refuses, and say which file and why. Do not write any file yourself, and do not commit. End with what changed in each file, and each `Rollback:` line exactly as agent$edit gave it."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

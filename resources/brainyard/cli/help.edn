@@ -1,0 +1,194 @@
+;; The `byj` CLI's help, as data (brainyard.cli-help renders it): brainyard's
+;; `by` layout — `byj -h` names the commands, `byj COMMAND -h` a
+;; command's subcommands and options, `byj COMMAND SUB -h` one subcommand.
+;; A command's :aliases are old names it still answers to, its page shown
+;; under its own name.
+;; A command or subcommand added to `brainyard.main` gets its line here;
+;; `cli-help-test/every-dispatched-subcommand-has-help` fails otherwise.
+{:name "byj"
+ :summary "brainyard's agent runtime on jolt"
+ :usage "byj [options] [command] [options] [arguments…]"
+
+ :commands
+ [{:name "ask" :default? true
+   :summary "Ask a question, non-interactively: the ReAct loop per question (the default)"
+   :usage "byj [ask] [options] QUESTION…"
+   :options [:provider :model :working-dir :max-iterations :loop :agent :question :json :attach :timeout
+             :params :todo :print-tree :print-predictor :verbose :trace-prompts
+             :permission-mode :ask :allow :deny :ask-effects :deny-effects :allow-path :no-path-permission
+             :sandbox :sandbox-profile :sandbox-allow-write :sandbox-no-network]}
+  {:name "run"
+   :summary "Start an interactive session: full-screen, or --inline a line at a time (/help inside)"
+   :usage "byj run [options]"
+   :options [:provider :model :working-dir :max-iterations :loop :inline
+             :resume :resume-latest :resume-run :sessions :no-persist
+             :serve :agent :label :leader :params :todo :verbose
+             :permission-mode :ask :allow :deny :ask-effects :deny-effects :allow-path :no-path-permission
+             :sandbox :sandbox-profile :sandbox-allow-write :sandbox-no-network
+             :share
+             :web :web-tmux :web-port :web-bind :web-user :web-pass :web-readonly :web-max-clients :web-once]}
+  {:name "session" :aliases ["sessions"]
+   :summary "This project's sessions, and a live one's events (RFC-031)"
+   :subcommands
+   [{:subs [{:name "list" :args "[--live] [--json]"
+             :summary "this project's sessions: those that listen, then saved ones"}
+            {:name "watch" :args "SESSION [--events E,…]"
+             :summary "a live session's events as they happen, one EDN line each"}]}]}
+  {:name "programs"
+   :summary "Measure predictors and review their optimization proposals (.brainyard/programs)"
+   :subcommands
+   [{:subs [{:name "list" :args ""
+             :summary "predictors, their params source and datasets"}
+            {:name "eval" :args "ID DATASET [--metric M] [--split S] [--repeats R] [--parallel N] [--lm LM] [--tier T] [--max-calls N] [--max-tokens N]"
+             :summary "measure a predictor on a dataset"}
+            {:name "compile" :args "ID DATASET [--lm LM] [--tier T] [--optimizer O] [--teacher-lm LM] [--teacher-tier T] [--max-bootstrapped N] [--repeats R] [--metric M]"
+             :summary "propose demos, as a proposal to review"}
+            {:name "proposals" :args "ID"
+             :summary "a predictor's proposals and their status"}
+            {:name "accept" :args "ID PROPOSAL-ID [--yes]"
+             :summary "install a proposal's params"}
+            {:name "reject" :args "ID PROPOSAL-ID"
+             :summary "mark a proposal rejected"}]}]}
+  {:name "flow"
+   :summary "Check, inspect and edit a loop's behavior tree without running it"
+   :subcommands
+   [{:subs [{:name "check" :args "[TREE]"
+             :summary "every problem with a loop, without running it"}
+            {:name "status" :args "[TREE]"
+             :summary "every leaf: ready, missing or failing"}
+            {:name "brief" :args "TREE NODE"
+             :summary "what one node must read and write, and who supplies it"}
+            {:name "probe" :args "TREE NODE"
+             :summary "run one node alone and report what it wrote"}
+            {:name "patch" :args "FILE OPS [--expect-hash H]"
+             :summary "a structural edit, as EDN ops; --expect-hash guards it"}]}]}
+  {:name "init"
+   :summary "Prepare a project for brainyard: tools checked, AGENTS.md and CLAUDE.md, beads (RFC-040)"
+   :usage "byj init [DIR] [--check | --install] [--prefix P] [--no-guide]"
+   :options [:init-check :install :prefix :no-guide]}
+  {:name "agent" :aliases ["agents"]
+   :summary "Each agent and what it can make happen — reads, hands off, runs, writes, every tool — least first; one in full; --json for byj-share"
+   :usage "byj agent [--name NAME] [--json]"
+   :options [:name :json]}
+  {:name "acp"
+   :summary "An Agent Client Protocol agent on stdio, for an SDK or an editor (RFC-053)"
+   :usage "byj acp [-p PROVIDER] [-m MODEL] [--agent NAME] [--permission-mode MODE]"
+   :options [:provider :model :agent :permission-mode]}
+  {:name "turns"
+   :summary "A session's turns, kept as git snapshots of the work tree (RFC-069)"
+   :subcommands
+   [{:subs [{:name "list" :args "SESSION [--json]"
+             :summary "the session's kept turns: how many files each changed, when it ended, its question"
+             :doc "As each turn begins and ends, the project's git work tree is snapshotted (:changes?) — every file git add -A would take, minus what .gitignore names, .brainyard/ and the files Emacs leaves beside one it visits — through an index of byj's own, so HEAD, the index, the stash and the work tree are untouched. Every turn is kept as refs/byj/turns/SESSION/TURN, its parent the turn's start, the repository's newest :changes-turns (200). This lists them; --json gives {turn, ref, before, after, files, subject, at}."}
+            {:name "diff" :args "SESSION [TURN] [--json]"
+             :summary "what a turn changed, as git's diff"
+             :doc "git's diff between the turn's two snapshots, so whatever wrote the files is in it, bash included: the last turn that changed files unless TURN is given; --json gives {turn, ref, before, after, root, files, diff}. byj emacs changes says the same, and byj-review in Emacs opens it in magit, or vc's diff."}
+            {:name "rewind" :args "SESSION TURN [end] [--json]"
+             :summary "put the files back as they were when a turn began, or ended"
+             :doc "The work tree made what the turn's start (or, with end, its end) snapshot holds: what differs is written, a file it lacks is removed, one it has is made. Whatever was there first — the person's own work since included — is kept as refs/byj/rewinds/SESSION/N, which byj turns undo puts back. HEAD, the index, the stash and what the snapshots leave out (.gitignore's, .brainyard/) are untouched. A session's own /rewind does the same and tells its next turn; this does not tell a session running elsewhere."}
+            {:name "undo-turn" :args "SESSION TURN [--json]"
+             :summary "take back what one turn changed, alone, keeping what came after"
+             :doc "git's three-way merge (merge-tree, git 2.40 or later) of the work tree as it is with the turn's start, the turn's end the base: the turn's change is undone and only it. Where something later changed the same lines, the file is left with conflict markers, named. Kept first, as byj turns rewind keeps it."}
+            {:name "undo" :args "SESSION [N] [--json]"
+             :summary "take back the last rewind or undone turn (or rewind N)"
+             :doc "The work tree put back as it was just before that rewind, which is itself kept first: undo twice and the rewind is back."}
+            {:name "fork" :args "SESSION [TURN [keep-files]] [--json]"
+             :summary "a new session with the conversation before a turn, the files put back to it too"
+             :doc "A new saved session from SESSION's snapshot, its history and transcript cut before TURN (the whole session when none is named), with :forked-from naming SESSION, which is not touched. With a turn the files are put back as they were when it began, as rewind does, so the new session's conversation and the work tree agree; keep-files leaves them. byj run --resume NEW continues it; a session's own /fork opens it beside, in the full-screen window."}]}]}
+  {:name "emacs"
+   :summary "byj.el for your Emacs init, and what a turn changed (RFC-067)"
+   :subcommands
+   [{:subs [{:name "install-el" :args ""
+             :summary "byj.el written to ~/.brainyard/emacs/, and the init lines that require it"
+             :doc "byj.el (the project's .brainyard/emacs/byj.el when it has one) written to ~/.brainyard/emacs/byj.el, so an init can require it before byj has called that Emacs, and the lines that load it and bind byj-command-map. Its commands ask the project's live session with byj ask --attach: byj-ask, byj-explain, byj-check, byj-hint, byj-notes, byj-notes-clear, byj-explain-error, byj-review, byj-how, byj-observe-mode, byj-fix-diagnostic, byj-do-region, byj-review-unsaved, byj-todo-at-point, byj-todo."}
+            {:name "changes" :args "SESSION [TURN] [--json]"
+             :summary "what a turn of the session changed, as git's diff"
+             :doc "What byj turns diff says (RFC-069), under the name byj-review asks by: git's diff between the turn's snapshots, the last turn that changed files unless TURN is given; --json gives {turn, ref, before, after, root, files, diff}. byj-review in Emacs opens it in magit, or vc's diff."}]}]}
+  {:name "hook"
+   :summary "Claude Code's and Codex's tool calls through byj's gates, as their PreToolUse hook (RFC-012)"
+   :subcommands
+   [{:subs [{:name "pretooluse" :args "[--log DIR]"
+             :summary "a PreToolUse payload on stdin decided by byj's gates: deny, ask, or no opinion"
+             :doc "The call is mapped onto byj's tool (Bash → bash, Read → read-file, Write → write-file, Edit → update-file, Grep → grep, Glob/LS → list-dir, Codex's apply_patch → update-file of each file it names) and put through the gates a byj turn meets — tool deny, bash command, path, tool permission — under the project's config (its cwd's). A refusal by rule answers deny, a gate that would ask a person answers ask, and nothing objecting prints nothing, so the agent's own rules decide; a tool byj has no counterpart for, and a payload or hook that fails, get no opinion. Each decision is a line in DIR/<day>.edn (~/.brainyard/permissions by default), which Share's eval permissions reads."}
+            {:name "settings" :args "[--log DIR]"
+             :summary "the Claude Code settings that install it, as JSON for claude --settings or settings.json"}
+            {:name "codex-flags" :args "[--log DIR]"
+             :summary "a codex command line that carries it as a session hook, trusted for that session alone"}]}]
+   :options [:log]}
+  {:name "doctor"
+   :summary "Where this machine stands: the tools, the project, Claude Code's sign-in and its subscription's use"
+   :usage "byj doctor"
+   :options []}
+  {:name "update"
+   :summary "Check for a newer release of byj, install it, or roll back (RFC-029)"
+   :usage "byj update [--check | --yes | --rollback]"
+   :options [:check :yes :rollback]}]
+
+ ;; shown under every command
+ :global [:help :version :print-config :provider :model :working-dir]
+
+ :options
+ {:provider {:flags "-p, --provider NAME"
+             :doc "openai | anthropic | bedrock | claude-code | freellm | openrouter | ollama | mock (default: :default-lm in config, else claude-code/sonnet)"}
+  :model {:flags "-m, --model NAME" :doc "model id (the provider's default otherwise)"}
+  :working-dir {:flags "-C, --working-dir DIR" :doc "the directory tools run in (default: cwd)"}
+  :max-iterations {:flags "-n, --max-iterations N" :doc "the per-turn iteration ceiling (default 20)"}
+  :loop {:flags "-l, --loop FILE" :doc "a behavior-tree EDN to run instead of the bundled one (ask: the react loop; run: the session loop)"}
+  :question {:flags "-q, --question TEXT" :doc "a question (repeatable; positional arguments also work)"}
+  :inline {:flags "-i, --inline" :doc "a line at a time instead of the full-screen renderer, the default wherever a terminal allows it (ctrl-c cancels a turn, ctrl-q quits)"}
+  :print-tree {:flags "--print-tree" :doc "print the loop tree, :include nodes expanded, and exit"}
+  :params {:flags "--params FILE" :doc "EDN {predictor-id params}: the highest-precedence params layer"}
+  :todo {:flags "--todo SLUG" :doc "continue this checklist instead of planning a new one (brainyard/loops/plan-act-eval.edn)"}
+  :print-predictor {:flags "--print-predictor ID" :doc "print a predictor, its resolved params and their source, and exit"}
+  :verbose {:flags "-v, --verbose" :doc "trace reasoning, tool calls and results to stderr"}
+  :trace-prompts {:flags "--trace-prompts" :doc "also dump the full prompts to stderr"}
+  :json {:flags "--json" :doc "print the result map as JSON"}
+  :test {:flags "--test" :doc "agent build: run every example on the agent, in a copy of its project; the result kept as its last test"}
+  :abilities {:flags "--abilities ID,…" :doc "agent build: the builder's abilities ticked, written as the agent's :tools and :config (\"\" for none)"}
+  :procedures {:flags "--procedures NAME,…" :doc "agent build: the procedures ticked — skills of the project's own — written as the agent's :tools (\"\" for none)"}
+  :example {:flags "--example JSON" :doc "agent build: one example written — {id, question, contains-any, contains-all, not-contains, rubric} — as the builder agent writes them"}
+  :name {:flags "--name NAME" :doc "agent: the one agent to show in full"}
+  :attach {:flags "-A, --attach SESSION" :doc "ask a live session instead of starting one: its id, a prefix of it, or its label (RFC-031)"}
+  :timeout {:flags "-t, --timeout SECS" :doc "with --attach: the longest to wait for each answer (default 120)"}
+  :print-config {:flags "--print-config" :doc "print the effective config, each key with its source, and exit"}
+  :resume {:flags "-r, --resume ID" :doc "continue a saved session (RFC-016)"}
+  :resume-latest {:flags "--resume-latest" :doc "continue the most recent saved session"}
+  :resume-run {:flags "--resume-run" :doc "reopen every session the last full-screen run had open, the one in front in front again"}
+  :sessions {:flags "--sessions" :doc "list saved sessions and exit"}
+  :no-persist {:flags "--no-persist" :doc "do not save the session"}
+  :serve {:flags "--serve" :doc "a headless session with no terminal, whose only input is its session channel: asked with ask --attach or session$ask, ended by SIGINT or a :close-session request (RFC-031)"}
+  :agent {:flags "--agent NAME" :doc "take this agent spec's persona: its instruction, tools, model and loop (RFC-018)"}
+  :label {:flags "--label TEXT" :doc "with --serve: the name `session list` shows it by"}
+  :leader {:flags "--leader SESSION" :doc "with --serve: ask this session's person for permission"}
+  :permission-mode {:flags "--permission-mode M" :doc "auto | auto-approve | ask-each-time | deny-by-default (RFC-012)"}
+  :ask {:flags "--ask GLOBS" :doc "comma-separated tool globs needing permission, e.g. 'bash,write-*'"}
+  :allow {:flags "--allow GLOBS" :doc "tool globs exempt from --ask"}
+  :deny {:flags "--deny GLOBS" :doc "tool globs always refused, whatever the mode"}
+  :ask-effects {:flags "--ask-effects FX" :doc "comma-separated effects needing permission, e.g. 'process,fs/write'"}
+  :deny-effects {:flags "--deny-effects FX" :doc "effects always refused"}
+  :allow-path {:flags "--allow-path DIR" :doc "a directory tools may read and write (repeatable, comma-separated)"}
+  :no-path-permission {:flags "--no-path-permission" :doc "do not check tool paths against the allowed directories"}
+  :sandbox {:flags "--sandbox" :doc "relaunch under macOS seatbelt: writes contained to ~/.brainyard, the working dir, $TMPDIR and /tmp (RFC-012)"}
+  :sandbox-profile {:flags "--sandbox-profile F" :doc "a seatbelt profile file instead of the generated one"}
+  :sandbox-allow-write {:flags "--sandbox-allow-write DIR" :doc "an extra writable directory (repeatable, comma-separated)"}
+  :sandbox-no-network {:flags "--sandbox-no-network" :doc "deny network in the sandbox (LLM calls will fail)"}
+  :check {:flags "--check" :doc "is there a newer release? (:update-source, a GitHub token)"}
+  :yes {:flags "--yes" :doc "install it without asking: a binary swaps itself, a Homebrew install runs brew upgrade, a checkout checks the tag out"}
+  :rollback {:flags "--rollback" :doc "a binary goes back to the one it replaced; not for a Homebrew install"}
+  :share {:flags "--share TARGET" :doc "share this session with invited people through the byj-share sidecar (RFC-043): link, or class:CODE; /share says who watches. Not for a piped session"}
+  :web {:flags "--web" :doc "share in the browser through ttyd: each viewer gets a fresh session of their own (BY_WEB=1)"}
+  :web-tmux {:flags "--web-tmux" :doc "share ONE session through a private tmux server: your terminal and every browser drive one live pane"}
+  :web-port {:flags "--web-port N" :doc "the port ttyd listens on (default 7681; 0 a random one)"}
+  :web-bind {:flags "--web-bind ADDR" :doc "the address ttyd binds (default 127.0.0.1, this machine only; tunnel in with ssh -L)"}
+  :web-user {:flags "--web-user U" :doc "basic-auth user (default by)"}
+  :web-pass {:flags "--web-pass P" :doc "basic-auth password (default: one generated and printed); auth is always on"}
+  :web-readonly {:flags "--web-readonly" :doc "viewers watch but cannot type (default: they can)"}
+  :web-max-clients {:flags "--web-max-clients N" :doc "at most N browsers at once (default 0, no cap)"}
+  :web-once {:flags "--web-once" :doc "stop sharing when the first viewer leaves"}
+  :init-check {:flags "--check" :doc "only report: the tools brainyard relies on, and what the project has; writes nothing"}
+  :install {:flags "--install" :doc "also install each missing tool a package manager can (brew, npm) — your yes, given in advance"}
+  :prefix {:flags "--prefix P" :doc "the beads issue prefix (default: the directory name)"}
+  :log {:flags "--log DIR" :doc "where byj hook logs each decision (default ~/.brainyard/permissions)"}
+  :no-guide {:flags "--no-guide" :doc "file no starter issues in beads (filed by default when this run sets beads up)"}
+  :help {:flags "-h, --help" :doc "this help; after a command, that command's"}
+  :version {:flags "-V, --version" :doc "print the version and the commit it was built from, and exit"}}}

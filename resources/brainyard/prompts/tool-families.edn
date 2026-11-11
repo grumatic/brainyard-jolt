@@ -1,0 +1,23 @@
+;; What each tool family is for, as the prompt's tool listing says it on the
+;; family's one line (discovery/format-tools-by-family, byj-gly.188). The ids
+;; follow it; this is what the ids do not say. A family not named here is
+;; listed with its ids alone, and an MCP server's family (`mcp$<server>`) is
+;; named as that server.
+;;
+;; Every word here is read by the model (RFC-001): a resource, not code.
+{"agent" "delegate a whole task to a specialist agent; you get back its answer"
+ "agent-registry" "the subagents you dispatched and that are still alive: list them, ask one again, close one"
+ "config" "read and change this project's settings, snapshot and revert them"
+ "flow" "check, inspect and edit behavior-tree loops without running them"
+ "hook" "code that runs on agent events: list the events, define, validate and delete hooks"
+ "log" "what earlier runs did, from the event log"
+ "mcp" "the connected MCP servers and what each offers"
+ "memory" "what this project remembers between sessions: recall it, read it, add to it"
+ "program" "measure a predictor on a dataset and propose better demos"
+ "schedule" "turns of this session set to come later: a prompt on a cron or after a delay (how a /loop paces itself), or a watch on a command or file that wakes you when it changes (how to follow a long job)"
+ "session" "how this project's sessions have gone: turns, cost, outcomes"
+ "skills" "named multi-step procedures: find one, read it, then follow it"
+ "task" "work that outlives a tool call: run it in the background, wait for it, cancel it"
+ "todo" "a checklist that outlives the turn: create it, work through it, add to it"
+ "tool" "define your own tools in Tool Lisp over the ones you have, test them, run one-off compositions"
+ "trajectory" "export this project's sessions as datasets"}

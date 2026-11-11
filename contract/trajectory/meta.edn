@@ -1,0 +1,14 @@
+{:ask-socket-path "<socket>",
+ :frame-version 2,
+ :ops
+ [:ask
+  :inject
+  :status
+  :cancel
+  :subscribe
+  :config
+  :emit
+  :mcp
+  :rename-session],
+ :label nil,
+ :tmux-pane nil}

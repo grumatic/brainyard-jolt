@@ -1,0 +1,85 @@
+#!/bin/bash
+# A stand-in for an interactive Codex CLI, for codex-host-test (byj-gly.430.3):
+# what codex-host reads and types, and nothing more, shaped as Codex 0.163 was
+# measured (RFC-049). It holds its thread's writer lock in $CODEX_HOME for as
+# long as it runs, writes the rollout as Codex does — only once it is first
+# asked — and reads the person's lines from its terminal.
+#
+#   fake-codex [--fake-trust] [resume THREAD] [-m M] [-c K=V]... [--] [prompt]
+#
+# --fake-trust: the main screen is drawn first, then the folder dialog over it,
+#   the cursor on "Trust and continue"; Enter accepts. The lock is taken only
+#   past it, as Codex does.
+# A line containing ASK puts up an approval dialog: y approves and the turn
+#   ends; Escape aborts the turn.
+# A turn: task_started and the person's message, 0.3 s, the answer
+#   "echo: <line>" and task_complete.
+
+TRUST=""; THREAD=""; PROMPT=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --fake-trust) TRUST=1; shift;;
+    resume) THREAD=$2; shift 2;;
+    -m|-c|-C|-s|-a) shift 2;;
+    --) shift; PROMPT=$1; shift;;
+    -*) shift;;
+    *) PROMPT=$1; shift;;
+  esac
+done
+[ -n "$THREAD" ] || THREAD="019f$(date +%s)-$$"
+HOME_DIR=${CODEX_HOME:?CODEX_HOME is needed}
+CWD=$(pwd -P)
+ROLLOUT="$HOME_DIR/sessions/2026/10/23/rollout-2026-10-23T07-00-00-$THREAD.jsonl"
+LOCK="$HOME_DIR/thread-writer-locks/$THREAD.lock"
+
+esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+line() {
+  if [ ! -f "$ROLLOUT" ]; then
+    mkdir -p "$(dirname "$ROLLOUT")"
+    printf '{"timestamp":"t","type":"session_meta","payload":{"id":"%s","cwd":"%s","cli_version":"0.163.0"}}\n' \
+      "$THREAD" "$CWD" > "$ROLLOUT"
+  fi
+  printf '%s\n' "$1" >> "$ROLLOUT"
+}
+ev() { line "{\"timestamp\":\"t\",\"type\":\"event_msg\",\"payload\":$1}"; }
+item() { ev "{\"type\":\"item_completed\",\"item\":{\"type\":\"$1\",\"content\":[{\"type\":\"text\",\"text\":\"$(esc "$2")\"}]}}"; }
+main() { printf '\033[2J\033[H  >_ fake Codex (v0.163.0)\n\n› Ask Codex to do anything\n'; }
+
+main
+if [ -n "$TRUST" ]; then
+  sleep 0.5
+  printf '\033[2J\033[H  Folder access\n  %s\n  Trust this folder? Codex can read, edit, and run files here.\n› 1. Trust and continue\n  2. Quit\n' "$CWD"
+  read -r _ || exit 0
+  main
+fi
+
+mkdir -p "$(dirname "$LOCK")"
+: > "$LOCK"
+perl -e 'use Fcntl ":flock"; open(my $f, ">>", $ARGV[0]) or die; flock($f, LOCK_EX) or die; sleep 3600' "$LOCK" &
+HOLDER=$!
+trap 'kill $HOLDER 2>/dev/null' EXIT
+
+turn() {
+  ev '{"type":"task_started","turn_id":"t"}'
+  item UserMessage "$1"
+  case "$1" in
+    *ASK*)
+      printf '\033[2J\033[H  Would you like to run the following command?\n  $ curl example.com\n› 1. Yes, proceed (y)\n  3. No (esc)\n  Press enter to confirm or esc to cancel\n'
+      IFS= read -rsn1 key
+      main
+      if [ "$key" = "y" ]; then
+        item AgentMessage "ran it"; ev '{"type":"task_complete","last_agent_message":"ran it"}'
+      else
+        ev '{"type":"turn_aborted","reason":"interrupted"}'
+      fi;;
+    *)
+      sleep 0.3
+      item AgentMessage "echo: $1"
+      ev "{\"type\":\"task_complete\",\"last_agent_message\":\"echo: $(esc "$1")\"}";;
+  esac
+}
+
+[ -n "$PROMPT" ] && turn "$PROMPT"
+while IFS= read -r l; do
+  [ -n "$l" ] && turn "$l"
+done

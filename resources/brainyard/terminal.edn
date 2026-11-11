@@ -1,0 +1,55 @@
+;; The programs the right rail's Terminal view offers beside a session
+;; (byj-gly.412): each runs in a tmux session of its own, in the project
+;; directory, and outlives byj. Behaviour as data (RFC-001): ~/.brainyard/
+;; terminal.edn and a project's .brainyard/terminal.edn add entries or replace
+;; one by :name; an entry with :hidden true takes one away.
+;;
+;; :command is the argv; ${VAR} and ${VAR:-default} are expanded from the
+;; environment when it starts, and ${BYJ_PROJECT} is this project's tag (the
+;; one its tmux sessions are named by). An entry whose program is not on the
+;; PATH is listed as not installed.
+;;
+;; :open-file, when an entry has one, is how to open a file in the program
+;; while it runs, without the terminal: an argv run to its end, ${FILE},
+;; ${LINE} and ${COLUMN} filled in. A path:line clicked in the transcript, or
+;; a file opened from the rail, goes to the first running program that has
+;; one, and to $VISUAL/$EDITOR when none runs (byj-gly.451).
+;;
+;; :after-tools is an argv run after each batch of the agent's tools while the
+;; program runs, as the files they wrote may be open in it; :context one that
+;; writes what the person is looking at, as a JSON object, to the file
+;; ${OUT}, for the agent's terminal$context (byj-gly.453); Emacs's are
+;; brainyard.emacs's, through byj.el (RFC-067). ${VAR_STRING} is
+;; ${VAR} as a double-quoted string literal, for an argv that is code. Each is
+;; given 5 s.
+;;
+;; Enter opens a program beside byj when byj runs inside tmux: a pane split
+;; from byj's own, attached to the program's session, so the session stays in
+;; sight (byj-gly.452). :split :h (the default, side by side) or :v (one above
+;; the other) and :split-size (tmux's -l: "40%", 90) say how; :open :attach
+;; hands it the whole terminal instead, as outside tmux.
+[{:name "shell" :description "A shell in the project"
+  :command ["${SHELL:-/bin/sh}"]}
+ ;; a frame on a daemon of the project's own, which `-a ''` starts when it is
+ ;; not up: the buffers outlive the frame. It is the Emacs byj reaches unless
+ ;; :emacs-server names another (RFC-067), and brainyard.emacs, not this
+ ;; entry, opens a clicked file in it, reverts what the tools wrote and reads
+ ;; what the person is looking at; :open-file is used only when byj cannot
+ ;; see the daemon's socket
+ {:name "emacs" :description "Emacs, a frame on the project's own daemon"
+  :command ["emacsclient" "-t" "-a" "" "-s" "byj-${BYJ_PROJECT}"]
+  :open-file ["emacsclient" "-n" "-s" "byj-${BYJ_PROJECT}" "+${LINE:-1}:${COLUMN:-1}" "${FILE}"]}
+ {:name "nvim" :description "Neovim"
+  :command ["nvim"]}
+ {:name "vim" :description "Vim"
+  :command ["vim"]}
+ {:name "lazygit" :description "A terminal UI for git"
+  :command ["lazygit"]}
+ {:name "tig" :description "A text-mode interface for git"
+  :command ["tig"]}
+ {:name "htop" :description "Processes, CPU and memory"
+  :command ["htop"]}
+ {:name "btop" :description "Processes, CPU, memory, disks and network"
+  :command ["btop"]}
+ {:name "events" :description "This project's event log, as it grows"
+  :command ["tail" "-n" "40" "-F" ".brainyard/logs/events.log"]}]

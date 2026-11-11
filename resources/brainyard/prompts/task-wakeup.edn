@@ -1,0 +1,14 @@
+;; What a parked turn is resumed WITH (RFC-019): brainyard injects a turn like
+;; this rather than a bare notification, so the model reads it as an
+;; instruction. tasks/wakeup-message fills it.
+;;
+;; :request carries the request the turn parked from, in full (byj-gly.389):
+;; the history a woken turn reads cuts each earlier question to 500
+;; characters, and a /team or /claude request's closing steps — check,
+;; merge, close — were past the cut, so the woken turn finished without them.
+;; The text before {request} is also how a woken turn that parks again is
+;; told apart: what follows it is the original request, passed on rather
+;; than this message nested in the next.
+{:message "[task-complete] Background task {task-id} finished ({status}){note}. Pick up what you parked: read its result with task$detail if you need it, then carry on from where you stopped.{request}"
+ :note ". Your note: {note}"
+ :request "\n\nThe request you parked from, in full — finish it as it asks:\n{request}"}

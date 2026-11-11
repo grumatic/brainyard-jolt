@@ -1,0 +1,23 @@
+;; What `/loop <prompt>` with no interval asks the model (byj-gly.325) — Claude
+;; Code's /loop dynamic mode: the prompt runs now, and the model paces the loop
+;; itself, arming one wakeup at a time with schedule$add. The words are the
+;; behaviour, so they are here, not in session.clj (RFC-001). {prompt} is the
+;; prompt as typed; {loop-input} the whole /loop line, which a wakeup types
+;; again to come back here.
+;;
+;; :scheduled is what the person is told when /loop is given an interval:
+;; {every} the cadence, {cron} the cron it became, {id} the job's id, {rounded}
+;; a rounding note or empty.
+{:self-paced
+ "{prompt}
+
+[/loop, self-paced] The request above runs in a loop with no fixed interval. Do it now. Then decide whether another iteration is worth running, and when:
+- If it is, call schedule$add with :prompt exactly \"{loop-input}\" and :in a delay you choose — matched to what you are waiting for: a CI run that takes about 8 minutes deserves one check at 8m, not eight at 1m; an idle check, 20m to 30m. Keep it between 1m and 1h.
+- If the work is done, or cannot progress, do not schedule again: that ends the loop.
+Say in one line, at the end, which you chose and why."
+
+ :scheduled
+ "Scheduled every {every} (cron {cron}), job {id}{rounded} — it runs now, then while this session is open, between turns; it expires in 7 days. /schedule lists the jobs, /schedule remove {id} stops it."
+
+ :usage
+ "usage: /loop [interval] <prompt> — 5m <prompt>, or <prompt> every 20m: a recurring prompt; no interval: the agent paces itself"}

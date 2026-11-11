@@ -1,0 +1,26 @@
+;; /claude (byj-gly.361): work handed to Claude Code through agent$claude,
+;; with the session's agent as its evaluator. A turn, as every command that
+;; stands for an agent is (RFC-004): the session's agent briefs agent$claude,
+;; checks what comes back with its own tools, and sends what is missing to
+;; the SAME agent$claude instance with agent-registry$ask, so one Claude Code
+;; session does the follow-ups — asked again, agent$claude's plan finds the
+;; session it drives marked YOURS and continues it (RFC-039). A fresh
+;; dispatch would start a new Claude Code session, so it is only for when the
+;; instance is gone, and then names the session id the last report gave.
+;;
+;; `/claude WORDS` only: with no words there is no task, so a bare /claude
+;; says how to use it. Not in brainyard, which has no /claude command.
+{:command "/claude"
+ :agent "claude"
+ :rephrase :predictor
+
+ :purpose
+ "hand the work to Claude Code through agent$claude, check each result yourself, and send what is missing to the same Claude Code session until the work is done"
+
+ :usage
+ "When this conversation already has an agent$claude instance — the subagent-id an earlier call returned, which agent-registry$list shows — continue it with agent-registry$ask, so the same Claude Code session carries on. Otherwise call agent$claude with :question stating the task in full: what to do and what done looks like, and the files, decisions and constraints this conversation established, since it cannot see the conversation; name the Claude Code session id when the conversation names one to continue. Its answer is Claude Code's last reply, then a report naming the session and branch. A call can take minutes and run in the background: wait for its result with task$wait rather than answering without it. Judge every answer yourself, as its evaluator, the last one included: read the files or the diff it names and run the checks the task needs with your own tools, rather than taking the report's word for it. When something is missing or wrong, ask the same instance again with agent-registry$ask, saying exactly what to fix or do next. Never dispatch agent$claude afresh for the same work, which starts a new Claude Code session; only when the instance is gone, call agent$claude again naming the session id its last report gave. Stop when the work meets the request, when the report asks a question only the person can answer (end with that question, word for word), or when a follow-up made no progress. Leave the instance open for the next /claude. Do not push, open a pull request or merge unless the request says to. End with what Claude Code did, what you checked and how, the session id and branch, and the commands its report gave for publishing and cleaning up, exactly as given."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

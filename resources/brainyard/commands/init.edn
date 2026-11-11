@@ -1,0 +1,31 @@
+;; /init (RFC-040, byj-gly.350): prepare this project for brainyard, through
+;; agent$init. A turn, not a direct call: the agent the session runs is asked
+;; to drive agent$init, so it can read the conversation it is in — what was
+;; installed a turn ago, what the person said they want — and call the init
+;; agent again when its report says the next step waits on something.
+;;
+;; :request — what the turn is about: the words after /init, or, for a plain
+;; /init, :default-request, the whole setup said as a request a person would
+;; make, so the init agent's plan predictor reads it as it reads any other.
+;; :purpose and :usage are what the rephrasing predictor
+;; (predictors/session/rephrase-command) and the template are given; the
+;; template is the turn's input when the session has no turns yet, when
+;; :command-rephrase? is off, or when the predictor fails. {request},
+;; {purpose}, {usage}, {command} and {agent-tool} are filled in.
+{:command "/init"
+ :agent "init"
+ :rephrase :predictor
+
+ :default-request
+ "Prepare this project for brainyard: check the tools it relies on and say how to install any that are missing, write AGENTS.md and a CLAUDE.md that imports it, set up beads, and draft this project's section of AGENTS.md if it has none."
+
+ :purpose
+ "prepare this project for brainyard — the tools it relies on checked, with how to install the missing ones; AGENTS.md and a CLAUDE.md that imports it; beads set up with bd; the project's own section of AGENTS.md drafted"
+
+ :usage
+ "Do it through the agent$init tool, which runs the init agent: call it with :question set to the request — the person's own words where they gave any — and read its report. Call it again only when the report says the next step waits on something you can now give it: run it with \"check\" when the person asked only to see where things stand, and never ask it to install a tool the person did not ask to install. End with its report as it said it, and say what you did around it."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

@@ -1,0 +1,39 @@
+;; brainyard's `common/plan_agent.clj` in the small (RFC-018, byj-gly.41).
+;;
+;; Ported: the three phases that are the agent's actual value — check whether
+;; you can plan, write it, then grade what you wrote against a rubric.
+;;
+;; Not ported: the dossier chain. brainyard writes a machine-read dossier every
+;; turn whose whole purpose is the handoff to todo-agent and exec-agent, neither
+;; of which exists here (byj-gly.17). A dossier with no reader is bookkeeping,
+;; so the plan is a plain markdown file and the answer carries the handoff
+;; (divergence `plan-agent-has-no-dossier`). `doc$*` is likewise not ported, so
+;; the plan body is written with `write-file`.
+{:description
+ "Writes a plan only after confirming it has enough to write one, then grades what it wrote against a rubric. Delegate the thinking-before-acting here; it answers NEED with a single question, or REFUSE when the request wants an edit or a search rather than a plan."
+
+ :instruction-resource "brainyard/prompts/agents/plan.md"
+
+ :tools ["read-file" "write-file" "grep" "list-dir" "bash"
+         "search" "list-tools" "get-tool-info"
+         "skills$list" "skills$find" "skills$read"
+         ;; its third check wants the workspace read before planning against it;
+         ;; one hop, to the read-only agent, and the depth guard bounds the rest
+         "agent$explore"]
+
+ ;; brainyard's :agent-tier-map — {:default :deep :min :standard}. Floor-capped
+ ;; because a weak model here produces prose a person reads and acts on.
+ :tier :deep
+ :min-tier :standard
+
+ ;; six checks, the writing, then seven rubric items
+ :max-iterations 20
+
+ ;; Its shell is the session's, gated as any, as brainyard's plan agent's is:
+ ;; it writes its plan with write-file, so an allow-list of its own guarded
+ ;; nothing it could not already do. Its instruction says what bash is for —
+ ;; checking that the paths it cites exist (byj-gly.358; 8b67ee0 had held it
+ ;; to test, ls, command, rg, grep and wc).
+ :config {:tool-authoring? false
+          :hook-authoring? false
+          :user-tools? false}}

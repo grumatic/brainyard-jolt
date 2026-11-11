@@ -1,0 +1,174 @@
+# byj's release (RFC-029 "Releasing", byj-gly.181.5): byj built on each
+# platform jolt runs on — jolt does not cross-compile without a target pack,
+# so each is built natively — and, for a vX.Y.Z tag, published as one GitHub
+# Release with one SHA256SUMS; then its public copy on the Homebrew tap, made
+# the tap's latest release, and byj's formula written from that. byj is
+# released alone: programs built on it release themselves (RFC-070).
+#
+# Run by hand (workflow_dispatch), it is a dry run: every platform is built and
+# smoke-tested, and nothing is staged or published — a release that will not
+# build is found before its tag exists.
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-arm64
+            # macos-14 is no longer offered: its run was cancelled as an unsupported configuration (v0.3.15)
+            runner: macos-15
+            jolt: aarch64-macos
+          - platform: macos-amd64
+            runner: macos-15-intel
+            jolt: x86_64-macos
+          - platform: linux-amd64
+            # the oldest glibc a runner offers, so the binary runs on more systems
+            runner: ubuntu-22.04
+            jolt: x86_64-linux
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the stamp is `git describe`: it needs the tags
+          fetch-depth: 0
+
+      - name: jolt, the version the suite was verified against
+        run: |
+          v=$(sed -nE 's/.*:jolt "(v[^"]+)".*/\1/p' dev/jolt-verified.edn)
+          name="jolt-${v}-${{ matrix.jolt }}"
+          base="https://github.com/jolt-lang/jolt/releases/download/${v}"
+          curl -fsSL -o "$RUNNER_TEMP/jolt.tgz" "${base}/${name}.tar.gz"
+          want=$(curl -fsSL "${base}/${name}.tar.gz.sha256" | cut -d' ' -f1)
+          got=$( (sha256sum "$RUNNER_TEMP/jolt.tgz" 2>/dev/null || shasum -a 256 "$RUNNER_TEMP/jolt.tgz") | cut -d' ' -f1)
+          [ -n "$want" ] && [ "$want" = "$got" ] || { echo "::error::${name}.tar.gz: checksum ${got}, expected ${want}"; exit 1; }
+          tar xzf "$RUNNER_TEMP/jolt.tgz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/${name}" >> "$GITHUB_PATH"
+
+      - name: byj
+        run: |
+          jolt build:byj
+          target/byj --version
+
+      - name: smoke — the ReAct loop, offline
+        run: |
+          mkdir -p "$RUNNER_TEMP/smoke"
+          cd "$RUNNER_TEMP/smoke"
+          "$GITHUB_WORKSPACE/target/byj" ask -p mock "hi"
+
+      - name: stage
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          BYJ_RELEASE_DIR="$RUNNER_TEMP/release" dev/release-stage.sh
+          # one SHA256SUMS and one BUILD-INFO.txt are written over every
+          # platform's assets when they are published together
+          rm -f "$RUNNER_TEMP/release/SHA256SUMS"
+          mv -f "$RUNNER_TEMP/release/BUILD-INFO.txt" "$RUNNER_TEMP/release/BUILD-INFO-${{ matrix.platform }}.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: release-${{ matrix.platform }}
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release
+          merge-multiple: true
+
+      - name: one SHA256SUMS and BUILD-INFO.txt for the release
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          cd release
+          sha256sum byj-"${v}"-* > SHA256SUMS
+          for f in BUILD-INFO-*.txt; do
+            echo "[${f#BUILD-INFO-}]" | sed 's/\.txt]$/]/'
+            cat "$f"
+            echo
+          done > BUILD-INFO.txt
+          rm -f BUILD-INFO-*.txt
+          cat SHA256SUMS
+
+      - name: verify what is staged
+        run: dev/release-verify.sh --dir release
+
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --title "byj $GITHUB_REF_NAME" --notes-file CHANGELOG-latest.md --verify-tag --latest
+
+      - name: verify what was published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BYJ_RELEASE_REPO: ${{ github.repository }}
+        run: dev/release-verify.sh "$GITHUB_REF_NAME"
+
+  tap:
+    # the public copy: the release's assets and notes as a release of the
+    # public tap, so anyone installs with no token (byj-gly.181.10), and the
+    # formula naming them. Writing to grumatic/homebrew-tap needs a token that
+    # can: without the HOMEBREW_TAP_TOKEN secret, run dev/release-mirror.sh and
+    # dev/brew-formula.sh by hand instead
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    env:
+      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: no tap token
+        if: env.TAP_TOKEN == ''
+        run: echo "::notice::HOMEBREW_TAP_TOKEN is not set — run dev/release-mirror.sh ${GITHUB_REF_NAME}, then dev/brew-formula.sh ${GITHUB_REF_NAME} <tap checkout>, and push the tap"
+
+      - uses: actions/checkout@v4
+        if: env.TAP_TOKEN != ''
+        with:
+          repository: grumatic/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: the release, copied to the public tap
+        if: env.TAP_TOKEN != ''
+        env:
+          BYJ_RELEASE_REPO: ${{ github.repository }}
+          BYJ_SOURCE_TOKEN: ${{ github.token }}
+          BYJ_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: dev/release-mirror.sh "$GITHUB_REF_NAME"
+
+      - name: write and push the formula
+        if: env.TAP_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          dev/brew-formula.sh "$GITHUB_REF_NAME" tap
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/byj.rb
+          git diff --cached --quiet && { echo "the formula is already ${GITHUB_REF_NAME}'s"; exit 0; }
+          git commit -m "byj ${GITHUB_REF_NAME}"
+          # another program's release may have written its own formula since
+          git pull --rebase -q
+          git push

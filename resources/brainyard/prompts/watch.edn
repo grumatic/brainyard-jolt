@@ -1,0 +1,13 @@
+;; What a watch that fired says, as the turn it wakes its session with
+;; (byj-gly.331) — Claude Code's Monitor notification: the agent is told what
+;; changed and decides what to do. Read by the model, so a resource (RFC-001).
+;; {id} {title} the watch; {probe} what it ran or looked at; {why} the
+;; predicate that held; {seen} what the probe saw (clipped); {note} the
+;; agent's own note when it set the watch; {after} :once or :again.
+{:fired
+ "[watch {id}] {title} — fired: {why}.
+Probe: {probe}
+Saw: {seen}{note}
+{after}"
+ :once "The watch has stopped. Act on this, or set another with schedule$watch if there is more to wait for."
+ :again "It keeps watching; schedule$remove {id} stops it."}

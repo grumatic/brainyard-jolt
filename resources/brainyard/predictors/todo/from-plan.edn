@@ -1,0 +1,22 @@
+;; The judgement between a plan and a checklist (RFC-023). It is a PREDICTOR,
+;; not an agent: brainyard has a todo-agent for this, but the step needs no
+;; tools, no iterations and no conversation — it reads a plan and returns items.
+;; A signature is data, so a project retunes it with a params file (RFC-005)
+;; instead of forking an agent.
+{:id "todo/from-plan"
+ :strategy :cot
+ :description "Turn an approved plan into an ordered checklist."
+ :instructions "Read the plan and write the checklist someone would work through to carry it out.
+
+One item per thing that can be finished and checked off on its own. Keep the plan's order where it matters — an item that depends on an earlier one comes after it. Do not invent work the plan does not call for, and do not fold three steps into one item because they are related.
+
+An item may carry `via`, a one-word note on what kind of work it is — `edit` (a change to one file), `check` (running something and reading the result), `read` (finding something out first), `manual` (a person has to do it). It is a hint passed on to whoever does the item, not an instruction to anyone. Leave it out when none of them fits; do not stretch a word to cover an item it does not describe.
+
+The slug is a short kebab-case name for the list, taken from what the plan is about."
+ :inputs
+ [[:plan {:desc "The plan, as the plan agent wrote it"} :string]]
+
+ :outputs
+ [[:slug {:desc "Short kebab-case name for this checklist"} :string]
+  [:items {:desc "Ordered checklist items"}
+   [:vector [:map [:text :string] [:via {:optional true} [:enum "edit" "check" "read" "manual"]]]]]]}

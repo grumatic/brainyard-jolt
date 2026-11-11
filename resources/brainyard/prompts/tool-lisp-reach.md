@@ -1,0 +1,3 @@
+- Parallel calls: (pmap (fn [p] (read-file {:path p})) paths) runs the calls a few at a time and returns their results in order, as a vector; at most 1000 items. Use it for independent calls only — a write and a read of the same file must not race. One failure stops the rest and is thrown.
+- The clock: (now) is the time as an ISO-8601 UTC string, (now-ms) milliseconds since the epoch; elapsed is (- (now-ms) t0). A tool that reads the clock gives a different answer each run.
+- State between calls: no atoms — (store$put {:key "k" :value v}) keeps EDN data for a later call or session, (store$get {:key "k"}) returns {:key :found :value}, (store$keys {}) lists the keys. (store$put {:key "k"}) forgets it.

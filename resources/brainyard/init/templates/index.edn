@@ -1,0 +1,14 @@
+;; What /init writes into a project (RFC-040, byj-gly.309.3), one entry a file.
+;; A built binary cannot list a resource directory, so every template is named
+;; here. The kinds of write are init/scaffold's mechanism:
+;;
+;;   :block  — absent: the template, whole. Present: only each block the
+;;             template marks (<!-- BEGIN BRAINYARD… --> … <!-- END … -->) is
+;;             added or replaced; the person's text is never touched.
+;;   :import — absent: the template. Present: the import line added when the
+;;             file does not import already.
+;;   :lines  — each line added when the file lacks it.
+[{:path "AGENTS.md" :kind :block :template "AGENTS.md"}
+ {:path "CLAUDE.md" :kind :import :template "CLAUDE.md" :line "@AGENTS.md"}
+ {:path ".gitignore" :kind :lines :header "# brainyard's per-project state (sessions, logs, config)"
+  :lines [".brainyard/"]}]

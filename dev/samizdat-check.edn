@@ -1,0 +1,145 @@
+{;; Paths not read: what `bd setup` writes (beads, MIT) and a third party's
+ ;; benchmark (Terminal-Bench, Apache-2.0); neither is this project's text.
+ :skip [".agents/skills/beads/" ".codex/" ".claude/settings.json" "bench/"]
+
+ ;; Runs of eight words or more found both here and in samizdat, each read
+ ;; and judged not to be samizdat's expression: what the language, a format
+ ;; or a quoted message fixes (byj-ahf.1, 2026-11-10). Add one only after
+ ;; reading it; take one off when the check says it no longer occurs.
+ :accepted
+  [{:why "CI boilerplate" :text "env: GH_TOKEN: ${{ github.token }} run: | gh release create"}
+   {:why "CI boilerplate" :text "jobs: build: strategy: fail-fast: false matrix: include: -"}
+   {:why "CI boilerplate" :text "run: | sudo apt-get update -qq sudo apt-get install -y -qq"}
+   {:why "FFI declarations of libc calls" :text "(ffi/defcfn ^:private c-dup \"dup\" [:int] :int) (ffi/defcfn ^:private c-dup2 \"dup2\" [:int :int] :int)"}
+   {:why "FFI declarations of libc calls" :text "(ffi/defcfn ^:private c-open \"open\" [:string :int] :int) (ffi/defcfn ^:private"}
+   {:why "FFI declarations of libc calls" :text "(ffi/defcfn c-bind \"bind\" [:int :pointer :int] :int) (ffi/defcfn c-listen \"listen\" [:int :int] :int) (ffi/defcfn"}
+   {:why "FFI declarations of libc calls" :text "[:int :int] :int) (ffi/defcfn ^:private c-close \"close\" [:int] :int)"}
+   {:why "FFI declarations of libc calls" :text "[:int :int] :int) (ffi/defcfn ^:private c-close \"close\" [:int] :int) (defn-"}
+   {:why "FFI declarations of libc calls" :text "[:int :int] :int) (ffi/defcfn c-accept \"accept\" [:int :pointer :pointer] :int :blocking)"}
+   {:why "a Clojure idiom" :text "\" (str/join \", \" (map #(str \"`\" % \"`\") (take"}
+   {:why "a Clojure idiom" :text "\" (str/join \", \" (map (fn [[k n]] (str (name k) \" \" n)) (sort-by (comp - val)"}
+   {:why "a Clojure idiom" :text "#(max 0 (min (dec n) (+ (or % 0)"}
+   {:why "a Clojure idiom" :text "(-> (str s) (str/replace \"\\\\\" \"\\\\\\\\\") (str/replace \"\\\"\" \"\\\\\\\"\"))"}
+   {:why "a Clojure idiom" :text "(.setLastModified f (+ 2000 (.lastModified f))) (is (="}
+   {:why "a Clojure idiom" :text "(/ (reduce + (map #(let [d (- % m)] (* d d))"}
+   {:why "a Clojure idiom" :text "(Math/sqrt (/ (reduce + (map #(let [d (-"}
+   {:why "a Clojure idiom" :text "(Math/sqrt (/ (reduce + (map #(let [d (- %"}
+   {:why "a Clojure idiom" :text "(and (some? v) (not (and (string? v) (str/blank?"}
+   {:why "a Clojure idiom" :text "(and id (nil? method)) (when-let [p (get @pending"}
+   {:why "a Clojure idiom" :text "(apply str (map #(format \"%02x\" (bit-and % 0xff))"}
+   {:why "a Clojure idiom" :text "(catch Throwable e {:error (or (ex-message e) (str e))})))"}
+   {:why "a Clojure idiom" :text "(catch Throwable e {:error (or (ex-message e) (str e))}))]"}
+   {:why "a Clojure idiom" :text "(filter #(and (str/starts-with? % \"+\") (not (str/starts-with? %"}
+   {:why "a Clojure idiom" :text "(first (keep-indexed (fn [i l] (when (str/includes? l"}
+   {:why "a Clojure idiom" :text "(fn [& _] (throw (ex-info \"boom\" {})))] (let"}
+   {:why "a Clojure idiom" :text "(fn [a b] (if (and (map? a) (map? b))"}
+   {:why "a Clojure idiom" :text "(fn [m k f] (if (contains? m k) (update m k f) m))"}
+   {:why "a Clojure idiom" :text "(if (> (count s) n) (str (subs s 0"}
+   {:why "a Clojure idiom" :text "(if (> (count s) n) (str (subs s 0 n) \"…\")"}
+   {:why "a Clojure idiom" :text "(if (> (count s) n) (str (subs s 0 n) \"…\") s)))"}
+   {:why "a Clojure idiom" :text "(if (> (count s) n) (str (subs s 0 n) \"…\") s))) (defn"}
+   {:why "a Clojure idiom" :text "(if (nil? v) (dissoc m k) (assoc m k"}
+   {:why "a Clojure idiom" :text "(if (seq acc) (update-in acc [(dec (count acc))"}
+   {:why "a Clojure idiom" :text "(if (vector? m) (or (second m) (first m))"}
+   {:why "a Clojure idiom" :text "(instance? Throwable x) (str (.getSimpleName (class x)) \": \""}
+   {:why "a Clojure idiom" :text "(into {} (map (fn [[k v]] [k (if"}
+   {:why "a Clojure idiom" :text "(into {} (map-indexed (fn [i n] [n i])"}
+   {:why "a Clojure idiom" :text "(let [id (swap! next-id inc) p (promise)] (swap! pending assoc id p)"}
+   {:why "a Clojure idiom" :text "(let [n (.read in buf)] (when (pos? n)"}
+   {:why "a Clojure idiom" :text "(let [r (first @replies)] (swap! replies #(vec (rest %)))"}
+   {:why "a Clojure idiom" :text "(let [s (str s)] (if (> (count s)"}
+   {:why "a Clojure idiom" :text "(loop [[l & more :as ls] (str/split-lines (str text))"}
+   {:why "a Clojure idiom" :text "(loop [] (cond (pred) true (> (System/currentTimeMillis) deadline)"}
+   {:why "a Clojure idiom" :text "(loop [] (cond (pred) true (> (System/currentTimeMillis) deadline) false :else (do (Thread/sleep"}
+   {:why "a Clojure idiom" :text "(loop [i 0 acc []] (if (< i"}
+   {:why "a Clojure idiom" :text "(loop [i i] (if (and (< i n)"}
+   {:why "a Clojure idiom" :text "(loop [off 0] (when (< off n) (let"}
+   {:why "a Clojure idiom" :text "(loop [sb (StringBuilder.)] (let [c (.read in)] (cond (neg? c)"}
+   {:why "a Clojure idiom" :text "(map #(if (keyword? %) (name %) (str %))"}
+   {:why "a Clojure idiom" :text "(map #(let [d (- % m)] (* d d))"}
+   {:why "a Clojure idiom" :text "(reduce (fn [s [k v]] (str/replace s (str \"{\" (name k) \"}\") (str v))) (str"}
+   {:why "a Clojure idiom" :text "(reduce (fn [s [k v]] (str/replace s (str \"{\" (name k) \"}\") (str v))) (str template)"}
+   {:why "a Clojure idiom" :text "(some #(or (= w %) (str/starts-with? w (str %"}
+   {:why "a Clojure idiom" :text "(str \": \" (str/join \", \" (map (fn [[k n]] (str"}
+   {:why "a Clojure idiom" :text "(str p))) (catch Throwable _ (str p)))) (defn"}
+   {:why "a Clojure idiom" :text "(str/join \"\\n\" (map #(str \" - \" %)"}
+   {:why "a Clojure idiom" :text "(str/join \"\\n\" (map #(str \"line \" %) (range"}
+   {:why "a Clojure idiom" :text "(str/replace (str s) #\"\\s+\" \" \")] (if (> (count"}
+   {:why "a Clojure idiom" :text "(str/replace s (str \"{\" (name k) \"}\") (str v)))"}
+   {:why "a Clojure idiom" :text "(str/trim (str/replace (str s) #\"\\s+\" \" \"))] (if (> (count"}
+   {:why "a Clojure idiom" :text "(string? v) (let [t (str/trim v)] (or (when"}
+   {:why "a Clojure idiom" :text "(subs (.getName f) 0 (- (count (.getName f))"}
+   {:why "a Clojure idiom" :text "(try (edn/read-string (slurp f)) (catch Throwable _ nil)))"}
+   {:why "a Clojure idiom" :text "(when (and (str/ends-with? w suf) (>= (- (count w) (count suf))"}
+   {:why "a Clojure idiom" :text ":when (and (.isFile f) (str/ends-with? (.getName f) \".edn\")) :let"}
+   {:why "a Clojure idiom" :text "[a b] (if (and (map? a) (map? b))"}
+   {:why "a Clojure idiom" :text "[ms pred] (let [deadline (+ (System/currentTimeMillis) ms)] (loop [] (cond (pred) true (> (System/currentTimeMillis) deadline) false :else (do (Thread/sleep"}
+   {:why "a Clojure idiom" :text "[pred] (loop [n 0] (cond (pred) true (> n"}
+   {:why "a Clojure idiom" :text "[s n] (let [s (str s)] (if (> (count s) n) (str (subs s 0 n)"}
+   {:why "a Clojure idiom" :text "[s n] (let [s (str s)] (if (> (count s) n) (str (subs s 0 n) \"…\") s)))"}
+   {:why "a Clojure idiom" :text "[s n] (let [s (str s)] (if (> (count s) n) (str (subs s 0 n) \"…\") s))) (defn"}
+   {:why "a Clojure idiom" :text "[s] (inc (count (re-seq #\"\\n\" (str s))))) (defn-"}
+   {:why "a Clojure idiom" :text "[s] (str \"'\" (str/replace (str s) \"'\" \"'\\\\''\") \"'\")) (defn"}
+   {:why "a Clojure idiom" :text "[type v] (if-not (string? v) v (case type"}
+   {:why "a Clojure idiom" :text "[x] (cond (map? x) (into (sorted-map) (map (fn [[k v]]"}
+   {:why "a Clojure idiom" :text "buf (byte-array n)] (loop [off 0] (when (< off n) (let [r (.read in buf off (- n off))]"}
+   {:why "a Clojure idiom" :text "by (into {} (map (juxt :name identity)) defs)] (is"}
+   {:why "a Clojure idiom" :text "e) (throw e) {:error (or (ex-message e) (str"}
+   {:why "a Clojure idiom" :text "f) (try (edn/read-string (slurp f)) (catch Throwable _"}
+   {:why "a Clojure idiom" :text "f) (try (edn/read-string (slurp f)) (catch Throwable _ nil)))"}
+   {:why "a Clojure idiom" :text "ms] (let [deadline (+ (System/currentTimeMillis) ms)] (loop []"}
+   {:why "a Clojure idiom" :text "one of \" (str/join \", \" (map name (sort"}
+   {:why "a Clojure idiom" :text "one of \" (str/join \", \" (sort (map"}
+   {:why "a Clojure idiom" :text "out []] (if (>= i n) out (let"}
+   {:why "a Clojure idiom" :text "true (> (System/currentTimeMillis) deadline) false :else (do (Thread/sleep 10)"}
+   {:why "a Clojure idiom" :text "true (>= (System/currentTimeMillis) deadline) false :else (do (Thread/sleep"}
+   {:why "a JSON schema" :text "{:type \"object\" :properties {\"answer\" {:type \"string\"}} :required [\"answer\"] :additionalProperties"}
+   {:why "a common phrase" :text "inside a UTF-8 sequence, so a line is"}
+   {:why "a common phrase" :text "or nil for one that is not a"}
+   {:why "a dependency's coordinate" :text "jlt-commons/ebb {:git/url \"https://github.com/jlt-commons/ebb\" :git/tag \"v0.1.4\" :git/sha \"15f6f7c0ee8b54a862e9f981b5867fab23459498\"} ;;"}
+   {:why "a git command" :text "&& git add -A && git commit -qm"}
+   {:why "a measurement table's cells" :text "| ebb `sleep` on the fiber | 0"}
+   {:why "an RFC table head" :text "## API | fn | contract | |---|---| |"}
+   {:why "an RFC table head" :text "## Invariants | Invariant | Enforced by | |---|---| |"}
+   {:why "an RFC table head" :text "## Invariants | Invariant | Enforced by | |---|---| | A"}
+   {:why "an RFC table head" :text "## Invariants | invariant | enforced by | |---|---| |"}
+   {:why "an RFC table head" :text "## Invariants | invariant | enforced by | |---|---| | **Nothing"}
+   {:why "an RFC table head" :text "## Invariants | invariant | enforced by | |---|---| | A"}
+   {:why "an RFC table head" :text "## Invariants | invariant | enforced by | |---|---| | Every"}
+   {:why "an RFC table head" :text "| Invariant | Enforced by | |---|---| |"}
+   {:why "an RFC table head" :text "| Invariant | Enforced by | |---|---| | A"}
+   {:why "an RFC table head" :text "| RFC | Layer | Owns | |---|---|---| |"}
+   {:why "an RFC table head" :text "| invariant | enforced by | |---|---| |"}
+   {:why "an RFC table head" :text "| invariant | enforced by | |---|---| | A"}
+   {:why "jolt's own error message, quoted" :text "\"a fiber cannot leave the CPU while its carrier holds a counted"}
+   {:why "jolt's own error message, quoted" :text "dies with ;; \"Could not locate … on the source"}
+   {:why "namespace requires" :text "(:require [clojure.edn :as edn] [clojure.java.io :as io] [clojure.string :as str]"}
+   {:why "namespace requires" :text "(:require [clojure.edn :as edn] [clojure.java.io :as io] [clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text "(:require [clojure.edn :as edn] [clojure.java.io :as io] [clojure.string :as str]))"}
+   {:why "namespace requires" :text "(:require [clojure.edn :as edn] [clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text "(:require [clojure.java.io :as io] [clojure.edn :as edn] [clojure.string :as str]"}
+   {:why "namespace requires" :text "(:require [clojure.java.io :as io] [clojure.string :as str] [clojure.test :refer [deftest is"}
+   {:why "namespace requires" :text "(:require [clojure.java.io :as io] [clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text "(:require [clojure.java.io :as io] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text "(:require [clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text ":when (and (seq? clause) (= :require (first clause))) spec (rest clause)"}
+   {:why "namespace requires" :text "[clojure.edn :as edn] [clojure.java.io :as io] [clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text "[clojure.edn :as edn] [clojure.set :as set] [clojure.string :as str]"}
+   {:why "namespace requires" :text "[clojure.java.io :as io] [clojure.set :as set] [clojure.string :as str]"}
+   {:why "namespace requires" :text "[clojure.java.io :as io] [clojure.string :as str] [ebb.core :as"}
+   {:why "namespace requires" :text "[clojure.set :as set] [clojure.string :as str] [clojure.walk :as walk]"}
+   {:why "namespace requires" :text "[clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text "does.\" (:require [clojure.java.io :as io] [clojure.string :as str]"}
+   {:why "namespace requires" :text "does.\" (:require [clojure.java.io :as io] [clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text "for.\" (:require [clojure.java.io :as io] [clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text "it.\" (:require [clojure.java.io :as io] [clojure.string :as str]"}
+   {:why "namespace requires" :text "it.\" (:require [clojure.java.io :as io] [clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "namespace requires" :text "model.\" (:require [clojure.edn :as edn] [clojure.java.io :as io]"}
+   {:why "namespace requires" :text "version.\" (:require [clojure.edn :as edn] [clojure.java.io :as io]"}
+   {:why "namespace requires" :text "version.\" (:require [clojure.edn :as edn] [clojure.java.io :as io] [clojure.string :as str] [clojure.test :refer [deftest is testing]]"}
+   {:why "shell preamble" :text "set -uo pipefail cd \"$(dirname \"$0\")/..\" || exit 1 JOLT=\"${JOLT:-jolt}\""}
+   {:why "the ACP initialize message shape" :text ":agentCapabilities {:loadSession false :promptCapabilities {:image false :audio false :embeddedContext"}
+   {:why "the JSON-RPC message shape" :text "{:jsonrpc \"2.0\" :id id :error {:code -32601 :message"}
+   {:why "the JSON-RPC message shape" :text "{:jsonrpc \"2.0\" :id id :error {:code -32601 :message (str"}
+   {:why "the JSON-RPC message shape" :text "{:jsonrpc \"2.0\" :id id :method method :params params})"}
+   {:why "the flags themselves" :text "-f`, `mv -f`, `rm -f`, `rm -rf`, `cp"}]}

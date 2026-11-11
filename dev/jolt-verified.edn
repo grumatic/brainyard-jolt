@@ -1,0 +1,4 @@
+;; The jolt the suite was last verified against (byj-gly.118). Re-record after
+;; an upgrade you MEANT to make and whose suite is green — never to silence the
+;; warning. brainyard.test-runner/report-runtime reads it.
+{:jolt "v0.8.24" :verified "2026-11-06" :suite "1420 tests, 14118 assertions"}

@@ -1,0 +1,33 @@
+#+title: Files and projects
+#+lesson: files-and-projects
+#+summary: Open, save and find files, and work across a project.
+
+# A lesson for /emacs coach emacs: (RFC-067 phase 9). Each step names the
+# commands that show it done (:COMMANDS:), never keys: the coach looks the
+# keys up in the person's own Emacs with emacs$describe, and checks a step
+# with emacs$habits. A project's .brainyard/emacs/lessons/ and the person's
+# ~/.brainyard/emacs/lessons/ replace a lesson of the same file name.
+
+* Open a file
+:PROPERTIES:
+:COMMANDS: find-file
+:END:
+Open a file by its path; completion helps with the name.
+
+* Save
+:PROPERTIES:
+:COMMANDS: save-buffer save-some-buffers
+:END:
+Save this buffer, or every buffer with unsaved edits.
+
+* Find a file in the project
+:PROPERTIES:
+:COMMANDS: project-find-file
+:END:
+Open any file of the project by part of its name.
+
+* Browse a directory
+:PROPERTIES:
+:COMMANDS: dired dired-jump
+:END:
+See a directory's files, and open, rename or delete them from there.

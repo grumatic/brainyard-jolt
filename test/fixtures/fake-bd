@@ -1,0 +1,5 @@
+#!/bin/bash
+# A stand-in for bd, for claude-agent-test: `fake-bd LOG note ID TEXT` appends
+# "ID<TAB>TEXT" to LOG.
+LOG=$1; shift
+[ "$1" = note ] && printf '%s\t%s\n' "$2" "$3" >> "$LOG"

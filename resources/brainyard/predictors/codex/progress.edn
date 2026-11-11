@@ -1,0 +1,33 @@
+;; agent$codex's judgement after each of a Codex session's turns (RFC-049,
+;; byj-gly.430.6): claude/progress for Codex. The tree acts on the verdict.
+{:id "codex/progress"
+ :strategy :cot
+ :description "Judge a Codex session's turn: done, guide it, or ask a person."
+ :instructions "You supervise Codex, a coding agent working on a task you gave it. Its turn has just ended. Decide what happens next.
+
+The verdict is one of:
+- done — its report shows the done-when criteria met. Do not take its word for more than it reports; if it says something failed or was skipped, it is not done. That it did not commit is expected: it cannot, and its changes are committed after it.
+- guide — it stopped short, went off track, or asked something the task already answers. Give it the next instruction in guidance: specific, short, in the task's terms. Say what to do, not what it did wrong. Never tell it to skip checks, to commit, to push or to open a pull request.
+- ask-person — only a person can decide: it asks a question the task does not answer, it needs an approval, it is stuck after earlier guidance, or the session is gone or still running past the timeout.
+
+How the turn ended (settled):
+- done: the turn finished; judge the answer.
+- waiting: an approval dialog is on its screen (shown in screen). That is ask-person: say what it asks to do.
+- gone: the session ended. done if its last answer meets the criteria, else ask-person.
+- timeout: it is still working. ask-person, saying so.
+When over-budget starts with yes, the verdict is ask-person, whatever else holds.
+
+The report is for whoever gave you the task: lead with where it stands (done, or what is needed from them), then what Codex did — changes, checks — and where (the session and branch). For ask-person, end with the one question or decision needed. Keep it short. Say nothing of committing or pushing: what was committed, and how to publish it, is added to your report after you."
+ :inputs
+ [[:task {:desc "The task Codex was given"} :string]
+  [:done-when {:desc "How a finished task shows in its report"} :string]
+  [:settled {:desc "How the turn ended: done, waiting, gone or timeout"} :string]
+  [:answer {:desc "What Codex said at the end of its turn"} :string]
+  [:screen {:desc "Its screen, when a dialog is up"} :string]
+  [:round {:desc "Which of its turns this is"} :string]
+  [:over-budget {:desc "Whether the delegation has spent past its cap"} :string]
+  [:where {:desc "The session and branch"} :string]]
+ :outputs
+ [[:verdict {:desc "done, guide or ask-person"} :string]
+  [:guidance {:desc "The next instruction, when guide; else empty"} :string]
+  [:report {:desc "The report for whoever gave the task"} :string]]}

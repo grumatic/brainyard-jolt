@@ -1,0 +1,39 @@
+#+title: The region, killing and yanking
+#+lesson: editing
+#+summary: Select with the mark, cut and copy (kill and copy), paste (yank), go back through what you cut, and undo.
+
+# A lesson for /emacs coach emacs: (RFC-067 phase 9). Each step names the
+# commands that show it done (:COMMANDS:), never keys: the coach looks the
+# keys up in the person's own Emacs with emacs$describe, and checks a step
+# with emacs$habits. A project's .brainyard/emacs/lessons/ and the person's
+# ~/.brainyard/emacs/lessons/ replace a lesson of the same file name.
+
+* Set the mark, make a region
+:PROPERTIES:
+:COMMANDS: set-mark-command
+:END:
+Set the mark where the text starts, then move: the region is between the mark and the cursor.
+
+* Kill and copy
+:PROPERTIES:
+:COMMANDS: kill-region kill-ring-save kill-line
+:END:
+Cut the region, copy it, or kill to the end of the line.
+
+* Yank, and older kills
+:PROPERTIES:
+:COMMANDS: yank yank-pop
+:END:
+Paste the last thing killed, then step back through what was killed before.
+
+* Undo
+:PROPERTIES:
+:COMMANDS: undo undo-redo
+:END:
+Take back the last change, and the one before; redo what you undid.
+
+* Comment code
+:PROPERTIES:
+:COMMANDS: comment-dwim comment-line
+:END:
+Comment out a line or a region, or comment it back in.

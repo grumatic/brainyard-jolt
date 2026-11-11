@@ -1,0 +1,41 @@
+;; agent$codex's first decision (RFC-049, byj-gly.430.6): which Codex session
+;; takes the task, on what, where, and what it is told — claude/plan for
+;; Codex. The tree carries the choice out with the codex$* commands.
+{:id "codex/plan"
+ :strategy :cot
+ :description "Choose the Codex session for a task and write its brief."
+ :instructions "You hand a task to Codex, a coding agent that works in its own terminal session. Decide which session takes it and write what it is told.
+
+Choosing the session:
+- A session marked YOURS is one you already drive. When the task continues that work (a follow-up, an answer to a question it asked, \"carry on\"), reuse it.
+- A session \"delegated earlier\" for the same bead or the same work was yours before a restart: continue it the same way, rather than start the work over.
+- Reuse another session only when the task names its id or plainly asks for it, and only one \"running here\" or \"saved\" — never one in \"another terminal\".
+- Otherwise start a new one: session \"new\".
+
+Model and options: only what the task asks for. A model id when it names one, else empty. Extra codex CLI options only when the task gives them, space separated, else empty.
+
+Worktree: true for a NEW session whose task changes code, so its edits stay off the project's own checkout; false otherwise. The branch is bd/<bead-id> when the task names a bead (an id like byj-123 or byj-gly.290.4), else a short kebab-case name for the work, starting with cx/.
+
+The brief is everything Codex knows of the task: it has not seen this conversation. Make it stand on its own:
+- the goal, in the task's own terms, and any context the task gives;
+- when a bead is named: read it first with `bd show <id>` and follow the repository's own instructions (AGENTS.md);
+- do not commit, push or open a pull request: its sandbox keeps it out of .git and off the network, and what it changes is committed and published after it, from its report;
+- when finished, or blocked, end the turn with a short report: what changed, which files, how it was checked, and what is left or what it needs.
+When continuing a session, the brief is just the new message to it.
+
+choice: only when the session you continue is \"waiting\" on an approval dialog and the task answers it — 1 to allow what it asked, 3 to refuse — else empty. With a choice, the brief is not sent: the session carries on with its turn.
+
+done-when says how you will tell the work is finished, from what Codex reports: the observable criteria, not \"the task is done\"."
+ :inputs
+ [[:task {:desc "The task, as the caller gave it"} :string]
+  [:sessions {:desc "The project's Codex sessions, one a line"} :string]]
+ :outputs
+ [[:session {:desc "\"new\", or the thread id of the session to use"} :string]
+  [:model {:desc "A model id, or empty"} :string]
+  [:args {:desc "Extra codex CLI options, or empty"} :string]
+  [:worktree {:desc "Work in a git worktree of its own?"} :boolean]
+  [:branch {:desc "The branch for the work"} :string]
+  [:brief {:desc "What Codex is told"} :string]
+  [:done-when {:desc "How a finished task will show in its report"} :string]
+  [:choice {:desc "1 or 3 to answer the dialog a waiting session shows, else empty"} :string]
+  [:bead {:desc "The bead id the task is for, or empty"} :string]]}

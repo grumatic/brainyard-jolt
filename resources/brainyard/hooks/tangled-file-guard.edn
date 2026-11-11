@@ -1,0 +1,13 @@
+;; A built-in hook (RFC-011, RFC-067 phase 2, byj-gly.460): in a literate
+;; project the org file is the source, and a file org-babel tangled from it is
+;; output. A write to such a file — known by org's link comments — is refused,
+;; naming the org file to edit and tangle instead. Above the permission gate,
+;; so the person is never asked about a write that would be refused anyway.
+;; Off with :literate-guard? false.
+{:id "tangled-file-guard"
+ :event :agent.tool-use/pre
+ :priority 87
+ :on-error :throw
+ :doc "Refuse write-file and update-file on a file org-babel tangled with link comments, naming the org file to edit and tangle instead."
+ :impl :brainyard.literate/tangled-file-guard
+ :opts {:tools #{"write-file" "update-file"}}}

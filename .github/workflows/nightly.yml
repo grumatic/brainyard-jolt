@@ -1,0 +1,69 @@
+# byj's nightly: byj built, and the Agent SDK's client libraries tested
+# against that build (dev/sdk-test.sh), every night and by hand. No model is
+# spent and no secret is given to any job: byj runs on a scripted mock.
+name: nightly
+
+on:
+  schedule:
+    # 03:17 KST
+    - cron: "17 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the stamp is `git describe`: it needs the tags
+          fetch-depth: 0
+
+      - name: jolt, the version the suite was verified against
+        run: dev/ci-jolt.sh
+
+      - name: byj
+        run: |
+          jolt build:byj
+          target/byj --version
+
+      # upload-artifact drops the executable bit: a tarball keeps it
+      - name: pack
+        run: tar czf "$RUNNER_TEMP/nightly-byj.tgz" target/byj
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nightly-byj
+          path: ${{ runner.temp }}/nightly-byj.tgz
+          if-no-files-found: error
+          retention-days: 3
+
+  test-sdk:
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nightly-byj
+          path: ${{ runner.temp }}
+      - run: tar xzf "$RUNNER_TEMP/nightly-byj.tgz"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sdk/typescript/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+      # against the build, not byj run from source by jolt: a cold jolt on
+      # the runner took past the SDK's 60 s probe of `byj acp -h`
+      - run: dev/sdk-test.sh
+        env:
+          BYJ_BIN: ${{ github.workspace }}/target/byj

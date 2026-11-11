@@ -1,0 +1,7 @@
+;; brainyard's `get-tool-info` (agent/common/tools.clj), over the live registry (RFC-007).
+{:name "get-tool-info"
+ :description "Get a registered tool's details (schema, type, description) by tool-id."
+ :input-schema [:map [:tool-id [:string {:desc "Tool ID registered in system"}]]]
+ :output-schema [:or {:desc "plus :calls for a user tool; :error-message when the tool is not found"} [:map [:id :string] [:type :string] [:description [:maybe :string]] [:input-schema [:vector :any]] [:output-schema :any] [:effects [:vector :keyword]] [:calls {:optional true} [:vector :string]]] [:map [:error-message :string]]]
+ :effects #{}
+ :impl :brainyard.discovery/get-tool-info}

@@ -1,0 +1,30 @@
+;; Onboarding (RFC-040 "What to do next", "Starter issues"; byj-gly.337.5):
+;; what a person new to brainyard is handed by /init — in an empty directory,
+;; then again once there is code. `jolt sim:byj` plays the person.
+;;
+;;   jolt sim:byj dev/sim/onboarding/plan.edn
+;;
+;; Read each stage's answer too, not only the checks: the next steps, the
+;; starter issues it names, and the suggested prompt are words for a person.
+{:id "onboarding"
+ :projects-dir "~/Projects/byj-sim"
+ :provider "claude-code" :model "haiku"
+ :permission-mode :auto
+ :timeout-s 900
+ :cap-usd 3.0
+ :default-answer "n"
+ :stages
+ [{:id :init-empty
+   :lines ["/init"]
+   :checks [{:type :file :name "agents-md" :path "AGENTS.md" :contains "New here? `bd ready`"}
+            {:type :command :name "starter-epic" :run "test $(bd list --label brainyard-onboarding --all 2>/dev/null | grep -c 'Get started with brainyard') -eq 1"}
+            {:type :command :name "starter-issues" :run "test $(bd ready 2>/dev/null | grep -c '← Get started with brainyard') -ge 3"}
+            {:type :command :name "draft-waits" :run "bd list --label brainyard-onboarding --all 2>/dev/null | grep -q 'Run /init again once there is code'"}]}
+  {:id :code
+   :lines ["Create a tiny Node.js project here: package.json whose npm test runs node --test, index.js exporting add(a, b), and test/add.test.js testing it. Make npm test pass. Don't commit."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 120}]}
+  {:id :init-code
+   :lines ["/init"]
+   :checks [{:type :file :name "drafted" :path "AGENTS.md" :contains "BEGIN BRAINYARD:project"}
+            {:type :command :name "not-placeholder" :run "! grep -q 'drafts this block from the repository' AGENTS.md"}
+            {:type :command :name "filed-once" :run "test $(bd list --label brainyard-onboarding --all 2>/dev/null | grep -c 'Get started with brainyard') -eq 1"}]}]}

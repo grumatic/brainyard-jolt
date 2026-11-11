@@ -1,0 +1,51 @@
+;; How a session is scored (RFC-025).
+;;
+;; A RESOURCE because every number here is a JUDGEMENT, not a measurement
+;; (RFC-001). The measurements — iterations, latency, cache hit rate, success
+;; rate, dollars — are facts about what happened. Turning them into a score out
+;; of 100 needs thresholds, and a threshold is an opinion about what "good"
+;; means for a particular agent doing particular work.
+;;
+;; **These are brainyard's opinions, unvalidated here.** They were tuned
+;; against its own agent on its own tasks. A score computed with them is a
+;; consistent number to compare runs of THIS project against each other; it is
+;; not a verdict, and a project that disagrees edits `.brainyard/analytics.edn`
+;; rather than accepting one.
+;;
+;; A metric with no data contributes nothing and its weight is shared out over
+;; the rest, which is brainyard's rule and the reason :pqs can be absent here
+;; at all (it needs a prompt-quality scorer this port does not have).
+
+{:weights {:tce 0.20     ; cost efficiency
+           :oga 0.20     ; outcome — did the turn actually answer
+           :ice 0.15     ; iteration efficiency
+           :tur 0.15     ; tool use
+           :lt  0.10}    ; latency
+ ;; brainyard's :pqs 0.20 is absent: scoring prompt quality needs a scorer that
+ ;; is not ported. The remaining weights sum to 0.80 and are renormalised.
+
+ :grades [[90 "A"] [85 "A-"] [80 "B+"] [75 "B"] [70 "B-"]
+          [65 "C+"] [60 "C"] [55 "C-"] [50 "D"]]
+ :fail-grade "F"
+
+ ;; --- what each metric calls good ---------------------------------------------
+
+ :iteration {:one-shot-bonus 20      ; a turn answered in <= 2 iterations
+             :target-avg 4.0         ; average iterations a turn should need
+             :max-avg 12.0}          ; at or past this, the iteration score is 0
+
+ :latency {:target-tps 40.0          ; output tokens per second
+           :target-p90-ms 60000}     ; a turn's 90th percentile
+
+ :tools {:target-calls-per-turn 6.0  ; past this, the turn is hunting
+         :redundant-penalty 10       ; per identical repeat, off 100
+         :error-penalty 0.5}         ; x the error rate as a percentage, off 100
+
+ :cost {:cache-hit-target 0.60       ; of input tokens served from cache
+        :output-share-target 0.25}   ; output as a share of all tokens
+
+ ;; two questions are "the same" past this Jaccard overlap of their words —
+ ;; brainyard uses 0.5 for a correction and 0.6 for a retry storm
+ :rework {:similar 0.5
+          :storm 0.6
+          :storm-run 3}}

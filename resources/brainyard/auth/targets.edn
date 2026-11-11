@@ -1,0 +1,35 @@
+;; What /login and /logout sign in to by another CLI's own login (RFC-006,
+;; byj-gly.311) — brainyard's :cli-delegate targets (common/auth.clj). Each
+;; names the CLI, how it says whether it is signed in, and its login and logout
+;; arguments; /login hands it the terminal to run them. API-key providers are
+;; not listed here: they are every provider in llm/providers with an
+;; :api-key-env.
+;;
+;; :status  :argv run without a terminal (5 s at most); signed in when it exits
+;;          0, and — with :json-key — when that key of its JSON output is true.
+;; :login / :logout  the arguments the CLI is run with, the terminal handed to it.
+;; Commands checked 2026-10-09: claude 2.1.294 (auth status --json / login /
+;; logout), gh 2.79.0 (auth status / login / logout); codex from its source
+;; (codex-rs/cli: login, login status, logout — not installed here); aws: sts
+;; get-caller-identity, sso login.
+[{:id "claude" :aliases ["claude-code"]
+  :label "Claude Code — your Claude subscription: the claude-code provider, agent$claude"
+  :command "claude"
+  :status {:argv ["auth" "status" "--json"] :json-key :loggedIn}
+  :login ["auth" "login"] :logout ["auth" "logout"]}
+ {:id "codex"
+  :label "Codex CLI — your ChatGPT plan or an OpenAI key"
+  :command "codex"
+  :status {:argv ["login" "status"]}
+  :login ["login"] :logout ["logout"]}
+ {:id "gh" :aliases ["github"]
+  :label "GitHub CLI — pull requests for agent$claude, private releases for byj update"
+  :command "gh"
+  :status {:argv ["auth" "status"]}
+  :login ["auth" "login"] :logout ["auth" "logout"]}
+ {:id "bedrock" :aliases ["aws"]
+  :label "Amazon Bedrock — the bedrock provider, through the aws CLI's profile or SSO"
+  :command "aws"
+  :status {:argv ["sts" "get-caller-identity"]}
+  :login ["sso" "login"] :logout ["sso" "logout"]
+  :profile-env "AWS_PROFILE"}]

@@ -1,0 +1,321 @@
+;; Every tool$create body that did not balance in byj-gly.258's eval
+;; (target/tool-authoring-eval, 2026-09-28), with its task. The corpus
+;; brainyard.dev.paren-repair-spike measures the repair on (byj-gly.260).
+[{:label "base-r2",
+  :model "haiku",
+  :task :lint-plan,
+  :args
+  {:tool-id "lint-plan",
+   :body
+   "(fn [{:keys [files]}]\n  (let [linters (into {}\n                      (map (fn [path]\n                             (let [ext (last (clojure.string/split path #\"\\\\.\" ))]\n                               [path (cond\n                                       (or (= ext \"clj\") (= ext \"cljc\")) \"kondo\"\n                                       (= ext \"md\") \"markdownlint\"\n                                       (= ext \"py\") \"ruff\"\n                                       :else \"none\")])\n                           files))]\n    {:plan linters}))"},
+  :problem
+  "body delimiters do not balance: unexpected `]` at line 10, column 35 (expected `)`)"}
+ {:label "base-r2",
+  :model "haiku",
+  :task :lint-plan,
+  :args
+  {:name "lint-plan",
+   :description "Maps file paths to linters based on extension",
+   :input-schema
+   "[:map [:files [:vector [:string {:desc \"File paths\"}]]]]",
+   :output-schema "[:map [:plan :map]]",
+   :body
+   "(fn [{:keys [files]}]\n  (let [linters (into {}\n                      (map (fn [path]\n                             (let [ext (last (clojure.string/split path #\"\\\\.\" ))]\n                               [path (cond\n                                       (or (= ext \"clj\") (= ext \"cljc\")) \"kondo\"\n                                       (= ext \"md\") \"markdownlint\"\n                                       (= ext \"py\") \"ruff\"\n                                       :else \"none\")])\n                           files))]\n    {:plan linters}))"},
+  :problem
+  "body delimiters do not balance: unexpected `]` at line 10, column 35 (expected `)`)"}
+ {:label "base-r2",
+  :model "haiku",
+  :task :lint-plan,
+  :args
+  {:name "lint-plan",
+   :description "Maps file paths to linters based on file extension",
+   :input-schema "[:map [:files [:vector [:string]]]]",
+   :output-schema "[:map [:plan :map]]",
+   :body
+   "(fn [{:keys [files]}]\n  {:plan (into {}\n               (map (fn [path]\n                      (let [ext (last (clojure.string/split path #\"\\\\.\"))]\n                        [path (cond\n                                (or (= ext \"clj\") (= ext \"cljc\")) \"kondo\"\n                                (= ext \"md\") \"markdownlint\"\n                                (= ext \"py\") \"ruff\"\n                                :else \"none\")])\n                    files))})"},
+  :problem
+  "body delimiters do not balance: unexpected `}` at line 10, column 28 (expected `)`)"}
+ {:label "base-r2",
+  :model "haiku",
+  :task :lint-plan,
+  :args
+  {:name "lint-plan",
+   :description "Maps file paths to linters based on file extension",
+   :input-schema "[:map [:files [:vector [:string]]]]",
+   :output-schema "[:map [:plan :map]]",
+   :body
+   "(fn [{:keys [files]}]\n  {:plan (into {}\n               (map (fn [path]\n                      (let [ext (last (clojure.string/split path #\"\\.\" ))]\n                        [path (cond\n                                (or (= ext \"clj\") (= ext \"cljc\")) \"kondo\"\n                                (= ext \"md\") \"markdownlint\"\n                                (= ext \"py\") \"ruff\"\n                                :else \"none\")])))\n                    files))})"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 10, column 27 (expected `}`)"}
+ {:label "base-r2",
+  :model "haiku",
+  :task :lint-plan,
+  :args
+  {:name "lint-plan",
+   :description "Maps file paths to linters based on file extension",
+   :input-schema "[:map [:files [:vector [:string]]]]",
+   :output-schema "[:map [:plan :map]]",
+   :body
+   "(fn [{:keys [files]}]\n  {:plan (into {}\n               (map (fn [path]\n                      (let [ext (last (clojure.string/split path #\"\\.\"))]\n                        [path (cond\n                                (or (= ext \"clj\") (= ext \"cljc\")) \"kondo\"\n                                (= ext \"md\") \"markdownlint\"\n                                (= ext \"py\") \"ruff\"\n                                :else \"none\")]])\n                    files))})"},
+  :problem
+  "body delimiters do not balance: unexpected `]` at line 9, column 47 (expected `)`)"}
+ {:label "base-r2",
+  :model "haiku",
+  :task :paragraphs,
+  :args
+  {:name "paragraphs",
+   :input-schema ["map" ["path" "string"]],
+   :body
+   "(fn [{:keys [path]}]\n  (let [lines (clojure.string/split-lines (:content (read-file {:path path})))\n        result (reduce (fn [{:keys [paragraphs current]} line]\n                         (if (clojure.string/blank? line)\n                           (if (empty? current)\n                             {:paragraphs paragraphs :current []}\n                             {:paragraphs (conj paragraphs current) :current []})\n                           {:paragraphs paragraphs :current (conj current line)}))\n                       {:paragraphs [] :current []}\n                       lines)\n        all-paragraphs (if (empty? (:current result))\n                         (:paragraphs result)\n                         (conj (:paragraphs result) (:current result)))\n        longest (if (empty? all-paragraphs)\n                  []\n                  (apply max-key count all-paragraphs))\n        longest-str (clojure.string/join \"\\n\" longest)]\n    {:count (count all-paragraphs) :longest longest-str})"},
+  :problem
+  "body delimiters do not balance: unclosed `(` opened at line 1, column 1"}
+ {:label "base",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:name "deep-md",
+   :description "Find all .md files under a directory at any depth",
+   :input-schema
+   "[\"map\" [\"dir\" [\"string\" {\"desc\" \"Directory path, relative to working directory\"}]]]",
+   :output-schema "[\"map\" [\"files\" [\"vector\" \"string\"]]]",
+   :body
+   "(fn [{:keys [dir]}]\n  (let [expand (fn [dirs]\n                 (let [all (mapcat (fn [d]\n                                     (let [r (list-dir {:path d})]\n                                       (if (:error r)\n                                         []\n                                         (map #(if (= d \".\") % (str d \"/\" %)) (:entries r)))))\n                                   dirs)]\n                   {:md (filter #(clojure.string/ends-with? % \".md\") all)\n                    :dirs (map #(subs % 0 (dec (count %))) (filter #(clojure.string/ends-with? % \"/\") all))}))]\n    (let [l1 (expand [dir])\n          l2 (expand (:dirs l1))\n          l3 (expand (:dirs l2))\n          l4 (expand (:dirs l3))\n          l5 (expand (:dirs l4))\n          l6 (expand (:dirs l5))\n          l7 (expand (:dirs l6))\n          l8 (expand (:dirs l7))\n          l9 (expand (:dirs l8))\n          l10 (expand (:dirs l9))]\n      {:files (sort (vec (set (concat (:md l1) (:md l2) (:md l3) (:md l4) (:md l5) (:md l6) (:md l7) (:md l8) (:md l9) (:md l10))))))}))"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 21, column 133 (expected `}`)"}
+ {:label "base",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:name "deep-md",
+   :description "Find all .md files under a directory at any depth",
+   :input-schema
+   "[:map [:dir [:string {:desc \"Directory path relative to working directory\"}]]]",
+   :output-schema "[:map [:files [:vector :string]]]",
+   :body
+   "(fn [{:keys [dir]}]\n  (let [expand (fn [queue]\n                 (let [results (mapcat (fn [d]\n                                         (let [r (list-dir {:path d})]\n                                           (if (:error r)\n                                             []\n                                             (map (fn [entry] (str d \"/\" entry))\n                                                  (:entries r)))))\n                                       queue)]\n                   {:md (filter #(clojure.string/ends-with? % \".md\") results)\n                    :dirs (map #(subs % 0 (dec (count %)))\n                               (filter #(clojure.string/ends-with? % \"/\") results))}))]\n    (let [l1 (expand [dir])\n          l2 (expand (:dirs l1))\n          l3 (expand (:dirs l2))\n          l4 (expand (:dirs l3))\n          l5 (expand (:dirs l4))\n          l6 (expand (:dirs l5))\n          l7 (expand (:dirs l6))\n          l8 (expand (:dirs l7))\n          l9 (expand (:dirs l8))\n          l10 (expand (:dirs l9))]\n      {:files (sort (vec (set (concat (:md l1) (:md l2) (:md l3) (:md l4) (:md l5) (:md l6) (:md l7) (:md l8) (:md l9) (:md l10))))))}))"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 23, column 133 (expected `}`)"}
+ {:label "base",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:name "deep-md",
+   :description "Find all .md files under a directory at any depth",
+   :input-schema
+   "[:map [:dir [:string {:desc \"Directory path relative to working directory\"}]]]",
+   :output-schema "[:map [:files [:vector :string]]]",
+   :body
+   "(fn [{:keys [dir]}]\n  (let [expand (fn [queue]\n                 (let [results (mapcat (fn [d]\n                                         (let [r (list-dir {:path d})]\n                                           (if (:error r)\n                                             []\n                                             (map (fn [entry] (str d \"/\" entry))\n                                                  (:entries r)))))\n                                       queue)]\n                   {:md (filter #(clojure.string/ends-with? % \".md\") results)\n                    :dirs (map #(subs % 0 (dec (count %)))\n                               (filter #(clojure.string/ends-with? % \"/\") results))}))]  \n    (let [l1 (expand [dir])\n          l2 (expand (:dirs l1))\n          l3 (expand (:dirs l2))\n          l4 (expand (:dirs l3))\n          l5 (expand (:dirs l4))\n          l6 (expand (:dirs l5))\n          l7 (expand (:dirs l6))\n          l8 (expand (:dirs l7))\n          l9 (expand (:dirs l8))\n          l10 (expand (:dirs l9))]\n      {:files (sort (vec (set (concat (:md l1) (:md l2) (:md l3) (:md l4) (:md l5) (:md l6) (:md l7) (:md l8) (:md l9) (:md l10)))))})"},
+  :problem
+  "body delimiters do not balance: unclosed `(` opened at line 2, column 3"}
+ {:label "base",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:name "deep-md",
+   :description "Find all .md files under a directory at any depth",
+   :input-schema
+   "[:map [:dir [:string {:desc \"Directory path relative to working directory\"}]]]",
+   :output-schema "[:map [:files [:vector :string]]]",
+   :body
+   "(fn [{:keys [dir]}]\n  (let [expand (fn [dirs]\n                  (let [all (mapcat (fn [d]\n                                      (let [r (list-dir {:path d})]\n                                        (if (:error r)\n                                          []\n                                          (map (fn [entry] (str d \"/\" entry))\n                                               (:entries r)))))\n                                    dirs)]\n                    {:md (filterv #(clojure.string/ends-with? % \".md\") all)\n                     :dirs (map #(subs % 0 (dec (count %)))\n                                (filterv #(clojure.string/ends-with? % \"/\") all))}))]]\n    (let [step (fn [state _]\n                  (let [next (expand (:queue state))]\n                    {:files (concat (:files state) (:md next))\n                     :queue (:dirs next)}))]\n      (let [result (reduce step\n                           {:files [] :queue [dir]}\n                           (range 10))]\n        {:files (sort (distinct (:files result)))}))))"},
+  :problem
+  "body delimiters do not balance: unexpected `]` at line 12, column 86 (expected `)`)"}
+ {:label "base",
+  :model "haiku",
+  :task :lint-plan,
+  :args
+  {:name "lint-plan",
+   :description "Map file paths to linters by extension",
+   :input-schema "[:map [:files [:vector :string]]]",
+   :output-schema "[:map [:plan :map]]",
+   :body
+   "(fn [{:keys [files]}]\n  {:plan (into {}\n           (map (fn [path]\n                  (let [dot-idx (clojure.string/index-of path \".\")\n                        ext (if dot-idx\n                              (subs path (inc dot-idx))\n                              \"\")]\n                    [path (cond\n                            (or (= ext \"clj\") (= ext \"cljc\")) \"kondo\"\n                            (= ext \"md\") \"markdownlint\"\n                            (= ext \"py\") \"ruff\"\n                            :else \"none\")])))\n                files))})"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 13, column 23 (expected `}`)"}
+ {:label "base",
+  :model "haiku",
+  :task :lint-plan,
+  :args
+  {:name "lint-plan",
+   :description "Map file paths to linters by extension",
+   :input-schema "[:map [:files [:vector :string]]]",
+   :output-schema "[:map [:plan :map]]",
+   :body
+   "(fn [{:keys [files]}]\n  {:plan (into {}\n           (map (fn [path]\n                  (let [match (re-find #\"\\.([^.]+)$\" path)\n                        ext (if match (second match) \"\")]\n                    [path (cond\n                            (or (= ext \"clj\") (= ext \"cljc\")) \"kondo\"\n                            (= ext \"md\") \"markdownlint\"\n                            (= ext \"py\") \"ruff\"\n                            :else \"none\")]))]\n                files))})"},
+  :problem
+  "body delimiters do not balance: unexpected `]` at line 10, column 45 (expected `)`)"}
+ {:label "base",
+  :model "haiku",
+  :task :status-rollup,
+  :args
+  {:name "status-rollup",
+   :description
+   "Aggregates run metrics by status, summing ms duration per status from a JSON array",
+   :input-schema
+   "[:map [:path [:string {:desc \"Path to JSON file with array of status/ms objects\"}]]]",
+   :output-schema "[:map [:totals [:map-of :string :number]]]",
+   :body
+   "(fn [{:keys [path]}]\n  (let [content (:content (read-file {:path path}))\n        data (json/read content)\n        totals (->> data\n                    (group-by :status)\n                    (map (fn [[status items]]\n                           [status (reduce + (map :ms items))]))\n                    (into {})]\n    {:totals totals}))"},
+  :problem
+  "body delimiters do not balance: unexpected `]` at line 8, column 30 (expected `)`)"}
+ {:label "base",
+  :model "sonnet",
+  :task :edn-diff,
+  :args
+  {:name "edn-diff",
+   :description
+   "Diff two EDN map files by top-level key names: added (only in b), removed (only in a), changed (in both, different values).",
+   :input-schema
+   "[:map [:a [:string {:desc \"Path to first EDN map file\"}]] [:b [:string {:desc \"Path to second EDN map file\"}]]]",
+   :output-schema
+   "[:map [:added [:vector :string]] [:removed [:vector :string]] [:changed [:vector :string]]]",
+   :body
+   "(fn [{:keys [a b]}] (let [parse (fn [path] (let [s (clojure.string/trim (:content (read-file {:path path}))) inner (subs s 1 (dec (count s))) chars (re-seq #\"[\\s\\S]\" inner) st (reduce (fn [m c] (let [depth (:depth m) cur (:cur m) toks (:toks m)] (cond (:instr m) (cond (:esc m) (assoc m :esc false :cur (str cur c)) (= c \"\\\\\") (assoc m :esc true :cur (str cur c)) (= c \"\\\"\") (assoc m :instr false :cur (str cur c)) :else (assoc m :cur (str cur c))) (= c \"\\\"\") (assoc m :instr true :cur (str cur c)) (contains? #{\"[\" \"{\" \"(\"} c) (assoc m :depth (inc depth) :cur (str cur c)) (contains? #{\"]\" \"}\" \")\"} c) (assoc m :depth (dec depth) :cur (str cur c)) (and (= depth 0) (contains? #{\" \" \"\\n\" \"\\t\" \"\\r\" \",\"} c)) (if (= cur \"\") m (assoc m :toks (conj toks cur) :cur \"\")) :else (assoc m :cur (str cur c))))) {:depth 0 :instr false :esc false :cur \"\" :toks []} chars) toks (if (= (:cur st) \"\") (:toks st) (conj (:toks st) (:cur st)))] (into {} (map (fn [p] [(first p) (second p)]) (partition 2 toks)))))) pa (parse a) pb (parse b) nm (fn [k] (if (clojure.string/starts-with? k \":\") (subs k 1) k)) ka (set (keys pa)) kb (set (keys pb))] {:added (vec (sort (map nm (filter #(not (contains? ka %)) kb)))) :removed (vec (sort (map nm (filter #(not (contains? kb %)) ka)))) :changed (vec (sort (map nm (filter #(and (contains? kb %) (not= (get pa %) (get pb %))) ka))))}))"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 1, column 996 (expected `]`)"}
+ {:label "ext-r2",
+  :model "haiku",
+  :task :lint-plan,
+  :args
+  {:name "lint-plan",
+   :body
+   "(fn [args]\n  (let [files (:files args)]\n    {:plan (into {}\n              (map (fn [path]\n                     [path (cond\n                             (clojure.string/ends-with? path \".clj\") \"kondo\"\n                             (clojure.string/ends-with? path \".cljc\") \"kondo\"\n                             (clojure.string/ends-with? path \".md\") \"markdownlint\"\n                             (clojure.string/ends-with? path \".py\") \"ruff\"\n                             :else \"none\")])\n                   files))}})"},
+  :problem
+  "body delimiters do not balance: unexpected `}` at line 11, column 28 (expected `)`)"}
+ {:label "ext-r2",
+  :model "haiku",
+  :task :lint-plan,
+  :args
+  {:name "lint-plan",
+   :body
+   "(fn [args]\n  (let [files (:files args)]\n    {:plan (into {}\n                 (map (fn [path]\n                        [path (cond\n                                (clojure.string/ends-with? path \".clj\") \"kondo\"\n                                (clojure.string/ends-with? path \".cljc\") \"kondo\"\n                                (clojure.string/ends-with? path \".md\") \"markdownlint\"\n                                (clojure.string/ends-with? path \".py\") \"ruff\"\n                                :else \"none\")])\n                      files))}))}"},
+  :problem
+  "body delimiters do not balance: unexpected `}` at line 11, column 33"}
+ {:label "ext-r2",
+  :model "haiku",
+  :task :safe-sum,
+  :args
+  {:id "safe-sum",
+   :body
+   "(fn [{:keys [path]}] (let [content (:content (read-file {:path path})) lines (clojure.string/split-lines content)] (loop [lines lines sum 0.0 bad 0] (if (empty? lines) {:sum sum :bad bad} (let [line (first lines) trimmed (clojure.string/trim line)] (if (empty? trimmed) (recur (rest lines) sum bad) (try (recur (rest lines) (+ sum (parse-double trimmed)) bad) (catch Exception e (recur (rest lines) sum (inc bad)))))))))))"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 1, column 422"}
+ {:label "ext-r2",
+  :model "haiku",
+  :task :safe-sum,
+  :args
+  {:name "safe-sum",
+   :description "Sum numbers in a file, counting non-number lines",
+   :input-schema
+   "[\"map\" [\"path\" [\"string\" {\"desc\" \"Path to file with numbers\"}]]]",
+   :output-schema "[\"map\" [\"sum\" \"double\"] [\"bad\" \"int\"]]",
+   :body
+   "(fn [{:keys [path]}] (let [content (:content (read-file {:path path})) lines (clojure.string/split-lines content)] (loop [lines lines sum 0.0 bad 0] (if (empty? lines) {:sum sum :bad bad} (let [line (first lines) trimmed (clojure.string/trim line)] (if (clojure.string/blank? trimmed) (recur (rest lines) sum bad) (try (recur (rest lines) (+ sum (parse-double trimmed)) bad) (catch Exception e (recur (rest lines) sum (inc bad))))))))"},
+  :problem
+  "body delimiters do not balance: unclosed `(` opened at line 1, column 22"}
+ {:label "ext-r2",
+  :model "haiku",
+  :task :safe-sum,
+  :args
+  {:name "safe-sum",
+   :description "Sum numbers in a file, counting non-number lines",
+   :input-schema
+   "[:map [:path [:string {:desc \"Path to file with numbers\"}]]]",
+   :output-schema "[:map [:sum :double] [:bad :int]]",
+   :body
+   "(fn [{:keys [path]}] (let [content (:content (read-file {:path path})) lines (clojure.string/split-lines content)] (loop [remaining lines sum 0.0 bad 0] (if (empty? remaining) {:sum sum :bad bad} (let [line (clojure.string/trim (first remaining)) rest-lines (rest remaining)] (if (clojure.string/blank? line) (recur rest-lines sum bad) (try (recur rest-lines (+ sum (parse-double line)) bad) (catch Exception _ (recur rest-lines sum (inc bad)))))))))))"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 1, column 452"}
+ {:label "ext-r2",
+  :model "haiku",
+  :task :safe-sum,
+  :args
+  {:name "safe-sum",
+   :description "Sum numbers in a file, counting non-number lines",
+   :input-schema
+   "[\"map\" [\"path\" [\"string\" {\"desc\" \"Path to file with numbers\"}]]]",
+   :output-schema "[\"map\" [\"sum\" \"double\"] [\"bad\" \"int\"]]",
+   :body
+   "(fn [{:keys [path]}] (let [lines (clojure.string/split-lines (:content (read-file {:path path})))] (loop [remaining lines sum 0.0 bad 0] (if (empty? remaining) {:sum sum :bad bad} (let [line (clojure.string/trim (first remaining))] (if (clojure.string/blank? line) (recur (rest remaining) sum bad) (try (recur (rest remaining) (+ sum (parse-double line)) bad) (catch Exception _ (recur (rest remaining) sum (inc bad)))))))))))"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 1, column 426"}
+ {:label "ext",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:id "deep-md",
+   :body
+   "(fn [{:keys [dir]}]\n  (let [find-md-files (fn find-md-files [path]\n                        (let [result (list-dir {:path path})]\n                          (if (:error result)\n                            []\n                            (let [entries (:entries result)]\n                              (concat\n                                (->> entries\n                                     (filter #(clojure.string/ends-with? % \".md\"))\n                                     (map #(str path \"/\" %)))\n                                (->> entries\n                                     (filter #(clojure.string/ends-with? % \"/\"))\n                                     (mapcat (fn [dir-entry]\n                                               (let [dir-name (subs dir-entry 0 (dec (count dir-entry)))]\n                                                 (find-md-files (str path \"/\" dir-name))))))))))])\n    {:files (vec (sort (find-md-files dir)))}))"},
+  :problem
+  "body delimiters do not balance: unexpected `]` at line 15, column 97 (expected `)`)"}
+ {:label "ext",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:name "deep-md",
+   :description
+   "Find all .md files under a directory at any depth, returning sorted paths",
+   :input-schema
+   "[\"\\n:map\\n [:dir [:string {:desc \\\"Directory path to search recursively for .md files\\\"}]]\\n\"]",
+   :output-schema "[:map [:files [:vector :string]]]",
+   :body
+   "(fn [{:keys [dir]}]\n  (letfn [(find-md-files [path]\n            (let [result (list-dir {:path path})]\n              (if (:error result)\n                []\n                (let [entries (:entries result)]\n                  (concat\n                    (->> entries\n                         (filter #(clojure.string/ends-with? % \\\".md\\\"))\n                         (map #(if (= path \\\".\\\")\n                                 %\n                                 (str path \\\"/\\\" %))))\n                    (->> entries\n                         (filter #(clojure.string/ends-with? % \\\"/\\\"))\n                         (mapcat (fn [dir-entry]\n                                   (let [dir-name (subs dir-entry 0 (dec (count dir-entry)))\n                                         next-path (if (= path \\\".\\\")\n                                                     dir-name\n                                                     (str path \\\"/\\\" dir-name))]\n                                     (find-md-files next-path)))))))))]]\n    {:files (vec (sort (find-md-files dir)))}))"},
+  :problem
+  "body delimiters do not balance: unclosed `(` opened at line 9, column 35"}
+ {:label "ext",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:name "deep-md",
+   :description
+   "Find all .md files under a directory at any depth, returning sorted paths",
+   :input-schema
+   "[:map [:dir [:string {:desc \"Directory path to search recursively for .md files\"}]]]",
+   :output-schema "[:map [:files [:vector :string]]]",
+   :body
+   "(fn [{:keys [dir]}]\n  (letfn [(find-md [path]\n            (let [result (list-dir {:path path})]\n              (if (:error result)\n                []\n                (let [entries (:entries result)\n                      files (filter #(clojure.string/ends-with? % \".md\") entries)\n                      dirs (filter #(clojure.string/ends-with? % \"/\") entries)]\n                  (concat\n                    (map #(if (= path \".\")\n                             %\n                             (str path \"/\" %)) files)\n                    (mapcat (fn [d]\n                              (let [dir-name (subs d 0 (dec (count d)))\n                                    next-path (if (= path \".\")\n                                                dir-name\n                                                (str path \"/\" dir-name))]\n                                (find-md next-path)))\n                            dirs))))))]]\n    {:files (vec (sort (find-md dir)))}))"},
+  :problem
+  "body delimiters do not balance: unexpected `]` at line 19, column 40 (expected `)`)"}
+ {:label "ext",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:name "deep-md",
+   :description
+   "Find all .md files under a directory at any depth, returning sorted paths",
+   :input-schema
+   "[:map [:dir [:string {:desc \"Directory path to search recursively for .md files\"}]]]",
+   :output-schema "[:map [:files [:vector :string]]]",
+   :body
+   "(fn [{:keys [dir]}]\n  (letfn [(find-md [path]\n            (let [result (list-dir {:path path})]\n              (if (:error result)\n                []\n                (let [entries (:entries result)\n                      md-files (filter #(clojure.string/ends-with? % \".md\") entries)\n                      subdirs (filter #(clojure.string/ends-with? % \"/\") entries)]\n                  (concat\n                    (map #(if (= path \".\")\n                             %\n                             (str path \"/\" %))\n                         md-files)\n                    (mapcat (fn [d]\n                              (let [subdir-name (subs d 0 (dec (count d)))\n                                    next-path (if (= path \".\")\n                                                subdir-name\n                                                (str path \"/\" subdir-name))]\n                                (find-md next-path)))\n                            subdirs))))))]"},
+  :problem
+  "body delimiters do not balance: unclosed `(` opened at line 2, column 3"}
+ {:label "ext",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:name "deep-md",
+   :description
+   "Find all .md files under a directory at any depth, returning sorted relative paths",
+   :input-schema
+   "[:map [:dir [:string {:desc \"Directory path to search recursively for .md files\"}]]]",
+   :output-schema "[:map [:files [:vector :string]]]",
+   :body
+   "(fn [{:keys [dir]}]\n  (letfn [(find-md [path]\n            (let [result (list-dir {:path path})]\n              (if (:error result)\n                []\n                (let [entries (:entries result)\n                      md-files (filter #(clojure.string/ends-with? % \".md\") entries)\n                      subdirs (filter #(clojure.string/ends-with? % \"/\") entries)]\n                  (concat\n                    (map #(if (= path \".\")\n                             %\n                             (str path \"/\" %))\n                         md-files)\n                    (mapcat (fn [d]\n                              (let [subdir-name (subs d 0 (dec (count d)))\n                                    next-path (if (= path \".\")\n                                                subdir-name\n                                                (str path \"/\" subdir-name))]\n                                (find-md next-path)))\n                            subdirs))))))])\n    {:files (vec (sort (find-md dir)))}))"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 21, column 41"}
+ {:label "ext",
+  :model "haiku",
+  :task :deep-md,
+  :args
+  {:name "deep-md",
+   :description
+   "Find all .md files under a directory at any depth, returning sorted relative paths",
+   :input-schema
+   "[:map [:dir [:string {:desc \"Directory path to search recursively for .md files\"}]]]",
+   :output-schema "[:map [:files [:vector :string]]]",
+   :body
+   "(fn [{:keys [dir]}]\n  (letfn [(walk [p]\n            (let [r (list-dir {:path p})]\n              (if (:error r)\n                []\n                (let [es (:entries r)\n                      pre (if (= p \".\") \"\" (str p \"/\"))]\n                  (concat\n                    (map #(str pre %) (filter #(clojure.string/ends-with? % \".md\") es))\n                    (mapcat #(walk (str pre (subs % 0 (dec (count %))))) (filter #(clojure.string/ends-with? % \"/\") es)))))))])\n    {:files (vec (sort (walk dir)))}))"},
+  :problem
+  "body delimiters do not balance: unexpected `)` at line 11, column 38"}]

@@ -1,0 +1,51 @@
+;; plan2-claude.edn with Claude Code on Sonnet, as brainyard's root is: mode B
+;; ran Claude Code on the account's default, Opus, so its comparison with mode A
+;; measured two models as well as two harnesses (byj-gly.320). With
+;; `plan2.edn -m opus`, the four runs separate the model from the harness.
+;;
+;;   jolt sim:byj dev/sim/playground/plan2-claude-sonnet.edn --score
+{:id "playground2-claude-sonnet"
+ :project-config {:claude-model "sonnet"}
+ :projects-dir "~/Projects/byj-sim"
+ :provider "claude-code" :model "sonnet"
+ :permission-mode :auto
+ :timeout-s 1800
+ :cap-usd 20.0
+ ;; two agents a stage: brainyard's and Claude Code's
+ :stage-cap-usd 4.0
+ :answers [{:match "pkill" :answer "n"}]
+ :default-answer "n"
+ :stages
+ [{:id :init
+   :lines ["/init"
+           "This project is a mini-playground: a small web workspace. Stack: Node 20+, a plain node:http server with ws and node-pty, a static page using xterm.js, tests with node --test. Conventions: npm start runs the server on the port in PORT (default 3000); npm test runs the tests, which must not depend on port 3000 being free (another server may hold it) — when you start the server yourself, give it another port. File each of these as a bead, in order, each depending on the one before: (1) server shell: a page with a sidebar of sections Terminal, Files, Editor and Chat, GET /api/health answering {\"ok\":true}, and 404 for unknown paths; (2) a terminal over a WebSocket at /term spawning $SHELL in the project dir, with JSON frames {\"t\":\"i\",\"d\":text} from the client and {\"t\":\"o\",\"d\":text} from the server, the shell killed when the socket closes; (3) a {\"t\":\"r\",\"cols\":n,\"rows\":n} frame resizes the shell, and a client connecting to /term?id=<id> with an id used before is replayed that terminal's recent output; (4) the Terminal section in the page: xterm.js loaded from the server, the fit addon, and a status badge element with a data-status attribute (connecting, open, reconnecting, closed); (5) a file tree and a text editor: GET /api/files?path= lists a directory, GET /api/file?path= answers a file's text and PUT /api/file?path= writes the request body, the file's text as it is, and any path outside the project dir is answered 400; (6) a Chat section (data-section=\"chat\"): POST /api/chat with JSON {\"message\":text} answers a text/event-stream of data: lines and ends with event: done, from a pluggable backend whose default echoes the message back; the page shows the conversation and reads the stream as it comes; (7) a modern UI shell: a top bar with a menu (role=\"menubar\") for the sections; only the current section shown, switched by the URL hash, the others hidden; tabs (role=\"tablist\", each role=\"tab\") for several terminals, each tab with data-term-id and its own /term?id=, and a + button (data-action=\"new-terminal\") that opens another; tabs for the files open in the editor, each with data-file; a dark/light theme toggle (data-action=\"toggle-theme\") switching data-theme on the html element, remembered in localStorage; and a layout that works on a narrow screen (@media). Don't start building yet."]
+   :checks [{:type :file :name "agents-md" :path "AGENTS.md" :contains "BRAINYARD:project"}
+            {:type :command :name "seven-beads" :run "test $(bd list --all 2>/dev/null | grep -c '^[○◐✓]') -ge 7"}]}
+  {:id :server
+   :lines ["Hand the next ready bead (bd ready) to agent$claude to build: it is to make the bead's tests pass and commit on its branch. When it reports the work done, merge that branch into main here, remove its worktree and branch, run npm test on main, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "health" :run "node {{plan}}/checks/checks.cjs health" :timeout-s 90}]}
+  {:id :term
+   :lines ["Hand the next ready bead (bd ready) to agent$claude to build: it is to make the bead's tests pass and commit on its branch. When it reports the work done, merge that branch into main here, remove its worktree and branch, run npm test on main, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "term" :run "node {{plan}}/checks/checks.cjs term" :timeout-s 90}]}
+  {:id :resize
+   :lines ["Hand the next ready bead (bd ready) to agent$claude to build: it is to make the bead's tests pass and commit on its branch. When it reports the work done, merge that branch into main here, remove its worktree and branch, run npm test on main, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "resize" :run "node {{plan}}/checks/checks.cjs resize" :timeout-s 90}]}
+  {:id :ui
+   :lines ["Hand the next ready bead (bd ready) to agent$claude to build: it is to make the bead's tests pass and commit on its branch. When it reports the work done, merge that branch into main here, remove its worktree and branch, run npm test on main, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "ui" :run "node {{plan}}/checks/checks.cjs ui" :timeout-s 90}]}
+  {:id :files
+   :lines ["Hand the next ready bead (bd ready) to agent$claude to build: it is to make the bead's tests pass and commit on its branch. When it reports the work done, merge that branch into main here, remove its worktree and branch, run npm test on main, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "files" :run "node {{plan}}/checks/checks.cjs files" :timeout-s 90}]}
+  {:id :chat
+   :lines ["Hand the next ready bead (bd ready) to agent$claude to build: it is to make the bead's tests pass and commit on its branch. When it reports the work done, merge that branch into main here, remove its worktree and branch, run npm test on main, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "chat" :run "node {{plan}}/checks/checks.cjs chat" :timeout-s 90}]}
+  {:id :shell
+   :lines ["Hand the next ready bead (bd ready) to agent$claude to build: it is to make the bead's tests pass and commit on its branch. When it reports the work done, merge that branch into main here, remove its worktree and branch, run npm test on main, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "shell" :run "node {{plan}}/checks/checks.cjs shell" :timeout-s 90}]}]}

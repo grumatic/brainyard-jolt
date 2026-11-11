@@ -1,0 +1,8 @@
+;; What a Bedrock error means, said to the person after the error itself
+;; (byj-gly.370). A RESOURCE, not code (RFC-001): these are words a person
+;; reads, about how AWS accounts are set up, which changes without byj.
+;;
+;; Each entry: :match, a regex found in the aws CLI's error; :hint, what to
+;; say. The first that matches is said.
+[{:match "data retention mode '[^']*' is not available"
+  :hint "This model needs the AWS account to allow human review of its requests, in this region: Claude Fable 5 and 5.1 require the data retention mode aws_review, under which AWS keeps prompts and outputs for up to 30 days and may review them (they are not shared with Anthropic). Only the account's owner can opt in, with Bedrock's PUT /data-retention — see https://docs.aws.amazon.com/bedrock/latest/userguide/data-retention.html"}]

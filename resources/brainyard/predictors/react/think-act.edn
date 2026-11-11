@@ -1,0 +1,36 @@
+;; The ReAct loop's LLM step — brainyard's ThinkActCode with the code channel
+;; off, as a declarative predictor. The loop tree names it by :id
+;; (loops/react.edn, :react/think-act node); nothing here is compiled.
+;;
+;; Tune it without touching this file: put a params record at
+;; .brainyard/programs/react/think-act.edn (project) or
+;; ~/.brainyard/programs/react/think-act.edn (user) — see brainyard.predictor.
+;; Field descriptions are verbatim from brainyard's ThinkActCode specs.
+{:id "react/think-act"
+ :strategy :cot
+ :description "Reason briefly, then either call tools or write the final answer."
+ :instructions {:resource "brainyard/prompts/react-instructions.md"}
+ ;; the thought is for the person watching, not brainyard's reasoning for the
+ ;; model (byj-gly.280.2, RFC-003 'The thought', divergence
+ ;; `the-thought-is-for-the-person-watching`); a params record's
+ ;; :field-descs :reasoning retunes it
+ :reasoning {:desc {:resource "brainyard/prompts/think-act-thought.md"}}
+
+ :inputs
+ [[:question {:desc "User question"} :string]
+  [:iterations {:desc "Full iteration history (capped + truncated for context budget)"} [:vector :any]]]
+
+ :outputs
+ [[:tool-calls
+   {:desc "Tool invocations to run this iteration. Empty when not calling tools (using another channel or answering)."}
+   ;; the shared registry's: [{name args}], closed as the provider's strict
+   ;; mode wants it; the args are an open map, since they belong to whichever
+   ;; tool is called (divergence `a-tool-call-is-name-and-args`)
+   :brainyard.schema/tool-calls]
+  [:answer {:desc "Answer to the question"} :string]
+  [:goal-achieved
+   {:desc "Set ONLY when populating `answer`: true iff the question is fully and accurately answered with evidence support. false signals you are answering but not yet confident — the loop may refine. Leave false on tool-calls/code-blocks turns."}
+   :boolean]
+  [:next-user-prompt
+   {:desc "Set ONLY when populating `answer`: a concise one-line follow-up the USER could send next to build on this answer. Phrase it as the user's own request (imperative, ~12 words max), not a question back to the user. Empty string when no useful follow-up exists or when not answering."}
+   :string]]}

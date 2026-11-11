@@ -1,0 +1,67 @@
+;; Tasks for byj-gly.258: does extending Tool Lisp (vocabulary, forms, control)
+;; make the tools an agent writes for itself better? Run by
+;; brainyard.dev.tool-authoring-eval with TASKS_FILE pointing here, once with
+;; the base language and once with EXT=vocabulary,forms,control.
+;;
+;; Every task but one can be done in the base language, some only awkwardly:
+;; deep-md and json-depth want recursion (the base language iterates a frontier
+;; level by level over a fixed range — reference solutions for both pass), and
+;; the rest are idioms an extension shortens (fnil, compare, partition-by, case).
+;; edn-diff wants an EDN reader: the base language has none, so there it is
+;; string matching or nothing — which is what it measures. The prompts name
+;; nothing of either language: a model chooses its own forms.
+[{:id :deep-md
+  :tool-id "user$tool$deep-md"
+  :prompt "Using tool$create, create a user tool named `deep-md` with one string param `dir`. It returns {:files v} where v is the sorted vector of paths (relative to the working directory, like \"docs/sub/b.md\") of every .md file under `dir`, at ANY depth. list-dir returns {:entries [...]} where a directory's name ends in \"/\". Test it with tool$test on docs, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"docs/a.md" "a" "docs/notes.txt" "n" "docs/sub/b.md" "b" "docs/sub/deep/c.md" "c"
+             "docs/sub/deep/deeper/d.md" "d" "docs/sub/deep/deeper/x.txt" "x"}
+  :cases [{:args {:dir "docs"} :expect {:files ["docs/a.md" "docs/sub/b.md" "docs/sub/deep/c.md" "docs/sub/deep/deeper/d.md"]}}
+          {:args {:dir "docs/sub/deep"} :expect {:files ["docs/sub/deep/c.md" "docs/sub/deep/deeper/d.md"]}}]}
+
+ {:id :json-depth
+  :tool-id "user$tool$json-depth"
+  :prompt "Using tool$create, create a user tool named `json-depth` with one string param `path`. It reads a JSON file and returns {:depth n}: how deeply objects and arrays nest. A scalar is depth 0, {} or [] is depth 1, {\"a\": [1]} is depth 2. Test it with tool$test on nested.json, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"nested.json" "{\"a\": {\"b\": [1, {\"c\": [2, 3]}]}, \"d\": 4}"
+             "flat.json" "{\"a\": 1, \"b\": 2}"
+             "scalar.json" "7"}
+  :cases [{:args {:path "nested.json"} :expect {:depth 5}}
+          {:args {:path "flat.json"} :expect {:depth 1}}
+          {:args {:path "scalar.json"} :expect {:depth 0}}]}
+
+ {:id :edn-diff
+  :tool-id "user$tool$edn-diff"
+  :prompt "Using tool$create, create a user tool named `edn-diff` with two string params `a` and `b`, paths of files each holding one EDN map. It returns {:added x :removed y :changed z}: sorted vectors of the key NAMES (strings, without the colon) that are only in b, only in a, and in both with different values. Test it with tool$test on old.edn and new.edn, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"old.edn" "{:name \"svc\" :port 80 :debug true :tags [:a :b]}"
+             "new.edn" "{:name \"svc\" :port 8080 :tags [:a :b :c] :owner \"ops\"}"}
+  :cases [{:args {:a "old.edn" :b "new.edn"} :expect {:added ["owner"] :removed ["debug"] :changed ["port" "tags"]}}]}
+
+ {:id :word-top3
+  :tool-id "user$tool$word-top3"
+  :prompt "Using tool$create, create a user tool named `word-top3` with one string param `path`. It returns {:top v}: the three most frequent words, lower-cased, as [word count] pairs, most frequent first, a tie broken alphabetically. A word is a run of letters. Test it with tool$test on text.txt, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"text.txt" "The cat and the dog. A cat, a DOG, a bird; the end."}
+  :cases [{:args {:path "text.txt"} :expect {:top [["a" 3] ["the" 3] ["cat" 2]]}}]}
+
+ {:id :status-rollup
+  :tool-id "user$tool$status-rollup"
+  :prompt "Using tool$create, create a user tool named `status-rollup` with one string param `path`, a JSON array of objects each with \"status\" (a string) and \"ms\" (a number). It returns {:totals m}: a map from each status (a string) to the sum of its ms. Test it with tool$test on runs.json, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"runs.json" "[{\"status\":\"ok\",\"ms\":10},{\"status\":\"fail\",\"ms\":5},{\"status\":\"ok\",\"ms\":20},{\"status\":\"skip\",\"ms\":0}]"}
+  :cases [{:args {:path "runs.json"} :expect {:totals {"ok" 30 "fail" 5 "skip" 0}}}]}
+
+ {:id :safe-sum
+  :tool-id "user$tool$safe-sum"
+  :prompt "Using tool$create, create a user tool named `safe-sum` with one string param `path`. Each line of the file should hold a number (integer or decimal); some lines hold junk. It returns {:sum s :bad n}: the sum of the numbers as a decimal, and how many non-blank lines were not numbers. Test it with tool$test on values.txt, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"values.txt" "10\n2.5\noops\n\n-3\nN/A\n0.5\n"}
+  :cases [{:args {:path "values.txt"} :expect {:sum 10.0 :bad 2}}]}
+
+ {:id :paragraphs
+  :tool-id "user$tool$paragraphs"
+  :prompt "Using tool$create, create a user tool named `paragraphs` with one string param `path`. Paragraphs are runs of non-blank lines separated by one or more blank lines. It returns {:count n :longest s} where s is the paragraph with the most lines, its lines joined with \"\\n\" (the first such, if tied). Test it with tool$test on doc.txt, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {"doc.txt" "one\ntwo\n\n\nthree\nfour\nfive\n\nsix\n"}
+  :cases [{:args {:path "doc.txt"} :expect {:count 3 :longest "three\nfour\nfive"}}]}
+
+ {:id :lint-plan
+  :tool-id "user$tool$lint-plan"
+  :prompt "Using tool$create, create a user tool named `lint-plan` with one param `files`, a vector of path strings. It returns {:plan m}: a map from each path to its linter by extension — \"clj\" and \"cljc\" to \"kondo\", \"md\" to \"markdownlint\", \"py\" to \"ruff\", anything else to \"none\". Test it with tool$test on {:files [\"a.clj\" \"README.md\" \"Makefile\"]}, fix it if needed, then answer with a one-line confirmation."
+  :fixtures {}
+  :cases [{:args {:files ["src/a.clj" "b.cljc" "README.md" "x.py" "Makefile"]}
+           :expect {:plan {"src/a.clj" "kondo" "b.cljc" "kondo" "README.md" "markdownlint" "x.py" "ruff" "Makefile" "none"}}}]}]

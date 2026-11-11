@@ -1,0 +1,193 @@
+;; The models `/model` offers, most useful first — brainyard's curated entries
+;; (`clj-llm/core/providers.clj` `model-catalog`, the ones with a
+;; `:curated-rank`, in rank order), for the providers this port can reach.
+;; google, deepseek, mistral, groq and apple-fm are left out: the port has no
+;; provider for them (RFC-006).
+;;
+;; A RESOURCE, not code (RFC-001): which models are worth offering changes
+;; when a vendor ships one, and saying so should not need a rebuild. Nothing
+;; here limits what `/model provider/model` accepts — any model a provider
+;; serves can be named; this is only what the picker lists.
+;;
+;; Ahead of brainyard's list (divergence `models-ahead-of-brainyard`): the
+;; Claude 5.5 and 5.1 models, each above the one it succeeds, ids from
+;; platform.claude.com/docs/en/about-claude/models/overview, checked
+;; 2026-10-09 (byj-gly.323).
+;;
+;; `:light? true` marks the one model per provider that light-tier side tasks
+;; (the recap, command rephrasing) run on when `:agent-lm-tiers` names none —
+;; the session's provider's, so they bill the account the session does
+;; (byj-gly.367, RFC-005 "The light tier"). A provider with none marked runs
+;; them on the session's model.
+;;
+;; `:model` is the provider's own id; `/model` switches to
+;; `provider/model`, and a bare `:model` (`/model sonnet`) finds its entry here.
+[{:provider :claude-code :model "opus"
+  :description "Claude Opus (latest) via CLI (no API key)"}
+ {:provider :claude-code :model "sonnet"
+  :description "Claude Sonnet (latest) via CLI (no API key)"}
+ {:provider :claude-code :model "haiku" :light? true
+  :description "Claude Haiku (latest) via CLI (no API key)"}
+ {:provider :anthropic :model "claude-opus-5-5"
+  :description "Anthropic Claude Opus 5.5 (flagship)"}
+ {:provider :anthropic :model "claude-opus-5"
+  :description "Anthropic Claude Opus 5"}
+ {:provider :anthropic :model "claude-sonnet-5-5"
+  :description "Anthropic Claude Sonnet 5.5 (fast + smart)"}
+ {:provider :anthropic :model "claude-sonnet-5"
+  :description "Anthropic Claude Sonnet 5"}
+ {:provider :anthropic :model "claude-haiku-5-5" :light? true
+  :description "Anthropic Claude Haiku 5.5 (fastest, cheapest; a prompt over 100k tokens costs 5x)"}
+ {:provider :anthropic :model "claude-haiku-4-5"
+  :description "Anthropic Claude Haiku 4.5"}
+ {:provider :anthropic :model "claude-fable-5-1"
+  :description "Anthropic Claude Fable 5.1 (most capable, premium)"}
+ {:provider :anthropic :model "claude-fable-5"
+  :description "Anthropic Claude Fable 5"}
+ {:provider :anthropic :model "claude-opus-4-8"
+  :description "Anthropic Claude Opus 4.8"}
+ {:provider :anthropic :model "claude-sonnet-4-6"
+  :description "Anthropic Claude Sonnet 4.6"}
+ {:provider :anthropic :model "claude-opus-4-7"
+  :description "Anthropic Claude Opus 4.7"}
+ {:provider :anthropic :model "claude-mythos-5-1"
+  :description "Anthropic Claude Mythos 5.1 (limited availability)"}
+ {:provider :anthropic :model "claude-mythos-5"
+  :description "Anthropic Claude Mythos 5 (Project Glasswing only)"}
+ {:provider :openai :model "gpt-5.6-luna"
+  :description "OpenAI GPT-5.6 Luna"}
+ {:provider :openai :model "gpt-5.6-sol"
+  :description "OpenAI GPT-5.6 Sol"}
+ {:provider :openai :model "gpt-5.6-terra"
+  :description "OpenAI GPT-5.6 Terra"}
+ {:provider :openai :model "gpt-5.5"
+  :description "OpenAI GPT-5.5"}
+ {:provider :openai :model "gpt-5.4"
+  :description "OpenAI GPT-5.4"}
+ {:provider :openai :model "gpt-5.4-mini" :light? true
+  :description "OpenAI GPT-5.4 Mini"}
+ {:provider :openai :model "gpt-5.4-nano"
+  :description "OpenAI GPT-5.4 Nano (cheapest)"}
+ {:provider :openai :model "gpt-5.2"
+  :description "OpenAI GPT-5.2"}
+ {:provider :openai :model "gpt-5.1"
+  :description "OpenAI GPT-5.1"}
+ {:provider :openai :model "gpt-5"
+  :description "OpenAI GPT-5"}
+ {:provider :openai :model "gpt-5-mini"
+  :description "OpenAI GPT-5 Mini (fast, cheap)"}
+ {:provider :openai :model "gpt-5-nano"
+  :description "OpenAI GPT-5 Nano (lowest latency)"}
+ {:provider :openai :model "o3"
+  :description "OpenAI o3 (reasoning)"}
+ {:provider :openai :model "o4-mini"
+  :description "OpenAI o4-mini (reasoning, cheap)"}
+ {:provider :openai :model "gpt-4.1"
+  :description "OpenAI GPT-4.1 (coding)"}
+ {:provider :openai :model "gpt-4.1-mini"
+  :description "OpenAI GPT-4.1 Mini"}
+ {:provider :ollama :model "gemma4:12b"
+  :description "Gemma 4 12B (Ollama, local; tools + vision + thinking, 262K context)"}
+ {:provider :ollama :model "kimi-k2.7-code:cloud"
+  :description "Kimi K2.7 Code Cloud (Ollama; coding, 262K context; paid Ollama Cloud)"}
+ {:provider :freellm :model "auto"
+  :description "Free OpenAI-compatible endpoint (FREELLM_BASE_URL); 'auto' lets the backend pick"}
+ {:provider :bedrock :model "global.anthropic.claude-opus-5-5"
+  :description "Claude Opus 5.5 on Bedrock (global cross-region, flagship)"}
+ {:provider :bedrock :model "us.anthropic.claude-opus-5-5"
+  :description "Claude Opus 5.5 on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-opus-5"
+  :description "Claude Opus 5 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "us.anthropic.claude-opus-5"
+  :description "Claude Opus 5 on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-sonnet-5-5"
+  :description "Claude Sonnet 5.5 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "us.anthropic.claude-sonnet-5-5"
+  :description "Claude Sonnet 5.5 on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-sonnet-5"
+  :description "Claude Sonnet 5 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "us.anthropic.claude-sonnet-5"
+  :description "Claude Sonnet 5 on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-fable-5-1"
+  :description "Claude Fable 5.1 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-fable-5"
+  :description "Claude Fable 5 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-opus-4-8"
+  :description "Claude Opus 4.8 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-opus-4-7"
+  :description "Claude Opus 4.7 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-opus-4-6-v1"
+  :description "Claude Opus 4.6 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-sonnet-4-6"
+  :description "Claude Sonnet 4.6 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-haiku-5-5" :light? true
+  :description "Claude Haiku 5.5 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "us.anthropic.claude-haiku-5-5"
+  :description "Claude Haiku 5.5 on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+  :description "Claude Haiku 4.5 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  :description "Claude Haiku 4.5 on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "global.anthropic.claude-opus-4-5-20251101-v1:0"
+  :description "Claude Opus 4.5 on Bedrock (global cross-region)"}
+ {:provider :bedrock :model "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  :description "Claude Sonnet 4.5 on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "us.amazon.nova-2-lite-v1:0"
+  :description "Amazon Nova 2 Lite on Bedrock (US cross-region, fast)"}
+ {:provider :bedrock :model "us.amazon.nova-premier-v1:0"
+  :description "Amazon Nova Premier on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "us.amazon.nova-pro-v1:0"
+  :description "Amazon Nova Pro on Bedrock (US cross-region, multimodal)"}
+ {:provider :bedrock :model "us.amazon.nova-lite-v1:0"
+  :description "Amazon Nova Lite on Bedrock (US cross-region, fast)"}
+ {:provider :bedrock :model "meta.llama3-3-70b-instruct-v1:0"
+  :description "Meta Llama 3.3 70B on Bedrock"}
+ ;; answered byj's think-act prompt 2 times in 4 (2026-10-17, byj-gly.371):
+ ;; prose with no JSON, reasoning with no text, a first call of 3 minutes
+ {:provider :bedrock :model "openai.gpt-oss-120b-1:0"
+  :description "OpenAI gpt-oss 120B (open-weights) on Bedrock — unreliable with byj's prompt"}
+ {:provider :bedrock :model "openai.gpt-oss-20b-1:0"
+  :description "OpenAI gpt-oss 20B (open-weights) on Bedrock"}
+ {:provider :bedrock :model "qwen.qwen3-32b-v1:0"
+  :description "Qwen3 32B (dense) on Bedrock"}
+ {:provider :bedrock :model "qwen.qwen3-coder-30b-a3b-v1:0"
+  :description "Qwen3 Coder 30B (A3B) on Bedrock"}
+ {:provider :bedrock :model "qwen.qwen3-vl-235b-a22b"
+  :description "Qwen3 VL 235B A22B (vision) on Bedrock"}
+ {:provider :bedrock :model "deepseek.r1-v1:0"
+  :description "DeepSeek-R1 (reasoning) on Bedrock"}
+ {:provider :bedrock :model "us.deepseek.r1-v1:0"
+  :description "DeepSeek-R1 on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "deepseek.v3.2"
+  :description "DeepSeek V3.2 on Bedrock"}
+ {:provider :bedrock :model "mistral.mistral-large-3-675b-instruct"
+  :description "Mistral Large 3 675B on Bedrock"}
+ {:provider :bedrock :model "zai.glm-5"
+  :description "Z.ai GLM-5 on Bedrock"}
+ {:provider :bedrock :model "minimax.minimax-m2.5"
+  :description "MiniMax M2.5 on Bedrock"}
+ {:provider :bedrock :model "moonshotai.kimi-k2.5"
+  :description "Moonshot Kimi K2.5 on Bedrock"}
+ {:provider :bedrock :model "ai21.jamba-1-5-large-v1:0"
+  :description "AI21 Jamba 1.5 Large on Bedrock"}
+ {:provider :bedrock :model "writer.palmyra-x5-v1:0"
+  :description "Writer Palmyra X5 on Bedrock"}
+ {:provider :bedrock :model "us.writer.palmyra-x5-v1:0"
+  :description "Writer Palmyra X5 on Bedrock (US cross-region)"}
+ {:provider :bedrock :model "global.openai.gpt-5.6-sol"
+  :description "OpenAI GPT-5.6 Sol on Bedrock (global cross-region, most capable)"}
+ {:provider :bedrock :model "global.openai.gpt-5.6-terra"
+  :description "OpenAI GPT-5.6 Terra on Bedrock (global cross-region, balanced)"}
+ {:provider :bedrock :model "global.openai.gpt-5.6-luna"
+  :description "OpenAI GPT-5.6 Luna on Bedrock (global cross-region, fastest + cheapest)"}
+ {:provider :bedrock :model "global.xai.grok-4.6"
+  :description "xAI Grok 4.6 on Bedrock (global cross-region, reasoning — needs a large max-tokens)"}
+ ;; codex: what a ChatGPT sign-in may ask through `codex exec` — its
+ ;; models_cache.json's listed models (Codex 0.163); gpt-5.4 and older are
+ ;; refused there (RFC-049, measured)
+ {:provider :codex :model "gpt-6-luna"
+  :description "GPT-6 Luna via the codex CLI (Codex's default; no API key)"}
+ {:provider :codex :model "gpt-5.6-terra"
+  :description "GPT-5.6 Terra via the codex CLI (no API key)"}
+ {:provider :codex :model "gpt-5.6-luna" :light? true
+  :description "GPT-5.6 Luna via the codex CLI (fastest; no API key)"}]

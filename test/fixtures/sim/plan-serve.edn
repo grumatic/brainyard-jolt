@@ -1,0 +1,11 @@
+;; sim-test (byj-gly.315.16): a stage whose command leaves a server running in
+;; the background; the session's end should stop it, so it does not outlive it.
+;; The command waits until the server listens: on a loaded machine it had not
+;; bound its port when the turn ended, and the finding was missed.
+{:id "mock-serve"
+ :provider "mock"
+ :permission-mode :auto-approve
+ :timeout-s 60
+ :stages [{:id :serve
+           :lines [":bash {:command \"python3 -m http.server 0 --bind 127.0.0.1 >/dev/null 2>&1 & while ! lsof -a -p $! -iTCP -sTCP:LISTEN >/dev/null 2>&1; do sleep 0.1; done; echo started\"}"]
+           :checks [{:type :command :name "true" :run "true"}]}]}

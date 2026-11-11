@@ -1,0 +1,26 @@
+;; /review (byj-gly.354): review a change through agent$explore. A turn, as
+;; every command that stands for an agent is (RFC-004): the session's agent
+;; asks agent$explore to read the change with git and check it against the
+;; rest of the code (explore runs git since byj-gly.355), and writes the
+;; review from what explore cited. Nothing is changed: a review reports.
+;;
+;; `/review` alone reviews the uncommitted changes; `/review WORDS` what the
+;; words name — a commit, a branch, a range, a file, or what to look for.
+;; Not in brainyard, which has no /review.
+{:command "/review"
+ :agent "explore"
+ :rephrase :predictor
+
+ :default-request
+ "Review my uncommitted changes."
+
+ :purpose
+ "review a change — the uncommitted one, or the commit, branch, range or files named — for what is wrong with it, checked against the rest of the code, and change nothing"
+
+ :usage
+ "Call agent$explore with :question saying which change to review — the uncommitted one, or the commit, branch, range or files named — and asking it to read the change with git (`git status --short`, `git diff`, `git diff --staged`, or `git show` / `git diff` on what was named) and check it against the rest of the code: the callers of what changed, the tests that cover it, the conventions the project's instructions set, and anything the change leaves inconsistent, citing file:line. Call it again only for a thread its report leaves open; read the diff yourself with bash where you need to judge what it reports. Then write the review from its findings: the problems first, the most serious first, each with file:line and why it matters; then, briefly, what is sound; and what was not checked. Change nothing — no edits, no commits."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

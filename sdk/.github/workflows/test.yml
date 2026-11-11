@@ -1,0 +1,48 @@
+# Both SDKs' tests against the newest byj from the Homebrew tap's releases
+# (grumatic/homebrew-tap), on byj's scripted mock model: no model is called
+# and nothing is spent.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: byj, checked against its release's SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          d="$RUNNER_TEMP/byj"
+          mkdir -p "$d"
+          gh release download --repo grumatic/homebrew-tap --pattern SHA256SUMS --dir "$d"
+          name=$(grep -oE 'byj-[0-9]+\.[0-9]+\.[0-9]+-linux-amd64$' "$d/SHA256SUMS" | head -1)
+          [ -n "$name" ] || { echo "the tap's latest release has no byj for linux-amd64"; exit 1; }
+          gh release download --repo grumatic/homebrew-tap --pattern "$name" --dir "$d"
+          (cd "$d" && grep " $name\$" SHA256SUMS | sha256sum -c -)
+          mv "$d/$name" "$d/byj" && chmod +x "$d/byj"
+          echo "BYJ_BIN=$d/byj" >> "$GITHUB_ENV"
+          "$d/byj" --version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: TypeScript
+        working-directory: typescript
+        run: npm ci && npm test
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Python
+        working-directory: python
+        run: uv run --extra test pytest -q

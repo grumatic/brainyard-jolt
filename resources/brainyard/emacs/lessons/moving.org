@@ -1,0 +1,39 @@
+#+title: Moving around
+#+lesson: moving
+#+summary: Move by words, lines, screens and the whole buffer, and jump to a line, rather than holding an arrow key.
+
+# A lesson for /emacs coach emacs: (RFC-067 phase 9). Each step names the
+# commands that show it done (:COMMANDS:), never keys: the coach looks the
+# keys up in the person's own Emacs with emacs$describe, and checks a step
+# with emacs$habits. A project's .brainyard/emacs/lessons/ and the person's
+# ~/.brainyard/emacs/lessons/ replace a lesson of the same file name.
+
+* By words
+:PROPERTIES:
+:COMMANDS: forward-word backward-word
+:END:
+Move a word at a time instead of a character.
+
+* To a line's start and end
+:PROPERTIES:
+:COMMANDS: move-beginning-of-line move-end-of-line
+:END:
+Jump to where a line starts or ends.
+
+* By screens
+:PROPERTIES:
+:COMMANDS: scroll-up-command scroll-down-command recenter-top-bottom
+:END:
+Page through a long file, and bring the line you are on to the middle, top or bottom.
+
+* To the start and end of the buffer
+:PROPERTIES:
+:COMMANDS: beginning-of-buffer end-of-buffer
+:END:
+Jump to the first or last line.
+
+* To a line by its number
+:PROPERTIES:
+:COMMANDS: goto-line
+:END:
+Go straight to the line an error names.

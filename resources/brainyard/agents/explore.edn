@@ -1,0 +1,56 @@
+;; brainyard's `common/explore_agent.clj` in the small (RFC-018): its
+;; filesystem and skills surfaces, without the web, MCP and dossier-corpus
+;; halves this port has no tools for (byj-gly.41).
+;;
+;; No write tools: write-file and update-file are not in :tools, so the
+;; child's registry cannot reach them. `bash` is, as in brainyard's
+;; explore-agent, for what reading the files alone cannot show — git's
+;; history and diffs, find, rg, tree (byj-gly.355; byj-gly.16 had left it
+;; out). It has no :bash-allow-commands: the command gate (RFC-012) once held
+;; it to a list of programs that read, a list never complete enough not to
+;; refuse lines that only read. It runs anything its deny patterns below do
+;; not refuse. What a program can write — `rm`, `git commit`, `find -delete`,
+;; a `>` redirection — the gate does not stop, so the instruction forbids it,
+;; and the sandbox is the boundary (divergence
+;; `explore-shell-is-held-to-reading`).
+;;
+;; curl reaches the web, which brainyard's explore reaches through
+;; web-search and fetch-url — tools this port does not have (byj-gly.356).
+;; wget is not here: it writes the page to a file by default. curl can send
+;; data and write files too, so :bash-deny-commands refuses a line carrying
+;; its sending or writing flags — a tripwire on the whole line, added to the
+;; session's own deny patterns rather than replacing them; combined short
+;; flags (`-sSo f`) slip past it, which the instruction forbids.
+{:description
+ "Read-only investigator. Searches the workspace and answers with file:line citations. Delegate a search here to pay one answer instead of a whole investigation."
+
+ :instruction-resource "brainyard/prompts/agents/explore.md"
+
+ :tools ["read-file" "grep" "list-dir" "search" "bash" "list-tools" "get-tool-info"
+         "skills$list" "skills$find" "skills$read" "skill$*"]
+
+ ;; no delegating further: one hop of search is the point of this agent
+ :deny-tools ["agent$*"]
+
+ ;; brainyard's :agent-tier-map entry for explore-agent: cheap by default,
+ ;; but a caller may ask for anything up to :deep
+ :tier :light
+ :max-tier :deep
+
+ :max-iterations 12
+
+ :config {:tool-authoring? false
+          :hook-authoring? false
+          :user-tools? false
+          ;; no :bash-allow-commands, as brainyard's explore has bash limited
+          ;; only by its instruction: an empty list is no limit
+          ;; (permission/command-problem); a session's own list still holds
+          ;; (agents/allowed-commands), and these deny patterns are added to
+          ;; the session's
+          ;; curl sends nothing and writes nothing: a GET, to stdout
+          :bash-deny-commands ["*curl* -d *" "*curl* -d" "*curl*--data*" "*curl* -F *" "*curl*--form*"
+                               "*curl* -T *" "*curl*--upload-file*" "*curl* -X *" "*curl*--request*"
+                               "*curl* -o *" "*curl* -O*" "*curl*--output*" "*curl*--remote-name*"
+                               "*curl* -K *" "*curl*--config*" "*curl*--json*"
+                               ;; bd may read (ready, show, list); its writes are refused
+                               "*bd* create*" "*bd* update*" "*bd* close*"]}}
