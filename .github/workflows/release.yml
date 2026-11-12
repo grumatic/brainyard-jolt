@@ -1,6 +1,7 @@
 # byj's release (RFC-029 "Releasing", byj-gly.181.5): byj built on each
 # platform jolt runs on — jolt does not cross-compile without a target pack,
-# so each is built natively — and, for a vX.Y.Z tag, published as one GitHub
+# so each is built natively, on a jolt built from its source where jolt
+# publishes none (linux-arm64) — and, for a vX.Y.Z tag, published as one GitHub
 # Release with one SHA256SUMS; then its public copy on the Homebrew tap, made
 # the tap's latest release, and byj's formula written from that. byj is
 # released alone: programs built on it release themselves (RFC-070).
@@ -35,6 +36,14 @@ jobs:
             # the oldest glibc a runner offers, so the binary runs on more systems
             runner: ubuntu-22.04
             jolt: x86_64-linux
+          - platform: linux-arm64
+            # the same glibc as linux-amd64's. jolt publishes no aarch64-linux
+            # build, so its source is built here as jolt's release builds its
+            # x86_64 one (dev/jolt-from-source.sh, byj-gly.181.8), cached by
+            # the jolt version and the script
+            runner: ubuntu-22.04-arm
+            jolt: aarch64-linux
+            jolt-from-source: true
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
@@ -43,6 +52,7 @@ jobs:
           fetch-depth: 0
 
       - name: jolt, the version the suite was verified against
+        if: ${{ !matrix.jolt-from-source }}
         run: |
           v=$(sed -nE 's/.*:jolt "(v[^"]+)".*/\1/p' dev/jolt-verified.edn)
           name="jolt-${v}-${{ matrix.jolt }}"
@@ -53,6 +63,26 @@ jobs:
           [ -n "$want" ] && [ "$want" = "$got" ] || { echo "::error::${name}.tar.gz: checksum ${got}, expected ${want}"; exit 1; }
           tar xzf "$RUNNER_TEMP/jolt.tgz" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/${name}" >> "$GITHUB_PATH"
+
+      - name: the jolt to build from source
+        if: matrix.jolt-from-source
+        id: jolt-src
+        run: echo "version=$(sed -nE 's/.*:jolt "(v[^"]+)".*/\1/p' dev/jolt-verified.edn)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        if: matrix.jolt-from-source
+        id: jolt-cache
+        with:
+          path: ~/jolt-from-source
+          key: jolt-${{ steps.jolt-src.outputs.version }}-${{ matrix.jolt }}-${{ hashFiles('dev/jolt-from-source.sh') }}
+
+      - name: jolt, built from its source
+        if: matrix.jolt-from-source && steps.jolt-cache.outputs.cache-hit != 'true'
+        run: dev/jolt-from-source.sh "$HOME/jolt-from-source"
+
+      - name: jolt from source, on the PATH
+        if: matrix.jolt-from-source
+        run: echo "$HOME/jolt-from-source" >> "$GITHUB_PATH"
 
       - name: byj
         run: |

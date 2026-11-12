@@ -244,8 +244,15 @@ by `.github/workflows/release.yml`:
    machine it runs on (cross-compiling needs a target pack: jolt's
    `tools/cross-compile`): `macos-arm64` on `macos-15` (`macos-14` until v0.3.15, whose run GitHub cancelled as a configuration it no longer offers), `macos-amd64` on
    `macos-15-intel`, `linux-amd64` on `ubuntu-22.04` (the oldest glibc a
-   runner offers, 2.35). Each installs the jolt `dev/jolt-verified.edn` names,
-   checksum-checked; runs `jolt build:byj`, which stamps the tag; asks `byj
+   runner offers, 2.35), `linux-arm64` on `ubuntu-22.04-arm` (the same glibc;
+   from v0.3.19, `byj-gly.181.8`). Each installs the jolt
+   `dev/jolt-verified.edn` names, checksum-checked — except on linux-arm64,
+   for which jolt publishes no build: there `dev/jolt-from-source.sh` builds
+   that jolt from its source as jolt's own release builds its x86_64 Linux
+   one (its Chez tag and patches, read from jolt's release workflow;
+   `ci/glibc-floor-build.sh` in a manylinux2014 container, so glibc 2.17),
+   cached by the jolt version and the script, about three minutes uncached.
+   Then each runs `jolt build:byj`, which stamps the tag; asks `byj
    ask -p mock` for a smoke test; and runs `dev/release-stage.sh`, which
    stages `byj-<version>-<os>-<arch>`, and nothing else of `target/`. The
    stage refuses a `dev` stamp, a dirty tree, commits past the tag, anything
@@ -333,8 +340,11 @@ in a keg is one `brew upgrade` and `brew uninstall` no longer account for.
 
 ## Known gaps
 
-- **No linux-arm64 build**: jolt publishes no aarch64-linux tarball to build
-  one with (`byj-gly.181.8`).
+- **linux-arm64 stands on a jolt built here**, not one jolt has released
+  and tested: its suite runs nightly on that jolt (`nightly.yml`
+  `test-linux-arm64`), where every other platform's jolt is jolt's own
+  release. It ends when jolt publishes an aarch64-linux build, and the row
+  downloads it as the others do.
 - **macos-amd64 is built on GitHub's last Intel runner image**,
   `macos-15-intel`; when it is retired, an Intel build is cross-compiled
   instead (`byj-gly.181.9`).

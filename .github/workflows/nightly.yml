@@ -1,6 +1,8 @@
 # byj's nightly: byj built, and the Agent SDK's client libraries tested
-# against that build (dev/sdk-test.sh), every night and by hand. No model is
-# spent and no secret is given to any job: byj runs on a scripted mock.
+# against that build (dev/sdk-test.sh), every night and by hand; and byj's
+# suite on arm64 Linux, the one platform byj releases for that CI does not
+# test, on a jolt built from its source (byj-gly.181.8). No model is spent
+# and no secret is given to any job: byj runs on a scripted mock.
 name: nightly
 
 on:
@@ -67,3 +69,39 @@ jobs:
       - run: dev/sdk-test.sh
         env:
           BYJ_BIN: ${{ github.workspace }}/target/byj
+
+  # linux-arm64 is released on a jolt built from its source (release.yml):
+  # the suite run on that jolt, nightly, where ci.yml runs it on x86_64.
+  # ubuntu-24.04-arm for its git (byj's turns need 2.40 or later).
+  test-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: the jolt to build from source
+        id: jolt-src
+        run: echo "version=$(sed -nE 's/.*:jolt "(v[^"]+)".*/\1/p' dev/jolt-verified.edn)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        id: jolt-cache
+        with:
+          path: ~/jolt-from-source
+          key: jolt-${{ steps.jolt-src.outputs.version }}-aarch64-linux-${{ hashFiles('dev/jolt-from-source.sh') }}
+
+      - name: jolt, built from its source
+        if: steps.jolt-cache.outputs.cache-hit != 'true'
+        run: dev/jolt-from-source.sh "$HOME/jolt-from-source"
+
+      - name: jolt from source, on the PATH
+        run: echo "$HOME/jolt-from-source" >> "$GITHUB_PATH"
+
+      - name: tmux and lsof, which byj's tests drive
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tmux lsof
+
+      - name: the suite
+        run: jolt test:byj

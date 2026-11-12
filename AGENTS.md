@@ -191,6 +191,7 @@ dev/cold-load.sh               # every namespace loads on its own
 dev/acp-interop.sh [--binary]  # byj acp driven by the official ACP TypeScript client; no model spent
 dev/samizdat-check.sh [DIR]    # text shared with samizdat (GPL) for eight words or more, beyond the reviewed runs (RFC-070); network on the first run
 dev/flake-hunt.sh N            # the suite N times, keeping the output of any run that failed
+dev/jolt-from-source.sh OUT    # jolt built from its source for this Linux machine (Docker), for linux-arm64, which jolt publishes no build of
 jolt -M:test brainyard.foo-test [brainyard.bar-test …]   # named namespaces, behind the suite's guards
 ```
 

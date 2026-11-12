@@ -4,7 +4,7 @@
 
 # Write the Homebrew formula for a published release (RFC-029 "Homebrew",
 # byj-gly.181.5): byj's, with the assets the release has for macOS (arm64,
-# Intel) and Linux (amd64), into the tap checkout at OUT. Other formulae in
+# Intel) and Linux (amd64, arm64), into the tap checkout at OUT. Other formulae in
 # the tap are their own programs' and are left as they are.
 #
 #   dev/brew-formula.sh v0.3.0 ../homebrew-tap     # then commit and push the tap
