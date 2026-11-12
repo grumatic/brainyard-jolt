@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.coach
   "The coach stance (RFC-067 phase 3, byj-gly.461): a session asked to coach
   the person toward a goal — they write the code, the agent hints by degrees

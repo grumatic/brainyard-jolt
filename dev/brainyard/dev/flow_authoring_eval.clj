@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.flow-authoring-eval
   "Does the `flow$*` surface pay for itself? (byj-gly.63, RFC-022 stage 5)
 

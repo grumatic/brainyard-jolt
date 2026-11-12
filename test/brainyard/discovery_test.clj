@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.discovery-test
   "Tool discovery (RFC-007): brainyard's list-tools, get-tool-info and search
   over the live registry, and how the loop offers them."

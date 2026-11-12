@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 ;; Where can "the latest version" come from, for a PRIVATE GitHub repo that
 ;; ships both a binary and a checkout? (byj-gly.181.2, RFC-029)
 ;;

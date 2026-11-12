@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.evaluate
   "Datasets, metrics and measurement over predictors (RFC-021) — brainyard's
   `clj-llm/core/evaluate.clj`. The generic half: it knows a predictor and a

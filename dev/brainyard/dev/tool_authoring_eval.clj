@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.tool-authoring-eval
   "The Tool Lisp authoring eval (RFC-010 'Authoring evidence') against the REAL
   implementation: the unmodified ReAct loop with its default registry, so the

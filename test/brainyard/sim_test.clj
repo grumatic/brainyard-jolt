@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.sim-test
   "The simulation's runner (RFC-041, byj-gly.315.2), on the mock provider and a
   tmux server of the test's own: a person's lines typed into a real inline

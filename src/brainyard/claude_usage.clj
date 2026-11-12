@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.claude-usage
   "Claude Code's login and its subscription's usage windows — what `/doctor`
   and `/usage` say of the account agent$claude, the claude-code provider and

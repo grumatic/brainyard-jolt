@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.lev-label-check
   "An independent check on the labels in `lev_permission_set.edn` (byj-gly.113).
 

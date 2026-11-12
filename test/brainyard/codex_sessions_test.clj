@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-sessions-test
   "A project's Codex sessions read from a Codex home of the test's own
   (byj-gly.430.2, RFC-049): the rollouts of the project and its worktrees,

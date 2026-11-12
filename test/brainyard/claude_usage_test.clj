@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.claude-usage-test
   "Claude Code's sign-in and its subscription's windows (byj-gly.324), with
   the credentials, the endpoint and the clock all seams: nothing here reads a

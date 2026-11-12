@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.claude-agent-test
   "agent$claude (RFC-039, byj-gly.290.3): the claude$* commands, and the loop
   that drives a Claude Code session with them — on a stand-in for Claude Code

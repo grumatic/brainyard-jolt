@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Install the built binary as `byj` on the PATH — brainyard's
 # `bb install:ata`, for the port (RFC-029).
 #

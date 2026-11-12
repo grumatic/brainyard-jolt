@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # What `byj hook pretooluse` costs a tool call (RFC-012 "Another agent's
 # calls", byj-ahf.24): Claude Code and Codex run it before every tool call,
 # so its start is paid on each. A scratch project whose config refuses

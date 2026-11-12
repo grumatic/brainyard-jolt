@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.claude-sessions-test
   "This project's Claude Code sessions, read from a fixture `~/.claude`
   (byj-gly.287.1): saved from `projects/<key>/*.jsonl`, live from

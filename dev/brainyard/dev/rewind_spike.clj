@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.rewind-spike
   "Measurements behind byj-gly.485 (docs/RFCS/RFC-069-turn-checkpoints.md):
   taking a session's conversation back to turn K — truncate the session in

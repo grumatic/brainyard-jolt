@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.structured-output-test
   "What an OpenAI-compatible provider is told about the shape of its reply
   (RFC-006, `byj-gly.24`)."

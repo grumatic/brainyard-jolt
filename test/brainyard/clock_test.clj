@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.clock-test
   "The local clock (byj-gly.382): the date worked out from the epoch, the
   offset the only thing asked of the OS."

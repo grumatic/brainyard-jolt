@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.effect-spike
   "Measurements behind byj-gly.1 (docs/RFCS/RFC-009-effects.md): what each
   candidate substrate does, on this repository's blocking paths, when a wait is

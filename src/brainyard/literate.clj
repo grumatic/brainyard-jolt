@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.literate
   "Literate programming in org (RFC-067 phase 2, byj-gly.460): in a literate
   project the org file is the source and the files it tangles to are output,

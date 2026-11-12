@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Run the suite N times and KEEP the output of any run that failed — the only
 # way a 4%-per-run flake gets diagnosed instead of waved through (byj-mvd).
 #

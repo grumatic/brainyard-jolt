@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.history
   "What a finished turn leaves behind, and how it is shown to the next one —
   brainyard's `previous-turns/append-turn` and coact `format-previous-turns`.

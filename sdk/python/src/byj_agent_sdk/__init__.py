@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 """The Brainyard Agent SDK for Python (RFC-053): byj's agent in an application.
 
 ``query`` for one prompt; ``ByjClient`` for sessions that last.

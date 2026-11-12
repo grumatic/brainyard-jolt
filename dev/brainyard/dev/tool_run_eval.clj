@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.tool-run-eval
   "Does one-off composition pay? (byj-gly.11) — the same multi-step tasks run
   through the unmodified loop with `tool$run` bound and without it. The prompts

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.launch
   "What a run is assembled from, before any session starts: the environment
   with its `.env`, the provider and model it asks, the LM made from them, and

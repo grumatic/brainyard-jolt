@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Does RFC-008 still describe the work that is actually left?
 #
 # The roadmap is what a new session reads to find out what remains, and it goes

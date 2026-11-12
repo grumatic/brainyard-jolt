@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.contract-test
   "byj's public contract with the programs that reach it as a process, a
   socket or a file (RFC-070 phase 2, byj-ahf.6): golden files in `contract/`

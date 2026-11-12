@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.json-test
   "JSON in and out, where the characters outside the BMP are (byj-gly.152)."
   (:require [clojure.string :as str]

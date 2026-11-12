@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.share-test
   "The share sidecar's kernel side (RFC-043): notes for people, injected turns
   with their sender and the owner's approval, how both are recorded and

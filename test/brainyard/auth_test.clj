@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.auth-test
   "/login and /logout (RFC-006, byj-gly.311): the targets, where each stands,
   and what signing in does — on a stand-in claude and codex on a PATH of the

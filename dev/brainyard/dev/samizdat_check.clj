@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.samizdat-check
   "Text this tree shares with samizdat, which is GPL-3.0-or-later and must not
   reach byj's MIT source (byj-ahf.1). A run is a stretch of `run-words` or

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.project-overview-test
   "The left rail's Project section (byj-gly.384): what a project defines,
   read from a project of the test's own."

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.team-dispatch-spike
   "Measurements behind RFC-032's task-board decision (byj-gly.253.11): does a
   team need a board its members pull work from, or does the leader assigning

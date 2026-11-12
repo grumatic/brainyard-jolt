@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.configbox-test
   "Writing config (RFC-013). Mostly a test of what is REFUSED: a config file
   outlives the session that wrote it, so everything a turn can persist it can

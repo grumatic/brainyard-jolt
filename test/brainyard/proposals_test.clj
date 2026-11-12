@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.proposals-test
   "One review gate for every self-improvement kind (byj-gly.249.1)."
   (:require [clojure.edn :as edn]

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.web-share-test
   "Sharing a session in the browser through ttyd (byj-gly.22): the command it
   builds, the credential, what decides the options, and the child that does

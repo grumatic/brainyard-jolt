@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.main-test
   "The CLI's own wiring — the decisions `-main` makes before a turn exists.
 

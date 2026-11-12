@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.paired-comparison-spike
   "Does the paired test actually refuse the proposal that the per-pass test
   crowned? (byj-gly.57, divergence `comparison-is-paired-over-examples`)

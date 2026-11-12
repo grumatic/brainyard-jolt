@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.teams-test
   "Agent teams (RFC-032): a leader starts members as live sessions of their
   own, hands them work over the session channel, sees where it stands, and

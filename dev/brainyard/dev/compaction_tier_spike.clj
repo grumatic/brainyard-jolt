@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.compaction-tier-spike
   "Can compaction run on the light model? (byj-gly.378, RFC-005 \"The light
   tier\".) `session/compact` and `react/compact` on haiku and on sonnet, over

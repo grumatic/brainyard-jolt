@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 """JSON-RPC 2.0 over a child process's stdio, one object per line: what
 ``byj acp`` speaks (RFC-053). Carried here rather than taken from the ACP
 libraries, whose extension API moved within a month (RFC-053 Decisions);

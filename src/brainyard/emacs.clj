@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.emacs
   "byj and an Emacs the person uses (RFC-067, byj-gly.459): which Emacs byj
   reaches, and the one way it calls into it.

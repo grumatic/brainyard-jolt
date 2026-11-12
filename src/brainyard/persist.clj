@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.persist
   "Session snapshots and resume (RFC-016) — brainyard's
   `components/agent-tui-persist` in the small.

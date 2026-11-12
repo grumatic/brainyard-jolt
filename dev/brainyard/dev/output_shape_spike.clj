@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.output-shape-spike
   "Does the shape of `react/think-act`'s output change what the model does?
   (byj-gly.124)

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 """A stub MCP server for brainyard.mcp-test.
 
 Deliberately awkward in the ways a real server is: it emits an unsolicited

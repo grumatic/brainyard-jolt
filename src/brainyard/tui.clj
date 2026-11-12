@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tui
   "The full-screen renderer (RFC-028): a component tree over glimmer-tui
   supplying the six seams RFC-027 hands a UI, and knowing nothing else about

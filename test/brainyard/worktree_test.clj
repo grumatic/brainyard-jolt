@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.worktree-test
   "A project's git worktrees (byj-gly.290.2): one added on a branch of its own,
   and every one listed from git's own files — and the Claude Code sessions

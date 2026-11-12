@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.programs
   "Measuring and tuning a predictor against this project (RFC-021) — brainyard's
   `agent/common/programs.clj`. The half that knows the project's directories;

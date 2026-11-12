@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.answer-gate-eval
   "Can the answer gate tell a grounded answer from an invented one? (byj-gly.12)
 

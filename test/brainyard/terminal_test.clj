@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.terminal-test
   "The right rail's Terminal view (byj-gly.412): the catalogue and its layers,
   and programs started in tmux, found again by a later view, opened and

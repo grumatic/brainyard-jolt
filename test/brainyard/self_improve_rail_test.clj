@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.self-improve-rail-test
   "The left rail's Self-improvement section (byj-gly.425): distillation's two
   toggles, sent to the session as the /config a person would type, and the

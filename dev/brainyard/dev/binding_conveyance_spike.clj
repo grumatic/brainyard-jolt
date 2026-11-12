@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.binding-conveyance-spike
   "byj-gly.117 — does jolt 0.8.10's `via` binding change reach the runtime?
 

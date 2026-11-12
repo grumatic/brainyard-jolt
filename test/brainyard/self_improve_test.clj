@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.self-improve-test
   "Self-improvement (RFC-017): which turns are candidates, what a judge's
   verdict comes to, the staging gate between a proposal and a live skill, and

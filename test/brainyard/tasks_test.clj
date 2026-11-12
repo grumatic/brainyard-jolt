@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tasks-test
   "Background tasks (RFC-019): what detaches, what never does, and what happens
   to a task nobody is waiting for."

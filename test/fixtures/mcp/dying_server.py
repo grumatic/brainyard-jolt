@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 """Answers initialize, complains on stderr, and exits — a server whose command
 is wrong, which is the common way one dies (a missing token, a bad path)."""
 import sys, json

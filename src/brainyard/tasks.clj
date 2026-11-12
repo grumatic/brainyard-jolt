@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tasks
   "Background tasks (RFC-019) — brainyard's `agent/task/*` in the small.
 

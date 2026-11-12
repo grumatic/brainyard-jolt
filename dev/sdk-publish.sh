@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Release the Agent SDK publicly (RFC-053 "Distribution", byj-ct5): sdk/ as
 # this commit has it is copied into the public repo grumatic/brainyard-sdk as
 # one commit tagged vX.Y.Z — its files, never this repository's history,

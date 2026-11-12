@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.json
   "JSON in and out, plus the lenient reply parser ported from brainyard's
   `clj-llm.core.llm/parse-json-response`."

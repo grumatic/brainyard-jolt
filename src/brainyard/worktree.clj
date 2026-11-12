@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.worktree
   "A project's git worktrees: adding one on a branch of its own (teams,
   RFC-032; agent$claude, RFC-039) and listing the ones it has (RFC-033, whose

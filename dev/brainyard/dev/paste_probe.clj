@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 ;; How far apart do keystrokes arrive when they are PASTED, against when they
 ;; are typed? The answer decides whether a renderer can tell one from the other
 ;; without bracketed paste, which is what `brainyard.tui/paste-gap-ms` is

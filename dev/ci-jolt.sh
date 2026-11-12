@@ -1,4 +1,7 @@
 #!/bin/sh
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # jolt for a GitHub Actions job (.github/workflows/nightly*.yml): the version
 # the suite was verified against (dev/jolt-verified.edn), its Linux release
 # checked against its own .sha256, and put on the job's PATH ($GITHUB_PATH).

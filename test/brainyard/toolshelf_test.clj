@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.toolshelf-test
   "`/tools`' rows (byj-gly.273.1): every tool in the registry, what its info
   pane says, how a filter ranks it, and what the permission gates would do with

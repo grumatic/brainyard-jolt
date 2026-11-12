@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.issues
   "The left rail's Issues section (byj-gly.402): the project's open issues,
   from beads, else from GitHub, each epic a folded heading and its issues

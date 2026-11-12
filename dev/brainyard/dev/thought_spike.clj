@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.thought-spike
   "byj-gly.280.2: what does an iteration's thought tell the person watching?
 

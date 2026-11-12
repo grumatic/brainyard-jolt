@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Copy a published release of the source repo to the public tap, as a
 # release of the same tag with the same assets and notes, so that anyone can
 # download byj with no GitHub token (RFC-029 "Homebrew", byj-gly.181.10). The

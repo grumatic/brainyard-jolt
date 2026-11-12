@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.share-tools
   "Sharing as `/share` does it and as the session's agent does it
   (RFC-043, byj-gly.362.2): the operations — what is shared, start,

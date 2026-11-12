@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Stamp resources/brainyard/build-version.edn with this build's git provenance
 # (RFC-029) — brainyard's `bb version:ata`. `jolt build:byj` runs it first, so the
 # binary embeds the version it was built from and `byj --version` names the

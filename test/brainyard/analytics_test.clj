@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.analytics-test
   "Session analytics (RFC-025). The measurements are facts and are tested as
   arithmetic; the score is a judgement and is tested for the properties that

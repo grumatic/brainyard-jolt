@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.memory-test
   "Memory (RFC-020): a store is a command, it is never injected, and a project
   without one simply has no memory tools."

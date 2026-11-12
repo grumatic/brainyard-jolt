@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.http-stream-spike
   "Measurements behind the `no-http-streaming` divergence and RFC-006
   'Streaming': can an HTTP provider receive a reply incrementally under jolt?

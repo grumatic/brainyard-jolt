@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.tui-spike
   "Measurements behind RFC-028: can glimmer + glimmer-tui supply the six seams
   RFC-027 hands a UI, and what does a terminal renderer written that way cost?

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.claude-sessions
   "This project's Claude Code sessions, as the agent page lists them beside
   brainyard's own (byj-gly.287.1): the ones running now and the ones saved.

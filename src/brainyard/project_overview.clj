@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.project-overview
   "The left rail's Project section (byj-gly.384): what the project itself
   defines for brainyard — its instructions, agents, skills, tools, commands,

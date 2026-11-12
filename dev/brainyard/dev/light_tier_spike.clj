@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.light-tier-spike
   "Can the side tasks run on a light model? (byj-gly.367, RFC-005 'The light
   tier'.) Recorded `claude -p` calls of each side-task predictor — the exact

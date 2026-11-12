@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tool-hook-test
   "Another agent's tool calls through byj's gates (RFC-012, byj-ahf.24): a
   Claude Code or Codex PreToolUse payload decided, logged and answered.

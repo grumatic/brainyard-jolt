@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.instructions
   "The project's own instructions in every turn's prompt (RFC-040,
   byj-gly.309.1): its AGENTS.md and CLAUDE.md, as brainyard seeds them —

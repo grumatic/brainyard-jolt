@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.clipboard
   "Put text on the user's clipboard from inside the full-screen renderer —
   brainyard's `agent-tui.clipboard/copy!`, ported.

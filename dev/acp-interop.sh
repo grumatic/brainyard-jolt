@@ -1,4 +1,7 @@
 #!/bin/sh
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # byj acp against ACP clients it did not write (RFC-053, byj-g5n.4): the
 # official TypeScript client (@agentclientprotocol/sdk, pinned in
 # dev/acp-interop/package.json), and brainyard's own (../brainyard

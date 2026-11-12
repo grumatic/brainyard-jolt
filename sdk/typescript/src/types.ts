@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Grumatic, Inc. and byj contributors
+// SPDX-License-Identifier: MIT
+
 // What an application hands the SDK and what it gets back (RFC-053 §5).
 // Names follow byj's where byj names the thing: hook events, permission
 // modes, a turn's result.

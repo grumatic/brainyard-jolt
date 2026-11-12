@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.test-shards
   "How `jolt test:byj` splits the suite across processes (byj-gly.333): pure,
   apart from the runner so a test can require it.")

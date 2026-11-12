@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.signature
   "DSPy-style signatures and prompt assembly, ported from brainyard's
   `clj-llm.core.signature` / `prompt` / `schema`.

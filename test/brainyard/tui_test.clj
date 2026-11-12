@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tui-test
   "The full-screen renderer (RFC-028), driven onto an in-memory screen.
 

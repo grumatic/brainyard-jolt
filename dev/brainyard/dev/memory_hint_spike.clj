@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.memory-hint-spike
   "byj-gly.335: how well a lexical match finds the memory a question needs,
   with no model call — the offline half of the decision in RFC-042.

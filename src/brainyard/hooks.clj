@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.hooks
   "The hook bus (RFC-011) — brainyard's `agent/core/hooks.clj`, scoped to a
   ctx instead of the process.

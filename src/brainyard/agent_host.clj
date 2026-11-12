@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.agent-host
   "The tmux side of running another agent CLI's sessions, shared by Claude
   Code's host (`claude-host`) and Codex's (`codex-host`), an adapter each

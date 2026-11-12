@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.todo
   "Durable work state (RFC-023) — brainyard's `common/todo.clj` reduced to the
   part a workflow cannot supply itself.

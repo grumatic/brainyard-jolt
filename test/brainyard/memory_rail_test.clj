@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.memory-rail-test
   "The left rail's Memory section (byj-gly.421, byj-gly.422): each source's
   memories, read off the loop, Enter showing one whole and @ its key or path —

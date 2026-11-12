@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.links-test
   "Clickable targets (byj-gly.270): what counts as a path or a URL, how a
   wrapped one is recovered without joining rows, and how an editor is told

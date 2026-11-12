@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.context
   "Context budget and compaction, tiers 0 and 1 (RFC-014) — brainyard's
   `agent/core/context_budget.clj` in the small, with the reduction aimed where

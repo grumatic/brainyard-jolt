@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.configbox
   "Writing config (RFC-013) — brainyard's `agent/common/config.clj`, in the
   small. `brainyard.config` reads the schema and the files; this writes one key

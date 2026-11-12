@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.claude-reach-test
   "A live Claude Code session as a target of the session tools (byj-gly.429):
   listed, reachable when it runs in tmux — in a tmux session byj did not

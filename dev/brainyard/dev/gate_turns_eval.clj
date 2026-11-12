@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.gate-turns-eval
   "Does the answer gate pay on ordinary turns? (byj-gly.12)
 

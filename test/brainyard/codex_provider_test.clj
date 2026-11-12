@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-provider-test
   "The codex provider (byj-gly.430.9, RFC-049): `codex exec` as a model, as
   `claude -p` is the claude-code provider — the system prompt as

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.links
   "Clickable targets in the transcript: file locations (`path:line:col`) and
   http(s) URLs — brainyard's `ai.brainyard.agent-tui.links` (byj-gly.270).

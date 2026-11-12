@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.store
   "`store$*` — state that outlives one call, for a Tool Lisp body and the
   model alike (byj-gly.261, Tool Lisp tier D). A body has no atoms: what it

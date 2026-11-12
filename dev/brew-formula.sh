@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Write the Homebrew formula for a published release (RFC-029 "Homebrew",
 # byj-gly.181.5): byj's, with the assets the release has for macOS (arm64,
 # Intel) and Linux (amd64), into the tap checkout at OUT. Other formulae in

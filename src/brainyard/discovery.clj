@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.discovery
   "Tool discovery — brainyard's bootstrap tools `list-tools`, `get-tool-info`
   and `search` (agent/common/tools.clj), over the live registry in ctx

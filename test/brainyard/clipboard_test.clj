@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.clipboard-test
   "Copying to the user's clipboard — brainyard's clipboard.clj, ported."
   (:require [clojure.string :as str]

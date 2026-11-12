@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.persist-test
   "Session snapshots and resume (RFC-016): what is written, what comes back,
   what a bad snapshot does, and who may hold a session."

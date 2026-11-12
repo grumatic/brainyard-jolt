@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Check a release against its own SHA256SUMS (RFC-029, byj-gly.181.4) —
 # brainyard's bin/release-verify.sh.
 #

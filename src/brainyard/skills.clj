@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.skills
   "Skills (RFC-017) — brainyard's `agent/common/skills.clj`, loading and writing.
 

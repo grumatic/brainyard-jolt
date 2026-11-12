@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.init
   "The `init$*` commands: what `/init` calls to make a directory a project
   brainyard works well in (RFC-040, byj-gly.309). Mechanism only. What to set

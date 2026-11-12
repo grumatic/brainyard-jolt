@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.auto-mode-eval
   "The auto-mode classifier on its labelled set (byj-gly.285.3, RFC-012 'Auto
   mode, measured'): the real `agent/auto-classifier` on a real model, over

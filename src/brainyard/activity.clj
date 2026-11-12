@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.activity
   "The right rail's Activity view (byj-gly.411): a live feed of what the
   session is doing, by turn — its iterations, its tool calls with how long

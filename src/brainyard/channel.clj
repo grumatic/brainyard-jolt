@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.channel
   "The session channel (RFC-031): how one live session is asked something by
   another, or by a script — brainyard's `ask.sock` (`components/ask-channel`,

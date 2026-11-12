@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.tool-lisp-gap-spike
   "What would Tool Lisp need to express the tools an agent writes for itself?
 

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.sim
   "The dogfood simulation's runner (RFC-041, byj-gly.315.2): brainyard builds a
   project from scratch while this plays the person. Mechanism only: the

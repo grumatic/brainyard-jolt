@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.web-share
   "Share a session in the browser by wrapping `byj run` in ttyd
   (https://github.com/tsl0922/ttyd) — brainyard's `components/web-share`

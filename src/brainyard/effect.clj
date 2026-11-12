@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.effect
   "Functional effects as values — brainyard's `ai.brainyard.effect` brick
   (interface + core prim/policy/flows/supervisor), ported onto ebb, the jolt

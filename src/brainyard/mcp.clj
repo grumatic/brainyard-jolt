@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.mcp
   "MCP servers as tools (RFC-024) — brainyard's `agent/mcp/{client,integration,
   permission}.clj`, stdio only.

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.effect-ratchet-test
   "Static ratchets over src/ for RFC-009's rules that a runtime test cannot
   catch until the one path that breaks them runs live.

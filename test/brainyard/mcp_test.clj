@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.mcp-test
   "MCP servers as tools (RFC-024), against a stub server that is awkward in the
   ways a real one is: it interleaves a notification with its reply, reports a

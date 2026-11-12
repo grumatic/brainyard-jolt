@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Grumatic, Inc. and byj contributors
+// SPDX-License-Identifier: MIT
+
 // The TypeScript SDK against a real `byj acp` (RFC-053, byj-g5n.6). No model
 // is spent: byj runs `-p mock -m script:FILE`, a scripted mock. byj is this
 // checkout (`jolt -m brainyard.main`) unless BYJ_BIN names a binary.

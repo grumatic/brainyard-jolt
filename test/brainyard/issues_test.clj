@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.issues-test
   "The left rail's Issues section (byj-gly.402): which tracker a project has,
   what bd and gh say parsed, and the rows — epics folded, each one's issues a

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-usage-test
   "Codex's usage read from its rollouts (byj-gly.430.7, RFC-049): a session's
   running totals and what they cost by the :openai price table — nil for a

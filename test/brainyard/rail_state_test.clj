@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.rail-state-test
   "The rails kept across restarts (byj-gly.457): one file per project, in a
   project of the test's own."

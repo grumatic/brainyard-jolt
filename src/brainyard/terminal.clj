@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.terminal
   "The right rail's Terminal view (byj-gly.412): programs beside the session —
   a shell, an editor, htop, lazygit — each in a detached tmux session of its

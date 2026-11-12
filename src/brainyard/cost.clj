@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.cost
   "What a call cost (RFC-025) — brainyard's `clj-llm/core/usage.clj`
   `calculate-cost` and its price table.

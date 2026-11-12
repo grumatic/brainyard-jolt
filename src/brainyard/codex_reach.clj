@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-reach
   "A live Codex session as a target of the session tools (byj-gly.430.5,
   RFC-049, RFC-031), as `claude-reach` makes a Claude Code one:

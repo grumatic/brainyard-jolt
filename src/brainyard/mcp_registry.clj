@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.mcp-registry
   "The MCP Registry (registry.modelcontextprotocol.io) as a second place
   `/mcp find` looks, after the bundled catalogue (RFC-024, byj-gly.185).

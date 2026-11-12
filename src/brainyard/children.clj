@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.children
   "A session's subagents, live or ended, as a tree — what the agent page lists
   under each session (byj-gly.298, RFC-028).

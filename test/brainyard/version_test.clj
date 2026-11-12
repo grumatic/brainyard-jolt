@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.version-test
   "Which version this is (RFC-029): the stamp a build embeds, git in a
   checkout, and dev when there is neither."

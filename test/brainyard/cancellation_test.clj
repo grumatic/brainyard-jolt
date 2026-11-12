@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.cancellation-test
   "The loop on effects (byj-gly.27, RFC-009 'Migration'): a turn is a Task,
   cancelling it stops the tree structurally, and what the turn started — an

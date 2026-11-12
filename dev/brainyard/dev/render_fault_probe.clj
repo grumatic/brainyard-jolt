@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 ;; Does a view that throws while rendering end the TUI? (byj-gly.236)
 ;;
 ;;     jolt -A:dev -e '(load-file "dev/brainyard/dev/render_fault_probe.clj")'

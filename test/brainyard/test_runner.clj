@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.test-runner
   "The suite. A new test namespace goes in BOTH the :require list and
   `namespaces`, or it silently never runs."

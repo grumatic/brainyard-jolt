@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tool-lisp
   "Tool Lisp — the language of composite tool bodies (RFC-010): an interpreted,
   allowlisted subset of Clojure that may call other tools. It replaces

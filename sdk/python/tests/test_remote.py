@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 """The remote client against an A2A endpoint shaped as Share's relay and
 byj-a2a answer (RFC-060 D11, byj-1wv.115.14): the card, a send answered with
 a completed task, a stream of status frames, the context kept from one

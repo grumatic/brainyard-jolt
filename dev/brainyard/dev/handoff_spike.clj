@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.handoff-spike
   "Measurements behind RFC-031: how does one live session reach another?
   (byj-gly.253.1)

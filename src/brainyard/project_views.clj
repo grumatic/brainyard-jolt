@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.project-views
   "The right rail's views of a project (byj-gly.380): its files, and its
   source — the changes, the commits and the branch graph, as sections of one

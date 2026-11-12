@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Text this tree shares with samizdat (GPL-3.0-or-later), which byj's MIT
 # source must not hold (byj-ahf.1). Runs of eight words or more found in both
 # fail unless dev/samizdat-check.edn lists them as reviewed: idioms, table

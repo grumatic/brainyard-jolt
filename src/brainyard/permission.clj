@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.permission
   "The tool permission gate (RFC-012) — brainyard's
   `agent/common/tool_permission.clj`, as two built-in hooks on the gated

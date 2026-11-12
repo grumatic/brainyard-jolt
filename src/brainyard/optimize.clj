@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.optimize
   "Choosing demos for a predictor (RFC-021) — brainyard's
   `clj-llm/core/optimize.clj`, the two optimizers that cost little and taught

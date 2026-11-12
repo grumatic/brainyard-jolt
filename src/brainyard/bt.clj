@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.bt
   "A minimal behavior-tree interpreter — the jolt counterpart of brainyard's
   `ai.brainyard.agent.core.bt`, cut down to the node types the ReAct loop uses.

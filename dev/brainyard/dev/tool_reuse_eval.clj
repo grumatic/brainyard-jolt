@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.tool-reuse-eval
   "Is a distilled tool used once it is accepted? (byj-gly.249.4)
 

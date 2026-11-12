@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Every namespace must load ON ITS OWN, in a fresh jolt process.
 #
 # jolt resolves java.time.* only after jolt.time has installed its host shim,

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.rail-state
   "What a person left the rails as, kept per project across restarts
   (byj-gly.457): each rail's open?, view and width (`tui-frame/kept-rails`),

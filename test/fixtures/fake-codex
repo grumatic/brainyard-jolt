@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # A stand-in for an interactive Codex CLI, for codex-host-test (byj-gly.430.3):
 # what codex-host reads and types, and nothing more, shaped as Codex 0.163 was
 # measured (RFC-049). It holds its thread's writer lock in $CODEX_HOME for as

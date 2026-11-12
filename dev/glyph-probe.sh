@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # How wide THIS terminal draws the glyphs a model is likely to write, against
 # how wide glimmer-tui assumes they are (byj-gly.111).
 #

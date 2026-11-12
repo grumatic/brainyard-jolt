@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 ;; What a terminal's input method sends, and what the screen then holds.
 ;;
 ;; Ghostty drew typed Korean right; Orca broke the box around the field. Run

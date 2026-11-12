@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.analytics
   "What a session's turns say about how the agent is doing (RFC-025) —
   brainyard's `components/analytics` and `agent/common/analytics_commands.clj`.

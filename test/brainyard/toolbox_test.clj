@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.toolbox-test
   "Declarative tools (RFC-010): the Tool Lisp language, user tools and their
   commands, brainyard's own tool files, and user tools inside the loop."

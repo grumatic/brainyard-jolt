@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Grumatic, Inc. and byj contributors
+// SPDX-License-Identifier: MIT
+
 // ByjClient: one `byj acp` process, any number of sessions (RFC-053 §5).
 import { execFile, spawn } from "node:child_process";
 import { Connection, RpcError } from "./rpc.js";

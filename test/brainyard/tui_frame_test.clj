@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tui-frame-test
   "The full screen's frame (byj-gly.123): how wide each slot is, and a rail's
   own state — pure, so no screen is needed."

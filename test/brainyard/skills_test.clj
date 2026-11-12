@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.skills-test
   "Skills (RFC-017): parsing SKILL.md, the roots and their precedence, ranked
   search, and the progressive disclosure the whole design rests on."

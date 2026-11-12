@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-agent-test
   "agent$codex (byj-gly.430.6, RFC-049): its loop over the codex$* commands —
   a new Codex session in a worktree of its own, briefed, guided, judged and

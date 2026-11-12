@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-sessions
   "This project's Codex sessions, as claude-sessions reads Claude Code's
   (byj-gly.430.2, RFC-049): the ones running now and the ones saved, and

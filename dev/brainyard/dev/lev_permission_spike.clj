@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.lev-permission-spike
   "byj-gly.113, second attempt — the permission gate, in lev's PRESET SHAPE.
 

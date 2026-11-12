@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.pipeline-eval
   "Does plan → act → eval beat one plain turn? (byj-gly.17, RFC-023)
 

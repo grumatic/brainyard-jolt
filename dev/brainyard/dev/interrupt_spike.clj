@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.interrupt-spike
   "Does a cancel racing a `via blk` thunk's end leave the pool thread
   interrupted? (byj-gly.346)

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.effect-test
   "brainyard's `effect/test/ai/brainyard/effect/effect_test.clj`, ported to
   `brainyard.effect` on ebb, plus the port's own additions.

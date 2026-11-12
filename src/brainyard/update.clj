@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.update
   "Updating byj to the latest release (RFC-029, byj-gly.181.3).
 

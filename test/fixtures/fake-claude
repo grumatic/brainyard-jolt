@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # A stand-in for an interactive Claude Code, for claude-host-test (byj-gly.290.2):
 # what agent$claude reads and types, and nothing more. It writes the live record
 # (<home>/sessions/<pid>.json) and the transcript

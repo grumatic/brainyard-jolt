@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.sandbox
   "The macOS seatbelt sandbox (RFC-012) — brainyard's `components/os-sandbox`:
   build a seatbelt profile and the `sandbox-exec` argv, and relaunch the CLI

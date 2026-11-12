@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-host-test
   "Running and driving Codex sessions in tmux (byj-gly.430.3, RFC-049): the
   argv a session starts with, the hooks it carries and their trust records,

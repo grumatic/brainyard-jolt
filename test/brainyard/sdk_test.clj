@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.sdk-test
   "brainyard.sdk, the SDK's one implementation (RFC-053, byj-g5n.3): a
   session an application opens is an ordinary session, on the mock provider."

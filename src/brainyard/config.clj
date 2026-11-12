@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.config
   "Layered configuration (RFC-013) — brainyard's `agent/core/config.clj` in the
   small: a declared schema of the keys this port has, and one resolver over the

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tools
   "The built-in tools, ported from brainyard's `agent.common.tools` (bash,
   read-file, write-file, update-file, grep) plus list-dir.

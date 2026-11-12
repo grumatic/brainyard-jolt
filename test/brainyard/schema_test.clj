@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.schema-test
   (:require [clojure.java.io :as io]
             [clojure.string :as str]

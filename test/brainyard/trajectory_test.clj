@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.trajectory-test
   "The trajectory log (RFC-025): one record per turn, saying what the turn did.
 

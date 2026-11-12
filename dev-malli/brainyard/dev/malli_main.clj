@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.malli-main
   "brainyard.main with malli loaded, for the binary measurement of the malli
   decision (byj-gly.196): `jolt -A:malli build -m brainyard.dev.malli-main`.

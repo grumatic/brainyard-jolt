@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.hooks-test
   "Hooks (RFC-011): the bus, the tool hooks around call-tool, the loop's hook
   points, the built-in loop guard, and user hooks with Tool Lisp bodies."

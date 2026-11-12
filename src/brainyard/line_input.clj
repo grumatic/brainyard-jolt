@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.line-input
   "Reading a person's line from a terminal in an inline session, without the
   kernel's line editing (byj-gly.315.12).

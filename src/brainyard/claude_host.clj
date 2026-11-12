@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.claude-host
   "Running this project's Claude Code sessions from the agent page
   (byj-gly.287.3, RFC-033): each in a detached tmux session of its own, named

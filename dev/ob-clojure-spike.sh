@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Spike (RFC-067 phase 2, byj-gly.460): does an org src block of Clojure run
 # on jolt — org-babel's ob-clojure through CIDER, against this repository's
 # `jolt -A:dev nrepl-server`? Measured, not assumed: it starts an nREPL server

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tool-distill
   "Tool distillation, the mechanism half (byj-gly.249.2, RFC-010).
 

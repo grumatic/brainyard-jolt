@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.children-test
   "A session's subagents as a tree (byj-gly.298.2): from a saved session's
   trajectory, from an open session's buffers, nested by owner, and an

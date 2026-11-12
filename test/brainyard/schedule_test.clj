@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.schedule-test
   "Prompts set to a time (byj-gly.325): the cron, the interval /loop gives,
   and a job firing as a turn of the session that made it."

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.secrets
   "Secret-shaped text, and what to do about it — brainyard's two copies in one
   place (`byj-gly.77`).

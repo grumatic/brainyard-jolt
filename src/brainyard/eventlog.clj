@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.eventlog
   "The event log (RFC-026) — brainyard's mulog file publisher and its
   `log$*` commands, in the small.

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.no-tty-spike
   "Measurements behind RFC-009's decision on subprocesses and the terminal
   (byj-gly.296): can a child be started with NO controlling terminal on macOS,

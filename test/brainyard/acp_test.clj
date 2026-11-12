@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.acp-test
   "`byj acp`, the Agent Client Protocol front end (RFC-053, byj-g5n.4): an ACP
   v1 client's view of byj, in process over the connection's line fns, and once

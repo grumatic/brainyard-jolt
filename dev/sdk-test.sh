@@ -1,4 +1,7 @@
 #!/bin/sh
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # The SDK's client libraries against byj from this checkout (RFC-053): the
 # TypeScript SDK's tests (sdk/typescript), and the Python SDK's when it is
 # there (sdk/python). No model is spent: byj runs a scripted mock. Network on

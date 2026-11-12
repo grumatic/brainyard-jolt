@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.test-run
   "How a suite is run, behind byj's guards: in this process (`run`), in
   shards across processes, or named namespaces alone (`main-for`), with a

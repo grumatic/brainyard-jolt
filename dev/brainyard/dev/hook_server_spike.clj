@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.hook-server-spike
   "byj-fim: what `byj hook pretooluse` costs when byj stays up and a thin
   client asks it, against what it costs as a process of its own (RFC-012

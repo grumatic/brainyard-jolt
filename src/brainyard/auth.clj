@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.auth
   "What `/login` and `/logout` sign in to (RFC-006, byj-gly.311) — brainyard's
   `common/auth.clj` and its login targets (`docs/design/login-auth-methods.md`).

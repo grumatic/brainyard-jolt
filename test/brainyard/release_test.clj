@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.release-test
   "The release process (RFC-029, byj-gly.181.4): dev/release-stage.sh stages
   only a tagged, clean build whose binary says the version its stamp does —
@@ -310,3 +313,35 @@
           (str n " is reached only by requiring-resolve: add it to deps.edn :jolt/build :include")))
     (doseq [n included]
       (is (contains? reqs n) (str n " in :jolt/build :include has no file under src")))))
+
+;; --- every source file names its licence (byj-bnt) ---------------------------------
+
+(def ^:private licence-header
+  "What a source file opens with, after its #! line or Emacs's first line:
+  MIT, as LICENSE says, and its contributors' copyright as well as Grumatic's,
+  since signing off under the DCO leaves a contribution its author's
+  (CONTRIBUTING.md \"Licensing\")."
+  ["Copyright (c) 2026 Grumatic, Inc. and byj contributors" "SPDX-License-Identifier: MIT"])
+
+(defn- source-file? [f]
+  (boolean (re-find #"\.(clj|cljc|el|ts|mjs|js|py|sh)$|^test/fixtures/fake-[a-z]+$" f)))
+
+(defn- has-licence-header? [f]
+  (let [ls (vec (take 3 (str/split-lines (slurp f))))
+        first-line (str (first ls))
+        ls (if (or (str/starts-with? first-line "#!")
+                   (and (str/ends-with? f ".el") (str/starts-with? first-line ";;; ")))
+             (subvec ls 1)
+             ls)]
+    (and (<= 2 (count ls))
+         (every? true? (map #(str/ends-with? (str/trimr %1) %2) ls licence-header)))))
+
+(deftest every-source-file-names-its-licence
+  ;; tracked files and new ones git would add, so a file is caught before
+  ;; its first commit; prompts, JSON, Markdown and EDN are not source here,
+  ;; and a prompt's every word is the model's (AGENTS.md "Sending a change")
+  (let [{:keys [out]} (fx/sh {:out :string :err :string} "git" "ls-files" "-co" "--exclude-standard")
+        files (filter #(and (source-file? %) (.isFile (io/file %))) (str/split-lines (str out)))]
+    (is (< 250 (count files)) "git listed the sources")
+    (is (empty? (remove has-licence-header? files))
+        (str "these lack the two lines: " (str/join " / " licence-header)))))

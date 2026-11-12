@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.predictor
   "Declarative predictors — brainyard's `clj-llm.core.predictor` (the DSPy
   `Predict` module as a value) and `agent.common.user-predictors` (a predictor

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.cache-test
   "Prompt caching (RFC-015): where the breakpoints land, what they cost, and
   the byte-stability the whole arrangement depends on."

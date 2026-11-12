@@ -1,4 +1,6 @@
 ;;; byj.el --- what byj does in an Emacs it reaches  -*- lexical-binding: t; -*-
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
 
 ;;; Commentary:
 ;; Loaded by byj (brainyard-jolt) into the Emacs `:emacs-server' names, the

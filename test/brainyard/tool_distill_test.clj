@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tool-distill-test
   "Tool distillation's mechanism (byj-gly.249.2): what a tool$run body is,
   when it is worth a judge, how a draft is proved, and how a proposal is kept."

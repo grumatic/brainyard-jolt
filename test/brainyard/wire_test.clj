@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.wire-test
   "What actually left this process (RFC-026 \"The archive\", byj-gly.119).
 

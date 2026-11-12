@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.toolbox
   "The tool registry and user tools (RFC-010) — brainyard's
   `agent/common/user_tools.clj`, with Tool Lisp bodies instead of SCI.

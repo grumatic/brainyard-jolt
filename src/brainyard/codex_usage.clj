@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-usage
   "Codex's usage (byj-gly.430.7, RFC-049): a session's tokens and what they
   cost, and the plan's limits — what `claude-usage` is for Claude Code, read

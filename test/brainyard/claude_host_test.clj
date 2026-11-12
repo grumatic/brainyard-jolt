@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.claude-host-test
   "Running Claude Code sessions from the agent page (byj-gly.287.3): what Enter
   on a row plans, and the tmux sessions it starts — on a tmux server of the

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.proposals
   "One review gate for every kind of self-improvement (byj-gly.249.1).
 

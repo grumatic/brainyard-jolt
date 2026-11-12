@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.events
   "The event vocabulary (RFC-026): every event the kernel emits through
   `:on-event`, and what KIND of thing each one is.

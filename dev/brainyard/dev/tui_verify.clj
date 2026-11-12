@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.tui-verify
   "Drive the full-screen renderer (RFC-028) through a REAL session and read back
   what a person would see. brainyard's `docs/tui/nrepl-verify.md` in the port's

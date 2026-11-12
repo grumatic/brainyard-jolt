@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.nrepl-eval
   "A command-line nREPL client: code evaluated in a running image, with what
   it prints and returns shown as it arrives. The fallback for `clj-nrepl-eval`,

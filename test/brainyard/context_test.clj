@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.context-test
   "Context budget and compaction, tiers 0 and 1 (RFC-014): what the prompt
   costs, what shrinks first, and what may never shrink."

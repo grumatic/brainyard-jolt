@@ -91,6 +91,10 @@ Decided by the maintainers on 2026-11-11.
   and address and certifies the [Developer Certificate of
   Origin](https://developercertificate.org). A pull request whose commits
   are not all signed off by their authors is not merged; CI checks it.
+  Your contribution stays yours: a source file says so in its first two
+  lines, `Copyright (c) 2026 Grumatic, Inc. and byj contributors` and
+  `SPDX-License-Identifier: MIT`, which a new file copies (a test fails
+  without them).
 - **Review.** One maintainer's approval, with CI green — the suite, the
   namespaces loaded one by one, and the sign-offs. A maintainer answers a
   pull request or an issue within a week; that is a first answer, not a

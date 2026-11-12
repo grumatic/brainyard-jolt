@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.compaction-ab
   "Does tier 2 pay? (byj-gly.168, RFC-014 'Measurement plan' steps 2–5) — the
   same multi-step tasks, run through the unmodified loop at a tight window with

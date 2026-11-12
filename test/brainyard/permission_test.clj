@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.permission-test
   "The permission gate (RFC-012): glob matching, the two gates and their order,
   the modes, the ask channel, and what a refused call looks like in a turn."

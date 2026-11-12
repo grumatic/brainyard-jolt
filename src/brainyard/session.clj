@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.session
   "brainyard's multi-turn `by run`, on jolt: an OUTER behavior tree
   (resources/brainyard/loops/session.edn) that reads input, handles slash

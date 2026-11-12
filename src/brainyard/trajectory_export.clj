@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.trajectory-export
   "Recorded turns as training data (RFC-025) — brainyard's
   `agent/common/trajectory_export.clj`.

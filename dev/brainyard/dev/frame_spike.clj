@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.frame-spike
   "What the three-slot frame looks like (byj-gly.123): the real renderer, a
   short transcript in the centre, a rail each side, at 80, 120 and 160 columns.

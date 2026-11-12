@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.memory-rail
   "The left rail's Memory section: what the project remembers, by source,
   last in the rail, after Issues (byj-gly.421, byj-gly.422).

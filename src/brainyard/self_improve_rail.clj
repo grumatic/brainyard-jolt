@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.self-improve-rail
   "The left rail's Self-improvement section (byj-gly.425): whether the session
   distils tools and skills from what it did, as two toggles, and what that

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.sdk-stdio-spike
   "Measurements behind RFC-053: can byj be an ACP agent on its own stdio?
   (byj-g5n.1)

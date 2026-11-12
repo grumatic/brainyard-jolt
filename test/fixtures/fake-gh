@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # A stand-in for the GitHub CLI, for claude-agent-test (byj-gly.290.4):
 #   fake-gh LOG pr view BRANCH --json url   → the PR it opened for BRANCH, or exit 1
 #   fake-gh LOG pr create --head BRANCH …   → opens one, prints its URL

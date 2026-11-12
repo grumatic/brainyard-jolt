@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.line-input-test
   "The inline session's line editing (byj-gly.315.12): what each key does to
   the line and what it echoes, with no terminal."

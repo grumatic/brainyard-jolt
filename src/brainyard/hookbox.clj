@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.hookbox
   "Hooks as data (RFC-011), the way tools are (RFC-010).
 

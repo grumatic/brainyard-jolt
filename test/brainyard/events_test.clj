@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.events-test
   "RFC-026: every event the kernel emits is declared, and what is declared is
   emitted.

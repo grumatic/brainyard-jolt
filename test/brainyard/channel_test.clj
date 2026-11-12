@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.channel-test
   "The session channel (RFC-031): the unix socket under it, brainyard's ops and
   their replies, the queue, and a session answering over its own socket."

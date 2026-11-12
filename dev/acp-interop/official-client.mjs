@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Grumatic, Inc. and byj contributors
+// SPDX-License-Identifier: MIT
+
 // The official ACP TypeScript client (@agentclientprotocol/sdk, pinned) against
 // `byj acp` (RFC-053, byj-g5n.4). No model is spent: byj runs a scripted mock.
 //

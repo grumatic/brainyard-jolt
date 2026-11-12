@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tui-frame
   "The full screen's frame (RFC-028 \"The frame\", byj-gly.123): three slots —
   a left rail, the centre, a right rail — and the rules for how wide each is.

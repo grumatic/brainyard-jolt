@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.schema
   "malli for tool schemas (RFC-030): a registry of shared schemas, and a tool's
   arguments checked and coerced against a malli schema compiled once.

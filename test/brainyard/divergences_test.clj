@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.divergences-test
   "Keeps docs/divergences.md and docs/divergences.edn honest with each other,
   pins the divergences that no other test covers, and holds every test byj's

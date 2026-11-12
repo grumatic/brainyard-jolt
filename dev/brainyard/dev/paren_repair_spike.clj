@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.paren-repair-spike
   "byj-gly.260: does rebuilding a body's closers from its indentation
   (`tool-lisp/repair-body`) recover the unbalanced bodies models actually

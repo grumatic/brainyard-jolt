@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.emacs-test
   "byj and the person's Emacs (RFC-067, byj-gly.459): which Emacs is reached,
   the one call path whose arguments never enter the elisp it runs, and the

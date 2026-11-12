@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.agent-reach
   "What an agent can make happen when shared (byj-1wv.47): the agent as the
   headless session a share starts would run it. Its own namespace because

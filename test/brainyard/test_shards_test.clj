@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.test-shards-test
   (:require [clojure.test :refer [deftest is testing]]
             [brainyard.test-shards :as shards]))

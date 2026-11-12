@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.split-test
   "RFC-070 \"Standing alone\": byj names no program built on it. Such a
   program reaches byj only as a process, an MCP server or a file in the

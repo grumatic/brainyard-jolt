@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.changes
   "What a turn changed, kept as git keeps things, for the person to review
   with git's own tools (RFC-067 phase 8, D10; byj-gly.476, byj-gly.481).

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.memory
   "Memory (RFC-020) — durable knowledge the agent can look up, held OUTSIDE the
   port.

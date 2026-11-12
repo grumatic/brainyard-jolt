@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.cost-test
   "What a call cost (RFC-025). Mostly a test of the two ways a cost goes
   wrong quietly: charging full rate for tokens a cache made cheap, and

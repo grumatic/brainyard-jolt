@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.trajectory-export-test
   "Recorded turns as training data (RFC-025), and the redactor that decides what
   leaves the machine with them."

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 ;; brainyard's own ACP client (../brainyard components/acp-client) against
 ;; `byj acp` (RFC-053, byj-g5n.4). Run from ../brainyard, on the JVM:
 ;;

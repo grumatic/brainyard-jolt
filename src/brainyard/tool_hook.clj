@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.tool-hook
   "Another agent's tool calls through byj's gates (RFC-012 \"Another agent's
   calls\", byj-ahf.24): Claude Code and Codex run a `PreToolUse` hook command

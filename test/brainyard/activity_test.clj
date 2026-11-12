@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.activity-test
   "The right rail's Activity view (byj-gly.411): what each event becomes, a
   turn's rows under its heading, a call's ◐ settling to ✓ with its time, a

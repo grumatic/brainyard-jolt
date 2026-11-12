@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.llm
   "Chat completion over jolt.http-client (and the `claude` CLI), ported from
   brainyard's `clj-llm.core.llm` / `providers` — non-streaming only.

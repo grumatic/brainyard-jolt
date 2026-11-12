@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.claude-agent
   "The `claude$*` commands: what agent$claude's tree calls to hand work to a
   Claude Code session and watch it (RFC-039, byj-gly.290.3). Mechanism only.

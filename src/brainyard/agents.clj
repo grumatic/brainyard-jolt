@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.agents
   "Subagents (RFC-018) — brainyard's `defagent` / `do-call-tool--agent` /
   `common/user_agents.clj`, data-only.

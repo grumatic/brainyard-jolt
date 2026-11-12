@@ -294,6 +294,12 @@ How a change is sent, licensed and reviewed is in
   Origin, and an agent never signs off as itself or makes one up.
 - Nothing in a commit credits an AI: no co-author line, model name or
   session link. The pull request says that an agent helped, and which.
+- Every source file — `.clj`, `.cljc`, `.el`, `.ts`, `.mjs`, `.js`,
+  `.py`, `.sh`, and the stand-ins in `test/fixtures` — opens with two
+  comment lines, after its `#!` line or Emacs's first line:
+  `Copyright (c) 2026 Grumatic, Inc. and byj contributors` and
+  `SPDX-License-Identifier: MIT`. Prompts and other resources the model
+  reads, JSON, Markdown and EDN get none. `release-test/every-source-file-names-its-licence`.
 - A vulnerability found while working goes to a private report
   ([SECURITY.md](SECURITY.md)), never to an issue, a commit message or a
   pull request.

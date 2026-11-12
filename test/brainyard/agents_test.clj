@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.agents-test
   "Subagents (RFC-018): what an agent is, what a dispatched turn may see, and
   the three guards that bound the recursion."

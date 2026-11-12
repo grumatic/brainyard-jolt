@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.acp
   "`byj acp`: byj as an Agent Client Protocol v1 agent on its own stdio
   (RFC-053, byj-g5n.4) — the front end an application's SDK and an ACP editor

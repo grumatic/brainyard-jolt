@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-reach-test
   "A live Codex session as a target of the session tools (byj-gly.430.5,
   RFC-049): listed as codex:<thread>, one in this run's tmux typed into, one

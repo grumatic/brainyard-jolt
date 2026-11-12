@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.config-test
   "Layered configuration (RFC-013): the schema, the file shape, the layer order,
   the environment, and what a bad file does."

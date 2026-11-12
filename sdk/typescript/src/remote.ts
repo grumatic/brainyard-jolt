@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Grumatic, Inc. and byj contributors
+// SPDX-License-Identifier: MIT
+
 // A shared agent, called from an application (RFC-060 D11): an agent share's
 // endpoint on Share, spoken to over A2A v0.3 with the token its owner made
 // for the application. It shares nothing with the stdio client but its

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.update-test
   "Updating byj (RFC-029, byj-gly.181.3): which release is newer, how a
   private repo's answer is read, and how a binary and a checkout are brought to

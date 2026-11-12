@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 """An MCP server that asks the client mid-call (elicitation/create), for
 brainyard.mcp-test: `publish` asks a yes or no and says what it heard;
 `fill` asks for a field to fill in, which byj declines; and before either

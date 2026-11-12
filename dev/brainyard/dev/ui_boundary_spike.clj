@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.ui-boundary-spike
   "Measurements behind RFC-027: what does it cost to put bytes between the
   kernel and a UI, and what does jolt actually let you build?

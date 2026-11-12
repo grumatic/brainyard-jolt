@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.native-call-spike
   "How often a claude-code model calls tools natively — a `tool_use` the CLI
   refuses with \"No such tool available\" — and whether rewording the prompt

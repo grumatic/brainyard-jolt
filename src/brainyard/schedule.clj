@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.schedule
   "Prompts set to a time: a cron, a moment, or a delay (byj-gly.325) —
   brainyard's `agent/common/schedule.clj`, its names and its store

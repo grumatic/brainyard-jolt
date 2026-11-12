@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.version
   "Which version of brainyard-jolt this is (RFC-029) — brainyard's
   `build-info` / `app-version` / `app-version-long`.

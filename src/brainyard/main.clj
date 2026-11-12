@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.main
   "The `byj` CLI: `run`, the default, is brainyard's multi-turn session, an
   outer loop nesting the ReAct loop; `ask` (or `--prompt`) runs the ReAct

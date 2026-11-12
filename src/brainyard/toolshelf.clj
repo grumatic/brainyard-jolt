@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.toolshelf
   "Every tool a session can call, as a person browses them — `/tools`
   (byj-gly.273.1). brainyard has no browser: its tools are found by name

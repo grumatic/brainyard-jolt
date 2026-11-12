@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-host
   "Running and driving Codex sessions in tmux (byj-gly.430.3, RFC-049
   decision 5): Codex's adapter to `agent-host`, as `claude-host` is Claude

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.tool-lisp-spike
   "A spike for byj-gly.28 / RFC-010: can a model with NO prior knowledge of Tool
   Lisp define working composite tools through `tool$define`, knowing the

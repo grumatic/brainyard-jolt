@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.codex-spike
   "Measurements behind the Codex design decision (byj-gly.430.1, RFC-049): how
   byj can read a Codex session, tell whether it is live, busy, idle or waiting

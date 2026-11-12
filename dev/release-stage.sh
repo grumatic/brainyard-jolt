@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # Stage this platform's byj into release/ for a GitHub Release (RFC-029,
 # byj-gly.181.4) — brainyard's bin/release-stage.sh, for a jolt binary. A
 # release is byj's alone: programs built on byj are released on their own

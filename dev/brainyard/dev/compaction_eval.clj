@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.dev.compaction-eval
   "What do tiers 0 and 1 actually buy? (RFC-014 'Measurement plan', step 1.)
 

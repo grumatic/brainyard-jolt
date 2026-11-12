@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 ;; Do SGR mouse reports reach brainyard.tui's reader as bytes, whatever this
 ;; terminal's terminfo says? (byj-gly.268, provenance P-24)
 ;;

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.share
   "The share sidecar's kernel side (RFC-043): the sidecar a session starts with
   `--share TARGET`, and what a session knows of the people watching it.

@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.ebb-bindings-test
   "Pins how dynamic bindings behave under ebb on jolt, and what the port
   guarantees on top of it (RFC-009 rule 5).

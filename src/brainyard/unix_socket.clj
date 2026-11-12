@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.unix-socket
   "An AF_UNIX stream socket through libc (RFC-031) — the transport of
   brainyard's `ask.sock` (`components/ask-channel`).

@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Grumatic, Inc. and byj contributors
+# SPDX-License-Identifier: MIT
+
 # A stand-in for bd, for claude-agent-test: `fake-bd LOG note ID TEXT` appends
 # "ID<TAB>TEXT" to LOG.
 LOG=$1; shift

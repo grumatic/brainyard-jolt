@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.init-test
   "/init (RFC-040): the check of a machine and a project, on stand-in tools on
   a PATH of the test's own and projects of the test's own."

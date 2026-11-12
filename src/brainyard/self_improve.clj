@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.self-improve
   "Self-improvement (RFC-017) — brainyard's `skill_distill.clj`,
   `skill_refine.clj` and `skill_distill/proposals.clj`, the mechanism half.

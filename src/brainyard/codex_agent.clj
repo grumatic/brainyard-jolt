@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.codex-agent
   "The codex$* commands agent$codex drives a Codex session with (byj-gly.430.6,
   RFC-049), as agent$claude's claude$* drive Claude Code (RFC-039): find the

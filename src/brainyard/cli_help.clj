@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.cli-help
   "The `byj` CLI's help, in brainyard's `by` layout (its cli-matic
   pages): `byj -h` names the commands, `byj COMMAND -h` a command's

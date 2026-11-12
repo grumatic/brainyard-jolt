@@ -1,3 +1,6 @@
+;; Copyright (c) 2026 Grumatic, Inc. and byj contributors
+;; SPDX-License-Identifier: MIT
+
 (ns brainyard.changes-test
   "A turn's change kept as git snapshots (RFC-067 phase 8, byj-gly.476,
   byj-gly.481): the work tree made into commit objects as the turn begins
