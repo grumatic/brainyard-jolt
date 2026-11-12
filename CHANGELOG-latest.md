@@ -1,14 +1,18 @@
-**byj v0.3.17** — byj is published, under the MIT License, from a repository of its own; a release is byj alone; two fixes for Linux. Full notes in `CHANGELOG.md`.
+**byj v0.3.18** — `byj` alone starts a session and `--prompt` asks one question; `claude$await` streams a reply that came before the wait; every source file names its licence. Full notes in `CHANGELOG.md`.
 
-- **byj is published**, under the MIT License, from a repository of its
-  own. Releases before it were made while byj was developed in a private
-  one; their notes were not carried over, and the tap keeps their binaries.
-- **byj is released alone** (RFC-029): a release is byj and nothing else,
-  and on the tap it is always the latest release, which `byj update` reads,
-  so a byj installed before updates as it did.
-- **A bash call that leaves something running no longer ends your shell on
-  Ubuntu** (provenance P-62): stopping what it left now names the process
-  group in a way Ubuntu 22.04's `kill` reads as that group, not its own.
-- **What a delegated session leaves running in a worktree that is removed is
-  stopped on Linux too**: a deleted directory reads as `<path> (deleted)`
-  there, and byj now sees it.
+- **`byj` alone starts a session.** `run` is now the default command:
+  `byj` opens one, and `byj "explain deps.edn"` opens one whose first turn
+  is that, as `claude "…"` does. One question answered and done is
+  `byj --prompt "…"` (or `byj run --prompt`), as `claude -p` is; `-p` is
+  still `--provider`. `byj ask "…"` is unchanged, so a script that runs
+  `byj "…"` for one answer should say `byj ask` or `--prompt`.
+  `byj --attach SESSION "…"` still asks that session.
+- **`claude$await` shows a reply that came before the wait began.** A
+  delegated Claude Code session that answered between `claude$say` and
+  `claude$await` had its reply returned but never streamed as progress;
+  each wait now picks up where the last one stopped.
+- **Every source file names its licence**: the two-line SPDX header,
+  `Copyright (c) 2026 Grumatic, Inc. and byj contributors` and
+  `SPDX-License-Identifier: MIT`. `LICENSE` and `NOTICE` name the
+  contributors too, since a contribution signed off under the DCO stays its
+  author's.
