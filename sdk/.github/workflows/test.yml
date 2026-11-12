@@ -16,7 +16,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: byj, checked against its release's SHA256SUMS
         env:
@@ -33,7 +33,7 @@ jobs:
           echo "BYJ_BIN=$d/byj" >> "$GITHUB_ENV"
           "$d/byj" --version
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -41,7 +41,7 @@ jobs:
         working-directory: typescript
         run: npm ci && npm test
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10.3.3
 
       - name: Python
         working-directory: python

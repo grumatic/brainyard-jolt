@@ -37,7 +37,7 @@ jobs:
             jolt: x86_64-linux
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # the stamp is `git describe`: it needs the tags
           fetch-depth: 0
@@ -74,7 +74,7 @@ jobs:
           rm -f "$RUNNER_TEMP/release/SHA256SUMS"
           mv -f "$RUNNER_TEMP/release/BUILD-INFO.txt" "$RUNNER_TEMP/release/BUILD-INFO-${{ matrix.platform }}.txt"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: startsWith(github.ref, 'refs/tags/v')
         with:
           name: release-${{ matrix.platform }}
@@ -87,9 +87,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: release
@@ -136,13 +136,13 @@ jobs:
     env:
       TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: no tap token
         if: env.TAP_TOKEN == ''
         run: echo "::notice::HOMEBREW_TAP_TOKEN is not set — run dev/release-mirror.sh ${GITHUB_REF_NAME}, then dev/brew-formula.sh ${GITHUB_REF_NAME} <tap checkout>, and push the tap"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.TAP_TOKEN != ''
         with:
           repository: grumatic/homebrew-tap
