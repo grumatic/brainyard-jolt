@@ -6,6 +6,8 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+## v0.3.19 — 2026-11-12
+
 - **byj for arm64 Linux** (Graviton, Ampere, a Raspberry Pi 4 or 5 on a
   64-bit OS, a Linux container on an Apple-silicon Mac): a release now has
   `byj-<version>-linux-arm64`, and Homebrew on such a machine installs it.

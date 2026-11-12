@@ -1,18 +1,8 @@
-**byj v0.3.18** — `byj` alone starts a session and `--prompt` asks one question; `claude$await` streams a reply that came before the wait; every source file names its licence. Full notes in `CHANGELOG.md`.
+**byj v0.3.19** — byj for arm64 Linux. Full notes in `CHANGELOG.md`.
 
-- **`byj` alone starts a session.** `run` is now the default command:
-  `byj` opens one, and `byj "explain deps.edn"` opens one whose first turn
-  is that, as `claude "…"` does. One question answered and done is
-  `byj --prompt "…"` (or `byj run --prompt`), as `claude -p` is; `-p` is
-  still `--provider`. `byj ask "…"` is unchanged, so a script that runs
-  `byj "…"` for one answer should say `byj ask` or `--prompt`.
-  `byj --attach SESSION "…"` still asks that session.
-- **`claude$await` shows a reply that came before the wait began.** A
-  delegated Claude Code session that answered between `claude$say` and
-  `claude$await` had its reply returned but never streamed as progress;
-  each wait now picks up where the last one stopped.
-- **Every source file names its licence**: the two-line SPDX header,
-  `Copyright (c) 2026 Grumatic, Inc. and byj contributors` and
-  `SPDX-License-Identifier: MIT`. `LICENSE` and `NOTICE` name the
-  contributors too, since a contribution signed off under the DCO stays its
-  author's.
+- **byj for arm64 Linux** (Graviton, Ampere, a Raspberry Pi 4 or 5 on a
+  64-bit OS, a Linux container on an Apple-silicon Mac): a release now has
+  `byj-<version>-linux-arm64`, and Homebrew on such a machine installs it.
+  jolt publishes no arm64 Linux build, so the release builds jolt from its
+  source first, as jolt's own release builds its x86_64 one; byj's suite
+  runs on it nightly.
