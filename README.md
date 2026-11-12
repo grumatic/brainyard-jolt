@@ -18,8 +18,8 @@ rebuild. Every word the model reads is a resource too.
 
 ## Installing
 
-byj is released for macOS (Apple silicon and Intel) and Linux (x86-64), and
-installed with Homebrew from the public tap
+byj is released for macOS (Apple silicon and Intel) and Linux (x86-64 and
+arm64), and installed with Homebrew from the public tap
 [grumatic/homebrew-tap](https://github.com/grumatic/homebrew-tap), with no
 GitHub account or token (RFC-029 "Homebrew"):
 
