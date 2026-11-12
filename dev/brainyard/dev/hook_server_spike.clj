@@ -13,9 +13,10 @@
   A request is `{:json \"<the PreToolUse payload>\" :log DIR}`, the reply
   `{:out \"<what the hook prints>\" :ms N}`, `:ms` the time spent inside.
 
-  Run it as its own process and time clients against it from a shell;
-  `dev/hook-latency.sh --resident` does both, and without the flag times the
-  same calls a process each:
+  Run it as its own process and time clients against it from a shell (the
+  measurements were taken with `nc -U`, the payload escaped into the
+  channel's EDN line by perl). What was built from it, `byj hook serve`
+  (byj-ywp), is what `dev/hook-latency.sh --resident` times now:
 
     jolt -A:dev -m brainyard.dev.hook-server-spike SOCKET
 

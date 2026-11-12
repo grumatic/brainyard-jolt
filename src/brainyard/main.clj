@@ -52,6 +52,8 @@
             [brainyard.activity :as activity]
             [brainyard.emacs :as emacs]
             [brainyard.json :as json]
+            [brainyard.hook-serve :as hook-serve]
+            [brainyard.unix-socket :as us]
             [brainyard.tool-hook :as tool-hook]
             [brainyard.changes :as changes]
             [brainyard.terminal :as terminal]
@@ -240,6 +242,11 @@
           "--grades" (recur (rest more) (assoc opts :grades (first more)))
           "--prefix" (recur (rest more) (assoc opts :prefix (first more)))
           "--log" (recur (rest more) (assoc opts :log (first more)))
+          "--socket" (recur (rest more) (assoc opts :socket (first more)))
+          "--idle" (let [v (first more) n (when v (parse-long v))]
+                     (if (and n (pos? n))
+                       (recur (rest more) (assoc opts :idle n))
+                       (recur (rest more) (update opts :errors (fnil conj []) (str "--idle needs a number of seconds, not " (pr-str v))))))
           "--todo" (recur (rest more) (assoc opts :todo-slug (first more)))
           "--expect-hash" (recur (rest more) (assoc opts :expect-hash (first more)))
           (cond
@@ -616,32 +623,65 @@
       "fork" (turns-fork more json config)
       (do (err-println (str "turns: unknown subcommand " (pr-str sub) " — list, diff, rewind, undo-turn, undo, fork")) 2))))
 
+(defn- hook-answer
+  "What `byj hook pretooluse` prints for the payload `json`, its decision
+  logged in `log` (`~/.brainyard/permissions` when nil): the gates under the
+  config of the payload's `cwd`, nil for no opinion. The one answer, given by
+  the hook as a process and by `byj hook serve` alike (RFC-012)."
+  [json log overrides working-dir]
+  (let [payload (try (json/read-str (str json)) (catch Throwable _ nil))]
+    (when (map? payload)
+      (let [wd (or (not-empty (str (:cwd payload))) working-dir (System/getProperty "user.dir") ".")
+            config (try (:config (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)}))
+                        (catch Throwable _ {:working-dir wd}))]
+        (tool-hook/hook! config payload (tool-hook/log-dir log (System/getenv "HOME")))))))
+
 (defn- hook-command
-  "`byj hook pretooluse [--log DIR]` — a Claude Code or Codex `PreToolUse`
-  payload on stdin through byj's gates under its project's config, the
-  decision logged and the agent's answer printed (nothing for no opinion);
-  `byj hook claude-settings` — the Claude Code settings that install it,
-  named as `byj hook codex-flags` is, a codex command line that carries it
-  (RFC-012, byj-ahf.24); `settings`, its name in v0.3.18 and v0.3.19, still
-  answers: the exit code. A payload that cannot be read has no opinion: the hook must
-  never stop the person's work."
-  [{:keys [questions log working-dir]} overrides]
+  "`byj hook pretooluse [--log DIR] [--socket SOCK]` — a Claude Code or Codex
+  `PreToolUse` payload on stdin through byj's gates under its project's
+  config, the decision logged and the agent's answer printed (nothing for no
+  opinion), then, with `--socket`, the resident server started there for the
+  next call; `byj hook serve [--socket SOCK] [--idle SECONDS]` — that server,
+  answering the same way until it is idle or its byj is upgraded
+  (`brainyard.hook-serve`, byj-ywp); `byj hook claude-settings` — the Claude
+  Code settings that install it, named as `byj hook codex-flags` is, a codex
+  command line that carries it (RFC-012, byj-ahf.24); each installs the
+  command that asks the server first. `settings`, `claude-settings`'s name in
+  v0.3.18 and v0.3.19, still answers: the exit code. A payload that cannot be
+  read has no opinion: the hook must never stop the person's work."
+  [{:keys [questions log socket idle working-dir]} overrides]
   (let [overrides (dissoc overrides :working-dir)
         self (or (System/getProperty "jolt.launcher") "byj")
-        command (tool-hook/hook-command self log)]
+        named-socket (not-empty socket)
+        socket (or named-socket (hook-serve/default-socket (System/getenv "HOME")))
+        command (if (us/supported?)
+                  (hook-serve/client-command self log socket)
+                  (tool-hook/hook-command self log))]
     (case (first questions)
       "pretooluse"
-      (let [payload (try (json/read-str (slurp *in*)) (catch Throwable _ nil))]
-        (when (map? payload)
-          (let [wd (or (not-empty (str (:cwd payload))) working-dir (System/getProperty "user.dir") ".")
-                config (try (:config (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)}))
-                            (catch Throwable _ {:working-dir wd}))]
-            (when-let [out (tool-hook/hook! config payload (tool-hook/log-dir log (System/getenv "HOME")))]
-              (println out))))
-        0)
+      (do (when-let [out (hook-answer (slurp *in*) log overrides working-dir)]
+            (println out))
+          (flush)
+          ;; the next call is the server's: started only when the command
+          ;; that ran this one names a socket, as the installed one does
+          (when named-socket (hook-serve/start! self socket))
+          0)
+      "serve"
+      (do (hook-serve/detach-session!)
+          (try
+            (let [{:keys [done]} (hook-serve/serve! {:socket socket
+                                                     :answer #(hook-answer %1 (or (not-empty %2) log) overrides nil)
+                                                     :idle-ms (some-> idle (* 1000))
+                                                     :self self
+                                                     :path-env (System/getenv "PATH")})]
+              @done)
+            ;; another server answers there already: it serves
+            (catch clojure.lang.ExceptionInfo e
+              (when-not (= :live-owner (:reason (ex-data e))) (throw e))))
+          0)
       ("claude-settings" "settings") (do (println (json/write-str (tool-hook/claude-settings command))) 0)
       "codex-flags" (do (println (tool-hook/codex-line command)) 0)
-      (do (err-println (str "hook: unknown subcommand " (pr-str (first questions)) " — pretooluse, claude-settings, codex-flags")) 2))))
+      (do (err-println (str "hook: unknown subcommand " (pr-str (first questions)) " — pretooluse, serve, claude-settings, codex-flags")) 2))))
 
 (defn- emacs-command
   "`byj emacs install-el` — byj.el where the person's init can require it,

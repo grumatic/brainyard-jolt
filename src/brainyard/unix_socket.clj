@@ -243,7 +243,6 @@
   ack and then its frames."
   [fd handler]
   (try
-    (no-sigpipe! fd)
     (let [msg (read-msg (read-line! fd))
           reply (if (nil? msg)
                   {:status :error :error "empty request"}
@@ -257,14 +256,16 @@
     (catch Throwable _ nil)
     (finally (net/close fd))))
 
-(defn serve!
-  "Listen at `path` and answer each request with `(handler msg)`, each
-  connection on its own blocking task so a slow answer never holds the next
-  one up. Returns `{:path :stop!}`.
+(defn listen!
+  "Listen at `path` and hand each connection's descriptor to `(on-connection
+  fd)`, each on its own blocking task so a slow one never holds the next one
+  up; `on-connection` reads, writes and closes it. Returns `{:path :stop!}`.
+  `serve!`'s transport, and that of a protocol of its own on the same socket
+  (`brainyard.hook-serve`'s HTTP).
 
   Refused, `ex-info` `{:reason :live-owner}`, when a process already answers
   at `path`; a file nothing answers at is stale and is replaced."
-  [path handler]
+  [path on-connection]
   (when-not (supported?)
     (throw (ex-info (str "no unix sockets on " @os) {:reason :unsupported})))
   (when (.exists (io/file path))
@@ -293,7 +294,8 @@
                 (when (readable? fd 100)
                   (let [c (c-accept fd 0 0)]
                     (when-not (neg? c)
-                      (fx/run-detached (fx/task-of #(serve-connection! c handler)) ::connection))))
+                      (no-sigpipe! c)
+                      (fx/run-detached (fx/task-of #(on-connection c)) ::connection))))
                 (recur)))
             (finally (deliver stopped true)))))
        ::accept-loop)
@@ -305,3 +307,10 @@
                 (when (and owned (= owned (file-key path)))
                   (io/delete-file path true))
                 nil)})))
+
+(defn serve!
+  "Listen at `path` and answer each request with `(handler msg)`: one EDN
+  line in, one out (`listen!`). Returns `{:path :stop!}`; refused as
+  `listen!` is."
+  [path handler]
+  (listen! path #(serve-connection! % handler)))

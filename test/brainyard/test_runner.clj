@@ -90,6 +90,7 @@
             [brainyard.claude-host-test]
             [brainyard.codex-host-test]
             [brainyard.tool-hook-test]
+            [brainyard.hook-serve-test]
             [brainyard.contract-test]
             [brainyard.cli-help-test]
             [brainyard.version-test]
@@ -178,6 +179,7 @@
     brainyard.claude-host-test
     brainyard.codex-host-test
     brainyard.tool-hook-test
+    brainyard.hook-serve-test
     brainyard.contract-test
     brainyard.cli-help-test
     brainyard.version-test

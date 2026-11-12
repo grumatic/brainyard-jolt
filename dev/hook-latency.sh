@@ -9,13 +9,15 @@
 # model is called); N calls of a refused Write and N of a passed Read, each
 # timed, and the decisions logged under the scratch directory.
 #
-# --resident times the same calls against a byj that stays up instead
-# (byj-fim): dev/brainyard/dev/hook_server_spike.clj listening on a unix
-# socket, asked by a shell client (`nc -U`, the payload escaped into the
-# channel's EDN line by perl). Its first call is the fresh server's.
+# --resident times the command `byj hook claude-settings` installs, which
+# asks `byj hook serve` (byj-ywp): BYJ's server started on a socket of its
+# own, then the same calls through that command, curl to the socket. The
+# spike it replaced (byj-fim, dev/brainyard/dev/hook_server_spike.clj asked
+# by `nc -U`) measured what such a server could be; this measures what was
+# built. The first call to a fresh server is timed apart.
 #
-#   dev/hook-latency.sh [N] [BYJ]      N calls of each (10), BYJ the binary (target/byj)
-#   dev/hook-latency.sh --resident [N]
+#   dev/hook-latency.sh [N] [BYJ]               N calls of each (10), BYJ the binary (target/byj)
+#   dev/hook-latency.sh --resident [N] [BYJ]
 set -euo pipefail
 resident=
 if [ "${1:-}" = "--resident" ]; then resident=1; shift; fi
@@ -32,9 +34,7 @@ printf '{:agent {:config {:tool-deny-tools ["write-file"] :permission-mode :auto
 payload() { printf '{"tool_name":"%s","tool_input":{"file_path":"%s/p/a.txt"},"cwd":"%s/p","session_id":"lat"}' "$1" "${dir}" "${dir}"; }
 ask() { # the payload on stdin → what the hook prints
   if [ -n "${resident}" ]; then
-    perl -0777 -ne 's/\\/\\\\/g; s/"/\\"/g; s/\n/\\n/g; print "{:json \"$_\" :log \"'"${dir}/log"'\"}\n"' \
-      | nc -U "${sock}" \
-      | perl -ne 'if (/:out "((?:[^"\\]|\\.)*)"/) { $o = $1; $o =~ s/\\(.)/$1/g; print "$o\n" }'
+    sh -c "${command}"
   else
     (cd "${dir}/p" && "${byj}" hook pretooluse --log "${dir}/log")
   fi
@@ -47,10 +47,16 @@ run() { # tool → milliseconds, the answer to stdout of the last
   echo $((t1 - t0))
 }
 if [ -n "${resident}" ]; then
-  jolt -A:dev -m brainyard.dev.hook-server-spike "${sock}" > "${dir}/server.out" 2>&1 &
+  # the installed command, as Claude Code's settings carry it; its fallback
+  # names `byj`, so BYJ's directory goes first on the PATH
+  export PATH="$(dirname "${byj}"):${PATH}"
+  command=$("${byj}" hook claude-settings --socket "${sock}" --log "${dir}/log" \
+    | perl -MJSON::PP -0777 -ne 'print decode_json($_)->{hooks}{PreToolUse}[0]{hooks}[0]{command}')
+  "${byj}" hook serve --socket "${sock}" --idle 300 > "${dir}/server.out" 2>&1 &
   server=$!
-  for _ in $(seq 120); do [ -S "${sock}" ] && break; sleep 0.5; done
-  [ -S "${sock}" ] || { cat "${dir}/server.out"; exit 1; }
+  for _ in $(seq 120); do curl -sf --unix-socket "${sock}" http://byj/v1/ping > /dev/null 2>&1 && break; sleep 0.25; done
+  curl -sf --unix-socket "${sock}" http://byj/v1/ping > /dev/null || { cat "${dir}/server.out"; exit 1; }
+  printf 'first call to the fresh server: %d ms\n' "$(run Read)"
 fi
 for tool in Write Read; do
   ms=()

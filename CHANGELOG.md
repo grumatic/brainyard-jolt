@@ -6,6 +6,14 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **byj's hook for Claude Code and Codex answers in tens of milliseconds**:
+  the command `byj hook claude-settings` and `byj hook codex-flags` install
+  now asks `byj hook serve`, a byj kept up on a unix socket
+  (`~/.brainyard/hook.sock`), with curl, so a tool call no longer pays byj's
+  start — 36 ms against 0.63 s, measured. The first call finds none,
+  is answered as before and starts it; it exits after 20 minutes with no
+  call, and when byj is upgraded. A command installed before still works, at
+  its old cost: print the settings again to get the new one.
 - **`byj hook claude-settings`** is the new name of `byj hook settings`, which
   prints the Claude Code settings that install byj's gates as its PreToolUse
   hook: named for the agent, as `byj hook codex-flags` is. `byj hook

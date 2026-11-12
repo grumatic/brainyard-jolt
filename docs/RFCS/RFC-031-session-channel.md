@@ -334,7 +334,9 @@ Codex's.
 ## API
 
 `brainyard.unix-socket`: `supported?`, `max-path-bytes`, `serve!` (`{:path
-:stop!}`), `request!`, `stream` (a reply that keeps the connection open),
+:stop!}`), `listen!` (the same socket with a protocol of the caller's: each
+connection's descriptor handed over, `byj hook serve`'s HTTP, RFC-012),
+`request!`, `stream` (a reply that keeps the connection open),
 `stream!` (its client: `{:ack :stop! :done}`), `open?`, `live-owner?`,
 `read-msg`.
 

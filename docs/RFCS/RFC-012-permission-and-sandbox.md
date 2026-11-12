@@ -429,7 +429,8 @@ opinion: the hook must never stop a person's work. Each decision is a line,
 DIR`; a program that
 reports on agents' permissions reads it, beside the agents' own decisions
 from their OpenTelemetry events. `byj hook claude-settings` prints the
-Claude Code settings that install it (for `claude --settings`, a
+Claude Code settings that install it — the command below that asks a
+resident byj first — (for `claude --settings`, a
 `settings.json`, or `:claude-settings` when agent$claude starts one);
 `byj hook codex-flags` a `codex` line carrying it as a session hook with its
 trust record, nothing written to the person's Codex home. The two are named
@@ -476,20 +477,61 @@ ways out `byj-fim` named measure differently:
 
 So the decision is a resident `byj hook serve` that a thin client asks,
 loading the payload's config on every request as the hook does now, so the
-gates and their config stay the one source of the decision. It starts
-itself: a hook call that finds nothing answering is answered by today's
-`byj hook pretooluse`, which then starts the server detached for the next
-call. The server exits after an idle time, and when the byj it was started
-from changes on disk, so an upgrade is picked up by the next call. Which
-client the hook command is remains open in the bead that builds it:
-`curl --unix-socket` against a minimal HTTP answer is one path for both
-agents, needs no escaping and is on macOS and nearly every Linux; Claude
-Code's own `http` hook type reaches only a TCP URL (its hooks reference,
-not tried here), and Codex's hooks run commands only.
+gates and their config stay the one source of the decision.
 
-It is not built yet, because nothing installs the hook by default
-(`:claude-settings` is nil, and Codex gets it only through `byj hook
-codex-flags`): today 0.7 s a call is paid only by whoever opts in.
+**The resident hook, as built** (`byj-ywp`, `brainyard.hook-serve`):
+
+- **The command an agent runs** (`client-command`, what `byj hook
+  claude-settings` and `byj hook codex-flags` install) is one `sh -c` line:
+  the payload is read once, put by `curl --unix-socket` to `POST
+  /v1/pretooluse` on `~/.brainyard/hook.sock` (`--socket`), and, when
+  nothing answers there, curl is missing, or the server refuses (any non-2xx),
+  given to `byj hook pretooluse --socket SOCK`, which answers it as it always
+  has and then starts the server for the next call. Its stdout is the
+  decision either way, so the agent's side of the contract — the payload on
+  stdin, the answer on stdout, exit 0 — is unchanged, and a command installed
+  before, `byj hook pretooluse` alone, still works, at its old cost. curl
+  gives up after 25 s, under Codex's 30 s hook timeout, so a server that
+  hangs leaves the call to the fallback; `--log` reaches the server as a
+  `Byj-Log` header. Claude Code runs a hook command through a shell, and
+  Codex through `$SHELL -lc` (its `hooks/src/engine/command_runner.rs`), so
+  one line means the same to both.
+- **The server** (`byj hook serve`, `0600` socket, `us/listen!`) speaks
+  just enough HTTP for curl — `Content-Length` bodies up to 64 MB, a `100
+  Continue` when asked, `GET /v1/ping` — and answers each call with the same
+  fn the hook process does (`main/hook-answer`), so the decision and its log
+  line are the same. It makes itself a session leader (`setsid`) with its
+  input and output closed, so the agent that started it can end, and does not
+  wait on it. It exits after `--idle` seconds with no call (1200), and when
+  the byj its command names changes on disk — the file `byj` resolves to on
+  its `PATH`, followed through links, and that file's time and size, so both
+  `brew upgrade` (a new Cellar directory) and `byj update` (a new file at the
+  same path) count: a call that finds it so is answered 503, which sends it
+  to the fallback, the new byj, and the watch ends the server within 2 s
+  when no call comes. One server to a socket: a second finds a live owner and
+  leaves.
+- **Measured** (2026-11-13, `dev/hook-latency.sh --resident`, the same
+  laptop, `target/byj`): a call through the installed command is a median
+  of 36 ms (max 47) against 628 ms as a process of its own; the first call
+  to a fresh server is 73 ms. In order, as an agent sees it: the first call
+  after none is the fallback's, ~0.7 s, and starts the server, which is
+  ready in about half a second; an upgrade costs the one call that finds it
+  (~1.4 s). The server holds about 400 MB resident while it is up — the
+  price of byj kept loaded, which is why it does not stay up all day.
+  Verified live with Claude Code (haiku, 2026-11-13): two `claude -p`
+  sessions under `--settings "$(byj hook claude-settings)"` with Bash
+  allowed by `--allowedTools` had it refused by a project denying `bash`,
+  the first through the fallback, which started the server, the second
+  answered by it after the first session had ended; one log line each.
+  Codex was not run live (not signed in on the machine).
+- **Its environment is the first caller's.** A hook process had the
+  environment of the agent that ran it; the server keeps the one it was
+  started with, by whichever agent's call found none. The gates read the
+  config of the payload's `cwd` per call (its `.env` included, `launch/
+  env-fn`), so what differs is only what comes from the process
+  environment: a model key exported in one agent's shell and not the
+  other's, for the classifier under `:auto`, and `BY_CONTAINER`. A key kept
+  in `~/.brainyard/.env` or a project's `.env` reaches every call alike.
 
 ### Config and flags
 
@@ -563,6 +605,10 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | Another agent's call refused by a rule is `deny`, one a gate would ask about is `ask`, and nothing objecting, a tool byj lacks or a hook that fails is no opinion; every decision is logged | `tool-hook-test/another-agents-calls-meet-byjs-gates` |
 | A Codex patch is gated file by file, a move's destination included | `tool-hook-test/a-codex-patch-is-every-file-it-names` |
 | The hook installs as `byj hook pretooluse`, in Claude Code's settings and Codex's session flags | `tool-hook-test/the-hook-is-installed-as-byj-hook-pretooluse` |
+| The installed command asks `byj hook serve` and, with nothing there, gives the same payload, whole, to `byj hook pretooluse --socket` with the log; what the server answers is all that is printed | `hook-serve-test/the-command-asks-the-server-and-falls-back-to-byj` |
+| The server prints nothing for no opinion, answers only `/v1/pretooluse` and `/v1/ping`, reads a large payload sent after a `100 Continue` whole, and is one to a socket | `hook-serve-test/the-server-says-nothing-for-no-opinion-and-refuses-what-it-does-not-serve` |
+| The server ends when idle and when its byj changes on disk; a call that finds it upgraded goes to the fallback | `hook-serve-test/the-server-ends-when-idle-and-when-its-byj-is-upgraded`, `hook-serve-test/the-byj-a-command-names-is-found-as-the-shell-finds-it` |
+| `byj hook claude-settings` installs the command that asks the server; `settings` still answers | `main-test/the-hook-installs-are-named-for-their-agents` |
 | A chosen mode (`:permission-mode-box`) outranks the configured one, and a change reaches the next call; an edited `:permission-mode` waits for the next session, and the session says so, since a file tool can write `config.edn` (byj-gly.226). | `permission-test/a-chosen-mode-outranks-the-configured-one`, `session-test/an-edited-permission-key-waits-for-the-next-session` |
 | Globs are whole-name, case-sensitive, `*`-only; the matched pattern is returned. | `permission-test/glob-matching` |
 | `:auto` asks outside a container; an unknown mode asks. | `permission-test/modes` |
@@ -595,9 +641,6 @@ takes `:permission-mode-box`, and a subagent inherits both.
 
 ## Known gaps
 
-- **`byj hook pretooluse` pays byj's start on every tool call** (0.7 s,
-  above). The way out is decided and measured, a resident `byj hook serve`
-  that a thin client asks, and not built — `byj-ywp`.
 - **An allow-list is not a capability boundary.** It refuses what it cannot
   segment, but a shell can still reach a listed program's own escapes — `git`
   has `-c core.pager=…`, `bd` shells out for its editor. Where that matters,

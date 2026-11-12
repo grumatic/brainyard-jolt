@@ -109,12 +109,15 @@
    :subcommands
    [{:subs [{:name "pretooluse" :args "[--log DIR]"
              :summary "a PreToolUse payload on stdin decided by byj's gates: deny, ask, or no opinion"
-             :doc "The call is mapped onto byj's tool (Bash → bash, Read → read-file, Write → write-file, Edit → update-file, Grep → grep, Glob/LS → list-dir, Codex's apply_patch → update-file of each file it names) and put through the gates a byj turn meets — tool deny, bash command, path, tool permission — under the project's config (its cwd's). A refusal by rule answers deny, a gate that would ask a person answers ask, and nothing objecting prints nothing, so the agent's own rules decide; a tool byj has no counterpart for, and a payload or hook that fails, get no opinion. Each decision is a line in DIR/<day>.edn (~/.brainyard/permissions by default), which Share's eval permissions reads."}
-            {:name "claude-settings" :args "[--log DIR]"
+             :doc "The call is mapped onto byj's tool (Bash → bash, Read → read-file, Write → write-file, Edit → update-file, Grep → grep, Glob/LS → list-dir, Codex's apply_patch → update-file of each file it names) and put through the gates a byj turn meets — tool deny, bash command, path, tool permission — under the project's config (its cwd's). A refusal by rule answers deny, a gate that would ask a person answers ask, and nothing objecting prints nothing, so the agent's own rules decide; a tool byj has no counterpart for, and a payload or hook that fails, get no opinion. Each decision is a line in DIR/<day>.edn (~/.brainyard/permissions by default), which Share's eval permissions reads. With --socket, the call is answered and then byj hook serve is started at SOCK for the next one: the installed command asks it first."}
+            {:name "serve" :args "[--socket SOCK] [--idle SECONDS]"
+             :summary "byj kept up to answer the hook's calls in milliseconds, on a unix socket (~/.brainyard/hook.sock)"
+             :doc "Answers what byj hook pretooluse would, for the command claude-settings and codex-flags install, which asks it with curl and falls back to byj hook pretooluse — which starts it — when nothing answers. It exits after SECONDS with no call (1200 by default), and when the byj it runs as changes on disk, so an upgrade is the next call's. Its environment is the one it was started with: the first agent's to call."}
+            {:name "claude-settings" :args "[--log DIR] [--socket SOCK]"
              :summary "the Claude Code settings that install it, as JSON for claude --settings or settings.json"}
-            {:name "codex-flags" :args "[--log DIR]"
+            {:name "codex-flags" :args "[--log DIR] [--socket SOCK]"
              :summary "a codex command line that carries it as a session hook, trusted for that session alone"}]}]
-   :options [:log]}
+   :options [:log :socket :idle]}
   {:name "doctor"
    :summary "Where this machine stands: the tools, the project, Claude Code's sign-in and its subscription's use"
    :usage "byj doctor"
@@ -190,6 +193,8 @@
   :install {:flags "--install" :doc "also install each missing tool a package manager can (brew, npm) — your yes, given in advance"}
   :prefix {:flags "--prefix P" :doc "the beads issue prefix (default: the directory name)"}
   :log {:flags "--log DIR" :doc "where byj hook logs each decision (default ~/.brainyard/permissions)"}
+  :socket {:flags "--socket SOCK" :doc "the unix socket byj hook serve answers at (default ~/.brainyard/hook.sock)"}
+  :idle {:flags "--idle SECONDS" :doc "how long byj hook serve waits for a call before it exits (default 1200)"}
   :no-guide {:flags "--no-guide" :doc "file no starter issues in beads (filed by default when this run sets beads up)"}
   :help {:flags "-h, --help" :doc "this help; after a command, that command's"}
   :version {:flags "-V, --version" :doc "print the version and the commit it was built from, and exit"}}}
