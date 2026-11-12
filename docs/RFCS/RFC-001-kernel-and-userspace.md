@@ -95,6 +95,7 @@ today.
 | Every flag a usage line or an option in the help names is one `parse-args` accepts. | `cli-help-test/every-flag-the-help-names-is-parsed`. |
 | `-h` shows the page of the command it names, by its name or an old one, wherever options stand before it: the help reads the command `parse-args` parsed, not the raw words. | `main-test/the-help-is-the-commands-wherever-the-options-stand`. |
 | An option `parse-args` does not know stops every command before it runs, with exit 2 and that command's help; only `-h` comes first. | `main-test/an-unknown-option-stops-every-command`. |
+| No command named is `run`, its bare words the session's first turn; `--prompt TEXT` makes `run` `ask`, one question answered and done (`-p` stays `--provider`); `--attach` with no command is `ask` (byj-4dx). | `main-test/run-is-the-default-and-prompt-asks-one-question`. |
 | `programs eval` and `compile` say a model, tier, dataset or split they cannot have in one line and exit 1, never as an unhandled exception. | `main-test/a-measurement-that-cannot-be-had-is-said-in-a-line`. |
 
 ## Known gaps

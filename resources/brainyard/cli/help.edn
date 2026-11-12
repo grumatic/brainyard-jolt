@@ -10,23 +10,23 @@
  :usage "byj [options] [command] [options] [arguments…]"
 
  :commands
- [{:name "ask" :default? true
-   :summary "Ask a question, non-interactively: the ReAct loop per question (the default)"
-   :usage "byj [ask] [options] QUESTION…"
-   :options [:provider :model :working-dir :max-iterations :loop :agent :question :json :attach :timeout
-             :params :todo :print-tree :print-predictor :verbose :trace-prompts
-             :permission-mode :ask :allow :deny :ask-effects :deny-effects :allow-path :no-path-permission
-             :sandbox :sandbox-profile :sandbox-allow-write :sandbox-no-network]}
-  {:name "run"
-   :summary "Start an interactive session: full-screen, or --inline a line at a time (/help inside)"
-   :usage "byj run [options]"
-   :options [:provider :model :working-dir :max-iterations :loop :inline
+ [{:name "run" :default? true
+   :summary "Start an interactive session: full-screen, or --inline a line at a time (/help inside; the default)"
+   :usage "byj [run] [options] [QUESTION…]"
+   :options [:provider :model :working-dir :max-iterations :loop :inline :prompt
              :resume :resume-latest :resume-run :sessions :no-persist
              :serve :agent :label :leader :params :todo :verbose
              :permission-mode :ask :allow :deny :ask-effects :deny-effects :allow-path :no-path-permission
              :sandbox :sandbox-profile :sandbox-allow-write :sandbox-no-network
              :share
              :web :web-tmux :web-port :web-bind :web-user :web-pass :web-readonly :web-max-clients :web-once]}
+  {:name "ask"
+   :summary "Ask a question, non-interactively: the ReAct loop per question (byj --prompt TEXT is the same)"
+   :usage "byj ask [options] QUESTION… | byj --prompt TEXT [options]"
+   :options [:provider :model :working-dir :max-iterations :loop :agent :question :prompt :json :attach :timeout
+             :params :todo :print-tree :print-predictor :verbose :trace-prompts
+             :permission-mode :ask :allow :deny :ask-effects :deny-effects :allow-path :no-path-permission
+             :sandbox :sandbox-profile :sandbox-allow-write :sandbox-no-network]}
   {:name "session" :aliases ["sessions"]
    :summary "This project's sessions, and a live one's events (RFC-031)"
    :subcommands
@@ -135,6 +135,7 @@
   :max-iterations {:flags "-n, --max-iterations N" :doc "the per-turn iteration ceiling (default 20)"}
   :loop {:flags "-l, --loop FILE" :doc "a behavior-tree EDN to run instead of the bundled one (ask: the react loop; run: the session loop)"}
   :question {:flags "-q, --question TEXT" :doc "a question (repeatable; positional arguments also work)"}
+  :prompt {:flags "--prompt TEXT" :doc "answer TEXT and exit, as ask does, instead of starting a session (-p is --provider)"}
   :inline {:flags "-i, --inline" :doc "a line at a time instead of the full-screen renderer, the default wherever a terminal allows it (ctrl-c cancels a turn, ctrl-q quits)"}
   :print-tree {:flags "--print-tree" :doc "print the loop tree, :include nodes expanded, and exit"}
   :params {:flags "--params FILE" :doc "EDN {predictor-id params}: the highest-precedence params layer"}

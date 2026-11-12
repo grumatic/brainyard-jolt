@@ -10,8 +10,8 @@ and the tree is interpreted at run time — swap it with `--loop file.edn`, no
 rebuild. Every word the model reads is a resource too.
 
 - **[Install](#installing)** with Homebrew, or build from source.
-- **[Use](#usage)** it in a terminal (`byj run`), for one question
-  (`byj ask`), from an editor over ACP (`byj acp`), or from your own code
+- **[Use](#usage)** it in a terminal (`byj`), for one question
+  (`byj --prompt`), from an editor over ACP (`byj acp`), or from your own code
   with the Agent SDK.
 - **[Contribute](CONTRIBUTING.md):** [AGENTS.md](AGENTS.md) has the rules a
   change keeps, for people and coding agents alike.
@@ -37,8 +37,9 @@ binary, the tag checked out for a checkout. `byj doctor` lists every copy on
 ## Usage
 
 ```bash
-byj run                                  # a session in the full-screen terminal view
-byj ask "How many .clj files are under src/?"
+byj                                      # a session in the full-screen terminal view (byj run)
+byj "explain deps.edn"                   # a session whose first turn is that
+byj --prompt "How many .clj files are under src/?"   # one answer, then exit (byj ask "…")
 byj run -p claude-code -m sonnet -C /some/project -v
 printf 'q1\nq2\n' | byj run -p mock      # piped input works too
 ```

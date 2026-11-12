@@ -1,9 +1,10 @@
 (ns brainyard.main
-  "The `byj` CLI: `ask` runs the ReAct loop on one or more questions;
-  `run` is brainyard's multi-turn session, an outer loop nesting the ReAct loop.
+  "The `byj` CLI: `run`, the default, is brainyard's multi-turn session, an
+  outer loop nesting the ReAct loop; `ask` (or `--prompt`) runs the ReAct
+  loop on one or more questions and exits.
 
-    jolt ask:byj [options] \"question\"        jolt run [options]
-    target/byj [ask|run] [options] …     (after `jolt build`)"
+    jolt run:byj [options] [\"question\"]   jolt ask:byj [options] \"question\"
+    target/byj [run] [options] [question…]   target/byj --prompt \"question\""
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
@@ -78,15 +79,31 @@
   `agent NAME` — and kept for scripts and a byj-share that asks by the old one."
   {"sessions" "session" "agents" "agent"})
 
+(defn- settle-command
+  "The command the parsed words come to. None named is `run`, a session, its
+  bare words the first turn's, as `claude \"q\"` (byj-4dx); `--prompt` makes
+  `run` (named or not) `ask`, one question answered and done, as `claude -p`
+  — whose `-p` is byj's, and brainyard's, `--provider`. `--attach` with no
+  command named is `ask` too, the one command it means anything to, as when
+  `ask` was the default."
+  [{:keys [command command-named? prompt attach] :as opts}]
+  (cond
+    (and prompt (contains? #{nil :run :ask} command)) (assoc opts :command :ask)
+    prompt (update opts :errors (fnil conj [])
+                   (str "--prompt asks one question, not `" (name command) "`: byj --prompt TEXT"))
+    (and attach (not command-named?)) (assoc opts :command :ask)
+    :else (update opts :command #(or % :run))))
+
 (defn parse-args
   "The command line as opts. The command is the first word that is neither an
   option nor an option's value, when it names one; any other first word
-  starts the question, and the command is `ask`. So options stand before the
-  command as well as after it — `byj -C DIR eval exam`, as `git -C DIR
-  status` — where once only the first argument was read for it, and `byj -C
-  DIR eval exam` asked the default model \"eval exam\" (byj-gly.420)."
+  starts the question, and the command is `run` (`settle-command`). So
+  options stand before the command as well as after it — `byj -C DIR eval
+  exam`, as `git -C DIR status` — where once only the first argument was
+  read for it, and `byj -C DIR eval exam` asked the default model \"eval
+  exam\" (byj-gly.420)."
   [args]
-  (update
+  (settle-command
     (loop [[a & more :as args] args, opts {:command nil :questions []}]
       (cond
         (empty? args) opts
@@ -98,6 +115,10 @@
           ("-n" "--max-iterations") (recur (rest more) (assoc opts :max-iterations (parse-long (first more))))
           ("-l" "--loop") (recur (rest more) (assoc opts :loop (first more)))
           ("-q" "--question") (recur (rest more) (update opts :questions conj (first more)))
+          ;; one question, answered and done: run becomes ask (byj-4dx)
+          "--prompt" (if (and (seq more) (not (str/blank? (first more))))
+                       (recur (rest more) (-> opts (assoc :prompt true) (update :questions conj (first more))))
+                       (recur (rest more) (update opts :errors (fnil conj []) "--prompt needs the question: --prompt TEXT")))
           "--print-tree" (recur more (assoc opts :print-tree true))
           "--print-config" (recur more (assoc opts :print-config true))
           ("-r" "--resume") (recur (rest more) (assoc opts :resume (first more)))
@@ -225,8 +246,7 @@
             (and (nil? (:command opts)) (command-names (command-aliases a a)))
             (recur more (assoc opts :command (keyword (command-aliases a a)) :command-named? true))
             :else
-            (recur more (-> opts (update :command #(or % :ask)) (update :questions conj a)))))))
-    :command #(or % :ask)))
+            (recur more (-> opts (update :command #(or % :run)) (update :questions conj a)))))))))
 
 (defn- help-words
   "The words the help is asked by: the command, when one was named, and the
@@ -1995,7 +2015,7 @@
           :else (attach-command opts config)))
 
       (and (= :ask command) (empty? questions))
-      (do (err-println "no question given (use `run` for an interactive session)")
+      (do (err-println "no question given (byj alone starts an interactive session)")
           (err-println (str "\n" (cli-help/text (help-words opts) nil)))
           (System/exit 2))
 

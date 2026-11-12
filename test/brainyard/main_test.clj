@@ -348,15 +348,36 @@
       (is (= {:command :turns :questions ["list"] :working-dir "/tmp/x"} (cmd "-C" "/tmp/x" "turns" "list")))
       (is (= {:command :run :questions [] :provider :mock :model "mock"} (cmd "-p" "mock" "-m" "mock" "run"))))
     (testing "an option's value is never taken for the command"
-      (is (= {:command :ask :questions ["hi"] :model "run"} (cmd "-m" "run" "hi"))))
+      (is (= {:command :run :questions ["hi"] :model "ask"} (cmd "-m" "ask" "hi"))))
     (testing "a question is still a question"
-      (is (= {:command :ask :questions ["explain" "run"] :working-dir "/tmp/x"} (cmd "-C" "/tmp/x" "explain" "run")))
-      (is (= {:command :ask :questions ["what" "is" "this"]} (cmd "what" "is" "this")))
+      (is (= {:command :run :questions ["explain" "run"] :working-dir "/tmp/x"} (cmd "-C" "/tmp/x" "explain" "run")))
+      (is (= {:command :run :questions ["what" "is" "this"]} (cmd "what" "is" "this")))
       (is (= {:command :ask :questions ["turns"]} (cmd "ask" "turns")) "ask named, the next word is its question")
-      (is (= {:command :ask :questions ["eval" "exam"]} (cmd "eval" "exam")) "Share's commands are not byj's (RFC-070 D4)"))
-    (testing "nothing but options is ask, as before"
-      (is (= :ask (:command (main/parse-args ["-V"]))))
-      (is (= :ask (:command (main/parse-args [])))))))
+      (is (= {:command :run :questions ["eval" "exam"]} (cmd "eval" "exam")) "Share's commands are not byj's (RFC-070 D4)"))
+    (testing "nothing but options is run"
+      (is (= :run (:command (main/parse-args ["-V"]))))
+      (is (= :run (:command (main/parse-args [])))))))
+
+;; --- run is the default; --prompt asks (byj-4dx) ---------------------------------
+
+(deftest run-is-the-default-and-prompt-asks-one-question
+  (let [cmd (fn [& args] (select-keys (main/parse-args (vec args)) [:command :questions :provider :errors]))]
+    (testing "byj alone is a session, and its words the first turn's, as `claude \"q\"`"
+      (is (= {:command :run :questions []} (cmd)))
+      (is (= {:command :run :questions ["fix" "it"]} (cmd "fix" "it"))))
+    (testing "--prompt is ask: one question, answered and done, as `claude -p`"
+      (is (= {:command :ask :questions ["hi"]} (cmd "--prompt" "hi")))
+      (is (= {:command :ask :questions ["hi"]} (cmd "run" "--prompt" "hi")) "run named, --prompt still asks")
+      (is (= {:command :ask :questions ["hi"]} (cmd "ask" "--prompt" "hi")))
+      (is (= {:command :ask :questions ["hi"] :provider :mock} (cmd "-p" "mock" "--prompt" "hi"))
+          "-p is still --provider, brainyard's"))
+    (testing "--attach with no command is ask, the only command it means anything to"
+      (is (= :ask (:command (main/parse-args ["-A" "s1" "q"]))))
+      (is (= :ask (:command (main/parse-args ["--attach" "s1" "-q" "q"])))))
+    (testing "what --prompt cannot mean is said, before anything runs"
+      (is (= ["--prompt needs the question: --prompt TEXT"] (:errors (cmd "--prompt"))))
+      (is (= ["--prompt asks one question, not `session`: byj --prompt TEXT"]
+             (:errors (cmd "session" "list" "--prompt" "q")))))))
 
 (deftest session-and-agent-are-singular-and-answer-to-their-old-names
   ;; byj-gly.435: `session` and `agent`; `sessions` (brainyard's) and
@@ -366,7 +387,7 @@
     (is (= {:command :session :questions ["list"]} (cmd "sessions" "list")))
     (is (= {:command :agent :questions ["explore"]} (cmd "agent" "explore")))
     (is (= {:command :agent :questions ["explore"]} (cmd "agents" "explore")))
-    (is (= {:command :ask :questions ["what" "sessions"]} (cmd "what" "sessions")) "only as the command")))
+    (is (= {:command :run :questions ["what" "sessions"]} (cmd "what" "sessions")) "only as the command")))
 
 (deftest the-help-is-the-commands-wherever-the-options-stand
   ;; byj-gly.436: the help read its command off the raw args, stopping at the
