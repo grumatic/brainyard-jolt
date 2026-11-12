@@ -620,9 +620,10 @@
   "`byj hook pretooluse [--log DIR]` — a Claude Code or Codex `PreToolUse`
   payload on stdin through byj's gates under its project's config, the
   decision logged and the agent's answer printed (nothing for no opinion);
-  `byj hook settings` — the Claude Code settings that install it; `byj hook
-  codex-flags` — a codex command line that carries it (RFC-012, byj-ahf.24):
-  the exit code. A payload that cannot be read has no opinion: the hook must
+  `byj hook claude-settings` — the Claude Code settings that install it,
+  named as `byj hook codex-flags` is, a codex command line that carries it
+  (RFC-012, byj-ahf.24); `settings`, its name in v0.3.18 and v0.3.19, still
+  answers: the exit code. A payload that cannot be read has no opinion: the hook must
   never stop the person's work."
   [{:keys [questions log working-dir]} overrides]
   (let [overrides (dissoc overrides :working-dir)
@@ -638,9 +639,9 @@
             (when-let [out (tool-hook/hook! config payload (tool-hook/log-dir log (System/getenv "HOME")))]
               (println out))))
         0)
-      "settings" (do (println (json/write-str (tool-hook/settings command))) 0)
+      ("claude-settings" "settings") (do (println (json/write-str (tool-hook/claude-settings command))) 0)
       "codex-flags" (do (println (tool-hook/codex-line command)) 0)
-      (do (err-println (str "hook: unknown subcommand " (pr-str (first questions)) " — pretooluse, settings, codex-flags")) 2))))
+      (do (err-println (str "hook: unknown subcommand " (pr-str (first questions)) " — pretooluse, claude-settings, codex-flags")) 2))))
 
 (defn- emacs-command
   "`byj emacs install-el` — byj.el where the person's init can require it,

@@ -417,6 +417,18 @@
                        (if-let [c (::exit (ex-data e))] (reset! code c) (throw e))))))]
     {:exit @code :out out :err (str err)}))
 
+(deftest the-hook-installs-are-named-for-their-agents
+  ;; `byj hook claude-settings` beside `byj hook codex-flags`; `settings`, its
+  ;; name in v0.3.18 and v0.3.19, still answers for a script written then
+  (let [{:keys [exit out]} (run-main "hook" "claude-settings")]
+    (is (= 0 exit))
+    (is (str/includes? out "\"PreToolUse\""))
+    (is (str/includes? out "hook pretooluse")))
+  (is (= (:out (run-main "hook" "claude-settings")) (:out (run-main "hook" "settings"))))
+  (let [{:keys [exit err]} (run-main "hook" "bogus")]
+    (is (= 2 exit))
+    (is (str/includes? err "pretooluse, claude-settings, codex-flags"))))
+
 (deftest an-unknown-option-stops-every-command
   ;; byj-gly.437: the check stood after the commands that need no session,
   ;; so `byj --bogus agent` listed the agents and said nothing of --bogus; a

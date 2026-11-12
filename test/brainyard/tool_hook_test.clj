@@ -73,7 +73,7 @@
   (is (= "byj hook pretooluse" (hook/hook-command "byj" nil)))
   (is (= "byj hook pretooluse --log /x" (hook/hook-command "byj" "/x")))
   (is (= {:hooks {:PreToolUse [{:matcher "*" :hooks [{:type "command" :command "byj hook pretooluse"}]}]}}
-         (hook/settings "byj hook pretooluse")))
+         (hook/claude-settings "byj hook pretooluse")))
   (let [line (hook/codex-line "byj hook pretooluse")]
     (is (str/starts-with? line "codex '-c' 'hooks.PreToolUse=[{hooks=[{type=\"command\",command=\"byj hook pretooluse\""))
     (is (str/includes? line "hooks.state=")))

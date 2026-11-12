@@ -110,7 +110,7 @@
    [{:subs [{:name "pretooluse" :args "[--log DIR]"
              :summary "a PreToolUse payload on stdin decided by byj's gates: deny, ask, or no opinion"
              :doc "The call is mapped onto byj's tool (Bash → bash, Read → read-file, Write → write-file, Edit → update-file, Grep → grep, Glob/LS → list-dir, Codex's apply_patch → update-file of each file it names) and put through the gates a byj turn meets — tool deny, bash command, path, tool permission — under the project's config (its cwd's). A refusal by rule answers deny, a gate that would ask a person answers ask, and nothing objecting prints nothing, so the agent's own rules decide; a tool byj has no counterpart for, and a payload or hook that fails, get no opinion. Each decision is a line in DIR/<day>.edn (~/.brainyard/permissions by default), which Share's eval permissions reads."}
-            {:name "settings" :args "[--log DIR]"
+            {:name "claude-settings" :args "[--log DIR]"
              :summary "the Claude Code settings that install it, as JSON for claude --settings or settings.json"}
             {:name "codex-flags" :args "[--log DIR]"
              :summary "a codex command line that carries it as a session hook, trusted for that session alone"}]}]

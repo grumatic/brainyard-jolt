@@ -6,6 +6,11 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj hook claude-settings`** is the new name of `byj hook settings`, which
+  prints the Claude Code settings that install byj's gates as its PreToolUse
+  hook: named for the agent, as `byj hook codex-flags` is. `byj hook
+  settings` still answers, for a script written against v0.3.18 or v0.3.19.
+
 ## v0.3.19 — 2026-11-12
 
 - **byj for arm64 Linux** (Graviton, Ampere, a Raspberry Pi 4 or 5 on a

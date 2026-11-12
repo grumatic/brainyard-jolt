@@ -232,7 +232,7 @@ sets `:claude-tools?`, which is what registers the `claude$*` commands
   background task (RFC-019); nothing here backgrounds it.
 - The child is started with `:claude-permission-mode` (`auto`, `.9`) and
   `:claude-settings` when set — for brainyard's gates as its PreToolUse hook
-  (`byj hook settings`, RFC-012), merged into the settings that deny it
+  (`byj hook claude-settings`, RFC-012), merged into the settings that deny it
   pushing (`.4`) — unless the task tells it to publish (`byj-gly.307`).
 - Its model is the one the plan names (`claude/plan`'s `:model`), else
   `:claude-model`, else Claude Code's own default, which is the account's.

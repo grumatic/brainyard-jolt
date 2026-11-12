@@ -428,11 +428,14 @@ opinion: the hook must never stop a person's work. Each decision is a line,
 `:error`, in `<DIR>/<day>.edn`, `~/.brainyard/permissions` unless `--log
 DIR`; a program that
 reports on agents' permissions reads it, beside the agents' own decisions
-from their OpenTelemetry events. `byj hook settings` prints the
+from their OpenTelemetry events. `byj hook claude-settings` prints the
 Claude Code settings that install it (for `claude --settings`, a
 `settings.json`, or `:claude-settings` when agent$claude starts one);
 `byj hook codex-flags` a `codex` line carrying it as a session hook with its
-trust record, nothing written to the person's Codex home.
+trust record, nothing written to the person's Codex home. The two are named
+for the agent each installs it in; `byj hook settings`, the first's name in
+v0.3.18 and v0.3.19, still answers as `claude-settings` does
+(`main-test/the-hook-installs-are-named-for-their-agents`).
 
 It applies byj's own policy, so it is byj's (decided 2026-11-11,
 `byj-ahf.24`): a copy of these gates in another program would drift from

@@ -364,7 +364,7 @@
    :claude-model {:type "string" :default nil :family :agents
                   :doc "The model a Claude Code session agent$claude starts is given when its plan names none (claude/plan's :model), e.g. \"sonnet\". Unset: Claude Code's own default, which is the account's (byj-gly.320)."}
    :claude-settings {:type "string" :default nil :family :agents
-                     :doc "A --settings file or JSON agent$claude starts a Claude Code session with, e.g. one that sets byj's gates as its PreToolUse hook (byj hook settings, RFC-012)."}
+                     :doc "A --settings file or JSON agent$claude starts a Claude Code session with, e.g. one that sets byj's gates as its PreToolUse hook (byj hook claude-settings, RFC-012)."}
    :claude-max-rounds {:type "integer" :default 8 :family :agents
                        :doc "How many of a Claude Code session's turns agent$claude watches and guides before it reports back (RFC-039)."}
    :claude-turn-timeout-ms {:type "integer" :default 1800000 :family :agents

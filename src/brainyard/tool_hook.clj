@@ -132,7 +132,7 @@
   [self dir]
   (str/join " " (concat [self "hook" "pretooluse"] (when (seq dir) ["--log" dir]))))
 
-(defn settings
+(defn claude-settings
   "The Claude Code settings that install the hook: a `PreToolUse` hook
   running `command` before every tool."
   [command]
