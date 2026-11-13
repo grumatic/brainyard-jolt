@@ -304,6 +304,10 @@ or a directory holding one (a recursive read would open it), before it reads
 `:allowed-dirs`, in every mode and whatever `:path-permission?` says; the
 command gate refuses a line naming one, absolute or from `~` — a tripwire, as
 `:bash-deny-commands` is, for a shell reaches a file by other spellings.
+Its refusal names the word that reached the entry and whether it is under
+it or holds it. A word of slashes alone is not a path to it, as a bare `/`
+is not: jq's `a // b` and Python's `7 // 2` were read as the root, which
+holds every entry (provenance P-64).
 `permission-test/a-login-or-a-key-is-read-by-no-tool`. A program that runs a session for
 another caller narrows it with `BY_ALLOWED_DIRS` — its project and the temp
 dir alone, as an A2A gateway gives a caller's turn.
@@ -648,6 +652,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | A separator inside single or double quotes is text, and an escaped one too. A real second command is still held to the list. Substitution is refused inside quotes too, and an unclosed quote is refused. | `permission-test/a-separator-inside-quotes-is-text`, `permission-test/an-allow-list-refuses-what-it-cannot-read` |
 | The gate covers every tool declaring `:command-params`, `task$run` included, and a deny list ignores the mode. | `permission-test/the-command-gate-covers-every-tool-that-names-a-command` |
 | A path a command names is checked against `:allowed-dirs`; one that does not exist is not a violation. | `permission-test/a-command-may-not-name-a-path-it-could-not-open` |
+| A command naming a `:denied-paths` entry, or a directory holding one, is refused in every mode, saying which word reached it; a word of slashes alone (`a // b`) names no path. | `permission-test/a-login-or-a-key-is-read-by-no-tool` |
 | A bd-only agent's shell — this repository's bead-keeper, `.brainyard/agents/beads` — runs `bd` and nothing else. | `agents-test/the-bead-keeper-runs-bd-and-nothing-else` |
 | Deny refuses under every mode, cannot be exempted by an allow glob, and can key on an effect — including a user tool's inherited effects. | `permission-test/deny-gate` |
 | Only a pattern or effect match asks; an allow glob exempts; the modes behave; headless, a denial and a throwing prompt all refuse; deny decides before permission. | `permission-test/permission-gate` |

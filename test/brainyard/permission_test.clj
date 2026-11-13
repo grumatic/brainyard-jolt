@@ -382,6 +382,15 @@
     (is (str/includes? (str (:error (call (c :permission-mode :auto-approve) "bash" {:command (str "cat " (.getPath cred))})))
                        "it names a login or a key")
         "a shell naming one is refused too: a tripwire, not a sandbox")
+    (is (str/includes? (str (:error (call (c :permission-mode :auto-approve) "bash" {:command (str "grep -r token " home)})))
+                       (str home " holds it"))
+        "and the refusal says which word reached it")
+    ;; provenance P-64: jq's `a // b` was read as the path //, the root, which
+    ;; holds every login and key
+    (doseq [cmd ["echo '.parent // .parent_id // \"?\"'" "echo 'print(7 // 2)'" "echo a // b"]]
+      (is (= [] (permission/command-paths cmd)) cmd)
+      (is (not (str/includes? (str (:error (call (c :permission-mode :auto-approve) "bash" {:command cmd}))) "login"))
+          (str "a // is no path: " cmd)))
     (is (= "~/.ssh" (permission/denied-path ["~/.ssh"] ["/h/.ssh/id_ed25519"] "/h")) "~ is the home")
     (is (nil? (permission/denied-path ["~/.ssh"] ["/h/.sshx/a"] "/h")) "by segment")
     ;; provenance P-52: a commit message's "~0.4 ms" was read as the home

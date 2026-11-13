@@ -6,6 +6,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A command with `//` in it is no longer refused as naming a login or a
+  key.** jq's `a // b` and Python's `7 // 2` were read as the root
+  directory, which holds them all. A refusal now says which word in the
+  command reached the login or key.
 - **A turn's checkpoint keeps a same-size edit made in the second the
   person's index was written.** It could be left out when the turn ended in
   the next second, so a rewind did not put the file back and the turn's

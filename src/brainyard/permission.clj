@@ -572,10 +572,16 @@
   "Absolute paths named in a command line — brainyard's `validate-bash-paths`
   regex. A path that does not exist is not a violation there, and is not here:
   a redirection into a new file under an allowed dir would otherwise be refused
-  for not existing yet."
+  for not existing yet.
+
+  A word of slashes alone is not taken, as a bare `/` is not: it is jq's
+  `a // b`, Python's `7 // 2` or a comment far more often than the root, and
+  read as the root it held every :denied-paths entry and refused the command
+  (provenance P-64)."
   [command]
   (->> (re-seq #"(?:^|[\s\"'=])(/[^\s\"'>;|&]+)" (str command))
        (map second)
+       (remove #(re-matches #"/+" %))
        (filter #(.exists (io/file %)))
        distinct
        vec))
@@ -637,11 +643,17 @@
              named (concat (mapcat command-paths commands)
                            (mapcat #(home-paths % home) commands))]
          (when-let [d (denied-path (config ctx :denied-paths (get-in config/config-items [:denied-paths :default])) named home)]
-           (deny-replace {:by "bash-command-gate" :display tool-name
-                          :reason (str "it names a login or a key (" d ", :denied-paths)")
-                          :reason-prefix "Command refused"
-                          :error-prefix "Tool call refused (command)"
-                          :hint "A person's logins and keys are read by no tool."})))
+           ;; which word reached it, so a refusal that looks wrong says why
+           (let [p (first (filter #(denied-path [d] [%] home) named))
+                 full (if (and home (str/starts-with? (str d) "~/")) (str home (subs (str d) 1)) (str d))]
+             (deny-replace {:by "bash-command-gate" :display tool-name
+                            :reason (str "it names a login or a key (" d ", :denied-paths): " p
+                                         (cond (= (canonical full) (canonical p)) ""
+                                               (under? full p) " is under it"
+                                               :else " holds it"))
+                            :reason-prefix "Command refused"
+                            :error-prefix "Tool call refused (command)"
+                            :hint "A person's logins and keys are read by no tool."}))))
        ;; the paths it names
        (when (config ctx :path-permission? true)
          (let [working-dir (config ctx :working-dir ".")
