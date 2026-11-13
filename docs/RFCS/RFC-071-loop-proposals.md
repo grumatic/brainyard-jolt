@@ -231,6 +231,9 @@ All of it but a project's own loop: the rest is a design. The order of
 work is the epic's:
 
 - `loop/` proposals — `byj-ng7.2`.
+- A tool can still write `.brainyard/loops/`, which would make a loop the
+  project's with no history line and no person accepting it; the gate
+  should refuse or ask — `byj-ng7.12`.
 - Tasks rebuilt from past turns — `byj-ng7.3`.
 - The clone run and the comparison — `byj-ng7.4`.
 - `byj loops propose` — `byj-ng7.5`.
