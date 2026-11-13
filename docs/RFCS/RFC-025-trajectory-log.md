@@ -51,6 +51,7 @@ it cost. That is a record, not a stream.
  :usage {:in 1243 :out 287 :cache-read 900 :cache-write 300 :calls 2}
  :duration-ms 1420
  :permission-mode "auto"              ; the mode in force at the turn's end
+ :loop {:hash "cdf9eecbbb3a"}         ; the tree the turn ran, expanded (byj-ng7.19)
  :jolt "v0.8.10"}                     ; the RUNTIME that produced the turn
 ```
 
@@ -59,6 +60,13 @@ it cost. That is a record, not a stream.
 last chose with shift+tab, else the config's, as the turn ended. A scorer reading the trajectory asks whether a change was made with
 every call approved, as Claude Code's transcript says on every line; brainyard's record
 has no such key. No `:v` bump, as for `:jolt`.
+
+**`:loop` is the port's, and optional** (divergence
+`trajectory-keeps-the-loop-hash`, byj-ng7.19): `{:hash}`, `flow/tree-hash`
+of the tree the turn ran, expanded — a session's turn, the session tree; an
+`ask`, its loop — the hash `byj flow check --json` gives a loop file as
+`:expanded-hash`. A harness that chose the loop (`byj ask --loop FILE`) reads
+from it that every trial ran that loop (RFC-071 "Promotion"). No `:v` bump.
 
 `:in` is the **total** input — fresh, cached and newly-written tokens together
 (RFC-006) — so the three buckets are `cache-read`, `cache-write` and whatever
@@ -205,6 +213,7 @@ hold, and neither does the default.
 |---|---|
 | What a turn leaves on disk — `trajectory.edn` and the session's `meta.edn` — is exported as `contract/trajectory/` and held to what byj writes (RFC-070 phase 2) | `contract-test/the-session-socket-and-the-trajectory-are-byjs-contract` |
 | A turn appends exactly one record, with its question, answer, iterations, model, provider, usage and duration. | `trajectory-test/a-turn-records-what-it-did` |
+| A turn's record says which loop it ran, by the hash `flow check` gives that loop's file expanded | `trajectory-test/a-turn-records-which-loop-it-ran` |
 | Turns append; position is the ordering. | `trajectory-test/a-second-turn-appends-rather-than-replacing` |
 | The record keeps every iteration, though the prompt is capped. | `trajectory-test/the-record-keeps-what-the-prompt-was-made-to-forget` |
 | A `:tool/run` leaf's call is in the record, failed or not, and not in the prompt's history; agent$init's record holds its commands. | `flow-test/a-leaf-can-be-a-tool`, `init-test/init-sets-up-a-project-and-reports-what-it-did` |

@@ -384,7 +384,9 @@ Named `flow$` because `agent$<name>` already means *dispatch to that agent*
 (RFC-018), so the verbs need a family of their own.
 
 CLI: **`by flow check|status|brief|probe|patch`** (built, `--json`,
-`--expect-hash`).
+`--expect-hash`). `flow check --json` says `:hash`, of the tree's source,
+and `:expanded-hash`, of the tree as it runs, which is what a turn that ran
+it records (`:loop {:hash}`, RFC-025, `byj-ng7.19`).
 
 Config (RFC-013): `:flows?` (true).
 

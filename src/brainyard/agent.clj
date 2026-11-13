@@ -981,7 +981,8 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                 :model (:model lm)
                 :provider (:provider lm)
                 :usage usage
-                :started-at started-at})]
+                :started-at started-at
+                :loop-hash (:loop-hash ctx)})]
       (when (trajectory/append! f rec)
         (emit! ctx :agent.trajectory/stored {:path (.getPath f)
                                              :iterations (:total-iterations rec)})))))
@@ -1531,12 +1532,21 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
      :params params
      :on-event on-event}))
 
+(defn- with-loop-hash
+  "`ctx` knowing the hash of the tree it runs, as it ran — expanded —, which
+  every turn's record carries (`:loop {:hash}`, RFC-025): so a harness that
+  ran a loop of its choosing can say which loop each turn ran (RFC-071
+  \"Promotion\", byj-ng7.19). `byj flow check --json` gives the same hash of
+  a loop file, as `:expanded-hash`."
+  [ctx tree]
+  (assoc ctx :loop-hash (flow/tree-hash tree)))
+
 (defn run-tree!
   "Validate tree against ctx's registry, then tick it."
   [ctx tree]
   (when-let [problem (bt/validate tree (:registry ctx))]
     (throw (ex-info (str "invalid loop tree: " problem) {})))
-  (bt/tick ctx tree))
+  (bt/tick (with-loop-hash ctx tree) tree))
 
 (defn turn-result
   "The public shape of one finished ReAct turn's memory."
@@ -1561,7 +1571,8 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                           history-context (assoc :history-context history-context)
                           (seq parent-trail) (assoc :parent-trail (vec parent-trail))))
         ctx (assoc (make-ctx opts) :st-memory st-memory)
-        tree (or tree (load-tree nil (:project-dir (:config ctx))))]
+        tree (or tree (load-tree nil (:project-dir (:config ctx))))
+        ctx (with-loop-hash ctx tree)]
     (when-let [problem (bt/validate tree (:registry ctx))]
       (throw (ex-info (str "invalid loop tree: " problem) {})))
     (m/sp

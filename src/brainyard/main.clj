@@ -1664,9 +1664,10 @@
       "check"
       (let [ctx (agent/make-ctx {:lm lm :config config})
             opts (-> (flow/ctx-opts ctx) (update :registry merge session/registry))
-            {:keys [tree problems hash]} (flow/check-tree-name (or tree agent/react-loop) opts)
-            out {:ok (empty? problems) :problems (vec problems)
-                 :nodes (count (bt/nodes (or tree []))) :hash hash}]
+            {:keys [tree problems hash expanded-hash]} (flow/check-tree-name (or tree agent/react-loop) opts)
+            out (cond-> {:ok (empty? problems) :problems (vec problems)
+                         :nodes (count (bt/nodes (or tree []))) :hash hash}
+                  expanded-hash (assoc :expanded-hash expanded-hash))]
         (if json
           (println (json/write-str out))
           (if (empty? problems)

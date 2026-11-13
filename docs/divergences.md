@@ -1794,6 +1794,17 @@ transcript answers on every line and a byj record otherwise could not: a
 session under `:auto-approve` would have read as met on no evidence. A reader
 of brainyard's records loses nothing — the key is optional, and `:v` stays 3.
 
+<!-- divergence: trajectory-keeps-the-loop-hash -->
+**A trajectory record says which loop its turn ran.** brainyard's record
+(`agent/common/trajectory.clj` `build-record`) does not, and could not need
+to: its loop was compiled in. byj's is data a person or a harness chooses
+(`--loop`, a project's own loop, RFC-071), so the port adds an optional
+`:loop {:hash}`, the hash of the tree the turn ran, expanded — what
+`byj flow check --json` gives a loop file as `:expanded-hash`. A harness
+built on byj that ran a candidate on a benchmark, Terminal-Bench say,
+checks from it that every trial ran the candidate (byj-ng7.19). A reader of
+brainyard's records loses nothing — the key is optional, and `:v` stays 3.
+
 <!-- divergence: session-and-agent-are-singular -->
 **`byj session` and `byj agent`, not `sessions` and `agents`.** brainyard's
 CLI lists a project's sessions with `by sessions list`

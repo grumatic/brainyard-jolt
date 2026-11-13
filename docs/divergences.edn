@@ -484,6 +484,9 @@
  {:id "trajectory-keeps-the-permission-mode"
   :brainyard "components/agent common/trajectory.clj build-record (no permission mode in a turn's record)"
   :test "brainyard.trajectory-test/a-record-keeps-the-permission-mode-it-ran-under"}
+ {:id "trajectory-keeps-the-loop-hash"
+  :brainyard "components/agent common/trajectory.clj build-record (no loop in a turn's record)"
+  :test "brainyard.trajectory-test/a-turn-records-which-loop-it-ran"}
  {:id "session-and-agent-are-singular"
   :brainyard "projects/agent-tui-app main.clj cli spec (:command \"sessions\", cmd-sessions-list)"
   :test "brainyard.main-test/session-and-agent-are-singular-and-answer-to-their-old-names"}

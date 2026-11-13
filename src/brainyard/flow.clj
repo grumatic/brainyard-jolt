@@ -360,18 +360,22 @@
 (declare tree-hash)
 
 (defn check-tree-name
-  "Load a tree by name and check it. Returns `{:tree :problems :hash}`; a tree
+  "Load a tree by name and check it. Returns `{:tree :problems :hash
+  :expanded-hash}`; a tree
   that cannot be loaded or expanded is itself the problem.
 
   `:hash` is of the SOURCE, not the expansion — it is what a patch guards
-  against, and the two differ for any tree with an `:include`. The tree and
+  against, and the two differ for any tree with an `:include`.
+  `:expanded-hash` is of the expansion: what a turn that ran it records
+  (`:loop {:hash}`, RFC-025, byj-ng7.19). The tree and
   its includes are found for `(:project-dir opts)`, the project's own loop
   first (RFC-071)."
   [tree-name opts]
   (try
     (let [resolve-tree (requiring-resolve 'brainyard.agent/resolve-tree)
           tree ((requiring-resolve 'brainyard.agent/load-tree) tree-name (:project-dir opts))]
-      {:tree tree :problems (check tree opts) :hash (tree-hash (resolve-tree tree-name (:project-dir opts)))})
+      {:tree tree :problems (check tree opts) :hash (tree-hash (resolve-tree tree-name (:project-dir opts)))
+       :expanded-hash (tree-hash tree)})
     (catch Throwable e
       {:problems [{:node :tree :problem (ex-message e)}]})))
 

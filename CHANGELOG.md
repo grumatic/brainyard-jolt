@@ -6,6 +6,11 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A turn's record says which loop it ran**: `:loop {:hash}` in
+  `trajectory.edn`, the hash of the tree as it ran, and `byj flow check
+  --json` gives a loop file's as `:expanded-hash` — so a harness running
+  byj on a loop of its choosing (`byj ask --loop FILE`) can show every
+  trial ran it.
 - **What a change to a bundled loop must carry** is written down (RFC-071
   "Promotion to the bundled loops", CONTRIBUTING.md): evaluations in three
   projects or more, every one of them, and the dogfood simulation showing no

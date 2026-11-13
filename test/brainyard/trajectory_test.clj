@@ -11,6 +11,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
+            [brainyard.flow :as flow]
             [brainyard.json :as json]
             [brainyard.schema :as schema]
             [brainyard.trajectory :as tr]))
@@ -237,3 +238,22 @@
                      :config cfg :permission-mode-box (atom :ask-each-time)})
     (is (= "ask-each-time" (:permission-mode (first (tr/read-trajectories cfg "s2"))))
         "a person's last choice outranks the config's")))
+
+(deftest a-turn-records-which-loop-it-ran
+  ;; byj-ng7.19: a harness that ran a loop of its choosing (Terminal-Bench
+  ;; in its tasks' containers, `byj ask --loop FILE`) checks each trial ran it
+  (let [dir (fresh-dir "trajectory-loop")
+        cfg {:working-dir (.getPath dir) :project-dir (.getPath dir) :session-id "s1"}
+        lm #(replying [{:reasoning "done" :tool-calls [] :answer "ok"}])
+        bundled (agent/load-tree nil (.getPath dir))
+        [k o & cs] (agent/resolve-tree "react")
+        own (into [k (assoc o :doc "a loop of the person's choosing")] cs)
+        f (io/file dir "own.edn")]
+    (spit f (pr-str own))
+    (agent/ask "one" {:lm (lm) :config cfg})
+    (agent/ask "two" {:lm (lm) :config cfg :tree (agent/load-tree (.getPath f) (.getPath dir))})
+    (let [[a b] (tr/read-trajectories cfg "s1")
+          checked (flow/check-tree-name (.getPath f) {:project-dir (.getPath dir)})]
+      (is (= {:hash (flow/tree-hash bundled)} (:loop a)) "the bundled loop, as it ran: expanded")
+      (is (= {:hash (:expanded-hash checked)} (:loop b)) "the chosen one: the hash flow check gives its file")
+      (is (not= (:loop a) (:loop b))))))

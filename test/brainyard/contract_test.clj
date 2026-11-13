@@ -52,7 +52,10 @@
     :brainyard-version
     ;; a prompt's size, which the scratch directory's path is part of: a
     ;; checkout elsewhere (byj's export, byj-ahf.2) counts it otherwise
-    :total-tokens :after-tokens})
+    :total-tokens :after-tokens
+    ;; a turn's loop, by the hash of its tree: it moves with every change to
+    ;; a bundled loop; that a record carries one is the contract (byj-ng7.19)
+    :hash})
 
 (defn- prompt-elided
   "A frame of the prompt a model is sent, its messages' words written

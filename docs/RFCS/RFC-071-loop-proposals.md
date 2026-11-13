@@ -4,7 +4,8 @@
 ("The first live evaluation"); an improver agent decided not now
 (`byj-ng7.6`); what a promotion to the bundled loops carries is written
 down ("Promotion", `byj-ng7.7`), and the dogfood simulation runs a chosen
-loop for it (`byj-ng7.18`); Terminal-Bench does not run yet (`byj-ng7.19`).
+loop for it (`byj-ng7.18`); Terminal-Bench is run by a harness built on
+byj, whose trials' records say which loop ran (`byj-ng7.19`).
 Epic `byj-ng7`.
 
 ## Purpose
@@ -550,10 +551,33 @@ not shaped to one:
    CANDIDATE`, then `jolt sim:byj compare BUNDLED-RUN CANDIDATE-RUN`, which
    names both loops and exits 1 on a regression (RFC-041, `byj-ng7.18`).
 
-4. **Terminal-Bench, when byj can run it.** A benchmark nobody here wrote
-   is the one a loop cannot have been fitted to. No adapter runs it as a
-   task set today — `byj-ng7.19`; until one does, a pull request says it
-   was not run.
+4. **Terminal-Bench**, the benchmark nobody here wrote and so the one a
+   loop cannot have been fitted to: its tasks valid in their own containers
+   (as Harbor runs them), each arm's resolved rate on the same tasks, `k`
+   and model, and their paired comparison, with every trial's record
+   showing the arm's loop (below). A pull request that could not run it
+   says so.
+
+   **Decided 2026-11-13 (`byj-ng7.19`): byj runs no benchmark's
+   containers.** A Terminal-Bench task is a Docker image, a test script and
+   a reward file, not a git tree and a check command, and running one
+   faithfully — its image pulled or built, the agent exec'd in it with a
+   Linux byj and its credentials, the tests copied in only to grade — is a
+   harness of its own. Harnesses built on byj already do this, with byj as
+   an agent among others, and byj reaches them only as a process and what a
+   session leaves on disk (RFC-070 "Standing alone"). What byj owes such a
+   harness, it gives:
+   - `byj ask --loop FILE` runs a turn on a loop of the harness's choosing
+     (since v0.3.17);
+   - every turn's record says which loop it ran, `:loop {:hash}` — the
+     hash of the tree as it ran (RFC-025) — and `byj flow check FILE
+     --json` gives a candidate's as `:expanded-hash`, so a harness shows
+     that each trial of an arm ran that arm's loop rather than assuming it
+     (`trajectory-test/a-turn-records-which-loop-it-ran`).
+
+   The comparison of two loops on the benchmark is the harness's: the same
+   tasks, `k` and model with `--loop` given and not, each trial's
+   `:loop :hash` checked against its arm's.
 
 5. **Where it came from**: the accepted proposal's why, and the evaluation
    that staged it, when it was one; a candidate written for the purpose
@@ -659,4 +683,5 @@ Built: `(loop-watch/watch! config {:loop})` → `{:loop :change :before :after
 
 ## Known gaps
 
-- No adapter runs Terminal-Bench as a task set — `byj-ng7.19`.
+None open. A loop promoted to the bundled loops waits on a candidate with
+the evidence "Promotion" lists, not on anything to build.

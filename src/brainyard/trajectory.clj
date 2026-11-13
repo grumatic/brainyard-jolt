@@ -182,7 +182,7 @@
   turn counter restarts at 1 when a session resumes, so two records claimed to
   be turn 1. Position in the append-only file is the ordering."
   [{:keys [session agent owner question iterations answer success terminated-by
-           model provider usage started-at ended-at injected-by command permission-mode]}]
+           model provider usage started-at ended-at injected-by command permission-mode loop-hash]}]
   (let [entries (with-answer-iteration (mapv project-iteration iterations) answer)
         ended (or ended-at (System/currentTimeMillis))]
     (cond-> {:v version
@@ -207,6 +207,9 @@
       permission-mode (assoc :permission-mode (name permission-mode))
       model (assoc :model model)
       provider (assoc :provider provider)
+      ;; which loop the turn ran: the hash of its tree as it ran, expanded —
+      ;; what a harness that chose the loop checks (RFC-071, byj-ng7.19)
+      loop-hash (assoc :loop {:hash loop-hash})
       (seq usage) (assoc :usage (compact-usage usage))
       ;; what the turn cost, when anything could say. An ABSENT :cost means
       ;; unknown; a 0.0 would mean free, and those are not the same thing
