@@ -1,15 +1,11 @@
 ;; byj's tree (RFC-070 "Standing alone"): the paths, from the repository's
-;; root, that are byj's and go into its public repository; a directory is
-;; everything under it. Its README, AGENTS.md and CHANGELOG are replaced in
-;; the export by the public ones in dev/byj-public, which add CONTRIBUTING and
-;; the issue and pull request templates; this repository's CHANGELOG-latest.md
-;; is not byj's, and the public documents carry the public repository's own,
-;; its first release's notes (byj-ahf.12, byj-ahf.13). Whatever is not listed is not byj's — another
-;; program's, or this repository's internal metadata (the tracker, the
-;; agents' settings and skills). byj's export lays out these paths alone and
-;; builds and tests them there (byj-ahf.2); split-test holds each to existing
-;; and byj's documents and scripts among them to naming no program built on
-;; byj but by the protocol it speaks.
+;; root, that are byj's; a directory is everything under it. Before the split
+;; (2026-11-11) they were what went into byj's public repository: the export
+;; gate laid them out alone and built and tested them there (byj-ahf.2), with
+;; the public documents laid over them. That gate retired with the split, and
+;; this repository is byj's public one; the list stays as what split-test
+;; reads: each path existing, and byj's documents and scripts among them
+;; naming no program built on byj but by the protocol it speaks.
 {:paths
  [;; the program
   "src" "resources" "deps.edn" "dev-malli"

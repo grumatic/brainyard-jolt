@@ -1,11 +1,13 @@
 # RFC-070 — Standing alone
 
-**Status:** partial. byj's half of a repository split (`byj-ahf`): byj is
-to be published as open source in a repository of its own, from one
-curated snapshot of this tree, and the programs built on it stay where they
-are. This RFC says what byj promises such a program and what byj's tree must
-be before it is published. The plan of the split itself, and what moves
-where, is not byj's and is kept with the programs that move.
+**Status:** implemented. byj's half of a repository split (`byj-ahf`),
+made 2026-11-11: byj was published as open source in a repository of its
+own, `grumatic/brainyard-jolt`, from one curated snapshot of the tree it
+grew in, and the programs built on it stayed where they were. This RFC says
+what byj promises such a program, what byj's tree had to be to be
+published, and what holds it there now that the tool that checked it before
+the split — the export gate, item 5 — has retired with it. The plan of the
+split itself is not byj's and is kept with the programs that moved.
 
 ## Purpose
 
@@ -90,38 +92,39 @@ share sidecar (RFC-043), ACP and the SDK (RFC-053), the trajectory
    not a release, and not reading samizdat again. The script and its list
    of reviewed runs stay, for a person who wants the answer.
 
-5. **The export gate** (`dev/byj-export.sh [REF] [DIR]`, `byj-ahf.2`) lays
-   byj's tree out alone — `git archive` of the paths `dev/byj-tree.edn`
-   lists at REF (HEAD), into a repository of its own of one commit, so no
-   path resolves to the checkout it came from and no test of it leaves
-   anything there; `deps.edn` loses the marked block of tasks that are not
-   byj's — and there builds it (`jolt build:byj`), runs its suite (`jolt
-   test:byj`) and loads each namespace on its own (`dev/cold-load.sh`); it
-   no longer runs the samizdat check (above). Before that it refuses a tree
-   that holds `share/` or this repository's tracker and agents' metadata,
-   names an internal identifier (accounts, hosts, people's handles, private
-   repositories; the list is the gate script's, outside byj's tree, with the
-   paths excused until their beads close), or holds a secret gitleaks finds.
-   It runs on every push to main
-   (`.github/workflows/byj-export.yml`, which is not in byj's tree).
+5. **The export gate was the split's, and retired with it.** Until
+   2026-11-11, `dev/byj-export.sh` (`byj-ahf.2`), run on every push to
+   main of the repository byj grew in, laid byj's tree out alone — `git
+   archive` of the paths `dev/byj-tree.edn` lists into a repository of one
+   commit, `deps.edn` without the tasks that were not byj's — built it,
+   ran its suite and `dev/cold-load.sh` there, and refused a tree holding
+   another program, the tracker or agents' metadata, an internal identifier
+   on its private list, or a secret gitleaks found. It answered "could this
+   tree stand alone?", which the split answered for good: this repository
+   is byj's tree, and nothing is laid out from it. The gate and its
+   workflow were never in byj's tree. What it held is held, since, as the
+   invariants say: CI runs the suite and
+   cold-load on every pull request and push to main (`ci.yml`), nightly
+   builds the binary and runs the SDK against it (`nightly.yml`), a test
+   holds NOTICE to `deps.edn`, and `split-test` keeps byj naming no program
+   built on it. What it searched for — secrets and internal identifiers —
+   nothing searches for yet (`byj-okw`). The tracker and the agents'
+   settings, which it kept out, are public by design since: beads sync to
+   this repository (AGENTS.md "Issues").
 
-6. **Before byj's tree is public:** a root LICENSE (MIT, Grumatic, Inc., as
-   the Agent SDK's) and a NOTICE naming the licences of what a byj binary
-   carries — jolt's runtime and what it embeds, each library `deps.edn`
-   resolves, at its revision — and of what is used but not distributed; no internal identifier, secret or tracker
-   metadata in it; and documents for public contributors. Those are kept
-   apart from the repository's own, which are its maintainers', in
-   `dev/byj-public/` — the LICENSE and NOTICE, a README, AGENTS.md,
-   CONTRIBUTING with the contribution policy (MIT inbound with a DCO
-   sign-off, one maintainer's approval with CI green, agent-written changes
-   said in the pull request and never credited in commits), SECURITY (GitHub
-   private reports), the Contributor Covenant 2.1, a CHANGELOG started
-   afresh, issue and pull request templates, and the public CI; this repository has no root licence, since it is not all
-   byj's — and the export gate refuses a tree without the two, and lays them
-   over byj's tree, so its search and gitleaks read what
-   will be published. This repository's `CHANGELOG-latest.md` is not in the
-   tree: the public documents carry the public repository's own, its first
-   release's notes, v0.3.17.
+6. **What byj's tree had to be to be public**, and is: a root LICENSE (MIT,
+   Grumatic, Inc., as the Agent SDK's) and a NOTICE naming the licences of
+   what a byj binary carries — jolt's runtime and what it embeds, each
+   library `deps.edn` resolves, at its revision — and of what is used but
+   not distributed; documents for public contributors — README,
+   AGENTS.md, CONTRIBUTING with the contribution policy (MIT inbound with a
+   DCO sign-off, one maintainer's approval with CI green, agent-written
+   changes said in the pull request and never credited in commits),
+   SECURITY (GitHub private reports), the Contributor Covenant 2.1, a
+   CHANGELOG started afresh at v0.3.17, issue and pull request templates,
+   and the public CI. Before the split they were kept apart in
+   `dev/byj-public/` and laid over the export; at the split they became
+   this repository's own, and that directory is gone.
 
 ## Invariants
 
@@ -133,15 +136,17 @@ share sidecar (RFC-043), ACP and the SDK (RFC-053), the trajectory
 | byj's tree is `dev/byj-tree.edn`'s paths, each there; its documents and scripts name another program only by the protocol it speaks — not its RFCs, binaries or tree — but for the paths `:until` excuses, each until its bead closes | `split-test/byjs-documents-and-scripts-name-no-program-built-on-it` |
 | byj's source, tests and resources name another program only by the protocol it speaks, but for the paths `:until` excuses until their beads and `:named` names for good, each with why | `split-test/byjs-code-names-no-program-built-on-it` |
 | Every test byj's RFCs, divergences and provenance cite, by namespace and name, is a test or helper of that namespace (a `*` for the name, the namespace) | `divergences-test/every-test-a-document-cites-is-there` |
-| byj's tree, laid out alone, builds, passes its suite and loads each namespace on its own | `dev/byj-export.sh`, on every push to main (`.github/workflows/byj-export.yml`) |
-| byj's tree carries its LICENSE and a NOTICE that names every library `deps.edn` pins, at its revision | `dev/byj-export.sh`, on every push to main; what those libraries depend on in turn is read by a person |
-| byj's tree names no internal identifier and holds no secret, and no tracker or agents' metadata is in it | `dev/byj-export.sh`'s search and gitleaks (required in CI), on every push to main; a person read the key-shaped fixtures (`trajectory_export_test.clj`'s are an alphabet run) |
+| byj's tree passes its suite and loads each namespace on its own, and builds | `.github/workflows/ci.yml` (`jolt test:byj`, `dev/cold-load.sh`) on every pull request and push to main; `.github/workflows/nightly.yml` builds the binary and runs the SDK against it, nightly; until the split, `dev/byj-export.sh` (item 5) |
+| byj's tree carries its LICENSE and a NOTICE that names every library `deps.edn` pins, at its revision | `release-test/the-notice-names-every-library-deps-edn-pins`; what those libraries depend on in turn is read by a person |
+| byj's tree names no internal identifier and holds no secret | nothing since the split (`byj-okw`): until then `dev/byj-export.sh`'s search and gitleaks; a person read the key-shaped fixtures (`trajectory_export_test.clj`'s are an alphabet run) |
 | byj's source holds no run of eight words or more of samizdat's text beyond the reviewed runs | nothing runs it on its own (decided 2026-11-13): `dev/samizdat-check.sh`, by hand, when wanted |
 | An accepted run that no longer occurs is taken off the list | nothing enforces it: `dev/samizdat-check.sh` over the whole checkout names one as a warning |
 
 ## Known gaps
 
+- Nothing searches the public repository for a secret or an internal
+  identifier since the export gate retired; GitHub's secret scanning is off
+  for it (`byj-okw`).
 - Nothing yet shows that a person outside the team can build, test and send
-  a change from the public documents alone, and the public CI
-  (`dev/byj-public/.github/workflows/ci.yml`) has not run: both wait for the
-  public repository (`byj-ahf.13`).
+  a change from the public documents alone; the public CI has run since
+  2026-11-11 (`byj-s97`).

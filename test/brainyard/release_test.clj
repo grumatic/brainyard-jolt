@@ -345,3 +345,18 @@
     (is (< 250 (count files)) "git listed the sources")
     (is (empty? (remove has-licence-header? files))
         (str "these lack the two lines: " (str/join " / " licence-header)))))
+
+(deftest the-notice-names-every-library-deps-edn-pins
+  ;; RFC-070: byj's tree carries its LICENSE and a NOTICE naming every library
+  ;; deps.edn pins, at its revision — what the split's export gate refused a
+  ;; tree without, held here since that gate retired with the split. What those
+  ;; libraries depend on in turn is read by a person.
+  (let [deps (edn/read-string (slurp "deps.edn"))
+        notice (slurp "NOTICE")
+        pinned (concat (:deps deps) (get-in deps [:aliases :dev :extra-deps]))]
+    (is (str/includes? (slurp "LICENSE") "MIT License"))
+    (is (< 5 (count pinned)) "deps.edn read")
+    (doseq [[lib {sha :git/sha version :mvn/version}] pinned]
+      (is (str/includes? notice (str lib)) (str "NOTICE names " lib))
+      (is (str/includes? notice (if sha (subs sha 0 8) (str version)))
+          (str "NOTICE gives " lib " at " (or sha version))))))
