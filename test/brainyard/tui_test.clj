@@ -703,6 +703,7 @@
     ((:on-event r) :agent.tree/step-start {:node :impl/plan :kind :predictor :name "todo/from-plan" :args {:plan "Saved plan: p.md"}})
     (g/frame!)
     (is (str/includes? (screen-text r) "todo/from-plan(plan=Saved plan: p.md)") "a step in the turn: a call")
+    (is (str/includes? (screen-text r) "◇ todo/from-plan(") "a predictor's step, with a mark of its own (byj-aro)")
     ((:on-event r) :agent.tree/step-end {:node :impl/plan :kind :predictor :name "todo/from-plan" :result "todo-slug retry · items 2"})
     (g/frame!)
     (is (str/includes? (screen-text r) "todo-slug retry · items 2") "and what it kept")
@@ -714,14 +715,21 @@
       (tui/show-child! r "claude/navy-1" "claude" nil)
       (g/frame!)
       (let [text (screen-text r)]
-        (is (str/includes? text "claude$await(session-id=cc-1)"))
+        (is (str/includes? text "⏺ claude$await(session-id=cc-1)") "a tool's step, behind a tool call's bullet")
         (is (str/includes? text "Bash(python3 -m unittest)"))
         (is (str/includes? text "Edit(mathx.py)")))
       ((:on-event r) :agent.tree/step-end (child {:node :cc/await :kind :tool :name "claude$await" :result "settled done · round 1"}))
       (g/frame!)
       (let [text (screen-text r)]
         (is (str/includes? text "settled done · round 1"))
-        (is (not (str/includes? text "Edit(mathx.py)")) "the progress gives way to the result")))))
+        (is (not (str/includes? text "Edit(mathx.py)")) "the progress gives way to the result")))
+    (testing "what freezes into the transcript keeps each step's mark (byj-aro)"
+      (is (= ["◇ " "⏺ " "⏺ "]
+             (keep (comp :text :bullet)
+                   (tui/block-lines {:calls [{:tool-name "todo/from-plan" :tool-args {} :step-kind :predictor}
+                                             {:tool-name "claude$open" :tool-args {} :step-kind :tool}
+                                             {:tool-name "read-file" :tool-args {:path "a"}}]})))
+          "a predictor's step ◇; a tool's step and the model's own call alike ⏺"))))
 
 (deftest a-running-tool-shows-what-it-prints
   ;; byj-gly.364: a bash call printed a login's code at once and the screen

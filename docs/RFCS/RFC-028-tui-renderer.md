@@ -879,7 +879,11 @@ Four things follow brainyard's renderer rather than the line one:
   (mock model, tmux): a saved session listed its four subagents under it.
 - **A workflow's steps are calls** (`byj-gly.299`). `:agent.tree/step-start`
   freezes the live block and starts one with the step as its call
-  (`name(input=…, …)`), `:agent.tree/step-progress` lines go under it while it
+  (`name(input=…, …)`) — behind `◇` for a predictor's step (`:kind
+  :predictor`, a model call the tree makes, e.g. `◇ claude/plan(…)`), behind
+  a tool call's `⏺` for a tool's (`⏺ claude$open(…)`), so a predictor is not
+  read as a tool the model called (`byj-aro`) —
+  `:agent.tree/step-progress` lines go under it while it
   runs — the newest `progress-rows` (4) — and `:agent.tree/step-end` puts what
   the step kept, or its error, in their place. In the turn's transcript or a
   subagent's (they are child events). So agent$claude's view says what it chose,
@@ -1430,7 +1434,7 @@ not repeat them (`byj-gly.252`).
 |---|---|
 | Enter on an agent$claude subagent's row opens its view, as any subagent's; → opens the Claude Code session it drives; the footer says what → does. | `tui-test/an-agent-claude-subagent-opens-its-view-on-enter-and-its-claude-code-session-on-right` |
 | A running tool's lines are drawn under the call that printed them, the newest few, and give way to the results; a batch's other calls show none. | `tui-test/a-running-tool-shows-what-it-prints`, `agent-test/a-batch-tags-what-each-call-prints` |
-| A workflow step is drawn as a call — in the turn and in a subagent's view — with its newest progress under it while it runs and what it kept in its place once it ends. | `tui-test/a-workflow-step-is-drawn-as-a-call-with-its-progress` |
+| A workflow step is drawn as a call — in the turn and in a subagent's view — with its newest progress under it while it runs and what it kept in its place once it ends; a predictor's step behind `◇`, a tool's behind `⏺`, live and frozen alike (`byj-aro`). | `tui-test/a-workflow-step-is-drawn-as-a-call-with-its-progress` |
 | A child's transcript is rebuilt from its records — its question, its tool calls, its answer — and shown as a child's; a buffer it has is not rebuilt; with nothing recorded nothing is shown; the list then says of it what its record says. Enter on a child's row hands it to `open-child!` and, with nothing to say, leaves the list closed. | `tui-test/a-childs-transcript-is-rebuilt-from-its-record`, `tui-test/enter-on-a-child-row-opens-the-child` |
 | A session's subagents are rows under it, depth first and indented, capped with the rest counted, each keeping its session; an agent$claude child names its Claude Code session and carries its delegation; children follow their session in the list, and a Claude Code session a child drives is in the Claude Code group too; a delegation that asks is counted as awaiting input once. | `tui-test/a-sessions-subagents-are-rows-under-it`, `tui-test/the-list-puts-children-under-their-session-and-a-delegated-claude-session-in-its-group-too` |
 | A saved session's children come from its trajectory, one per instance with its first question and last answer; they nest by who dispatched them, newest first, an unknown owner at the top, a loop harmless; an open session's come from its buffers, a follow-up another turn; an agent$claude child carries its Claude Code session; a trajectory is read again only when it changes. | `children-test` (5 tests), `tui-test/an-open-sessions-children-are-listed-from-its-buffers` |

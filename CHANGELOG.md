@@ -6,6 +6,11 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A workflow's predictor step is drawn behind `◇`**, a tool's behind `⏺`:
+  `agent$claude`'s view showed `claude/plan(…)` and `claude$open(…)` alike,
+  so its choice of session and brief read as a tool the model had called.
+  `claude/plan` is a predictor, a model call the loop makes; `claude$open`
+  is a tool.
 - **Under Codex, byj's hook refuses what it would ask a person about**,
   where before it answered "ask", which Codex rejects as unsupported, so the
   call ran as if byj had said nothing. Codex's hook cannot ask, and its

@@ -1079,8 +1079,9 @@
 (defn- step-iter
   "A workflow step as the live block's iteration: one call, its result to
   come (byj-gly.299)."
-  [{:keys [node name args]}]
-  {:n node :calls [{:tool-name (str name) :tool-args args}] :results [] :step true})
+  [{:keys [node kind name args]}]
+  {:n node :calls [(cond-> {:tool-name (str name) :tool-args args} kind (assoc :step-kind kind))]
+   :results [] :step true})
 
 (defn- with-progress [iter {:keys [line]}]
   (when iter (update iter :progress #(vec (take-last progress-rows (conj (vec %) (str line)))))))
@@ -1212,6 +1213,12 @@
   "The mark in front of a tool call and an answer — a turn reads as a column of
   them, each thing it did or said one bullet."
   "⏺ ")
+
+(def ^:private predictor-bullet
+  "The mark in front of a workflow's predictor step (`:predictor/run`): a
+  model call the tree makes with a signature of its own, which a person read
+  as a tool the model had called when it wore a tool's bullet (byj-aro)."
+  "◇ ")
 
 (def ^:private margin
   "What a line under a bullet is indented by, so it reads as that bullet's."
@@ -1529,9 +1536,10 @@
                  {:kind :call :text (call-summary call) :margin margin
                   :after (call-note r)
                   :opens (child-of call r)
-                  :bullet {:text bullet :style (cond error? {:color :red}
-                                                     (some? r) {:color :green}
-                                                     :else {:dim true})}}]
+                  :bullet {:text (if (= :predictor (:step-kind call)) predictor-bullet bullet)
+                           :style (cond error? {:color :red}
+                                        (some? r) {:color :green}
+                                        :else {:dim true})}}]
                 (arg-entries call)
                 ;; what auto mode decided about it, under the call (byj-gly.285.2)
                 (some-> (get verdicts i) verdict-entry vector)
