@@ -105,6 +105,31 @@
     (is (= [] (changes/turns cfg "s-n")))
     (is (re-find #"not in a git work tree" (:error (changes/diff cfg "s-n"))))))
 
+(defn- second-of [ms] (quot ms 1000))
+
+(deftest a-same-size-edit-in-the-second-the-index-was-written-is-kept
+  ;; provenance P-63: the person's index and a same-size edit written in one
+  ;; second, the turn's end in the next; git compares times to the second
+  ;; (without USE_NSEC), so only the index's own time tells it to look
+  (let [dir (repo "racy")
+        cfg {:project-dir dir :working-dir dir :session-id "s-r"}
+        a (io/file dir "a.txt")
+        turn (fn [n]
+               (Thread/sleep (- 1000 (mod (System/currentTimeMillis) 1000)))
+               (let [start (System/currentTimeMillis)]
+                 (spit a (str "one\n" n "aa\n"))
+                 (sh dir "git" "add" "a.txt")
+                 (changes/begin-turn! cfg n)
+                 (spit a (str "one\n" n "bb\n"))
+                 (let [one-second? (= (second-of start) (second-of (System/currentTimeMillis)))]
+                   (Thread/sleep (- 1000 (mod (System/currentTimeMillis) 1000)))
+                   {:one-second? one-second? :changed (changes/end-turn! cfg)})))
+        ;; the setup must fit in one second for the case to be made; a slow
+        ;; machine gets three tries
+        r (or (first (filter :one-second? (map turn [1 2 3]))) (turn 4))]
+    (is (:one-second? r) "the index and the edit were written in one second")
+    (is (= 1 (:changed r)) "the edit is in the turn's end snapshot")))
+
 (defn- bytes-of [f] (vec (java.nio.file.Files/readAllBytes (.toPath (io/file f)))))
 
 (deftest a-work-tree-goes-back-to-a-turn-and-a-turn-is-undone-alone

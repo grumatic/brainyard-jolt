@@ -105,12 +105,22 @@
   "The work tree at `root` as a commit object with message `msg` and parent
   `parent` (none when nil): its sha, or nil. Made through a copy of the
   person's index — so unchanged files cost a stat, not a read — that is
-  thrown away after; nothing the person has is changed."
+  thrown away after; nothing the person has is changed.
+
+  The copy keeps the index's own time. git trusts an entry's stat only when
+  the file is older than the index that holds it, and compares times to the
+  second unless built with USE_NSEC (Apple's git is not): a copy stamped
+  with the time it was made would pass a same-size edit, made in the second
+  the person's index was written, as unchanged (provenance P-63). Its name
+  is unique across processes: jolt's `System/nanoTime` counts from the
+  process's start, so two byj processes begun together would share one."
   [root msg & [parent]]
-  (let [idx (io/file (System/getProperty "java.io.tmpdir") (str "byj-snapshot-" (System/nanoTime) ".index"))]
+  (let [idx (io/file (System/getProperty "java.io.tmpdir") (str "byj-snapshot-" (random-uuid) ".index"))]
     (try
-      (when-let [real (line (git root nil "rev-parse" "--path-format=absolute" "--git-path" "index"))]
-        (when (.isFile (io/file real)) (io/copy (io/file real) idx)))
+      (when-let [real (some-> (line (git root nil "rev-parse" "--path-format=absolute" "--git-path" "index")) io/file)]
+        (when (.isFile real)
+          (io/copy real idx)
+          (.setLastModified idx (.lastModified real))))
       (let [env {"GIT_INDEX_FILE" (.getPath idx)}]
         ;; --ignore-errors: a file git cannot take — a nested repository
         ;; with no commit is one — is left out, not the whole snapshot
@@ -321,7 +331,7 @@
   (let [files (changed-files root from to)]
     (if (empty? files)
       {:files []}
-      (let [patch (io/file (System/getProperty "java.io.tmpdir") (str "byj-rewind-" (System/nanoTime) ".patch"))]
+      (let [patch (io/file (System/getProperty "java.io.tmpdir") (str "byj-rewind-" (random-uuid) ".patch"))]
         (try
           ;; git writes the patch itself: a file's bytes never pass through a
           ;; string, so one that is not UTF-8 comes back as it was

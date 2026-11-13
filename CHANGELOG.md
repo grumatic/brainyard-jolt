@@ -6,6 +6,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A turn's checkpoint keeps a same-size edit made in the second the
+  person's index was written.** It could be left out when the turn ended in
+  the next second, so a rewind did not put the file back and the turn's
+  diff did not show it (RFC-069).
 - **A turn's record says which loop it ran**: `:loop {:hash}` in
   `trajectory.edn`, the hash of the tree as it ran, and `byj flow check
   --json` gives a loop file's as `:expanded-hash` — so a harness running

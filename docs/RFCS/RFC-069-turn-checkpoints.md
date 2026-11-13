@@ -47,6 +47,15 @@ file costs a stat), `git add -A --ignore-errors` into it, then `write-tree`
 and `commit-tree --no-gpg-sign`, named byj, never the person. About 40 ms on
 this repository.
 
+The copy keeps the index's own modification time. git trusts an entry's
+stat only for a file older than the index holding it, and compares times to
+the second when built without `USE_NSEC`, as Apple's git is. A copy stamped
+when it was made would pass a same-size edit, written in the second the
+person's index was, as unchanged once the turn ended in the next second
+(provenance P-63). The copy's name is a `random-uuid`, never the clock:
+jolt's `System/nanoTime` counts from the process's start, so two byj
+processes begun together would write one file.
+
 - **What it takes:** every file git would add, tracked or not.
 - **What it leaves out:**
   - what `.gitignore` names;
@@ -258,6 +267,7 @@ Session commands: `/rewind [TURN [end] | undo [N]]`, `/undo-turn TURN`,
 | invariant | enforced by |
 |---|---|
 | A turn's change is git's diff between snapshots of the work tree at its start and end, kept as `refs/byj/turns/<session>/<turn>` with the start as parent: what bash writes is in it, what `.gitignore` names, `.brainyard/` and Emacs's lock, auto-save and backup files are not, nor the person's work from before the turn, nor what came after; a nested repository with no commit does not stop it; HEAD, the index and the stash are untouched; the repository keeps its newest `:changes-turns`; nothing outside git, without a session id or with `:changes?` false. | `changes-test/a-turns-change-is-git-s-diff-between-its-start-and-end`, `changes-test/outside-git-nothing-is-kept`, `session-test/a-turns-writes-are-kept-for-its-review` |
+| A same-size edit made in the second the person's index was written is in the turn's end snapshot, however late in the next second the turn ends. | `changes-test/a-same-size-edit-in-the-second-the-index-was-written-is-kept` |
 | Every turn is kept, one that changed nothing too; its diff says it changed no files, and "the last turn" means the last that changed files. | `changes-test/a-turns-change-is-git-s-diff-between-its-start-and-end` |
 | `byj turns list` lists every kept turn with how many files it changed; `diff` is what `byj emacs changes` says. | `main-test/byj-turns-lists-a-session-s-turns-and-diffs-one` |
 | Going back first keeps what it replaces as a rewind ref, the person's work since included, and puts back bytes exactly; a file the target lacks is removed and one it has is made; undoing a rewind puts back what it replaced, and is itself undone the same way; HEAD and the index are the person's still. | `changes-test/a-work-tree-goes-back-to-a-turn-and-a-turn-is-undone-alone` |
