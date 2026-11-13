@@ -282,13 +282,15 @@ All of it: this RFC is a design. The order of work is the epic's:
 
 - A project's own loop, with what it was based on — `byj-ng7.1`.
 - `loop/` proposals — `byj-ng7.2`.
-- A judge model as a second signal on a rebuilt task, never alone — bead to file.
+- A judge model as a second signal on a rebuilt task, never alone — `byj-ng7.8`.
 - A project's own check command, and a dogfood plan's stage checks
-  (RFC-041), taken as the set's machine check without `--check` — bead to
-  file.
+  (RFC-041), taken as the set's machine check without `--check` —
+  `byj-ng7.9`.
 - Which turns a rewind took back is read from commit times, to the second:
-  a turn ending in the second of the rewind counts as before it — bead to
-  file.
+  a turn ending in the second of the rewind counts as before it —
+  `byj-ng7.10`.
+- A task set only grows: no command retires a task and releases its
+  `refs/byj/tasks` pin — `byj-ng7.11`.
 - The clone run and the comparison — `byj-ng7.4`.
 - `byj loops propose` — `byj-ng7.5`.
 - Whether an improver agent earns its place — `byj-ng7.6` (a decision).
