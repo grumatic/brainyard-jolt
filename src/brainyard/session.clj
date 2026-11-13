@@ -1461,16 +1461,24 @@
   the byj that runs by name, and every other copy on PATH,
   shadowed, with how it is updated or removed (byj-gly.181.13) — then Claude
   Code's sign-in — the account, when its refresh token runs out, which is
-  what forces a new login — and the subscription's windows (byj-gly.324)."
+  what forces a new login — and the subscription's windows (byj-gly.324).
+
+  What it reads of the machine can be given in `ctx`, as a test gives it
+  (byj-ng7.13): `:claude-usage-fn`, `:doctor-check-fn` (config → `{:text}`),
+  `:install-lines-fn` (checkout → `[{:text}]`), `:checkout` (the source
+  root, nil for none)."
   [ctx]
-  (let [checked (init/check (:config ctx))
-        checkout (version/source-root)
-        installed (update/install-lines
-                   {:running (when-not checkout (update/real-path (update/executable-path (persist/own-pid) update/shell)))
-                    :path-env (System/getenv "PATH")
-                    :version-of (fn [cmd p]
-                                  (some-> (init/version-of p (if (= "byj" cmd) ["--version"] ["version"]))
-                                          (cond->> (= "byj" cmd) (str "v"))))})
+  (let [checked ((or (:doctor-check-fn ctx) init/check) (:config ctx))
+        checkout (if (contains? ctx :checkout) (:checkout ctx) (version/source-root))
+        installed ((or (:install-lines-fn ctx)
+                       (fn [checkout]
+                         (update/install-lines
+                          {:running (when-not checkout (update/real-path (update/executable-path (persist/own-pid) update/shell)))
+                           :path-env (System/getenv "PATH")
+                           :version-of (fn [cmd p]
+                                         (some-> (init/version-of p (if (= "byj" cmd) ["--version"] ["version"]))
+                                                 (cond->> (= "byj" cmd) (str "v"))))})))
+                   checkout)
         u (claude-usage-now ctx)
         {:keys [email organization plan refresh-expires-at]} (:account u)
         days (when refresh-expires-at (quot (- refresh-expires-at (System/currentTimeMillis)) 86400000))]

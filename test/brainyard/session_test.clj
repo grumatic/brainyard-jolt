@@ -9,6 +9,7 @@
             [brainyard.bt :as bt]
             [brainyard.changes :as changes]
             [brainyard.persist :as persist]
+            [brainyard.project-loops :as project-loops]
             [brainyard.coach :as coach]
             [brainyard.config :as config]
             [brainyard.effect :as fx]
@@ -1628,3 +1629,31 @@
     (Thread/sleep 300)
     (is (str/blank? (:out (jolt.process/sh {:out :string :err :string} "pgrep" "-f" mark))) "nothing of it is left")
     (is (some #(str/includes? (str (second %)) "stopped 1 process group(s) its commands left running") out))))
+
+;; byj-ng7.13: /doctor and byj doctor, whole, with what it reads of the
+;; machine — PATH, Claude Code's usage — given
+(deftest the-doctor-report-says-each-part-in-order
+  (let [dir (.getCanonicalPath (doto (io/file "target/session-test/doctor") .mkdirs))
+        _ (doseq [f (reverse (file-seq (io/file dir ".brainyard")))] (.delete f))
+        ctx {:config {:project-dir dir :working-dir dir}
+             :doctor-check-fn (fn [_] {:text "Tools:\n  bd 1.0"})
+             :install-lines-fn (fn [checkout] [{:text (str "  byj v9 (" (or checkout "binary") ")")}])
+             :checkout nil
+             :claude-usage-fn (fn [] {:logged-in? true
+                                      :account {:email "a@example.invalid" :plan "max"
+                                                :refresh-expires-at (+ (System/currentTimeMillis) (* 3 86400000) 3600000)}
+                                      :limits [{:label "5h" :percent 40}]})}
+        r (session/doctor-report ctx)]
+    (is (str/starts-with? r "Tools:\n  bd 1.0\n\nInstalled:\n  byj v9 (binary)\n\nClaude Code:\n  signed in as a@example.invalid, plan max"))
+    (is (str/includes? r "refresh token: 3 day(s) left — /login claude soon"))
+    (is (re-find #"Claude Code subscription \(max, a@example.invalid\):\n  5h .* 40%" r))
+    (is (not (str/includes? r "Loops")) "a project with no loop of its own says nothing of loops")
+    (testing "the project's own loop, between the project and what is installed"
+      (let [[k o & cs] (project-loops/bundled-tree "react")]
+        (project-loops/write-loop! dir "react" (into [k (assoc o :doc "mine")] cs)
+                                   {:action :accept :based-on {:loop "react" :hash "000000000000" :byj "v0"}}))
+      (let [r (session/doctor-report (assoc ctx :checkout "/src/byj"))]
+        (is (re-find #"(?s)bd 1.0\n\nLoops \(the project's own.*\n  react: the project's .brainyard/loops/react.edn was made from an older bundled react.*byj loops propose --bundled react.*\n\nInstalled \(this run is from the checkout /src/byj\):\n  byj v9 \(/src/byj\)" r))))
+    (testing "signed out"
+      (is (str/includes? (session/doctor-report (assoc ctx :claude-usage-fn (fn [] {:logged-in? false})))
+                         "Claude Code:\n  not signed in — /login claude")))))
