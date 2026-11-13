@@ -80,11 +80,15 @@ share sidecar (RFC-043), ACP and the SDK (RFC-053), the trajectory
    declarations, CI boilerplate, message shapes, a dependency's coordinate,
    quoted error text. Over the whole checkout an accepted run that no longer
    occurs is named as a warning, to be taken off; over a given tree (an
-   export) it is not, since the tree holds part of the checkout. It needs
-   the network, so it is not part of `jolt test:byj`; it runs over the tree
-   byj's export gate lays out, and by hand before byj's source is published
-   and after any work that read samizdat again. `bench/` (Terminal-Bench,
-   Apache-2.0) and what `bd setup` writes are not read.
+   export) it is not, since the tree holds part of the checkout. `bench/`
+   (Terminal-Bench, Apache-2.0) and what `bd setup` writes are not read.
+
+   **It is run by hand, only when wanted** (decided 2026-11-13). byj's
+   source has been public since 2026-11-11, and what it once shared with
+   samizdat was said again in its own words (above); nothing runs the
+   check on its own — not CI, not `jolt test:byj` (it needs the network),
+   not a release, and not reading samizdat again. The script and its list
+   of reviewed runs stay, for a person who wants the answer.
 
 5. **The export gate** (`dev/byj-export.sh [REF] [DIR]`, `byj-ahf.2`) lays
    byj's tree out alone — `git archive` of the paths `dev/byj-tree.edn`
@@ -92,10 +96,10 @@ share sidecar (RFC-043), ACP and the SDK (RFC-053), the trajectory
    path resolves to the checkout it came from and no test of it leaves
    anything there; `deps.edn` loses the marked block of tasks that are not
    byj's — and there builds it (`jolt build:byj`), runs its suite (`jolt
-   test:byj`), loads each namespace on its own (`dev/cold-load.sh`) and runs
-   the samizdat check over it. Before that it refuses a tree that holds
-   `share/` or this repository's tracker and agents' metadata, names an
-   internal identifier (accounts, hosts, people's handles, private
+   test:byj`) and loads each namespace on its own (`dev/cold-load.sh`); it
+   no longer runs the samizdat check (above). Before that it refuses a tree
+   that holds `share/` or this repository's tracker and agents' metadata,
+   names an internal identifier (accounts, hosts, people's handles, private
    repositories; the list is the gate script's, outside byj's tree, with the
    paths excused until their beads close), or holds a secret gitleaks finds.
    It runs on every push to main
@@ -114,7 +118,7 @@ share sidecar (RFC-043), ACP and the SDK (RFC-053), the trajectory
    private reports), the Contributor Covenant 2.1, a CHANGELOG started
    afresh, issue and pull request templates, and the public CI; this repository has no root licence, since it is not all
    byj's — and the export gate refuses a tree without the two, and lays them
-   over byj's tree, so its search, gitleaks and the samizdat check read what
+   over byj's tree, so its search and gitleaks read what
    will be published. This repository's `CHANGELOG-latest.md` is not in the
    tree: the public documents carry the public repository's own, its first
    release's notes, v0.3.17.
@@ -132,7 +136,7 @@ share sidecar (RFC-043), ACP and the SDK (RFC-053), the trajectory
 | byj's tree, laid out alone, builds, passes its suite and loads each namespace on its own | `dev/byj-export.sh`, on every push to main (`.github/workflows/byj-export.yml`) |
 | byj's tree carries its LICENSE and a NOTICE that names every library `deps.edn` pins, at its revision | `dev/byj-export.sh`, on every push to main; what those libraries depend on in turn is read by a person |
 | byj's tree names no internal identifier and holds no secret, and no tracker or agents' metadata is in it | `dev/byj-export.sh`'s search and gitleaks (required in CI), on every push to main; a person read the key-shaped fixtures (`trajectory_export_test.clj`'s are an alphabet run) |
-| byj's source holds no run of eight words or more of samizdat's text beyond the reviewed runs | `dev/samizdat-check.sh` over the exported tree, by `dev/byj-export.sh` on every push to main: it needs the network, so the hermetic suite cannot run it |
+| byj's source holds no run of eight words or more of samizdat's text beyond the reviewed runs | nothing runs it on its own (decided 2026-11-13): `dev/samizdat-check.sh`, by hand, when wanted |
 | An accepted run that no longer occurs is taken off the list | nothing enforces it: `dev/samizdat-check.sh` over the whole checkout names one as a warning |
 
 ## Known gaps

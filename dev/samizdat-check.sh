@@ -6,9 +6,9 @@
 # source must not hold (byj-ahf.1). Runs of eight words or more found in both
 # fail unless dev/samizdat-check.edn lists them as reviewed: idioms, table
 # heads, a dependency coordinate, error text quoted. An entry there that no
-# longer occurs is named as a warning, to be taken off. byj's export gate runs
-# it over the tree it exports; by hand, it is run before byj's source is
-# published and after any work that read samizdat again, not on every change.
+# longer occurs is named as a warning, to be taken off. Nothing runs it on its
+# own — not CI, not the suite, not a release, not reading samizdat again: it
+# is run by hand, when someone wants the answer (decided 2026-11-13).
 #
 #   dev/samizdat-check.sh          # this checkout's tracked files, as on disk
 #   dev/samizdat-check.sh DIR      # every file under DIR (an export)

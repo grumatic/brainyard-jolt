@@ -189,7 +189,7 @@ jolt version:byj               # just the version stamp (RFC-029); tags are semv
 jolt test:sdk                  # the Agent SDK's TypeScript and Python libraries against byj acp on a scripted mock (RFC-053)
 dev/cold-load.sh               # every namespace loads on its own
 dev/acp-interop.sh [--binary]  # byj acp driven by the official ACP TypeScript client; no model spent
-dev/samizdat-check.sh [DIR]    # text shared with samizdat (GPL) for eight words or more, beyond the reviewed runs (RFC-070); network on the first run
+dev/samizdat-check.sh [DIR]    # by hand, only when wanted: text shared with samizdat (GPL) for eight words or more, beyond the reviewed runs (RFC-070); nothing runs it on its own; network on the first run
 dev/flake-hunt.sh N            # the suite N times, keeping the output of any run that failed
 dev/jolt-from-source.sh OUT    # jolt built from its source for this Linux machine (Docker), for linux-arm64, which jolt publishes no build of
 jolt -M:test brainyard.foo-test [brainyard.bar-test …]   # named namespaces, behind the suite's guards
