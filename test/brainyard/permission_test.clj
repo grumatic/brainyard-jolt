@@ -444,7 +444,18 @@
       (is (nil? (permission/loop-file nil (.getPath react))) "no project, no project loop"))
     (is (= [".brainyard/loops/react.edn"] (permission/named-loop-files "sed -i '' s/a/b/ .brainyard/loops/react.edn && echo ok")))
     (is (= [".brainyard/loops/plan.edn"] (permission/named-loop-files (str "echo x > " dir "/.brainyard/loops/plan.edn"))) "absolute")
-    (is (empty? (permission/named-loop-files "cat .brainyard/loops/tasks/s.edn")))))
+    (is (empty? (permission/named-loop-files "cat .brainyard/loops/tasks/s.edn")))
+    (testing "a project's attachments to a slot, and the list of them, are guarded whole (RFC-072)"
+      (doseq [mode [:auto-approve :ask-each-time]]
+        (is (refused? (call (c mode) "write-file" {:path ".brainyard/loops/ext/lint.edn" :content "[]"})) (str "a tree, " mode))
+        (is (refused? (call (c mode) "write-file" {:path ".brainyard/loops/ext/attach.edn" :content "{}"})) (str "the list, " mode))
+        (is (refused? (call (c mode) "write-file" {:path ".brainyard/loops/ext/notes/x.txt" :content ""})) (str "anything under it, " mode))
+        (is (refused? (call (c mode) "bash" {:command "rm -rf .brainyard/loops/ext"})) (str "a shell naming it, " mode)))
+      (is (= [".brainyard/loops/ext/lint.edn"] (permission/named-loop-files "cp a .brainyard/loops/ext/lint.edn")))
+      (is (= [".brainyard/loops/ext/"] (permission/named-loop-files "rm -rf .brainyard/loops/ext/ && ls")))
+      (is (some? (permission/loop-file dir (.getPath (project-loops/attachment-file dir "lint")))))
+      (is (some? (permission/loop-file dir (.getPath (project-loops/attach-file dir)))))
+      (is (nil? (permission/loop-file dir (.getPath (io/file loops "extra" "x.edn")))) "ext/, not a name that starts so"))))
 
 (deftest path-gate
   (let [dir (fresh-dir "paths")

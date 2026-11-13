@@ -68,16 +68,12 @@
        sort
        vec))
 
-(defn- loader [config]
-  (let [resolve-tree (requiring-resolve 'brainyard.agent/resolve-tree)
-        pd (project-dir config)]
-    #(resolve-tree % pd)))
-
 (defn expand
   "`tree` with its `:include`s spliced, each found as the project would find
-  it (`agent/resolve-tree`)."
+  it (`agent/resolve-tree`), and its slots filled with the project's
+  attachments (`agent/expand-tree`)."
   [config tree]
-  (bt/expand tree (loader config)))
+  ((requiring-resolve 'brainyard.agent/expand-tree) tree (project-dir config)))
 
 (defn check-opts
   "`flow check`'s options as `byj flow check` builds them: a ctx's registry,

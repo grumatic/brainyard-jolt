@@ -3351,13 +3351,13 @@
   subagent of it. Both are found for `project-dir`, the project's own loop
   first (RFC-071)."
   [turn-tree & [project-dir]]
-  (bt/expand (walk/postwalk (fn [x]
-                              (if (and (vector? x) (= :include (first x))
-                                       (= agent/react-loop (:tree (second x))))
-                                (assoc-in x [1 :tree] turn-tree)
-                                x))
-                            (agent/resolve-tree session-loop project-dir))
-             #(agent/resolve-tree % project-dir)))
+  (agent/expand-tree (walk/postwalk (fn [x]
+                                      (if (and (vector? x) (= :include (first x))
+                                               (= agent/react-loop (:tree (second x))))
+                                        (assoc-in x [1 :tree] turn-tree)
+                                        x))
+                                    (agent/resolve-tree session-loop project-dir))
+                     project-dir))
 
 (defn with-persona
   "The base — `session/run`'s argument map, `:config`, `:lm` and `:tree` among

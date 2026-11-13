@@ -3,9 +3,11 @@
 **Status:** proposed 2026-11-13; decided 2026-11-14 to build, for
 composition rather than drift ("Decided"). The node kind and its expansion
 are built (`byj-9sp.2`), and so are the ReAct loop's first two slots, in
-`contract/` (`byj-9sp.4`). Attachments' files and proposals are not
-(`byj-9sp.3`): until they are, nothing attaches to a slot outside a test.
-Epic `byj-9sp`.
+`contract/` (`byj-9sp.4`). A project's attachments are read from
+`.brainyard/loops/ext/` into every loop it runs, and no tool writes there.
+Staging and accepting one at `/proposals`, and evaluating and watching it,
+are not built yet (`byj-9sp.3`): until they are, an attachment is put there
+by hand. Epic `byj-9sp`.
 
 ## Purpose
 
@@ -126,10 +128,16 @@ attachment speaks, the fold is the bundled loop deciding what that means.
 ### Where an attachment lives, and how it becomes live
 
 ```
-.brainyard/loops/ext/attach.edn     {:based-on {:loop "react" :hash … :byj …}
-                                     :attach {:react/ext-after-tools ["lint"]}}
-.brainyard/loops/ext/lint.edn       the tree attached
+.brainyard/loops/ext/attach.edn     {:react/ext-after-tools ["lint"]}
+.brainyard/loops/ext/lint.edn       the tree attached; its root opts carry
+                                    :based-on {:slot :contract :byj}
 ```
+
+`project-loops/attachments` reads them for every expansion that resolves
+loops for the project (`agent/expand-tree`): a turn's loop, the session's,
+a subagent's, `flow check`'s, a proposal's diff. A name in `attach.edn`
+with no file, or a file that does not read, stops the loop from loading
+rather than running a loop that is not the one accepted.
 
 An attachment changes the loop every turn runs, so it is held to exactly
 what a project loop is held to (RFC-071):
@@ -145,10 +153,12 @@ what a project loop is held to (RFC-071):
 - **It is watched.** `byj loops watch` compares the turns since with the
   turns before, as for any loop change, and stages a revert on a
   regression.
-- **It says what it was made against.** `:based-on` is the bundled loop's
-  hash. After an upgrade, `doctor` names an attachment made against an
-  older loop, as it does a project loop. A slot that still has the same
-  contract needs nothing else.
+- **It says what it was made against.** `:based-on` is the slot's contract
+  when it was attached, not the loop's hash: the loop around a slot may
+  change and the attachment with it is as good as it was. `doctor` names an
+  attachment whose slot's contract has changed since, or whose slot the loop
+  in force no longer has (`project-loops/attachment-report`). A slot that
+  still has the same contract needs nothing else.
 
 A project that has its own `react.edn` and attachments too gets both: its
 own loop, with its attachments expanded into whatever slots it kept.
@@ -340,8 +350,10 @@ A row not marked built is proposed.
 |---|---|
 | `[:extension {:id :reads :writes :on-failure}]` | a slot, in a bundled loop's EDN |
 | `(bt/expand tree load-tree [attachments])` | built: `:include` and `:extension` both expanded; `attachments` a fn (or map) from a slot id to `[{:name :tree} …]`, in order; none, every slot empty |
-| `(project-loops/attachments project-dir)` | `{slot-id [tree…]}` from `ext/attach.edn`, each tree read from `ext/` |
-| `(permission/loop-file project-dir path)` | true for anything under `.brainyard/loops/ext/` as well |
+| `(project-loops/attachments project-dir)` | built: `{slot-id [{:name :tree} …]}` from `ext/attach.edn`, each tree read from `ext/<name>.edn` |
+| `(agent/expand-tree tree project-dir)` | built: `bt/expand` with the project's loops and its attachments; `load-tree` and every other expansion go through it |
+| `(project-loops/write-attachment! project-dir slot name tree opts)` | built: attach `tree` as `name` (nil: detach), with a history line `{:action :attach\|:detach :loop :slot :name :hash :replaced}` |
+| `(permission/loop-file project-dir path)` | built: true for anything under `.brainyard/loops/ext/` as well |
 | a proposal `{:kind :attach :slot :tree}` / `{:kind :detach :slot :name}` | staged, evaluated and accepted as a loop proposal |
 | `contract/loops/slots.edn` | built: every slot the bundled loops offer, with its keys and its place |
 
@@ -357,12 +369,15 @@ The rows naming a bead are proposed and enforced by nothing yet.
 | An attachment with `:on-failure :ignore` never fails the turn. One with `:fail` fails what holds its slot. | `extension-test/a-slot-that-ignores-failure-never-fails-the-loop`, `extension-test/a-slot-whose-failure-counts-fails-what-holds-it` |
 | The expansion names what was attached, and its hash — a turn's `:loop :hash` — differs with each attachment set. | `extension-test/the-expansion-and-its-hash-say-what-was-attached` |
 | An unexpanded slot does not tick; an attachment is not extended in turn. | `extension-test/an-unexpanded-slot-does-not-run`, `extension-test/an-attachment-is-expanded-but-not-extended` |
-| No tool writes under `.brainyard/loops/ext/`. An attachment is live only after a person accepts it. | nothing yet (`byj-9sp.3`) |
+| No tool writes under `.brainyard/loops/ext/`, in any mode, and a shell line naming it is refused. | `permission-test/a-projects-loop-is-written-by-no-tool` |
+| What a project attached is in every loop it runs, `--print-tree` and `doctor` name it, and a detach leaves the bundled loop. | `extension-test/what-a-project-attached-is-in-every-loop-it-runs`, `extension-test/a-project-with-nothing-attached-runs-the-bundled-loop` |
+| An attachment whose slot changed or went is named by `doctor`; one that is not there stops the loop from loading. | `extension-test/an-attachment-whose-slot-changed-is-named-by-doctor`, `extension-test/an-attachment-that-is-not-there-stops-the-loop-rather-than-run-another` |
+| An attachment is live only after a person accepts it. | nothing yet (`byj-9sp.3`) |
 | A slot's id, keys and place change only with `contract/` (`loops/slots.edn`). | `contract-test/the-slots-the-bundled-loops-offer-are-byjs-contract` |
 | The answer check is on every path that accepts an answer, before the stamp, and stops refusing at `:max-answer-checks`. | `agent-test/the-answer-check-sits-before-every-stamp`, `agent-test/a-projects-answer-check-refuses-on-every-path-that-accepts` |
 | What is attached after the tools is heard in the next iteration, and its failure costs the turn nothing. | `agent-test/an-attachment-after-the-tools-is-heard-next-iteration`, `agent-test/an-attachment-after-the-tools-that-fails-costs-the-turn-nothing` |
 
 ## Known gaps
 
-- Attachments' files, gate, proposals, evaluation and watch, and
-  `--print-tree` naming each attachment: `byj-9sp.3`.
+- Staging an attachment or a detach at `/proposals` with its evaluation,
+  accepting it, and `byj loops watch` over it: `byj-9sp.3`.

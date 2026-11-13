@@ -15,12 +15,20 @@
   else: no tool reaches it, and resolving a loop never writes. Each write is a
   line in `.brainyard/loops/history.edn`.
 
+  A project's attachments to a loop's slots (RFC-072) live beside its loops:
+  `ext/attach.edn`, `{slot-id [name …]}`, and each tree attached as
+  `ext/<name>.edn`, whose root opts carry `:based-on {:slot :contract :byj}`,
+  the slot's contract it was made against. `attachments` reads them for
+  `bt/expand`; `write-attachment!` changes them, for an accept and a revert,
+  with a history line like a loop's.
+
   brainyard has no counterpart: its loops are code, so a project cannot hold
   one of its own."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
+            [brainyard.bt :as bt]
             [brainyard.flow :as flow]
             [brainyard.version :as version]))
 
@@ -186,14 +194,26 @@
            :else
            (str "the project's " where ", made from the bundled " ln " as it is (" base ")")))))
 
+(declare attachment-report attachment-line)
+
 (defn report-text
   "doctor's `Loops:` section — every loop the project holds of its own, an
-  override whose base no longer matches the bundled loop named as such — or
-  nil when the project holds none."
+  override whose base no longer matches the bundled loop named as such, and
+  every attachment to a slot, one whose slot changed named as such — or nil
+  when the project holds none of either."
   [project-dir]
-  (when-let [os (and project-dir (seq (overrides project-dir)))]
-    (str/join "\n" (cons "Loops (the project's own, found before the bundled ones):"
-                         (map override-line os)))))
+  (when project-dir
+    (let [os (seq (overrides project-dir))
+          as (seq (try (attachment-report project-dir
+                                          (let [resolve #((requiring-resolve 'brainyard.agent/resolve-tree) % project-dir)]
+                                            (bt/expand (resolve "react") resolve)))
+                       (catch Throwable e [{:error (ex-message e)}])))]
+      (when (or os as)
+        (str/join "\n" (concat
+                        (when os (cons "Loops (the project's own, found before the bundled ones):"
+                                       (map override-line os)))
+                        (when as (cons "Attachments (the project's, in the ReAct loop's slots, RFC-072):"
+                                       (map #(if (:error %) (str "  " (:error %)) (attachment-line %)) as)))))))))
 
 (defn source-line
   "What `--print-tree` says of where one loop of a tree was found
@@ -207,6 +227,140 @@
                               (when-let [v (:byj based-on)] (str " (byj " v ")")))
                          ", which does not say what it was based on"))
          :bundled (str "bundled, " path)
+         :attachment (str "the project's " path ", attached to " (:slot based-on)
+                          (when-let [v (:byj based-on)] (str " (byj " v ")")))
          :resource (str "the resource " path)
          :file (str "the file " path)
          (str path))))
+
+;; --- attachments to a loop's slots (RFC-072) ----------------------------------------
+
+(defn ext-dir
+  "`<project-dir>/.brainyard/loops/ext`: the project's attachments."
+  [project-dir]
+  (io/file (loops-dir project-dir) "ext"))
+
+(defn attach-file
+  "`ext/attach.edn`: `{slot-id [name …]}`, each slot's attachments in order."
+  [project-dir]
+  (io/file (ext-dir project-dir) "attach.edn"))
+
+(defn attachment-name
+  "`name` when it may name an attachment — a word of letters, digits, `-`
+  and `_` — else nil. It is a file's name under `ext/`."
+  [name]
+  (re-matches #"[\w-]+" (str name)))
+
+(defn attachment-file
+  "`ext/<name>.edn`, the tree attached as `name`."
+  [project-dir name]
+  (io/file (ext-dir project-dir) (str (or (attachment-name name)
+                                          (throw (ex-info (str "not an attachment's name: " (pr-str name)) {:name name})))
+                                      ".edn")))
+
+(defn attached
+  "The project's `ext/attach.edn`: `{slot-id [name …]}`, `{}` when there is
+  none. Throws when it does not read as that, since every turn's loop is made
+  from it."
+  [project-dir]
+  (let [f (attach-file project-dir)]
+    (if-not (and project-dir (.isFile f))
+      {}
+      (let [m (try (edn/read-string (slurp f))
+                   (catch Throwable e
+                     (throw (ex-info (str ".brainyard/loops/ext/attach.edn does not read: " (ex-message e)) {:file (.getPath f)}))))]
+        (when-not (and (map? m) (every? keyword? (keys m)) (every? #(and (vector? %) (every? attachment-name %)) (vals m)))
+          (throw (ex-info ".brainyard/loops/ext/attach.edn is {slot-id [name …]}, each name a file under ext/" {:file (.getPath f)})))
+        m))))
+
+(defn attachments
+  "The project's attachments as `bt/expand` takes them: `{slot-id [{:name
+  :tree} …]}`, each tree read from `ext/<name>.edn` — `{}` with no project
+  dir or nothing attached. Throws when an attached tree is missing or does
+  not read: the loop a turn runs would not be the one accepted."
+  [project-dir]
+  (into {} (for [[slot names] (attached project-dir)]
+             [slot (vec (for [n names
+                              :let [f (attachment-file project-dir n)]]
+                          {:name n
+                           :tree (if (.isFile f)
+                                   (try (edn/read-string (slurp f))
+                                        (catch Throwable e
+                                          (throw (ex-info (str ".brainyard/loops/ext/" n ".edn does not read: " (ex-message e))
+                                                          {:file (.getPath f)}))))
+                                   (throw (ex-info (str ".brainyard/loops/ext/attach.edn attaches " n " to " slot
+                                                        ", and there is no .brainyard/loops/ext/" n ".edn")
+                                                   {:file (.getPath f)})))}))])))
+
+(defn slots
+  "Every slot in the expanded `tree`, `{slot-id contract}`: what a project
+  may attach to there."
+  [tree]
+  (into {} (for [n (tree-seq vector? #(filter vector? (drop 2 %)) tree)
+                 :let [[_ o] n]
+                 :when (and (map? o) (:slot o))]
+             [(:id o) (:slot o)])))
+
+(defn write-attachment!
+  "Attach `tree` to `slot` as `name`, after what is attached there, or —
+  `tree` nil — detach `name` from it, removing `ext/<name>.edn`; and append
+  one line to `history.edn`. What an accept and a revert do (RFC-072); no
+  tool calls it.
+
+  opts: `:contract` — the slot's contract now, recorded in the tree's
+  `:based-on`; `:loop` — the loop the slot is in (react); `:proposal`.
+
+  The line, which is also what this returns: `{:at :action :loop :slot :name
+  :hash :replaced :proposal}`, `:action` `:attach` or `:detach`, `:hash` of
+  the tree written and `:replaced` of the one removed."
+  [project-dir slot name tree {:keys [contract proposal] :as opts}]
+  (let [f (attachment-file project-dir name)
+        now (attached project-dir)
+        names (get now slot [])
+        replaced (read-hash f)
+        written (when tree
+                  (let [[k o & cs] tree]
+                    (into [k (assoc o :based-on {:slot slot :contract contract :byj (version/version)})] cs)))
+        attach (if tree
+                 (assoc now slot (conj (vec (remove #{name} names)) name))
+                 (let [left (vec (remove #{name} names))] (if (seq left) (assoc now slot left) (dissoc now slot))))
+        line (cond-> {:at (str (java.time.Instant/now))
+                      :action (if tree :attach :detach)
+                      :loop (str (or (:loop opts) "react"))
+                      :slot slot :name name
+                      :hash (some-> written flow/tree-hash)
+                      :replaced replaced}
+               proposal (assoc :proposal proposal))]
+    (when (and (nil? tree) (not (some #{name} names)))
+      (throw (ex-info (str name " is not attached to " slot) {:slot slot :name name})))
+    (.mkdirs (ext-dir project-dir))
+    (if written
+      (spit f (with-out-str (pp/pprint written)))
+      (io/delete-file f true))
+    (spit (attach-file project-dir) (with-out-str (pp/pprint attach)))
+    (spit (history-file project-dir) (str (pr-str line) "\n") :append true)
+    line))
+
+(defn attachment-report
+  "Every attachment the project holds, against the slots of `tree`, the
+  loop it is attached into, expanded without attachments:
+  `[{:slot :name :based-on :contract :stale?}]`. `:stale?` says the slot is
+  gone or its contract is not the one the attachment was made against."
+  [project-dir tree]
+  (let [now (slots tree)]
+    (vec (for [[slot names] (sort-by (comp str key) (attached project-dir))
+               n names
+               :let [f (attachment-file project-dir n)
+                     b (try (tree-based-on (edn/read-string (slurp f))) (catch Throwable _ nil))
+                     c (get now slot)]]
+           {:slot slot :name n :based-on b :contract c
+            :stale? (or (nil? c) (not= c (:contract b)))}))))
+
+(defn attachment-line [{:keys [slot name contract stale? based-on]}]
+  (str "  " name " → " slot ": "
+       (cond
+         (nil? contract) (str "the loop in force has no slot " slot " — the attachment runs nowhere")
+         (and stale? based-on) (str "made against a slot that has changed since (byj " (:byj based-on)
+                                    ") — evaluate it again: byj loops attach " slot " .brainyard/loops/ext/" name ".edn (RFC-072)")
+         stale? (str "does not say which slot contract it was made against — evaluate it again (RFC-072)")
+         :else (str "attached (.brainyard/loops/ext/" name ".edn)"))))

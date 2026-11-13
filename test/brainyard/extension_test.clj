@@ -4,9 +4,13 @@
 (ns brainyard.extension-test
   "Loop extension slots (RFC-072): `[:extension …]` expanded by `bt/expand`
   with the trees attached to it, or with nothing."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
+            [brainyard.agent :as agent]
             [brainyard.bt :as bt]
-            [brainyard.flow :as flow]))
+            [brainyard.flow :as flow]
+            [brainyard.project-loops :as project-loops]))
 
 (def slot-after
   [:extension {:id :t/after :reads {:question :question} :writes {:ext/notes :ext/notes}
@@ -121,3 +125,60 @@
                 (check [:action {:id :x/n :fn :t/needs}]))))
     (testing "an expanded slot is a tree flow check takes as any other"
       (is (empty? (check [:action {:id :x/m :fn :t/mark}]))))))
+
+;; --- a project's attachments (byj-9sp.3) --------------------------------------------
+
+(defn- project []
+  (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "slot-attachments-" (random-uuid))) .mkdirs)))
+
+(def lint [:action {:id :lint/note :fn :mem/set :set {:ext/notices "LINT: fine"}}])
+
+(defn- contract [slot] (get (project-loops/slots (agent/load-tree "react")) slot))
+
+(deftest a-project-with-nothing-attached-runs-the-bundled-loop
+  (let [pd (project)]
+    (is (= {} (project-loops/attachments pd)))
+    (is (= (agent/load-tree "react") (agent/load-tree "react" pd)))))
+
+(deftest what-a-project-attached-is-in-every-loop-it-runs
+  (let [pd (project)
+        line (project-loops/write-attachment! pd :react/ext-after-tools "lint" lint
+                                              {:contract (contract :react/ext-after-tools) :proposal "loop/x"})]
+    (is (= {:react/ext-after-tools ["lint"]} (project-loops/attached pd)))
+    (is (= {:action :attach :loop "react" :slot :react/ext-after-tools :name "lint" :replaced nil :proposal "loop/x"}
+           (dissoc line :at :hash)))
+    (is (= line (last (project-loops/history pd))) "a history line, as a loop's change has")
+    (let [react (agent/load-tree "react" pd)
+          node (first (filter #(= :react/ext-after-tools (:id (second %))) (bt/nodes react)))]
+      (is (= ["lint"] (:attached (second node))))
+      (is (some #(= :lint/note (:id (second %))) (bt/nodes react)))
+      (is (not= (flow/tree-hash react) (flow/tree-hash (agent/load-tree "react")))))
+    (testing "the session loop's turn too"
+      (is (some #(= :lint/note (:id (second %))) (bt/nodes (agent/load-tree "session" pd)))))
+    (testing "--print-tree names it"
+      (is (some #(and (= :attachment (:from %)) (= "lint" (:name %))) (agent/tree-sources "react" pd)))
+      (is (str/includes? (project-loops/source-line (last (agent/tree-sources "react" pd)))
+                         "the project's .brainyard/loops/ext/lint.edn, attached to :react/ext-after-tools")))
+    (testing "doctor says it is attached, to a slot as it is"
+      (is (str/includes? (project-loops/report-text pd) "lint → :react/ext-after-tools: attached")))
+    (testing "detached, the bundled loop again, and another line"
+      (project-loops/write-attachment! pd :react/ext-after-tools "lint" nil {})
+      (is (= {} (project-loops/attached pd)))
+      (is (not (.exists (project-loops/attachment-file pd "lint"))))
+      (is (= :detach (:action (last (project-loops/history pd)))))
+      (is (= (agent/load-tree "react") (agent/load-tree "react" pd))))))
+
+(deftest an-attachment-whose-slot-changed-is-named-by-doctor
+  (let [pd (project)]
+    (project-loops/write-attachment! pd :react/ext-after-tools "lint" lint {:contract {:reads {} :writes {} :on-failure :fail}})
+    (is (str/includes? (project-loops/report-text pd) "made against a slot that has changed since"))
+    (project-loops/write-attachment! pd :react/ext-nowhere "lost" lint {:contract {}})
+    (is (str/includes? (project-loops/report-text pd) "has no slot :react/ext-nowhere"))))
+
+(deftest an-attachment-that-is-not-there-stops-the-loop-rather-than-run-another
+  (let [pd (project)]
+    (io/make-parents (project-loops/attach-file pd))
+    (spit (project-loops/attach-file pd) (pr-str {:react/ext-after-tools ["gone"]}))
+    (is (thrown-with-msg? Exception #"there is no .brainyard/loops/ext/gone.edn" (agent/load-tree "react" pd)))
+    (spit (project-loops/attach-file pd) "{:react/ext-after-tools \"lint\"}")
+    (is (thrown-with-msg? Exception #"attach.edn is \{slot-id" (agent/load-tree "react" pd)))))

@@ -591,9 +591,7 @@
           (let [patched (try (reduce apply-op source ops) (catch Throwable e {::failed (ex-message e)}))]
             (if (::failed patched)
               {:error (::failed patched)}
-              (let [expanded (try {:t (bt/expand patched
-                                                 #((requiring-resolve 'brainyard.agent/resolve-tree)
-                                                   % (:project-dir opts)))}
+              (let [expanded (try {:t ((requiring-resolve 'brainyard.agent/expand-tree) patched (:project-dir opts))}
                                   (catch Throwable e {:error (ex-message e)}))
                     problems (if (:error expanded)
                                [{:node :tree :problem (:error expanded)}]

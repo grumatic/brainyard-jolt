@@ -344,22 +344,29 @@
   that directory itself. `project-loops/loops-dir` says where it is; this
   namespace cannot require that one, which `hookbox` would reach through
   `flow`. What is under it in a directory of its own — `tasks/`,
-  `proposals/` — makes no loop live (RFC-071, byj-ng7.12)."
+  `proposals/` — makes no loop live (RFC-071, byj-ng7.12), but for `ext/`,
+  whose every file is a tree attached to a slot or the list of them, and is
+  guarded whole (RFC-072)."
   [project-dir path]
   (when (and project-dir (not (str/blank? (str project-dir))) path)
     (let [dir (canonical (io/file (str project-dir) ".brainyard" "loops"))
+          ext (canonical (io/file dir "ext"))
           p (canonical path)]
       (when (or (= dir p)
+                (= ext p)
+                (str/starts-with? p (str ext "/"))
                 (and (str/ends-with? p ".edn")
                      (= dir (some-> (io/file p) .getParentFile .getPath))))
         p))))
 
 (defn named-loop-files
-  "The project loop files a shell `command` names: `.brainyard/loops/<name>.edn`
-  as written in it, relative or absolute. A tripwire, as `:denied-paths` in a
-  command is: a shell reaches a file by other spellings (RFC-071, byj-ng7.12)."
+  "The project loop files a shell `command` names: `.brainyard/loops/<name>.edn`,
+  and `.brainyard/loops/ext` or anything under it (RFC-072), as written in
+  it, relative or absolute. A tripwire, as `:denied-paths` in a command is:
+  a shell reaches a file by other spellings (RFC-071, byj-ng7.12)."
   [command]
-  (vec (distinct (map second (re-seq #"(\.brainyard/loops/[\w-]+\.edn)(?:$|[\s\"';|&>)])" (str command))))))
+  (vec (distinct (map second (re-seq #"(\.brainyard/loops/(?:ext(?:/[^\s\"';|&>)]*)?|[\w-]+\.edn))(?:$|[\s\"';|&>)])"
+                                     (str command))))))
 
 (def ^:private loop-hint
   (str "A loop is the project's when a person makes it so (RFC-071): write the candidate to"

@@ -1144,20 +1144,29 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
 
 (def react-loop "brainyard/loops/react.edn")
 
+(defn expand-tree
+  "`tree` as it runs for `project-dir`: each `:include` found by
+  `resolve-tree` — the project's own loop first — and each slot filled with
+  what the project attached to it (RFC-072, `project-loops/attachments`)."
+  [tree project-dir]
+  (bt/expand tree #(resolve-tree % project-dir) (project-loops/attachments project-dir)))
+
 (defn load-tree
   "A loop tree by name, resource or file path (default the ReAct loop), with
   its :include nodes expanded — the tree and every include found by
   `resolve-tree` for `project-dir`, so a project's own loop is in force
-  wherever it is named."
+  wherever it is named — and its slots filled with the project's
+  attachments (`expand-tree`)."
   ([name] (load-tree name nil))
   ([name project-dir]
-   (let [resolve #(resolve-tree % project-dir)]
-     (bt/expand (resolve (or name react-loop)) resolve))))
+   (expand-tree (resolve-tree (or name react-loop) project-dir) project-dir)))
 
 (defn tree-sources
   "Every loop the tree `name` is made of, each with where it was found
   (`tree-source`, plus `:name`): the tree's own first, then each `:include`,
-  depth first, once each. What `--print-tree` says of a tree."
+  depth first, once each, then each tree the project attached to a slot in
+  them (`{:from :attachment :path :based-on}`). What `--print-tree` says of
+  a tree."
   [name project-dir]
   (letfn [(includes [tree]
             (keep #(when (and (vector? %) (= :include (first %))) (:tree (second %)))
@@ -1168,7 +1177,18 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
               (into [(assoc (tree-source n project-dir) :name n)]
                     (mapcat #(walk % (conj seen n)))
                     (includes (resolve-tree n project-dir)))))]
-    (vec (distinct (walk (or name react-loop) #{})))))
+    (let [loops (vec (distinct (walk (or name react-loop) #{})))
+          expanded (try (bt/expand (resolve-tree (or name react-loop) project-dir) #(resolve-tree % project-dir))
+                        (catch Throwable _ nil))
+          here (set (keys (project-loops/slots expanded)))]
+      (into loops
+            (for [[slot names] (project-loops/attached project-dir)
+                  :when (here slot)
+                  n names
+                  :let [f (project-loops/attachment-file project-dir n)]]
+              {:name n :from :attachment :path (str ".brainyard/loops/ext/" n ".edn")
+               :based-on (assoc (try (project-loops/tree-based-on (edn/read-string (slurp f))) (catch Throwable _ nil))
+                                :slot slot)})))))
 
 (defn session-context
   "brainyard's session-context zone: system information, the bound tools,
