@@ -31,7 +31,7 @@ and a refusal to `tools/call-tool` as a tool result.
 | 100 | `redundant-tool-call-guard` (RFC-011) | iteration history | log |
 | 95 | `tool-deny-gate` | `:tool-deny-tools`, `:tool-deny-effects` | **throw** |
 | 92 | `bash-command-gate` | `:bash-deny-commands`, `:bash-allow-commands`, `:allowed-dirs` | **throw** |
-| 90 | `path-permission-gate` | `:denied-paths`, `:allowed-dirs`, `:path-permission?`, `:permission-mode` | **throw** |
+| 90 | `path-permission-gate` | a project's loop (RFC-071), `:denied-paths`, `:allowed-dirs`, `:path-permission?`, `:permission-mode` | **throw** |
 | 87 | `tangled-file-guard` (RFC-067) | `:literate-guard?`; a write-file or update-file target's org-babel link comments | **throw** |
 | 85 | `tool-permission-gate` | `:tool-approval-patterns`, `:tool-allow-tools`, `:tool-ask-effects`, `:permission-mode` | **throw** |
 
@@ -307,6 +307,20 @@ command gate refuses a line naming one, absolute or from `~` — a tripwire, as
 `permission-test/a-login-or-a-key-is-read-by-no-tool`. A program that runs a session for
 another caller narrows it with `BY_ALLOWED_DIRS` — its project and the temp
 dir alone, as an A2A gateway gives a caller's turn.
+
+**A project's loop is written by no tool** (RFC-071, `byj-ng7.12`): a file
+`<name>.edn` directly in `<project>/.brainyard/loops/` is the project's loop
+from the next session, ahead of the bundled one, and `history.edn` beside it
+says how it came to be; a tool that wrote either would make a loop live with
+no person accepting it. So the path gate refuses a write to one, or to that
+directory, in every mode and first of all (`permission/loop-file`); reading
+one, and writing what sits in a directory under it (`tasks/`, `proposals/`),
+it leaves to the rest of the gate. `flow$patch` declares its `:path`, so its
+file meets the path gate as `write-file`'s does. The command gate refuses a
+line naming `.brainyard/loops/<name>.edn`, before anything is asked — a
+tripwire, as for a login. byj's hook gives Claude Code and Codex the same
+answer. `permission-test/a-projects-loop-is-written-by-no-tool`,
+`tool-hook-test/another-agent-writes-no-project-loop`.
 
 **The default list is wider than the project**, and that has a consequence
 worth stating: a run whose working directory is itself under `/tmp` or the
@@ -646,7 +660,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | The seatbelt profile is brainyard's, its write roots are ordered, deduped and escaped, and network can be denied. | `permission-test/sandbox-profile` |
 | The argv is `sandbox-exec -p <profile>`, or `-f` with brainyard's `-D` parameters. | `permission-test/sandbox-argv` |
 | `--sandbox-allow-write` expands `~`, resolves relatives and dedupes. | `permission-test/sandbox-allow-writes` |
-
+| A write to a project's loop — `.brainyard/loops/<name>.edn`, its `history.edn`, the directory — is refused for every tool in every mode, `flow$patch` included; a shell line naming one is refused as a tripwire; Claude Code's and Codex's through byj's hook alike (RFC-071) | `permission-test/a-projects-loop-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-loop` |
 | `/allow-path DIR` adds DIR for the session only, once, never to `config.edn`, and is refused over the session channel; every gate — the command gate's paths too — reads the session's directories beside `:allowed-dirs`. | `session-test/allow-path-is-the-persons-and-the-sessions`, `permission-test/a-directory-allowed-for-the-session-is-reached` |
 
 ## Known gaps

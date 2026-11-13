@@ -80,6 +80,20 @@
       (is (= "deny" (:permissionDecision (:hookSpecificOutput (json/read-str (hook/hook! config (assoc codex :tool_name "Write" :tool_input {:file_path "a.txt"}) log))))))
       (is (nil? (hook/hook! config (assoc codex :tool_name "Read" :tool_input {:file_path "deps.edn"}) log))))))
 
+(deftest another-agent-writes-no-project-loop
+  ;; byj-ng7.12: the gate that keeps a byj tool from making a loop live keeps
+  ;; Claude Code's and Codex's edits from it too, whatever the mode
+  (let [project (fresh-dir "loops")
+        config {:project-dir project :working-dir project :permission-mode :auto-approve}
+        decide #(hook/decide config (merge {:cwd project :session_id "s"} %))]
+    (is (= :deny (:decision (decide {:tool_name "Write" :tool_input {:file_path ".brainyard/loops/react.edn" :content "[]"}}))))
+    (is (= :deny (:decision (decide {:tool_name "Edit" :tool_input {:file_path (str project "/.brainyard/loops/react.edn")}}))))
+    (is (= :deny (:decision (decide {:tool_name "apply_patch" :turn_id "t" :model "m"
+                                     :tool_input {:command "*** Begin Patch\n*** Add File: .brainyard/loops/react.edn\n*** End Patch"}}))))
+    (is (str/includes? (:reason (decide {:tool_name "Bash" :tool_input {:command "cp x.edn .brainyard/loops/react.edn"}}))
+                       "project's loop"))
+    (is (nil? (:decision (decide {:tool_name "Read" :tool_input {:file_path ".brainyard/loops/react.edn"}}))) "read, it is not")))
+
 (deftest a-codex-patch-is-every-file-it-names
   (is (= ["a.clj" "b.clj" "c.md" "d.txt"]
          (hook/patch-paths "*** Begin Patch\n*** Update File: a.clj\n*** Move to: b.clj\n*** Add File: c.md \n*** Delete File: d.txt\n*** End Patch"))

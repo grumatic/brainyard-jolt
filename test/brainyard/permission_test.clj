@@ -12,6 +12,7 @@
             [brainyard.json :as json]
             [brainyard.config :as config]
             [brainyard.permission :as permission]
+            [brainyard.project-loops :as project-loops]
             [brainyard.sandbox :as sandbox]
             [brainyard.tools :as tools]))
 
@@ -394,6 +395,47 @@
         "so a message with one in it is not refused")
     (is (= "~/.ssh" (permission/denied-path ["~/.ssh"] (permission/home-paths "ls ~" "/h") "/h"))
         "the home itself still holds one")))
+
+;; byj-ng7.12: since byj-ng7.1 a tree at .brainyard/loops/<name>.edn is the
+;; project's loop from the next session; a tool that wrote one would make a
+;; loop live with no person accepting it (RFC-071)
+(deftest a-projects-loop-is-written-by-no-tool
+  (let [dir (.getAbsolutePath (io/file (fresh-dir "loops")))
+        loops (io/file dir ".brainyard" "loops")
+        react (io/file loops "react.edn")
+        _ (io/make-parents react)
+        _ (spit react "[:action {:id :p/x :fn :react/init}]")
+        c (fn [mode] (ctx {:working-dir dir :project-dir dir :allowed-dirs [dir] :permission-mode mode}
+                          :permission-fn (fn [_] {:allowed true})))
+        refused? #(str/includes? (str (:error %)) "Tool call refused (loop)")]
+    (doseq [mode [:auto-approve :auto :ask-each-time :deny-by-default]]
+      (is (refused? (call (c mode) "write-file" {:path (.getPath react) :content "[]"})) (str "write-file, " mode))
+      (is (refused? (call (c mode) "update-file" {:path ".brainyard/loops/react.edn" :old "x" :new "y"}))
+          (str "update-file, by a relative path, " mode))
+      (is (refused? (call (c mode) "write-file" {:path ".brainyard/loops/history.edn" :content "[]"}))
+          (str "its history too, " mode))
+      (is (refused? (call (c mode) "bash" {:command "cp /tmp/better.edn .brainyard/loops/react.edn"}))
+          (str "a shell naming one, " mode)))
+    (is (= "[:action {:id :p/x :fn :react/init}]" (slurp react)) "and the file is as it was")
+    (is (refused? (call (c :auto-approve) "flow$patch" {:path (.getPath react) :ops []}))
+        "flow$patch's file goes through the path gate as write-file's does")
+    (testing "reading one, and what makes no loop live, are not refused for it"
+      (is (str/includes? (str (:content (call (c :auto-approve) "read-file" {:path (.getPath react)}))) ":p/x"))
+      (is (not (refused? (call (c :auto-approve) "write-file" {:path ".brainyard/loops/tasks/s.cases.edn" :content "[]"})))
+          "a task set's cases are the person's to write, with an agent's help")
+      (is (not (refused? (call (c :auto-approve) "write-file" {:path "candidate.edn" :content "[]"})))
+          "a candidate elsewhere, to try with --loop")
+      (is (not (refused? (call (c :auto-approve) "bash" {:command "ls .brainyard/loops/tasks"})))))
+    (testing "the file it guards is the one resolve-tree reads"
+      (is (some? (permission/loop-file dir (project-loops/project-file dir "react"))))
+      (is (some? (permission/loop-file dir (project-loops/project-file dir "brainyard/loops/react.edn"))))
+      (is (some? (permission/loop-file dir (.getPath loops))) "the directory itself: removing it is a change too")
+      (is (nil? (permission/loop-file dir (.getPath (io/file loops "tasks" "s.edn")))))
+      (is (nil? (permission/loop-file dir (.getPath (io/file dir "react.edn")))))
+      (is (nil? (permission/loop-file nil (.getPath react))) "no project, no project loop"))
+    (is (= [".brainyard/loops/react.edn"] (permission/named-loop-files "sed -i '' s/a/b/ .brainyard/loops/react.edn && echo ok")))
+    (is (= [".brainyard/loops/plan.edn"] (permission/named-loop-files (str "echo x > " dir "/.brainyard/loops/plan.edn"))) "absolute")
+    (is (empty? (permission/named-loop-files "cat .brainyard/loops/tasks/s.edn")))))
 
 (deftest path-gate
   (let [dir (fresh-dir "paths")

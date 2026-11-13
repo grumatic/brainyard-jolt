@@ -337,6 +337,40 @@
         :when (or (= "~" p) (str/starts-with? p "~/"))]
     (str home (subs p 1))))
 
+(defn loop-file
+  "The project loop a write to `path` would make live or take away, or nil:
+  a file `<name>.edn` directly in `<project-dir>/.brainyard/loops` — a loop
+  `agent/resolve-tree` finds before the bundled one, or `history.edn` — or
+  that directory itself. `project-loops/loops-dir` says where it is; this
+  namespace cannot require that one, which `hookbox` would reach through
+  `flow`. What is under it in a directory of its own — `tasks/`,
+  `proposals/` — makes no loop live (RFC-071, byj-ng7.12)."
+  [project-dir path]
+  (when (and project-dir (not (str/blank? (str project-dir))) path)
+    (let [dir (canonical (io/file (str project-dir) ".brainyard" "loops"))
+          p (canonical path)]
+      (when (or (= dir p)
+                (and (str/ends-with? p ".edn")
+                     (= dir (some-> (io/file p) .getParentFile .getPath))))
+        p))))
+
+(defn named-loop-files
+  "The project loop files a shell `command` names: `.brainyard/loops/<name>.edn`
+  as written in it, relative or absolute. A tripwire, as `:denied-paths` in a
+  command is: a shell reaches a file by other spellings (RFC-071, byj-ng7.12)."
+  [command]
+  (vec (distinct (map second (re-seq #"(\.brainyard/loops/[\w-]+\.edn)(?:$|[\s\"';|&>)])" (str command))))))
+
+(def ^:private loop-hint
+  (str "A loop is the project's when a person makes it so (RFC-071): write the candidate to"
+       " another file and try it with --loop; a person accepts it, or puts it there by hand."))
+
+(defn- loop-refusal [by display reason]
+  (deny-replace {:by by :display display :reason reason
+                 :reason-prefix "Loop write refused"
+                 :error-prefix "Tool call refused (loop)"
+                 :hint loop-hint}))
+
 (defn path-gate
   "Priority 90. Every path a call names must be under `:allowed-dirs` (unset:
   /tmp, the system temp dir, the working dir, ~/.brainyard). One that is not
@@ -349,6 +383,15 @@
   declares `:path-params`, including calls a user tool makes."
   [{:keys [tool-name args]} ctx _opts]
   (or
+   ;; a project's loop, written by no tool in any mode: a loop there is
+   ;; every later session's procedure, and only a person makes it so
+   ;; (RFC-071, byj-ng7.12)
+   (when (contains? (effects-of ctx tool-name) :fs/write)
+     (let [tool (some-> (:tools ctx) deref (get tool-name))
+           working-dir (config ctx :working-dir ".")]
+       (when-let [p (first (keep #(loop-file (config ctx :project-dir working-dir) %)
+                                 (call-paths tool args working-dir)))]
+         (loop-refusal "path-permission-gate" p "it is the project's loop, which a person makes live, not a tool"))))
    ;; a person's logins and keys, refused in every mode: what a shared
    ;; agent's caller, or a file it reads, could ask it to fetch (byj-1wv.115.40)
    (let [tool (some-> (:tools ctx) deref (get tool-name))
@@ -563,6 +606,10 @@
                                      (str/join ", " (:bash-allow-commands cfg))
                                      "anything not denied")
                                    ". Set them with [:permissions :bash-allow-commands] in .brainyard/config.edn.")}))
+       ;; a project's loop file it names — a tripwire, as a login's is; before
+       ;; anything asks, so a person is not asked about what is refused (byj-ng7.12)
+       (when-let [f (first (mapcat named-loop-files commands))]
+         (loop-refusal "bash-command-gate" f "it names a project's loop, which a person makes live, not a tool"))
        ;; a command that could destroy or change things — asked about, so in
        ;; :auto classified, inside the allowed directories too (byj-gly.285.4)
        (when-let [[seg glob] (or (first (keep #(asked-command cfg %) commands))

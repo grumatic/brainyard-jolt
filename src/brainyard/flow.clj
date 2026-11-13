@@ -742,6 +742,9 @@
                 [:map [:error :string]
                  [:hash {:optional true} :string]
                  [:problems {:optional true} [:vector [:map [:node :any] [:problem :string]]]]]]
+      ;; its file goes through the path gate as write-file's does: a project's
+      ;; loop is patched by no tool (byj-ng7.12)
+      :path-params [:path]
       :effects #{:fs/read :fs/write}
       :fn (fn [{:keys [path expect-hash ops]} ctx]
             (if-not (sequential? ops)

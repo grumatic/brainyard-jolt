@@ -6,6 +6,14 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **No tool writes a project's loop.** A file in `.brainyard/loops/` is the
+  project's loop from the next session, so writing one, its `history.edn` or
+  the directory is refused for every tool in every mode, `flow$patch`
+  included, and for Claude Code and Codex through byj's hook; a shell command
+  that names one is refused too. Reading one is not. Write a candidate loop
+  to another file and try it with `--loop`.
+- **`flow$patch` meets the path gate**: the file it patches is checked
+  against the allowed directories, as `write-file`'s is.
 - **A workflow's predictor step is drawn behind `◇`**, a tool's behind `⏺`:
   `agent$claude`'s view showed `claude/plan(…)` and `claude$open(…)` alike,
   so its choice of session and brief read as a tool the model had called.

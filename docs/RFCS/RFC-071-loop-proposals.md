@@ -217,7 +217,10 @@ How it is built (`byj-ng7.1`, `brainyard.project-loops`):
   new base; it is the hash `flow$status` shows. `:byj` is
   `version/version` (RFC-029).
 - **Written** only by `project-loops/write-loop!`, which an accept and a
-  revert call (`byj-ng7.2`) and nothing a tool reaches. A tree is written
+  revert call (`byj-ng7.2`) and nothing a tool reaches; the path gate
+  refuses a tool's write to the file, its history or the directory, in every
+  mode (RFC-012, `byj-ng7.12`), so a person's editor is the only other hand
+  that writes one. A tree is written
   with its `:based-on` — the one given, else the one the tree carries, else
   the bundled loop's now — and nil removes the file, the bundled loop in
   force again. Each call appends one line to `history.edn`:
@@ -296,6 +299,7 @@ Built: `(loop-tasks/build! config {:name :sessions :check})` → `{:file :set
 | A candidate is data: it passes `flow check`, names only registered fns, and runs no host `eval` | nothing yet — `byj-ng7.2` |
 | A loop proposal carries no config key of the permissions family, and the gates run in `tools/call-tool` (`:agent.tool-use/pre`) whatever the tree, so no candidate weakens them | nothing yet — `byj-ng7.2` |
 | No tool reaches a loop's accept; only a person, at `/proposals` or the CLI | nothing yet — `byj-ng7.2` |
+| No tool writes a project's loop, its history or the directory, in any mode — `flow$patch` and another agent through byj's hook included; a shell line naming one is refused as a tripwire (RFC-012) | `permission-test/a-projects-loop-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-loop` |
 | An accepted loop is in force from the next session, and every accept and revert is a history line | nothing yet — `byj-ng7.2` |
 | A project's loop is found before the bundled one, for a bare name and the bundled resource path alike | `agent-test/a-project-loop-is-found-before-the-bundled-one` |
 | A project loop is written with its `:based-on`, a history line per write and none per read; doctor names one whose base is not the bundled loop | `agent-test/a-project-loop-is-written-with-its-base-and-a-history-line-per-change`, `agent-test/doctor-names-a-project-loop-whose-base-is-not-the-bundled-loop` |
@@ -311,9 +315,6 @@ All of it but a project's own loop: the rest is a design. The order of
 work is the epic's:
 
 - `loop/` proposals — `byj-ng7.2`.
-- A tool can still write `.brainyard/loops/`, which would make a loop the
-  project's with no history line and no person accepting it; the gate
-  should refuse or ask — `byj-ng7.12`.
 - A judge model as a second signal on a rebuilt task, never alone — `byj-ng7.8`.
 - A project's own check command, and a dogfood plan's stage checks
   (RFC-041), taken as the set's machine check without `--check` —
