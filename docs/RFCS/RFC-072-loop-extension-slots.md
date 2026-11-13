@@ -213,6 +213,58 @@ is measured, with no model, before anything is built:
 The decision closes with these numbers here and the spike that counts them
 under `dev/`, as every decision does.
 
+### Measured (2026-11-13)
+
+`jolt -A:dev -m brainyard.dev.extension-slots-survey REPO…`
+(`dev/brainyard/dev/extension_slots_survey.clj`) reads two histories:
+
+- this repository's history;
+- the history before the split, which a private repository keeps. Its
+  release tags run from v0.1.0 (2026-09-25) to v0.3.17.
+
+Versions with the same text are counted once.
+
+| series | versions | steps | semantic | anchors broken | `ext-after-tools` site | `ext-answer-check` site |
+|---|---|---|---|---|---|---|
+| every commit, 2026-09-17 → today | 11 | 10 | 10 | 1 | 0 | 1 |
+| every release, v0.1.0 → v0.3.19 (22 tags) | 2 | 1 | 1 | 0 | 0 | 0 |
+
+- **The ReAct loop settled before byj was first released.** Nine of the ten
+  semantic changes came in its first nine days (2026-09-17 → 09-25): the
+  port, predictors, hooks, the budget, the answer gate, the trajectory
+  record and compaction. Each of the nine added nodes. Only one moved
+  one: `:react/stamp-answer`, moved into the new answer gate.
+- **Across 22 releases a whole-loop override fell behind once.** That was
+  v0.3.4 (2026-10-15), and the change was one option:
+  `:react/recover-native-tool-calls` gained `:lookups`. A project holding a
+  copy then would have been asked once to evaluate again, and would have
+  missed one fix to native-call recovery.
+- **A patch overlay would have survived every release.** No node id has
+  been removed or moved since v0.1.0. Of the 22 ids in the first version,
+  21 are where they were.
+- **Neither slot's site changed across releases.** The answer check's site
+  changed once in the commit history, when the answer gate was added.
+  That is the change that would have needed a gate-type slot carried onto
+  the new paths.
+- **Two empty slots cost nothing measurable.** Expanding the session loop
+  took 0.30 ms either way (200 runs). The ReAct loop's hash changes once
+  (`a671dcefbfc9` → `40d15158cbd4`), and its node count goes from 43 to 45.
+
+**What the numbers say.** The drift that slots exist to remove has been one
+option change in two months of releases. By that measure the whole-loop
+override costs a project almost nothing today, and a patch overlay would
+have cost less. Slots would pay when:
+
+- the bundled loop starts changing between releases. A promotion to the
+  bundled loops (RFC-071 "Promotion") is the first thing that would do
+  that;
+- or projects want extensions that compose: two independent additions,
+  each evaluated and reverted alone. A copy cannot hold that.
+
+Neither has happened yet. No project on the machine the survey ran on
+holds a loop of its own. The only files under any `.brainyard/loops/`
+there are evaluation reports.
+
 ## API (proposed)
 
 | name | what it is |
