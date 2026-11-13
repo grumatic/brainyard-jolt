@@ -58,6 +58,28 @@
       (is (= :codex (hook/hook-agent {:turn_id "t" :model "m"})))
       (is (= :claude-code (hook/hook-agent {:session_id "s"}))))))
 
+(deftest codex-is-refused-what-claude-code-is-asked-about
+  ;; Codex's PreToolUse rejects an ask as unsupported and blocks only on a
+  ;; deny with a reason (openai/codex hooks/src/engine/output_parser.rs;
+  ;; byj-2wq), so what a gate would ask a person about is refused for it
+  (let [project (fresh-dir "codex-ask")
+        log (fresh-dir "codex-ask-log")
+        config {:project-dir project :working-dir project :permission-mode :ask-each-time
+                :tool-deny-tools ["write-file"] :bash-ask-commands ["git push*"]}
+        claude {:tool_name "Bash" :tool_input {:command "git push origin main"} :cwd project :session_id "cc-1"}
+        codex (assoc claude :session_id "cx-1" :turn_id "t-1" :model "gpt-5.5" :permission_mode "default")
+        answer (fn [payload] (:hookSpecificOutput (json/read-str (hook/hook! config payload log))))]
+    (is (= "ask" (:permissionDecision (answer claude))) "Claude Code still asks the person")
+    (let [out (answer codex)]
+      (is (= "deny" (:permissionDecision out)))
+      (is (str/includes? (:permissionDecisionReason out) "git push origin main") "the gate's words, for the model")
+      (is (str/includes? (:permissionDecisionReason out) "Codex hook cannot ask")))
+    (is (= [[:claude-code :ask] [:codex :deny]] (map (juxt :agent :decision) (logged log)))
+        "the log says what each agent was answered")
+    (testing "what Codex is answered otherwise is as Claude Code's"
+      (is (= "deny" (:permissionDecision (:hookSpecificOutput (json/read-str (hook/hook! config (assoc codex :tool_name "Write" :tool_input {:file_path "a.txt"}) log))))))
+      (is (nil? (hook/hook! config (assoc codex :tool_name "Read" :tool_input {:file_path "deps.edn"}) log))))))
+
 (deftest a-codex-patch-is-every-file-it-names
   (is (= ["a.clj" "b.clj" "c.md" "d.txt"]
          (hook/patch-paths "*** Begin Patch\n*** Update File: a.clj\n*** Move to: b.clj\n*** Add File: c.md \n*** Delete File: d.txt\n*** End Patch"))

@@ -11,7 +11,8 @@
   gates a byj turn meets (`hookbox/builtin-hooks` under `brainyard.permission`:
   tool deny, bash command, path, tool permission) under the project's config.
   A gate's refusal by rule is `deny`; a gate that would ask a person is `ask`
-  — Claude Code asks; no gate's objection is no opinion, and the agent's own
+  — Claude Code asks; Codex takes no ask, so for Codex it is `deny`
+  (`for-agent`, byj-2wq); no gate's objection is no opinion, and the agent's own
   rules decide. An unmapped tool (an MCP tool, a subagent) gets no opinion,
   and a hook that fails has none: it must not stop a person's work.
 
@@ -97,6 +98,22 @@
   [payload]
   (if (and (:turn_id payload) (:model payload)) :codex :claude-code))
 
+(defn for-agent
+  "Decision `d` as `agent` can take it. Codex's `PreToolUse` takes no ask:
+  its output parser rejects one as unsupported, and only a deny with a
+  reason holds a call (openai/codex `hooks/src/engine/output_parser.rs`,
+  read 2026-11-13; byj-2wq). Nor does Codex ask in its stead: under its
+  `default` mode a command its sandbox contains runs unasked. So what byj's
+  gates would ask a person about is refused for Codex, as byj refuses it
+  wherever nobody can be asked (`:ask-each-time` with no permission fn),
+  and the reason says so, for the model to tell the person."
+  [agent d]
+  (if (and (= :codex agent) (= :ask (:decision d)))
+    (assoc d :decision :deny
+           :reason (str (:reason d) " — a Codex hook cannot ask, so byj refuses it;"
+                        " ask the person, who can allow it in byj's config"))
+    d))
+
 (defn log-dir
   "Where decisions are logged: `dir`, else `~/.brainyard/permissions` under
   `home`."
@@ -110,11 +127,12 @@
   (RFC-049 decision 6) — log the decision in `dir`, and return what to
   print, or nil."
   [config payload dir]
-  (let [d (try (decide config payload)
-               (catch Throwable e {:decision nil :error (ex-message e)}))
+  (let [agent (hook-agent payload)
+        d (for-agent agent (try (decide config payload)
+                                (catch Throwable e {:decision nil :error (ex-message e)})))
         f (io/file dir (str (today) ".edn"))]
     (try (.mkdirs (.getParentFile f))
-         (spit f (str (pr-str (cond-> {:agent (hook-agent payload) :session (:session_id payload) :tool (:tool_name payload)
+         (spit f (str (pr-str (cond-> {:agent agent :session (:session_id payload) :tool (:tool_name payload)
                                        :decision (or (:decision d) :no-opinion) :at (System/currentTimeMillis)
                                        :project (:cwd payload)}
                                 (:reason d) (assoc :reason (:reason d))

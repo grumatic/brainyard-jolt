@@ -6,6 +6,12 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **Under Codex, byj's hook refuses what it would ask a person about**,
+  where before it answered "ask", which Codex rejects as unsupported, so the
+  call ran as if byj had said nothing. Codex's hook cannot ask, and its
+  default mode runs a sandboxed command unasked, so byj refuses it and says
+  why, for the model to ask you; allow it in byj's config to let it run.
+  Claude Code is still asked.
 - **byj's hook for Claude Code and Codex answers in tens of milliseconds**:
   the command `byj hook claude-settings` and `byj hook codex-flags` install
   now asks `byj hook serve`, a byj kept up on a unix socket

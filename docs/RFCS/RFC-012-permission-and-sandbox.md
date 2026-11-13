@@ -420,10 +420,17 @@ destination included — and put through the gates above (tool deny, bash
 command, path, tool permission; `hookbox/builtin-hooks` under
 `brainyard.permission`) under the config of the payload's `cwd`. A refusal
 by rule answers `deny` with the gate's reason; a gate that would ask a person
-answers `ask`, and the agent asks; nothing objecting prints nothing, and the
-agent's own rules decide. A tool byj has no counterpart for (an MCP tool, a
-subagent), a payload that cannot be read and a hook that throws get no
-opinion: the hook must never stop a person's work. Each decision is a line,
+answers `ask`, and the agent asks — Claude Code does. Codex does not: its
+`PreToolUse` rejects an ask as unsupported and holds a call only on a deny
+with a reason (`hooks/src/engine/output_parser.rs`, read 2026-11-13), and
+under its `default` mode a command its sandbox contains runs unasked. So for
+Codex an ask is `deny`, the gate's words and "a Codex hook cannot ask" its
+reason, for the model to take to the person (`tool-hook/for-agent`,
+`byj-2wq`) — as byj refuses where nobody can be asked. Nothing objecting
+prints nothing, and the agent's own rules decide. A tool byj has no
+counterpart for (an MCP tool, a subagent), a payload that cannot be read
+and a hook that throws get no opinion: the hook must never stop a
+person's work. Each decision is a line,
 `{:agent :session :tool :decision :at :project}` with `:reason`, `:gate` or
 `:error`, in `<DIR>/<day>.edn`, `~/.brainyard/permissions` unless `--log
 DIR`; a program that
@@ -589,8 +596,10 @@ rules asked without calling anything; `/tools` shows it, byj-gly.273.1),
 `call-paths`.
 
 `brainyard.tool-hook`: `patch-paths`, `tool-map`, `decide`, `hook-output`,
-`hook-agent`, `log-dir`, `hook!`, `hook-command`, `settings`,
-`codex-line`; CLI `byj hook pretooluse|settings|codex-flags [--log DIR]`.
+`hook-agent`, `for-agent`, `log-dir`, `hook!`, `hook-command`,
+`claude-settings`, `codex-line`; `brainyard.hook-serve`: `client-command`,
+`serve!`, `start!`, `fingerprint`; CLI `byj hook
+pretooluse|serve|claude-settings|codex-flags [--log DIR] [--socket SOCK]`.
 
 `brainyard.sandbox`: `available?`, `macos?`, `profile`, `write-roots`, `argv`,
 `parse-allow-writes`, `self-argv`, `banner`, `relaunch!`, `sandbox-exec`.
@@ -603,6 +612,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | invariant | enforced by |
 |---|---|
 | Another agent's call refused by a rule is `deny`, one a gate would ask about is `ask`, and nothing objecting, a tool byj lacks or a hook that fails is no opinion; every decision is logged | `tool-hook-test/another-agents-calls-meet-byjs-gates` |
+| What a gate would ask about is `ask` for Claude Code and, as Codex takes no ask, `deny` with the gate's words for Codex; the log says what each was answered | `tool-hook-test/codex-is-refused-what-claude-code-is-asked-about` |
 | A Codex patch is gated file by file, a move's destination included | `tool-hook-test/a-codex-patch-is-every-file-it-names` |
 | The hook installs as `byj hook pretooluse`, in Claude Code's settings and Codex's session flags | `tool-hook-test/the-hook-is-installed-as-byj-hook-pretooluse` |
 | The installed command asks `byj hook serve` and, with nothing there, gives the same payload, whole, to `byj hook pretooluse --socket` with the log; what the server answers is all that is printed | `hook-serve-test/the-command-asks-the-server-and-falls-back-to-byj` |
