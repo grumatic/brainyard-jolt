@@ -6,6 +6,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A better loop is a proposal at `/proposals`** (`loop/…`): staged with its
+  evidence and why, shown as a diff of the expanded tree against the loop in
+  force, and made the project's loop by a person's accept — from the next
+  session, which the session says. A candidate that fails `flow check`, or
+  names a permissions setting, is not staged; one proposed against a loop
+  that has since changed is not accepted. `byj loops revert [LOOP]` stages
+  the loop before the last change as a proposal of its own.
 - **No tool writes a project's loop.** A file in `.brainyard/loops/` is the
   project's loop from the next session, so writing one, its `history.edn` or
   the directory is refused for every tool in every mode, `flow$patch`

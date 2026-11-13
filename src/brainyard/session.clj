@@ -347,11 +347,13 @@
   "`/proposals [KIND] | show ID | accept ID [user] | reject ID` — the one review
   gate of self-improvement (byj-gly.249.1): a skill distilled or refined
   (RFC-017), predictor params compiled (RFC-021), a user tool distilled
-  (RFC-010). The model may list and read what was proposed; making one live,
-  or dropping it, is the person's, here — brainyard's rule that nothing it
-  drafts goes live unreviewed, kept by not giving the proposer the key. What
+  (RFC-010), a candidate loop (RFC-071). The model may list and read what
+  was proposed; making one live, or dropping it, is the person's, here —
+  brainyard's rule that nothing it drafts goes live unreviewed, kept by not
+  giving the proposer the key. What
   is accepted is in force from the next turn: the tools and the prompt's
-  listings are built again."
+  listings are built again — but a loop from the next session, as a session
+  expands its tree when it starts."
   [{:keys [config] :as ctx} [sub arg scope]]
   (let [line (fn [{:keys [id summary score]}]
                (str "  " id (when score (format " · %.2f" (double score)))
@@ -367,7 +369,12 @@
           e
           (do (when-let [box (:ctx-box ctx)]
                 (let [now (merge ctx @box)] (rebuild-ctx! now (:config now))))
-              (str (or (:said r) (str "accepted " (:id r))) " — in force from the next turn"))))
+              ;; a loop is expanded when a session starts: one accepted
+              ;; now is not the procedure of this session (RFC-071)
+              (str (or (:said r) (str "accepted " (:id r)))
+                   (if (= :next-session (:in-force r))
+                     " — in force from the next session; this one keeps the loop it started with"
+                     " — in force from the next turn")))))
 
       "reject"
       (let [r (proposals/reject! config arg)]

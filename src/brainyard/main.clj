@@ -67,6 +67,7 @@
             [brainyard.predictor :as predictor]
             [brainyard.programs :as programs]
             [brainyard.loop-tasks :as loop-tasks]
+            [brainyard.loop-proposals :as loop-proposals]
             [brainyard.session :as session]
             [brainyard.tasks :as tasks]
             [brainyard.tui :as tui]
@@ -633,8 +634,9 @@
 (defn- loops-command
   "`byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD]`: a
   task set rebuilt from the project's past turns, written to
-  .brainyard/loops/tasks/SET.edn (RFC-071, byj-ng7.3); `json` for what
-  `loop-tasks/build!` returns. The exit code."
+  .brainyard/loops/tasks/SET.edn (RFC-071, byj-ng7.3); `byj loops revert
+  [LOOP]`: the loop before its last change, staged as a proposal
+  (byj-ng7.2); `json` for what each returns. The exit code."
   [{:keys [questions json name from check-cmd]} config]
   (let [[sub & more] questions]
     (case sub
@@ -645,7 +647,14 @@
                     json (do (println (json/write-str r)) (if (:error r) 1 0))
                     (:error r) (do (err-println (:error r)) 1)
                     :else (do (doseq [l (loop-tasks/summary-lines r)] (println l)) 0))))
-      (do (err-println (str "loops: unknown subcommand " (pr-str sub) " — tasks build")) 2))))
+      "revert" (let [r (loop-proposals/stage-revert! config (first more))]
+                 (cond
+                   json (do (println (json/write-str r)) (if (:error r) 1 0))
+                   (:error r) (do (err-println (:error r)) 1)
+                   :else (do (println (str "staged loop/" (:id r) " — /proposals show loop/" (:id r)
+                                           " to read it, accept to make it the project's loop from the next session"))
+                             0)))
+      (do (err-println (str "loops: unknown subcommand " (pr-str sub) " — tasks build, revert")) 2))))
 
 (defn- hook-answer
   "What `byj hook pretooluse` prints for the payload `json`, its decision

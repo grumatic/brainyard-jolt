@@ -67,6 +67,7 @@
             [brainyard.emacs-test]
             [brainyard.changes-test]
             [brainyard.loop-tasks-test]
+            [brainyard.loop-proposals-test]
             [brainyard.links-test]
             [brainyard.release-test]
             [brainyard.update-test]
@@ -156,6 +157,7 @@
     brainyard.emacs-test
     brainyard.changes-test
     brainyard.loop-tasks-test
+    brainyard.loop-proposals-test
     brainyard.links-test
     brainyard.release-test
     brainyard.update-test

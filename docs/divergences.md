@@ -1452,7 +1452,7 @@ session's `/proposals` here.
 **Every kind of self-improvement is reviewed at one gate.** brainyard reviews
 skill proposals with `skill-proposal$list/read/accept/reject` and its
 self-improve CLI, and a compiled program's params elsewhere. Here skill
-proposals, user-tool proposals and predictor params wait behind one
+proposals, user-tool proposals, predictor params and loops (RFC-071) wait behind one
 `brainyard.proposals`: the session's `/proposals`, ids `KIND/NAME`, and the
 model's read-only `proposal$list` / `proposal$read` in place of
 `skill-proposal$list` / `$read`. Each kind keeps its drafts where it always did

@@ -1,6 +1,8 @@
 # RFC-071 — Loop proposals: a better loop, proven and then accepted
 
-**Status:** designed 2026-11-13; a project's own loop built (`byj-ng7.1`), the rest not. Epic `byj-ng7`.
+**Status:** designed 2026-11-13. Built: a project's own loop (`byj-ng7.1`),
+the task set (`byj-ng7.3`), no tool writing a loop (`byj-ng7.12`), `loop/`
+proposals (`byj-ng7.2`); the rest not. Epic `byj-ng7`.
 
 ## Purpose
 
@@ -234,6 +236,34 @@ when it starts; replacing the procedure in the middle of a conversation is a
 change the person did not see happen. It matches the rule that a mode or an
 allow-list a run wrote does not govern that run (`config/applies-next-session?`).
 
+How a proposal is staged, read and decided (`byj-ng7.2`,
+`brainyard.loop-proposals`, kind `:loop` of `brainyard.proposals`):
+
+- **Staged** by `stage!` — `byj loops propose` (`byj-ng7.5`) and a revert;
+  no tool — in `.brainyard/loops/proposals/<loop>-<ms>/`: `meta.edn` (`{:loop
+  :action :status :created-ts :base}`, `:base` the loop in force then: the
+  project's file, else the bundled loop, and its hash), `loop.edn`,
+  `report.edn` and `why.md`. Refused, nothing written, when the tree does not
+  expand, when its expansion fails `flow check` with `byj flow check`'s
+  options, or when it names a key of the permissions family
+  (`loop-proposals/permission-keys`) anywhere in its opts.
+- **Read** at `/proposals show loop/<id>`, and by the model with
+  `proposal$read`: what it does, why, the report, and the diff of the
+  expanded candidate against the expanded loop in force now
+  (`loop-proposals/tree-diff`, a line diff of the two pretty-printed trees).
+- **Accepted** by a person at `/proposals accept loop/<id>`: refused when the
+  loop in force is not the one it was staged against — another was accepted,
+  or byj upgraded the bundled one — since its evidence was about that loop;
+  else the file it replaces is kept as the proposal's `replaced.edn`,
+  `project-loops/write-loop!` writes the tree and the history line, and the
+  session says it is in force from the next session. Rejected, it stays,
+  marked so.
+- **Reverted** by `byj loops revert [LOOP]`, which stages the loop before the
+  last change in `history.edn` — that change's `replaced.edn`, or the bundled
+  loop when it replaced none (the project's file removed) — as a proposal of
+  `:action :revert`, accepted like any other. A revert is a change too, so
+  reverting it puts back what it replaced.
+
 ### After adoption
 
 The turns after an accept are compared with the turns before, from the
@@ -276,8 +306,8 @@ governing that run.
 byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD] [--json]   ; a task set from past turns (built)
 byj loops eval CANDIDATE --tasks SET [--repeats N] [--max-cost USD]
 byj loops propose CANDIDATE --tasks SET                 ; eval, then stage when it wins
-byj loops revert                                        ; the previous loop, as a proposal
-/proposals loop  ·  /proposals show loop/<id>  ·  /proposals accept|reject loop/<id>
+byj loops revert [LOOP] [--json]                        ; the previous loop, as a proposal (built)
+/proposals loop  ·  /proposals show loop/<id>  ·  /proposals accept|reject loop/<id>   (built)
 ```
 
 Files: `<project>/.brainyard/loops/<name>.edn` (`:based-on`),
@@ -286,7 +316,15 @@ Files: `<project>/.brainyard/loops/<name>.edn` (`:based-on`),
 the person's `<set>.cases.edn` beside it (built; their shapes are under
 "Tasks"), and the pins `refs/byj/tasks/<set>/<id>`.
 
-Built: `(loop-tasks/build! config {:name :sessions :check})` → `{:file :set
+Built: `(loop-proposals/stage! config {:loop :tree :action :report :why
+:check-opts})` → `{:id :dir}` | `{:error :problems}`; `list-proposals`,
+`read-proposal`, `accept!` → the history line with `:in-force
+:next-session :said` | `{:error}`, `reject!`, `stage-revert!`, `problems`,
+`permission-keys-in`, `in-force`, `tree-diff`; files
+`.brainyard/loops/proposals/<id>/` (`meta.edn`, `loop.edn`, `report.edn`,
+`why.md`, `replaced.edn`).
+
+`(loop-tasks/build! config {:name :sessions :check})` → `{:file :set
 :tasks :added :splits :hash :check :dropped}` | `{:error}`;
 `loop-tasks/turn-tasks`, `person-cases`, `rewound-turns`, `committed?`,
 `person-signal`, `read-set`, `set-file`, `cases-file`, `task-id`,
@@ -296,11 +334,13 @@ Built: `(loop-tasks/build! config {:name :sessions :check})` → `{:file :set
 
 | invariant | enforced by |
 |---|---|
-| A candidate is data: it passes `flow check`, names only registered fns, and runs no host `eval` | nothing yet — `byj-ng7.2` |
-| A loop proposal carries no config key of the permissions family, and the gates run in `tools/call-tool` (`:agent.tool-use/pre`) whatever the tree, so no candidate weakens them | nothing yet — `byj-ng7.2` |
-| No tool reaches a loop's accept; only a person, at `/proposals` or the CLI | nothing yet — `byj-ng7.2` |
+| A candidate is data: it is staged only when its expansion passes `flow check` — registered fns, bound tools, found predictors, a sound memory chain — and it runs no host `eval` | `loop-proposals-test/staging-refuses-what-may-not-be-a-loop` |
+| A loop proposal carries no config key of the permissions family, and the gates run in `tools/call-tool` (`:agent.tool-use/pre`) whatever the tree, so no candidate weakens them | `loop-proposals-test/staging-refuses-what-may-not-be-a-loop` |
+| No tool reaches a loop's accept; only a person, at `/proposals` | `loop-proposals-test/no-tool-reaches-a-loops-accept` |
+| A proposal staged against a loop no longer in force is not accepted | `loop-proposals-test/a-proposal-made-against-another-loop-is-not-accepted` |
+| A revert is a proposal: the file the last change replaced, or the bundled loop when it replaced none | `loop-proposals-test/a-revert-is-a-proposal-that-puts-back-the-loop-before`, `loop-proposals-test/byj-loops-revert-stages-a-proposal` |
 | No tool writes a project's loop, its history or the directory, in any mode — `flow$patch` and another agent through byj's hook included; a shell line naming one is refused as a tripwire (RFC-012) | `permission-test/a-projects-loop-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-loop` |
-| An accepted loop is in force from the next session, and every accept and revert is a history line | nothing yet — `byj-ng7.2` |
+| An accepted loop is in force from the next session, and every accept and revert is a history line | `loop-proposals-test/a-person-accepts-a-loop-and-it-is-in-force-from-the-next-session`, `loop-proposals-test/the-session-says-an-accepted-loop-waits-for-the-next-session` |
 | A project's loop is found before the bundled one, for a bare name and the bundled resource path alike | `agent-test/a-project-loop-is-found-before-the-bundled-one` |
 | A project loop is written with its `:based-on`, a history line per write and none per read; doctor names one whose base is not the bundled loop | `agent-test/a-project-loop-is-written-with-its-base-and-a-history-line-per-change`, `agent-test/doctor-names-a-project-loop-whose-base-is-not-the-bundled-loop` |
 | The clone differs from the agent only in its loop, and leaves nothing in the project's sessions or refs | nothing yet — `byj-ng7.4` |
@@ -311,10 +351,9 @@ Built: `(loop-tasks/build! config {:name :sessions :check})` → `{:file :set
 
 ## Known gaps
 
-All of it but a project's own loop: the rest is a design. The order of
-work is the epic's:
+All but a project's own loop, its proposals and the task set is a design.
+The order of work is the epic's:
 
-- `loop/` proposals — `byj-ng7.2`.
 - A judge model as a second signal on a rebuilt task, never alone — `byj-ng7.8`.
 - A project's own check command, and a dogfood plan's stage checks
   (RFC-041), taken as the set's machine check without `--check` —

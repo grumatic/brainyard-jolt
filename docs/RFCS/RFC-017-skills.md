@@ -303,7 +303,7 @@ session says so in an `:info` line as it stages one (divergence
 `:session.skill/judged` event with its cost.
 
 A skill proposal waits beside every other kind of self-improvement — user
-tools (RFC-010) and predictor params (RFC-021) — behind one gate,
+tools (RFC-010), predictor params (RFC-021) and loops (RFC-071) — behind one gate,
 `brainyard.proposals` (`byj-gly.249.1`, divergence `one-proposals-gate`). Its id
 is `skill/<name>`. The model may **see** what was proposed — `proposal$list`
 (`{:proposals […]}`, newest first, optionally one `kind`) and `proposal$read`
@@ -316,6 +316,10 @@ the session's `/proposals`:
 | `/proposals show ID` | the draft; for a skill refinement, the failure behind it |
 | `/proposals accept ID [user]` | a skill distillation → `create` (in the project unless `user`), a refinement → `update`; the proposal is dropped only when the write succeeded, and the tools and the prompt's listings are built again |
 | `/proposals reject ID` | drops it |
+
+A loop's accept differs in one way: it is in force from the **next session**,
+not the next turn, as a session expands its tree when it starts, and the
+session says so (RFC-071).
 
 An `ID` is `KIND/NAME`, or a bare name only one kind has. brainyard's
 `skill-proposal$accept`/`$reject` are commands, bound only on its skill-agent.

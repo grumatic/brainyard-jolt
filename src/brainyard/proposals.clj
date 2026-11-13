@@ -6,14 +6,15 @@
 
   Self-improvement drafts; a person decides. Skill distillation and refinement
   stage `SKILL.md` drafts (RFC-017), a compiled program stages predictor
-  params (RFC-021), and tool distillation stages user tools (RFC-010). Each
+  params (RFC-021), tool distillation stages user tools (RFC-010), and a
+  candidate loop that won its evaluation stages a tree (RFC-071). Each
   kind keeps its drafts where it always did and knows how to make one live.
   This namespace puts them behind one list, one id scheme and one
   accept/reject, so the session has a single `/proposals` and the model a
   single read-only `proposal$list` / `proposal$read`.
 
   An id is `KIND/NAME`: `skill/list-twice`, `tool/count-lines`,
-  `program/react/think-act/1790…`. A bare name is accepted where no other
+  `program/react/think-act/1790…`, `loop/react-1790…`. A bare name is accepted where no other
   kind has it.
 
   A kind is a map of fns over the run's config:
@@ -28,6 +29,7 @@
   RFC-021)."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [brainyard.loop-proposals :as loop-proposals]
             [brainyard.programs :as programs]
             [brainyard.self-improve :as self-improve]
             [brainyard.tool-distill :as tool-distill]))
@@ -117,10 +119,17 @@
                  (not (:error r)) (assoc :said (str "created user tool `user$tool$" name "` at " (:path r))))))
    :reject (fn [config name] (tool-distill/reject-proposal! config name))})
 
+(def ^:private loop-kind
+  ;; RFC-071 (byj-ng7.2): a candidate loop, in force from the next session
+  {:list loop-proposals/list-proposals
+   :read loop-proposals/read-proposal
+   :accept (fn [config name _] (loop-proposals/accept! config name))
+   :reject loop-proposals/reject!})
+
 (defn kinds
   "Every kind of proposal, in the order they are listed."
   []
-  (array-map :skill skill-kind :tool tool-kind :program program-kind))
+  (array-map :skill skill-kind :tool tool-kind :program program-kind :loop loop-kind))
 
 ;; --- one gate ------------------------------------------------------------------------
 
@@ -192,9 +201,9 @@
   [config]
   [{:name "proposal$list" :kind :command
     :description (str "List what self-improvement proposed and a person has not yet decided on: skills, "
-                      "user tools, predictor params — newest first. None is live until a person accepts it "
+                      "user tools, predictor params, loops — newest first. None is live until a person accepts it "
                       "(/proposals in the session).")
-    :input-schema [:map [:kind {:optional true} [:string {:desc "only this kind: skill, tool or program"}]]]
+    :input-schema [:map [:kind {:optional true} [:string {:desc "only this kind: skill, tool, program or loop"}]]]
     :output-schema [:map [:proposals [:vector [:map [:id :string] [:kind :keyword] [:name :string]
                                                [:summary {:optional true} [:maybe :string]]
                                                [:score {:optional true} [:maybe number?]]
