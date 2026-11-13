@@ -99,8 +99,8 @@ a bead labelled `sim`.
 
 ## The runner (`byj-gly.315.2`)
 
-`jolt sim:byj PLAN [--dir D] [--stages a,b] [-p P -m M] [--keep-going]
-[--no-resume]`, `brainyard.sim`. Mechanism only: the project, its stages,
+`jolt sim:byj PLAN [--dir D] [--stages a,b] [-p P -m M] [--loop FILE]
+[--keep-going] [--no-resume]`, `brainyard.sim`. Mechanism only: the project, its stages,
 what the person types and what is checked are the plan, data
 (`dev/sim/playground/plan.edn`, its check scripts beside it, `{{plan}}` in a
 check).
@@ -128,6 +128,20 @@ check).
   did from every trajectory record since it began, subagents' included
   (`stage-metrics`): turns, subagents, iterations, calls, failed calls (the
   first few, as they read), cost, tokens.
+- **A run can be on a loop of the person's choosing** (`--loop FILE`,
+  `byj-ng7.18`), for RFC-071's promotion check: the loop in a file, which
+  must be one `byj loops eval` would run and is named as it names it
+  (`loop-eval/loop-of`), is made the new project's loop before its first
+  stage, as a person's accept makes one (`project-loops/write-loop!`, a line
+  in its `history.edn`). Checked before the project is made, so a loop byj
+  would not run leaves nothing behind; a continued run keeps the loop it
+  began with. Every report says which loop ran — `:loop {:name :from :hash
+  :file?}`, `:from` `:bundled` or `:project` — and a comparison of two runs
+  on different loops names both.
+- **A failed call** is one the trajectory marks failed (`:error?`), or whose
+  result reads as one: a gate's block, which prints as `{:hook-blocked …}`,
+  was not counted before `byj-ng7.18`, so a run since can show more failed
+  calls than one before it on the same work.
 - **A run stops** at a stage that fails its checks, unless `:keep-going?`,
   or past `:cap-usd`.
 - **It writes** `<project>/.sim/report.edn`, `report.md` and each stage's
@@ -343,7 +357,9 @@ its scripts, and opens two terminals to check they do not cross. The spec
 says the tests must not rely on port 3000, since a person's own server may
 hold it.
 
-`jolt sim:byj compare RUN-A RUN-B` sets two runs side by side (`compare-modes`).
+`jolt sim:byj compare RUN-A RUN-B` sets two runs side by side (`compare-modes`),
+then B against A by the regressions above (`compare-runs`, `comparison-md`),
+and exits 1 when B regressed on any stage.
 
 **Both modes, 2026-10-09** (`playground2-20261009-1220`, A, and
 `playground2-claude-20261009-1220`, B; sonnet, run side by side):
@@ -520,6 +536,7 @@ exercises it.
 | The last run a run is compared with is one of the same plan, not of a plan whose id begins the same. A failed stage passed on re-check keeps its first attempt's turns, cost and time. | `sim-test/the-last-run-is-one-of-the-same-plan`, `sim-test/a-stopped-run-is-continued` |
 | What a stage's command leaves running is recorded when its turns end and stopped by the session's end: nothing outlives the session. | `sim-test/what-a-stage-starts-does-not-outlive-its-session` |
 | A run stopped at a failed stage is continued: the passed stages kept, the failed one re-checked (passing without a turn when its checks pass now), the report marked continued; a directory with no run is refused. | `sim-test/a-stopped-run-is-continued` |
+| A run on a chosen loop runs it: the loop made the project's own as an accept makes one, the report and its markdown naming the loop of every run. A loop byj would not run is refused before the project is made, and `--loop` with `--continue`. Two runs on different loops say so in their comparison, and a regression fails `compare`. | `sim-test/a-run-on-a-chosen-loop-runs-it-and-says-so`, `sim-test/a-loop-byj-would-not-run-is-refused-before-the-project-is-made`, `sim-test/two-runs-on-different-loops-say-so-and-a-regression-fails-the-comparison` |
 | A plan is played stage by stage. Each stage's checks decide its verdict, and `{{plan}}` reaches the plan's scripts. A permission prompt is answered by the plan and recorded. Each stage resumes the one session. A line past 1024 characters is taken. The report and each stage's screen are written and kept out of the project's git. A project that is not empty is refused. | `sim-test/a-plan-is-played-stage-by-stage-and-reported` |
 
 ## Known gaps

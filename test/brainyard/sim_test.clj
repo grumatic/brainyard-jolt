@@ -293,3 +293,57 @@
             (is (not (contains? rules :outlived-session)) "and stopped when the session ended")
             (is (empty? (sim/listening-in dir))))
           (finally (fx/sh {:out :string :err :string} "tmux" "-L" label "kill-server")))))))
+
+;; --- a loop of the person's choosing (byj-ng7.18) --------------------------------------------
+
+(deftest a-loop-byj-would-not-run-is-refused-before-the-project-is-made
+  (let [dir (.getCanonicalPath (io/file "target" "sim-loop-refused" (str (System/nanoTime))))
+        bad (io/file "target" "sim-loop-refused-not-a-tree.edn")]
+    (io/make-parents bad)
+    (spit bad "{:not \"a tree\"}")
+    (is (thrown-with-msg? Exception #"not a loop byj would run" (sim/run-plan! (sim/load-plan "test/fixtures/sim/plan-loop.edn") {:dir dir :loop (.getPath bad)})))
+    (is (thrown-with-msg? Exception #"no loop file" (sim/loop-candidate "target/nowhere.edn" dir)))
+    (is (not (.exists (io/file dir))) "nothing made")
+    (is (= "react" (:name (sim/loop-candidate "test/fixtures/sim/loops/react.edn" dir))) "named as byj loops eval names it")
+    (is (thrown-with-msg? Exception #"keeps the loop it began with"
+                          (sim/run-plan! (sim/load-plan "test/fixtures/sim/plan-loop.edn") {:continue dir :loop "test/fixtures/sim/loops/react.edn"})))))
+
+(deftest two-runs-on-different-loops-say-so-and-a-regression-fails-the-comparison
+  (let [stage (fn [verdict failed] {:id :hello :verdict verdict :seconds 5 :metrics {:calls 2 :failed-calls failed :cost-usd 0.1}})
+        a {:dir "/runs/a" :plan {:id "p"} :loop {:name "react" :from :bundled :hash "aaaaaaaaaaaa"} :stages [(stage :pass 0)]}
+        b {:dir "/runs/b" :plan {:id "p"} :loop {:name "react" :from :project :hash "bbbbbbbbbbbb" :file "/c/react.edn"} :stages [(stage :pass 2)]}
+        c (sim/compare-runs a b)]
+    (is (= [(:loop a) (:loop b)] (:loops c) (:loops (sim/compare-modes a b))))
+    (is (nil? (:loops (sim/compare-runs a (assoc a :dir "/runs/c")))) "the same loop says nothing")
+    (is (nil? (:loops (sim/compare-runs (dissoc a :loop) b))) "a run from before runs recorded their loop says nothing")
+    (is (= ["failed calls 0 → 2"] (:regressions (first (:stages c)))))
+    (let [md (sim/comparison-md c "B against A")]
+      (is (str/includes? md "Loops: was react, bundled aaaaaaaaaaaa; now react, project bbbbbbbbbbbb (/c/react.edn)"))
+      (is (str/includes? md "failed calls 0 → 2")))
+    (is (str/includes? (sim/compare-modes-md (sim/compare-modes a b)) "- B's loop: react, project bbbbbbbbbbbb"))))
+
+(deftest a-run-on-a-chosen-loop-runs-it-and-says-so
+  (when (tmux?)
+    (let [label (str "byj-sim-loop-" (random-uuid))
+          base (io/file "target" "sim-loop" (str (System/nanoTime)))
+          plan (sim/load-plan "test/fixtures/sim/plan-loop.edn")]
+      (binding [sim/*tmux* ["tmux" "-L" label] sim/*poll-ms* poll-ms]
+        (try
+          (let [bundled (sim/run-plan! plan {:dir (str base "/mock-sim-loop-a")})
+                _ (Thread/sleep 1100)
+                chosen (sim/run-plan! plan {:dir (str base "/mock-sim-loop-b") :loop "test/fixtures/sim/loops/react.edn"})
+                dir (:dir chosen)]
+            (testing "on the bundled loop the mock writes nothing; on the chosen one the stage passes"
+              (is (= :fail (:verdict (first (:stages bundled)))))
+              (is (= :pass (:verdict (first (:stages chosen))))))
+            (testing "each report says which loop ran"
+              (is (= {:name "react" :from :bundled} (select-keys (:loop bundled) [:name :from])))
+              (is (= {:name "react" :from :project} (select-keys (:loop chosen) [:name :from])))
+              (is (str/ends-with? (get-in chosen [:loop :file]) "test/fixtures/sim/loops/react.edn"))
+              (is (str/includes? (slurp (io/file dir ".sim" "report.md")) "- Loop: react, project")))
+            (testing "made the project's loop as a person's accept makes one: its history says so"
+              (is (= [:accept] (map :action (edn/read-string (str "[" (slurp (io/file dir ".brainyard" "loops" "history.edn")) "]"))))))
+            (testing "and the comparison with the run before names both loops"
+              (is (= (:dir bundled) (get-in chosen [:comparison :against])))
+              (is (= [:bundled :project] (map :from (get-in chosen [:comparison :loops]))))))
+          (finally (fx/sh {:out :string :err :string} "tmux" "-L" label "kill-server")))))))

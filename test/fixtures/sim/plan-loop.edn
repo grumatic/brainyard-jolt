@@ -1,0 +1,10 @@
+;; A plan for sim-test (byj-ng7.18): one stage, passed only when the
+;; project ran the loop of loops/react.edn, which writes done.txt.
+{:id "mock-sim-loop"
+ :provider "mock"
+ :permission-mode :auto
+ :timeout-s 120
+ :cap-usd 1.0
+ :stages [{:id :hello
+           :lines ["hello"]
+           :checks [{:type :file :name "done" :path "done.txt"}]}]}

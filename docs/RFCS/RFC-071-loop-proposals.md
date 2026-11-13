@@ -3,8 +3,9 @@
 **Status:** designed 2026-11-13; built the same day, and evaluated live once
 ("The first live evaluation"); an improver agent decided not now
 (`byj-ng7.6`); what a promotion to the bundled loops carries is written
-down ("Promotion", `byj-ng7.7`), two of the runs it names not yet possible
-(`byj-ng7.18`, `byj-ng7.19`). Epic `byj-ng7`.
+down ("Promotion", `byj-ng7.7`), and the dogfood simulation runs a chosen
+loop for it (`byj-ng7.18`); Terminal-Bench does not run yet (`byj-ng7.19`).
+Epic `byj-ng7`.
 
 ## Purpose
 
@@ -545,7 +546,9 @@ not shaped to one:
    check for harm on a project unlike the evaluating ones, not proof of a
    win — one run a stage is too few to test — and it is the evidence a
    reviewer can run again, since the projects' work is not theirs to see.
-   The runner cannot yet run a chosen loop — `byj-ng7.18`.
+   Each plan, as `jolt sim:byj PLAN` and `jolt sim:byj PLAN --loop
+   CANDIDATE`, then `jolt sim:byj compare BUNDLED-RUN CANDIDATE-RUN`, which
+   names both loops and exits 1 on a regression (RFC-041, `byj-ng7.18`).
 
 4. **Terminal-Bench, when byj can run it.** A benchmark nobody here wrote
    is the one a loop cannot have been fitted to. No adapter runs it as a
@@ -656,6 +659,4 @@ Built: `(loop-watch/watch! config {:loop})` → `{:loop :change :before :after
 
 ## Known gaps
 
-- The dogfood runner runs the bundled loop only, so a promotion's harm
-  check cannot be made — `byj-ng7.18`.
 - No adapter runs Terminal-Bench as a task set — `byj-ng7.19`.

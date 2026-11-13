@@ -23,7 +23,11 @@
   session, so every stage also exercises resuming (RFC-016).
 
   A run writes `<project>/.sim/report.edn`, `report.md`, and each stage's
-  screen, `<stage>.screen.txt`; `.sim/` is kept out of the project's git."
+  screen, `<stage>.screen.txt`; `.sim/` is kept out of the project's git.
+
+  `:loop FILE` runs the project on a loop of the person's choosing rather than
+  the bundled one (RFC-071 \"Promotion\", byj-ng7.18), and the report says
+  which loop every run ran."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
@@ -31,6 +35,8 @@
             [brainyard.agent-host :as ah]
             [brainyard.config :as config]
             [brainyard.effect :as fx]
+            [brainyard.loop-proposals :as loop-proposals]
+            [brainyard.project-loops :as project-loops]
             [brainyard.trajectory :as trajectory]))
 
 ;; --- tmux -----------------------------------------------------------------------------------
@@ -244,11 +250,59 @@
     (spit (io/file d ".git" "info" "exclude") ".sim/\n" :append true)
     (.getCanonicalPath d)))
 
+;; --- which loop the project runs (byj-ng7.18) -----------------------------------------------
+
+(defn loop-candidate
+  "The loop in `file` as `{:name :tree :file}`, its name what `byj loops eval`
+  takes it for (`loop-eval/loop-of`: its `:based-on`, else its file's name,
+  else react); thrown when it is no tree, or is one `byj loops eval` would not
+  run — checked against `dir`, the project it will run in."
+  [file dir]
+  (let [f (io/file file)
+        _ (when-not (.isFile f) (throw (ex-info (str "no loop file " file) {:file file})))
+        tree (try (edn/read-string (slurp f)) (catch Throwable e (throw (ex-info (str file ": " (ex-message e)) {:file file}))))
+        ln ((requiring-resolve 'brainyard.loop-eval/loop-of) (.getPath f))
+        ps (loop-proposals/problems {:project-dir (str dir) :working-dir (str dir)} tree nil)]
+    (when (seq ps)
+      (throw (ex-info (str file " is not a loop byj would run: "
+                           (str/join "; " (map #(str (pr-str (:node %)) " " (:problem %)) ps)))
+                      {:file file :problems ps})))
+    {:name ln :tree tree :file (.getCanonicalPath f)}))
+
+(defn install-loop!
+  "Make `candidate` (`loop-candidate`) project `dir`'s loop of its name, as a
+  person's accept does (`project-loops/write-loop!`), so the project's
+  history says it."
+  [dir {:keys [name tree]}]
+  (project-loops/write-loop! dir name tree {:action :accept}))
+
+(defn loop-in-force
+  "Which loop `ln` project `dir` runs: `{:name :from :hash}`, `:from`
+  `:project` or `:bundled` (`loop-proposals/in-force`), and `:file` the one
+  it was installed from."
+  [dir ln & [file]]
+  (cond-> (assoc (loop-proposals/in-force {:project-dir (str dir)} ln) :name ln)
+    file (assoc :file file)))
+
+(defn- loops-differ
+  "The two runs' loops, `[a b]`, when they are not the same; nil when they
+  are, or a run is too old to say."
+  [ra rb]
+  (let [[a b] [(:loop ra) (:loop rb)]]
+    (when (and a b (not= (select-keys a [:name :hash]) (select-keys b [:name :hash])))
+      [a b])))
+
+(defn- loop-label [{:keys [name from hash file]}]
+  (str name ", " (clojure.core/name from) " " hash (when file (str " (" file ")"))))
+
 ;; --- what a stage cost -------------------------------------------------------------------
 
-(defn- failed-call? [{:keys [result]}]
+(defn- failed-call?
+  "A call the record marks failed (`:error?`: a gate's block, which prints as
+  `{:hook-blocked …}`, included — byj-ng7.18), or whose result reads as one."
+  [{:keys [result error?]}]
   (let [s (str result)]
-    (boolean (or (str/starts-with? s "{:error") (re-find #":exit-code [1-9]" s) (re-find #":status \"timeout\"" s)))))
+    (boolean (or error? (str/starts-with? s "{:error") (re-find #":exit-code [1-9]" s) (re-find #":status \"timeout\"" s)))))
 
 (defn records-since
   "Every trajectory record in project `dir` written at or after `since` (ms),
@@ -484,6 +538,7 @@
         m #(get-in %1 [:metrics %2])
         defects #(set (map :rule (filter (comp #{:defect} :severity) (:findings %))))]
     {:against (:dir prev)
+     :loops (loops-differ prev cur)
      :stages (vec (for [s (:stages cur)
                         :let [p (by-id (:id s))]]
                     (if-not p
@@ -541,12 +596,13 @@
         rows (vec (for [id ids] {:id id :a (side (sa id)) :b (side (sb id))}))]
     {:a (:dir ra) :b (:dir rb)
      :plans [(get-in ra [:plan :id]) (get-in rb [:plan :id])]
+     :loops (loops-differ ra rb)
      :stages rows
      :totals {:a (total (map :a rows)) :b (total (map :b rows))}}))
 
 (defn compare-modes-md
   "`compare-modes`' result as markdown."
-  [{:keys [a b plans stages totals]}]
+  [{:keys [a b plans stages totals loops]}]
   (let [cell (fn [x]
                (if-not x
                  "— | | | | |"
@@ -558,7 +614,9 @@
                            ""))))
         hdr "Verdict | Checks | Calls | Findings d/w/i | Time | Cost"]
     (str "# Simulation: " (first plans) " against " (second plans) "\n\n"
-         "- A: `" a "`\n- B: `" b "`\n\n"
+         "- A: `" a "`\n- B: `" b "`\n"
+         (when-let [[la lb] loops] (str "- A's loop: " (loop-label la) "\n- B's loop: " (loop-label lb) "\n"))
+         "\n"
          "| Stage | A " (str/replace hdr " | " " | A ") " | B " (str/replace hdr " | " " | B ") " |\n"
          "|" (str/join (repeat 13 "---|")) "\n"
          (str/join (for [{:keys [id a b]} stages] (str "| " (name id) " | " (cell a) " | " (cell b) " |\n")))
@@ -649,10 +707,28 @@
            :findings (findings (rules-for plan) {:stage result :records records :answer answer
                                                  :dir dir :t0 t0 :plan plan}))))
 
+(defn comparison-md
+  "`compare-runs`' result as markdown, under `heading`: the loops when they
+  differ, then each stage, was → now, and its regressions."
+  [{:keys [against loops stages]} heading]
+  (str "\n## " heading "\n\n`" against "`\n\n"
+       (when-let [[a b] loops] (str "Loops: was " (loop-label a) "; now " (loop-label b) "\n\n"))
+       "| Stage | Verdict | Calls | Failed | Cost | Time | Regressions |\n|---|---|---|---|---|---|---|\n"
+       (str/join (for [{:keys [id was now regressions new?]} stages]
+                   (if new?
+                     (str "| " (name id) " | new | | | | | |\n")
+                     (format "| %s | %s → %s | %d → %d | %d → %d | $%.2f → $%.2f | %d → %d s | %s |\n"
+                             (name id) (name (:verdict was)) (name (:verdict now)) (:calls was) (:calls now)
+                             (:failed was) (:failed now) (double (:cost was)) (double (:cost now))
+                             (:seconds was) (:seconds now)
+                             (if (seq regressions) (str/join "; " regressions) "none")))))))
+
 (defn- report-md [{:keys [plan dir stages started provider model comparison] :as report}]
   (let [m #(get-in %1 [:metrics %2])]
     (str "# Simulation: " (:id plan) "\n\n"
-         "- Project: `" dir "`\n- Model: " provider (when model (str "/" model)) "\n- Started: " started "\n\n"
+         "- Project: `" dir "`\n- Model: " provider (when model (str "/" model)) "\n- Started: " started "\n"
+         (when-let [l (:loop report)] (str "- Loop: " (loop-label l) "\n"))
+         "\n"
          "| Stage | Verdict | Time | Turns | Calls | Failed calls | Prompts | Cost | Findings |\n|---|---|---|---|---|---|---|---|---|\n"
          (str/join (for [s stages
                          :let [fs (:findings s)
@@ -678,17 +754,7 @@
                           (str/join (for [f (m s :failed)] (str "- failed call: `" (:call f) "` → " (:result f) "\n")))
                           (str/join (for [t (:turns s) :when (not= :answered (:ended t))]
                                       (str "- turn " (name (:ended t)) ": " (:line t) "\n"))))))
-         (when comparison
-           (str "\n## Compared with the last run\n\n`" (:against comparison) "`\n\n"
-                "| Stage | Verdict | Calls | Failed | Cost | Time | Regressions |\n|---|---|---|---|---|---|---|\n"
-                (str/join (for [{:keys [id was now regressions new?]} (:stages comparison)]
-                            (if new?
-                              (str "| " (name id) " | new | | | | | |\n")
-                              (format "| %s | %s → %s | %d → %d | %d → %d | $%.2f → $%.2f | %d → %d s | %s |\n"
-                                      (name id) (name (:verdict was)) (name (:verdict now)) (:calls was) (:calls now)
-                                      (:failed was) (:failed now) (double (:cost was)) (double (:cost now))
-                                      (:seconds was) (:seconds now)
-                                      (if (seq regressions) (str/join "; " regressions) "none"))))))))))
+         (when comparison (comparison-md comparison "Compared with the last run")))))
 
 (defn- with-comparison
   "`report` compared with the last run of its plan beside it: the runs of a
@@ -722,8 +788,10 @@
   fails its checks (unless `:keep-going?`) or the run's cost passes
   `:cap-usd`. `opts`: `:dir` (default `<:projects-dir>/<plan id>-<yyyyMMdd-HHmm>`),
   `:stages` (ids to run, in the plan's order), `:provider`, `:model`,
-  `:resume?`, `:brainyard-dir` (this checkout, where `jolt run:byj` runs). The
-  report, also written to `<dir>/.sim/`.
+  `:resume?`, `:brainyard-dir` (this checkout, where `jolt run:byj` runs),
+  `:loop` (a loop file the project runs instead of the bundled one: made its
+  loop before the first stage, as a person's accept makes one; byj-ng7.18).
+  The report, also written to `<dir>/.sim/`, says which loop ran (`:loop`).
 
   `:continue` (a run's directory) goes on with a run that stopped
   (byj-gly.315.17): the stages its report passed are kept; the one that
@@ -731,6 +799,8 @@
   without a turn — else is played again; the rest follow, in the same
   session, resumed."
   [plan & [{:keys [dir stages provider model keep-going?] :as opts}]]
+  (when (and (:continue opts) (:loop opts))
+    (throw (ex-info "a continued run keeps the loop it began with: --loop is for a new run" {:loop (:loop opts)})))
   (let [prior (when-let [c (:continue opts)]
                 (let [f (io/file c ".sim" "report.edn")]
                   (when-not (.isFile f) (throw (ex-info (str c " has no run to continue (.sim/report.edn)") {:dir c})))
@@ -743,14 +813,18 @@
         ;; the local time, as the shell has it: jolt's java.time is UTC only
         ;; (provenance P-10, byj-gly.315.13)
         stamp (str/trim (:out (fx/sh {:out :string :err :string} "date" "+%Y%m%d-%H%M")))
+        target (or dir (str (str/replace (str (:projects-dir plan "~/Projects/byj-sim")) #"^~" (System/getenv "HOME"))
+                            "/" (:id plan) "-" stamp))
+        ;; checked before the project is made, against the project it will
+        ;; run in, so a loop byj would not run leaves nothing behind
+        cand (when-let [f (:loop opts)] (loop-candidate f target))
         dir (if prior
               (:dir prior)
-              (cond-> (prepare-project! (or dir (str (str/replace (str (:projects-dir plan "~/Projects/byj-sim"))
-                                                                  #"^~" (System/getenv "HOME"))
-                                                   "/" (:id plan) "-" stamp)))
+              (cond-> (prepare-project! target)
                 ;; the project's own config, as its person would have set it:
                 ;; which model Claude Code runs on, say (byj-gly.320)
-                (:project-config plan) (doto (write-project-config! (:project-config plan)))))
+                (:project-config plan) (doto (write-project-config! (:project-config plan)))
+                cand (doto (install-loop! cand))))
         sess (str "sim-" (str/replace (.getName (io/file dir)) #"[^A-Za-z0-9-]" "-"))
         session-opts {:brainyard-dir (or (:brainyard-dir opts) (System/getProperty "user.dir"))
                       :dir dir :provider provider :model model
@@ -761,7 +835,10 @@
         base (cond-> {:plan (select-keys plan [:id :plan-file]) :dir dir :provider provider :model model
                       :started (or (:started prior) (str (java.time.Instant/now)))
                       :tmux (str (str/join " " *tmux*) " attach -t " sess)}
-               prior (assoc :continued (str (java.time.Instant/now))))
+               prior (assoc :continued (str (java.time.Instant/now)))
+               true (assoc :loop (if prior
+                                   (:loop prior)
+                                   (loop-in-force dir (or (:name cand) "react") (:file cand)))))
         first-session (some :session (reverse (:stages prior)))]
     (start-session! sess (cond-> session-opts first-session (assoc :resume first-session)))
     (wait-for sess #(#{:ready :exited} (:state %)) 120000 (constantly "n") (atom []))
@@ -834,14 +911,21 @@
             (recur more done sid)))))))
 
 (defn -main
-  "`jolt sim:byj compare RUN-A RUN-B`, or `jolt sim:byj PLAN [--dir DIR | --continue DIR] [--stages a,b] [-p PROVIDER] [-m MODEL] [--keep-going] [--no-resume]`."
+  "`jolt sim:byj compare RUN-A RUN-B` (exit 1 when B regressed against A), or
+  `jolt sim:byj PLAN [--dir DIR | --continue DIR] [--stages a,b] [-p PROVIDER]
+  [-m MODEL] [--loop FILE] [--keep-going] [--no-resume]`."
   [& args]
   (when (= "compare" (first args))
     (let [[_ da db] args]
       (when-not (and da db) (println "usage: jolt sim:byj compare RUN-A RUN-B") (System/exit 2))
-      (println (compare-modes-md (compare-modes (read-run da) (read-run db))))
-      (shutdown-agents)
-      (System/exit 0)))
+      (let [[ra rb] [(read-run da) (read-run db)]
+            c (compare-runs ra rb)]
+        (println (compare-modes-md (compare-modes ra rb)))
+        (println (comparison-md c "B against A, by RFC-041's regressions"))
+        (shutdown-agents)
+        ;; a regression fails the comparison: what a promotion's harm check
+        ;; reads (RFC-071 "Promotion", byj-ng7.18)
+        (System/exit (if (some (comp seq :regressions) (:stages c)) 1 0)))))
   (let [[plan-file & more] args
         opts (loop [[a b & r :as xs] more o {}]
                (case a
@@ -853,8 +937,9 @@
                  "--keep-going" (recur (rest xs) (assoc o :keep-going? true))
                  "--no-resume" (recur (rest xs) (assoc o :resume? false))
                  "--continue" (recur r (assoc o :continue b))
+                 "--loop" (recur r (assoc o :loop b))
                  (do (println "unknown option" a) (System/exit 2))))]
-    (when-not plan-file (println "usage: jolt sim:byj PLAN [--dir DIR | --continue DIR] [--stages a,b] [-p P] [-m M] [--keep-going] [--no-resume]") (System/exit 2))
+    (when-not plan-file (println "usage: jolt sim:byj PLAN [--dir DIR | --continue DIR] [--stages a,b] [-p P] [-m M] [--loop FILE] [--keep-going] [--no-resume]") (System/exit 2))
     (let [report (run-plan! (load-plan plan-file) opts)]
       (println (slurp (io/file (:dir report) ".sim" "report.md")))
       (shutdown-agents)
