@@ -174,6 +174,8 @@
           ;; `loops propose`: why, in words; the bundled loop as the candidate
           "--why" (recur (rest more) (assoc opts :why (first more)))
           "--bundled" (recur more (assoc opts :bundled true))
+          ;; `loops eval|propose`: each turn in this byj, not a sandboxed child
+          "--in-process" (recur more (assoc opts :in-process true))
           ;; `loops tasks build`: a dogfood plan's stage checks as the set's
           "--plan" (recur (rest more) (assoc opts :plan (first more)))
           "--stage" (recur (rest more) (assoc opts :stage (first more)))
@@ -652,8 +654,15 @@
   force on a task set, each run in a clone (byj-ng7.4); `byj loops propose
   CANDIDATE | --bundled [LOOP]`: that evaluation, staged as a proposal when
   it wins (byj-ng7.5); `json` for what each returns. The exit code."
-  [{:keys [questions json name from check-cmd plan stage tasks repeats max-cost aim keep why bundled]} lm config]
-  (let [[sub & more] questions]
+  [{:keys [questions json name from check-cmd plan stage tasks repeats max-cost aim keep why bundled in-process]} lm config]
+  (let [[sub & more] questions
+        ;; an evaluation's turns: each a byj of its own under the seatbelt
+        ;; where it can be, else in this one (RFC-071, byj-ng7.14)
+        contained (fn [] (let [self (when-not in-process
+                                      (or (some-> (System/getProperty "jolt.launcher") vector)
+                                          (sandbox/self-argv #(System/getenv %))))
+                               {:keys [run-turn sandbox]} (loop-eval/containment self)]
+                           {:run-turn run-turn :containment sandbox}))]
     (case sub
       "tasks" (if (not= ["build"] (vec more))
                 (do (err-println "usage: byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--json]") 2)
@@ -664,11 +673,12 @@
                     (:error r) (do (err-println (:error r)) 1)
                     :else (do (doseq [l (loop-tasks/summary-lines r)] (println l)) 0))))
       "eval" (if (str/blank? (str (first more)))
-               (do (err-println "usage: byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--keep] [--json]") 2)
-               (let [r (loop-eval/evaluate! config {:lm lm :candidate (first more)
-                                                     :loop (loop-eval/loop-of (first more))
-                                                     :tasks tasks :repeats repeats :max-cost max-cost
-                                                     :aim aim :keep? keep})]
+               (do (err-println "usage: byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--in-process] [--keep] [--json]") 2)
+               (let [r (loop-eval/evaluate! config (merge {:lm lm :candidate (first more)
+                                                            :loop (loop-eval/loop-of (first more))
+                                                            :tasks tasks :repeats repeats :max-cost max-cost
+                                                            :aim aim :keep? keep}
+                                                           (contained)))]
                  (cond
                    json (do (println (json/write-str (if (:error r) r {:file (:file r) :report (dissoc (:report r) :runs)})))
                             (if (:error r) 1 0))
@@ -679,10 +689,11 @@
                    :else (do (doseq [l (loop-eval/summary-lines r)] (println l)) 0))))
       "propose" (if (and (not bundled) (str/blank? (str (first more))))
                   (do (err-println "usage: byj loops propose CANDIDATE | --bundled [LOOP]  [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--why TEXT] [--json]") 2)
-                  (let [r (loop-eval/propose! config {:lm lm :candidate (when-not bundled (first more))
-                                                      :loop (if bundled (or (first more) "react") (loop-eval/loop-of (first more)))
-                                                      :remove? (boolean bundled) :why why
-                                                      :tasks tasks :repeats repeats :max-cost max-cost :aim aim :keep? keep})]
+                  (let [r (loop-eval/propose! config (merge {:lm lm :candidate (when-not bundled (first more))
+                                                             :loop (if bundled (or (first more) "react") (loop-eval/loop-of (first more)))
+                                                             :remove? (boolean bundled) :why why
+                                                             :tasks tasks :repeats repeats :max-cost max-cost :aim aim :keep? keep}
+                                                            (contained)))]
                     (cond
                       json (do (println (json/write-str (if (:error r) r (-> r (update :report dissoc :runs)))))
                                (if (:error r) 1 0))

@@ -6,6 +6,11 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj loops eval` runs each turn in a byj of its own under the macOS
+  seatbelt**, its clone the place it may write, so a shell command in a
+  candidate's turn cannot reach the project by a path the gates miss;
+  unsandboxed off macOS, and in the evaluating byj with `--in-process`. The
+  report says which. A lead on too few tasks to test is no longer a win.
 - **A loop's task set finds its own check.** `byj loops tasks build` takes,
   when given no `--check`, a dogfood plan's stage checks (`--plan FILE
   [--stage ID]`), else the set's own, else the project's new

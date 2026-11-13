@@ -40,12 +40,15 @@
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
+            [brainyard.config :as config]
             [brainyard.effect :as fx]
+            [brainyard.json :as json]
             [brainyard.evaluate :as evaluate]
             [brainyard.flow :as flow]
             [brainyard.loop-proposals :as loop-proposals]
             [brainyard.loop-tasks :as loop-tasks]
             [brainyard.project-loops :as project-loops]
+            [brainyard.sandbox :as sandbox]
             [brainyard.sim :as sim]
             [brainyard.version :as version]))
 
@@ -128,6 +131,77 @@
   [{:keys [lm config tree question]}]
   ((requiring-resolve 'brainyard.agent/ask) question {:lm lm :config config :tree tree}))
 
+;; --- a run in a byj of its own, under the seatbelt (byj-ng7.14) ---------------------------
+
+(defn child-config
+  "What of the clone's `config` a child byj is given as its project config:
+  every key the schema declares (RFC-013) whose value reads back as written —
+  so the child runs with the config the clone's turn would have had in
+  process, `clone-config`'s containment included."
+  [config]
+  (into (sorted-map)
+        (for [[k v] config
+              :when (and (contains? config/config-items k) (some? v)
+                         (try (= v (clojure.edn/read-string (pr-str v))) (catch Throwable _ false)))]
+          [k v])))
+
+(defn child-argv
+  "The child byj's command line: `self`, `ask --json` in `dir` with the arm's
+  tree as its loop, the run's model, the question with `-q`, and `--sandbox`
+  when `sandbox?`."
+  [self {:keys [lm dir loop-file question sandbox?]}]
+  (vec (concat self ["ask" "--json" "-C" (str dir) "--loop" (str loop-file)]
+               (when-let [p (:provider lm)] ["-p" (name p)])
+               (when-let [m (:model lm)] ["-m" (str m)])
+               (when sandbox? ["--sandbox"])
+               ["-q" (str question)])))
+
+(defn- last-json
+  "The last line of `out` that reads as a JSON object, or nil: `--sandbox`
+  prints its banner before the child's answer."
+  [out]
+  (some (fn [l] (when (str/starts-with? (str/trim l) "{")
+                  (try (json/read-str l) (catch Throwable _ nil))))
+        (reverse (str/split-lines (str out)))))
+
+(defn process-run-turn
+  "A `:run-turn` that runs each turn in a byj process of its own — `self`, the
+  byj command as argv — in the clone, under the seatbelt when `sandbox?`
+  (RFC-012): the clone's config is written as the child's project config
+  (`child-config`), the arm's tree as its loop, and what `ask --json` prints
+  is read back as `agent/ask`'s result. A child that prints none is the
+  run's error."
+  [self sandbox?]
+  (fn [{:keys [lm config tree question]}]
+    (let [dir (:project-dir config)
+          bdir (io/file dir ".brainyard")
+          loop-file (io/file bdir "eval-loop.edn")]
+      (.mkdirs bdir)
+      (spit (io/file bdir "config.edn") (pr-str {:agent {:config (child-config config)}}))
+      (spit loop-file (pr-str tree))
+      (let [env (assoc (into {} (System/getenv))
+                       ;; the relaunch under sandbox-exec finds byj by this
+                       "BY_SANDBOX_SELF" (str/join " " self))
+            r (try (apply fx/sh {:dir (str dir) :out :string :err :string :env env}
+                          (child-argv self {:lm lm :dir dir :loop-file loop-file :question question :sandbox? sandbox?}))
+                   (catch Throwable e {:exit nil :err (ex-message e)}))
+            out (last-json (:out r))]
+        (or (some-> out (update :terminated-by #(some-> % keyword)))
+            {:error (str "the child byj printed no answer (exit " (:exit r) "): "
+                         (let [e (str/trim (str (:err r)))] (if (> (count e) 300) (str "…" (subs e (- (count e) 300))) e)))})))))
+
+(defn containment
+  "How an evaluation's turns are contained: `{:run-turn :sandbox}` — a child
+  byj under the seatbelt where it can be (macOS, `self` known), a child
+  unsandboxed elsewhere, or in process when no `self` is given. `:sandbox`
+  is what the report says: `{:on? :how :reason?}`."
+  [self]
+  (let [{:keys [ok? reason]} (sandbox/available?)]
+    (cond
+      (empty? self) {:run-turn nil :sandbox {:on? false :how :in-process :reason "no byj to run as a child"}}
+      ok? {:run-turn (process-run-turn self true) :sandbox {:on? true :how :seatbelt :self (vec self)}}
+      :else {:run-turn (process-run-turn self false) :sandbox {:on? false :how :child :reason reason :self (vec self)}})))
+
 (defn run-one!
   "Run `task` once with `tree` in a fresh clone under `work`: `{:task :arm
   :repeat :score :checks :wall-ms …metrics}` or with `:error`. The clone is
@@ -193,7 +267,9 @@
   "What the comparison says, for `base` and `cand` `arm-summary`s:
   `{:verdict :better|:cheaper|:not-better|:guard-regressed :primary
   :guards}`. `:aim :cost` asks for non-inferiority and a lower cost. A tie
-  keeps the loop in force."
+  keeps the loop in force, and so does a lead `compare-scores` could not
+  test — one task, or fewer than six all moving the same way: a clean
+  separation on few tasks is not a result (RFC-021)."
   [base cand {:keys [aim guards]}]
   (let [regs (guard-regressions base cand (merge default-guards guards))
         better (evaluate/compare-scores cand base)
@@ -203,8 +279,8 @@
      :guards regs
      :verdict (cond
                 (seq regs) :guard-regressed
-                (= :cost aim) (if (and (not (:better? worse)) cheaper?) :cheaper :not-better)
-                (:better? better) :better
+                (= :cost aim) (if (and (>= (:n cand 0) 2) (not (:better? worse)) cheaper?) :cheaper :not-better)
+                (and (:better? better) (:tested? better)) :better
                 :else :not-better)}))
 
 (defn wins?
@@ -245,7 +321,8 @@
 
   opts: `:lm`, `:loop`, `:tasks` (a set name), `:repeats` (1), `:max-cost`
   (USD, none when nil), `:aim` (`:cost` for non-inferiority), `:guards`
-  (over `default-guards`), `:run-turn`, `:work` (where clones go: a temp
+  (over `default-guards`), `:run-turn` and the `:containment` it gives
+  (`containment`; in process when none), `:work` (where clones go: a temp
   dir), `:check-opts` (`flow check`'s), `:keep?` (keep the clones).
 
   The report: `{:set :set-hash :loop :base :candidate :byj :model :repeats
@@ -299,7 +376,11 @@
                            :repeats repeats :aim (or aim :checks)
                            :tasks (count scored) :unscored unscored
                            :runs rows :arms {:base base :candidate cand-sum}
-                           :spent spent :stopped stopped}
+                           :spent spent :stopped stopped
+                           :containment (or (:containment opts)
+                                            (if (:run-turn opts)
+                                              {:on? false :how :given}
+                                              {:on? false :how :in-process :reason "the turn runs in this byj; the gates contain it"}))}
                           v)
             dir (evals-dir config)
             f (io/file dir (str ln "-" (System/currentTimeMillis) ".edn"))]
@@ -378,6 +459,13 @@
       (str "tasks: " tasks " scored" (when (pos? (or unscored 0)) (str ", " unscored " with no machine check not scored"))
            " · repeats " repeats " · spent $" (format "%.4f" (double (or spent 0))))]
      (when stopped [(str "stopped: " stopped)])
+     (when-let [{:keys [on? how reason]} (:containment report)]
+       [(str "each turn: " (case how
+                             :seatbelt "a byj of its own under the seatbelt, in its clone"
+                             :child "a byj of its own in its clone, NOT sandboxed"
+                             :in-process "in this byj, in its clone, contained by the gates alone"
+                             (name how))
+             (when (and (not on?) reason) (str " (" reason ")")))])
      (when primary
        [(format "checks passed: candidate %.3f, base %.3f%s" (double (:candidate primary)) (double (:base primary))
                 (if (:margin c) (format " (diff %.3f, margin %.3f%s)" (double (:diff c)) (double (:margin c))

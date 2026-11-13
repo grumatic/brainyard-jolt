@@ -65,7 +65,7 @@
 (defn- refs [dir] (:out (sh dir "git" "for-each-ref")))
 
 (deftest a-worse-candidate-loses-and-an-equal-one-ties
-  (let [{:keys [dir config]} (fixture "verdicts" 5)
+  (let [{:keys [dir config]} (fixture "verdicts" 6)
         refs-before (refs dir)
         work (fresh-dir "verdicts-work")]
     (testing "worse by construction: it passes no check where the loop in force passes every one"
@@ -74,7 +74,7 @@
             {:keys [file report]} (le/evaluate! config {:lm mock :candidate (.getPath cand) :work work})]
         (is (= :not-better (:verdict report)))
         (is (= [1.0 0.0] [(get-in report [:primary :base]) (get-in report [:primary :candidate])]))
-        (is (= 10 (count (:runs report))) "five tasks, each arm once")
+        (is (= 12 (count (:runs report))) "six tasks, each arm once")
         (is (.isFile (io/file file)) "the report is written")
         (is (= (:verdict report) (:verdict (edn/read-string (slurp file)))))
         (is (not (le/wins? report)))))
@@ -82,13 +82,17 @@
       (let [{:keys [report]} (le/evaluate! config {:lm mock :candidate (with-doc writes-done "same") :repeats 2 :work work})]
         (is (= :not-better (:verdict report)))
         (is (= 1.0 (get-in report [:primary :candidate]) (get-in report [:primary :base])))
-        (is (= 20 (count (:runs report))))))
+        (is (= 24 (count (:runs report))))))
     (testing "better: a candidate that does the task beats a loop in force that does not"
       (project-loops/write-loop! dir "react" does-nothing {:action :accept})
       (let [{:keys [report]} (le/evaluate! config {:lm mock :candidate writes-done :work work})]
         (is (= :better (:verdict report)))
         (is (le/wins? report))
         (is (get-in report [:primary :compare :paired?]) "per task, paired")))
+    (testing "the same lead on five tasks is not a result: the loop in force is kept"
+      (let [{:keys [dir config]} (fixture "verdicts-five" 5)]
+        (project-loops/write-loop! dir "react" does-nothing {:action :accept})
+        (is (= :not-better (:verdict (:report (le/evaluate! config {:lm mock :candidate writes-done})))))))
     (testing "the clones leave nothing in the project: no refs, no sessions, no clone"
       (is (= refs-before (refs dir)))
       (is (not (.exists (io/file dir ".brainyard" "sessions"))))
@@ -160,7 +164,7 @@
 (defn- same-steps? [tree like] (= (drop 2 tree) (drop 2 like)))
 
 (deftest a-candidate-is-proposed-only-when-it-wins
-  (let [{:keys [dir config]} (fixture "propose" 3)
+  (let [{:keys [dir config]} (fixture "propose" 6)
         ls #(map :id ((requiring-resolve 'brainyard.proposals/list-all) config "loop"))]
     (testing "worse: the report is written, nothing staged, and it says why"
       (let [r (le/propose! config {:lm mock :candidate does-nothing})]
@@ -207,3 +211,58 @@
         (is (str/starts-with? (:why p) "The bundled react loop is not worse past the margin than the project's own"))
         (is (nil? (:error ((requiring-resolve 'brainyard.loop-proposals/accept!) config (:id (:staged r))))))
         (is (nil? (project-loops/project-loop-file dir "react")))))))
+
+;; --- a run in a byj of its own (byj-ng7.14) ------------------------------------------
+
+(defn- stand-in
+  "A stand-in for the child byj: it does the task in the directory after -C
+  and prints what `byj ask --json` prints — or, `silent?`, nothing."
+  [dir silent?]
+  (let [f (io/file dir (if silent? "silent.sh" "byj.sh"))]
+    (spit f (str "#!/bin/sh\n"
+                 "# Copyright (c) 2026 Grumatic, Inc. and byj contributors\n"
+                 "# SPDX-License-Identifier: MIT\n"
+                 "d=''; while [ $# -gt 0 ]; do case \"$1\" in -C) d=\"$2\"; shift;; esac; shift; done\n"
+                 (if silent?
+                   "echo 'no json here' >&2; exit 3\n"
+                   (str "printf 'done\\n' > \"$d/done.txt\"\n"
+                        "echo 'a banner line'\n"
+                        "echo '{\"answer\":\"done\",\"iterations\":2,\"terminated-by\":\"answer-channel\","
+                        "\"usage\":{\"cost\":0.25,\"input-tokens\":3,\"output-tokens\":4},\"trajectory\":[]}'\n"))))
+    (.setExecutable f true)
+    (.getPath f)))
+
+(deftest a-run-can-be-a-byj-of-its-own
+  (is (= ["byj" "ask" "--json" "-C" "/c" "--loop" "/c/.brainyard/eval-loop.edn" "-p" "mock" "-m" "m1" "--sandbox" "-q" "-n is a question"]
+         (le/child-argv ["byj"] {:lm {:provider :mock :model "m1"} :dir "/c" :loop-file "/c/.brainyard/eval-loop.edn"
+                                 :question "-n is a question" :sandbox? true}))
+      "the question after -q, so one that starts with a dash is not a flag")
+  (is (= {:allowed-dirs ["/c"] :permission-mode :ask-each-time}
+         (select-keys (le/child-config (assoc (le/clone-config {:permission-mode :auto-approve} "/c")
+                                              :lm-fn (fn []) :not-a-key 1))
+                      [:allowed-dirs :permission-mode :lm-fn :not-a-key]))
+      "the schema's keys, as they read back: the clone's containment goes with it")
+  (let [{:keys [config]} (fixture "child" 2)
+        work (fresh-dir "child-work")
+        script (stand-in work false)
+        {:keys [report]} (le/evaluate! config {:lm mock :candidate does-nothing :work work :keep? true
+                                               :run-turn (le/process-run-turn [script] false)
+                                               :containment {:on? false :how :child}})]
+    (is (= 4 (count (:runs report))))
+    (is (every? #(= 1.0 (:score %)) (:runs report)) "the child did the task in the clone it was given")
+    (is (every? #(= 2 (:iterations %)) (:runs report)) "and its answer was read back past the banner")
+    (is (< 0.99 (:spent report) 1.01))
+    (let [clone (first (filter #(.isDirectory %) (.listFiles (io/file work))))
+          cfg (edn/read-string (slurp (io/file clone ".brainyard" "config.edn")))]
+      (is (= [(.getCanonicalPath clone)] (get-in cfg [:agent :config :allowed-dirs]))
+          "the child's project config is the clone's containment")
+      (is (.isFile (io/file clone ".brainyard" "eval-loop.edn"))))
+    (is (some #(str/includes? % "a byj of its own in its clone, NOT sandboxed") (le/summary-lines {:file "f" :report report}))))
+  (testing "a child that prints no answer is the run's error, and scores what its checks say"
+    (let [{:keys [config]} (fixture "child-silent" 1)
+          work (fresh-dir "child-silent-work")
+          {:keys [report]} (le/evaluate! config {:lm mock :candidate does-nothing
+                                                 :run-turn (le/process-run-turn [(stand-in work true)] false)})]
+      (is (every? #(str/includes? (str (:error %)) "the child byj printed no answer (exit 3): no json here") (:runs report)))
+      (is (every? #(= 0.0 (:score %)) (:runs report)))))
+  (is (= :in-process (get-in (le/containment nil) [:sandbox :how])) "no byj to run: in process, and the report says so"))

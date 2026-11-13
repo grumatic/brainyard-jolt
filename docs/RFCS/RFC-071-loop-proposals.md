@@ -101,10 +101,22 @@ How it is built (`byj-ng7.4`, `brainyard.loop-eval`, `byj loops eval`):
   commands; then the task's checks (`sim/checks`) in the clone, and the
   clone removed. What the turn leaves is the clone's, so the project's
   sessions and refs are untouched.
-- **Not yet the seatbelt.** The turn runs in byj's own process, which the
-  seatbelt cannot wrap without wrapping byj's own writes too; a shell can
-  still reach outside the clone by a path the gates do not see — a child
-  byj under `--sandbox` per run is `byj-ng7.14`.
+- **Under the seatbelt** (`byj-ng7.14`): `byj loops eval` and `propose` run
+  each turn in a byj of its own (`loop-eval/process-run-turn`, `containment`)
+  — `byj ask --json -C CLONE --loop FILE -p -m --sandbox -q QUESTION` — with
+  the clone's config written as the child's project config
+  (`child-config`: every schema key that reads back as written, so the
+  clone's containment goes with it) and the arm's expanded tree as its loop;
+  what it prints is read back as `agent/ask`'s result. The seatbelt's write
+  roots are then the child's: the clone, `~/.brainyard`, the temp dirs. The
+  child is the byj the run is (`jolt.launcher`), else `BY_SANDBOX_SELF`,
+  else `byj` on PATH — which may be another version than the evaluating
+  one. Off macOS the child runs unsandboxed; with no byj to run, or with
+  `--in-process`, the turn runs in the evaluating byj, contained by the gates
+  alone. The report's `:containment` says which (`:seatbelt`, `:child`,
+  `:in-process`), and so does its summary. Checked live once, 2026-11-13: the
+  installed byj v0.3.19 as the child under the seatbelt, on the mock model —
+  the candidate's write landed in its clone, the base's did not.
 - **The plan** runs, for each repeat, each task with a machine check, base
   then candidate — alternating, so a drift in the model's service falls on
   both arms. A task with no machine check is counted as `:unscored` (a judge
@@ -219,7 +231,10 @@ Both arms run the same tasks `N` times. Then:
   RFC-021's `compare-scores` — paired, because the two arms ran the same
   tasks, which removes the difference between tasks from the noise. The
   candidate wins only past the margin; a tie keeps the loop in force, as
-  `select-best` keeps the earlier row.
+  `select-best` keeps the earlier row — and so does a lead the test could
+  not weigh (`:tested?` false: one task, or fewer than six all moving the
+  same way), which the first live check of the clone run, on one task,
+  would otherwise have called better.
 - **A candidate meant to cost less** is tested for non-inferiority instead:
   checks passed not worse past the margin, and cost lower.
 - **Guard metrics** — tokens and cost, iterations, wall time, tool errors,
@@ -364,7 +379,7 @@ governing that run.
 
 ```
 byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--json]   ; a task set from past turns (built)
-byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--keep] [--json]   ; (built)
+byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--in-process] [--keep] [--json]   ; (built)
 byj loops propose CANDIDATE | --bundled [LOOP] [eval's flags] [--why TEXT]   ; eval, then stage when it wins (built)
 byj loops revert [LOOP] [--json]                        ; the previous loop, as a proposal (built)
 /proposals loop  ·  /proposals show loop/<id>  ·  /proposals accept|reject loop/<id>   (built)
@@ -381,9 +396,10 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 `{:error}`.
 
 `(loop-eval/evaluate! config {:lm :candidate :loop :tasks :repeats
-:max-cost :aim :guards :run-turn :work :check-opts :keep?})` → `{:file
+:max-cost :aim :guards :run-turn :containment :work :check-opts :keep?})` → `{:file
 :report}` | `{:error}`; `run-one!`, `make-clone!`, `clone-config`,
-`run-metrics`, `arm-summary`, `verdict`, `guard-regressions`, `wins?`,
+`run-metrics`, `process-run-turn`, `containment`, `child-config`,
+`child-argv`, `arm-summary`, `verdict`, `guard-regressions`, `wins?`,
 `default-guards`, `loop-of`, `summary-lines`; files
 `.brainyard/loops/evals/<loop>-<ms>.edn`.
 
@@ -414,8 +430,9 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 | An accepted loop is in force from the next session, and every accept and revert is a history line | `loop-proposals-test/a-person-accepts-a-loop-and-it-is-in-force-from-the-next-session`, `loop-proposals-test/the-session-says-an-accepted-loop-waits-for-the-next-session` |
 | A project's loop is found before the bundled one, for a bare name and the bundled resource path alike | `agent-test/a-project-loop-is-found-before-the-bundled-one` |
 | A project loop is written with its `:based-on`, a history line per write and none per read; doctor names one whose base is not the bundled loop | `agent-test/a-project-loop-is-written-with-its-base-and-a-history-line-per-change`, `agent-test/doctor-names-a-project-loop-whose-base-is-not-the-bundled-loop` |
+| A run can be a byj of its own: its argv puts the question after `-q`, its project config is the clone's containment, and its answer is read back past a banner; a child that prints none is the run's error | `loop-eval-test/a-run-can-be-a-byj-of-its-own` |
 | The clone differs from the agent only in its loop, and leaves nothing in the project's sessions or refs | `loop-eval-test/a-worse-candidate-loses-and-an-equal-one-ties`, `loop-eval-test/a-run-is-contained-in-its-clone` |
-| A worse candidate loses, an equal one ties and the loop in force is kept, a better one wins, per task and paired | `loop-eval-test/a-worse-candidate-loses-and-an-equal-one-ties` |
+| A worse candidate loses, an equal one ties and the loop in force is kept, a better one wins, per task and paired — and a lead too small to test is not a win | `loop-eval-test/a-worse-candidate-loses-and-an-equal-one-ties` |
 | A guard regression rejects a candidate whatever its checks; `--aim cost` wins only not worse and cheaper | `loop-eval-test/a-guard-regression-rejects-whatever-the-checks-say` |
 | No run starts once the spend cap is reached, and an evaluation it stopped decides nothing | `loop-eval-test/the-spend-cap-stops-the-evaluation-and-decides-nothing` |
 | A candidate that does not check is not run; the report names the set, base, candidate, byj, model and repeats | `loop-eval-test/a-candidate-that-does-not-check-is-not-run`, `loop-eval-test/the-report-says-what-was-measured` |
@@ -432,7 +449,6 @@ All but a project's own loop, its proposals, the task set, the evaluation
 and proposing is a design.
 The order of work is the epic's:
 
-- A clone's turn under the seatbelt, a byj process per run — `byj-ng7.14`.
 - No live evaluation is recorded here yet; the mock provider is what the
   suite runs, and a live run waits for a person to spend on it —
   `byj-ng7.15`.
