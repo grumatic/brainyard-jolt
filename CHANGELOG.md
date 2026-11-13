@@ -6,6 +6,8 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj loops tasks retire ID…`** takes tasks out of a set and releases the
+  refs that kept their start commits; a rebuild does not bring them back.
 - **`byj loops eval` runs each turn in a byj of its own under the macOS
   seatbelt**, its clone the place it may write, so a shell command in a
   candidate's turn cannot reach the project by a path the gates miss;

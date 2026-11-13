@@ -664,14 +664,23 @@
                                {:keys [run-turn sandbox]} (loop-eval/containment self)]
                            {:run-turn run-turn :containment sandbox}))]
     (case sub
-      "tasks" (if (not= ["build"] (vec more))
+      "tasks" (if (= "retire" (first more))
+                (let [r (loop-tasks/retire! config name (rest more))]
+                  (cond
+                    json (do (println (json/write-str r)) (if (:error r) 1 0))
+                    (:error r) (do (err-println (:error r)) 1)
+                    :else (do (println (str "retired " (count (:retired r)) " task(s) from " (:file r) ", "
+                                            (:tasks r) " left; their pins released"
+                                            (when (seq (:unknown r)) (str " — not in the set: " (str/join ", " (:unknown r))))))
+                              0)))
+              (if (not= ["build"] (vec more))
                 (do (err-println "usage: byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--json]") 2)
                 (let [pc (when plan (loop-tasks/plan-checks plan stage))
                       r (if (:error pc) pc (loop-tasks/build! config {:name name :sessions from :check check-cmd :plan pc}))]
                   (cond
                     json (do (println (json/write-str r)) (if (:error r) 1 0))
                     (:error r) (do (err-println (:error r)) 1)
-                    :else (do (doseq [l (loop-tasks/summary-lines r)] (println l)) 0))))
+                    :else (do (doseq [l (loop-tasks/summary-lines r)] (println l)) 0)))))
       "eval" (if (str/blank? (str (first more)))
                (do (err-println "usage: byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--in-process] [--keep] [--json]") 2)
                (let [r (loop-eval/evaluate! config (merge {:lm lm :candidate (first more)

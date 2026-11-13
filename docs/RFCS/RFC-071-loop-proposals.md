@@ -163,8 +163,11 @@ never a loop on a project's own work.
   subject.
 - **The start** is the turn ref's parent, by commit id, and is **pinned** as
   `refs/byj/tasks/<set>/<id>`: the repository prunes turn refs past
-  `:changes-turns`, and git's gc would take a start no ref holds. Pins are
-  not pruned.
+  `:changes-turns`, and git's gc would take a start no ref holds. A pin is
+  released only when a person retires its task (`byj loops tasks retire
+  ID…`, `loop-tasks/retire!`, `byj-ng7.11`), which takes it out of the set
+  and keeps its id in the set's `:retired`, so a rebuild leaves it out
+  though its turn is still kept, and counts it dropped as `:retired`.
 - **The machine's check** is the most trusted there is
   (`loop-tasks/machine-checks`, `byj-ng7.9`): `--check CMD`, as `[{:type
   :command :name "check" :run CMD}]`; else a dogfood plan's stage
@@ -378,7 +381,8 @@ governing that run.
 ## API (planned)
 
 ```
-byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--json]   ; a task set from past turns (built)
+byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--json]
+byj loops tasks retire ID… [--name SET] [--json]                                 ; (built)   ; a task set from past turns (built)
 byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--in-process] [--keep] [--json]   ; (built)
 byj loops propose CANDIDATE | --bundled [LOOP] [eval's flags] [--why TEXT]   ; eval, then stage when it wins (built)
 byj loops revert [LOOP] [--json]                        ; the previous loop, as a proposal (built)
@@ -413,7 +417,7 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 
 `(loop-tasks/build! config {:name :sessions :check :plan})` → `{:file :set
 :tasks :added :splits :hash :check :checks-from :dropped}` | `{:error}`;
-`loop-tasks/machine-checks`, `plan-checks`, `turn-tasks`, `person-cases`, `rewound-turns`, `committed?`,
+`loop-tasks/retire!`, `machine-checks`, `plan-checks`, `turn-tasks`, `person-cases`, `rewound-turns`, `committed?`,
 `person-signal`, `read-set`, `set-file`, `cases-file`, `task-id`,
 `check->checks`, `summary-lines`; `evaluate/split-of` (RFC-021).
 
@@ -442,24 +446,20 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 | A task's split is RFC-021's content hash of its own question and start: adding tasks, a person's cases or a rebuild after its turn was pruned never moves one | `loop-tasks-test/a-split-never-moves-a-task` |
 | `byj loops tasks build` writes the set and says what it holds and what it dropped; `--check` takes a command after `loops` and is a flag elsewhere | `loop-tasks-test/byj-loops-tasks-build-writes-the-set` |
 | A set's machine check is a command given, else a plan's stage checks, else the set's own, else `:check-command`, and the build says which | `loop-tasks-test/a-sets-machine-check-is-the-most-trusted-one-there-is` |
+| A retired task leaves the set, its pin is released, and a rebuild leaves it out | `loop-tasks-test/a-retired-task-leaves-the-set-and-its-pin` |
 
 ## Known gaps
 
 All but a project's own loop, its proposals, the task set, the evaluation
-and proposing is a design.
-The order of work is the epic's:
+and proposing is a design. The order of work is the epic's:
 
 - No live evaluation is recorded here yet; the mock provider is what the
   suite runs, and a live run waits for a person to spend on it —
   `byj-ng7.15`.
-
 - A judge model as a second signal on a rebuilt task, never alone — `byj-ng7.8`.
 - Which turns a rewind took back is read from commit times, to the second:
   a turn ending in the second of the rewind counts as before it —
   `byj-ng7.10`.
-- A task set only grows: no command retires a task and releases its
-  `refs/byj/tasks` pin — `byj-ng7.11`.
-- The clone run and the comparison — `byj-ng7.4`.
 - The watch after an accept, offering a revert on a regression — `byj-ng7.16`.
 - Whether an improver agent earns its place — `byj-ng7.6` (a decision).
 - A loop proven in one project promoted to byj's bundled loops, on evidence

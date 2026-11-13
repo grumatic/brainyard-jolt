@@ -249,3 +249,26 @@
       (let [{:keys [exit out]} (run-main "-C" dir "loops" "tasks" "build" "--name" "planned" "--plan" (str dir "/missing.edn"))]
         (is (= 1 exit))
         (is (= "" out))))))
+
+;; byj-ng7.11: a set only grew; a task is retired, its pin released, and a
+;; rebuild leaves it out though its turn is still kept
+(deftest a-retired-task-leaves-the-set-and-its-pin
+  (let [{:keys [dir cfg]} (fixture)
+        _ (loop-tasks/build! cfg {:sessions ["s-1"]})
+        [a b] (map :id (:tasks (loop-tasks/read-set cfg "default")))
+        pin #(sh dir "git" "for-each-ref" (str "refs/byj/tasks/default/" %))]
+    (is (seq (pin a)) "pinned while it is a task")
+    (let [r (loop-tasks/retire! cfg nil [a "nope"])]
+      (is (= {:retired [a] :unknown ["nope"] :tasks 1} (select-keys r [:retired :unknown :tasks]))))
+    (is (= [b] (map :id (:tasks (loop-tasks/read-set cfg "default")))))
+    (is (= [a] (:retired (loop-tasks/read-set cfg "default"))))
+    (is (= "" (pin a)) "its pin released")
+    (is (seq (pin b)) "the other's kept")
+    (let [r (loop-tasks/build! cfg {:sessions ["s-1"]})]
+      (is (= [b] (map :id (:tasks (loop-tasks/read-set cfg "default")))) "a rebuild leaves it out")
+      (is (= 1 (:retired (:dropped r))) "and counts it"))
+    (is (str/includes? (:error (loop-tasks/retire! cfg "none" [a])) "no task set none"))
+    (let [{:keys [exit out]} (run-main "-C" dir "loops" "tasks" "retire" b)]
+      (is (= 0 exit))
+      (is (str/starts-with? out "retired 1 task(s) from "))
+      (is (empty? (:tasks (loop-tasks/read-set cfg "default")))))))

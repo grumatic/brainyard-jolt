@@ -391,6 +391,11 @@
                                                        (:case t) (assoc :case (:case t))))]
                                      [(conj keep t) dup]))
                                  [[] []] (concat t1 t2))
+            ;; a task a person retired stays out, though its turn is kept
+            retired (set (:retired old))
+            [fresh gone] [(vec (remove #(retired (:id %)) fresh)) (filter #(retired (:id %)) fresh)]
+            dups (into dups (for [t gone] (cond-> {:reason :retired :question (clip (:question t))}
+                                            (:from t) (merge (select-keys (:from t) [:session :turn])))))
             old-ids (set (map :id (:tasks old)))
             fresh-ids (set (map :id fresh))
             tasks (->> (concat (remove #(fresh-ids (:id %)) (:tasks old)) fresh)
@@ -403,6 +408,7 @@
                  :built-at (System/currentTimeMillis)
                  :check check
                  :plan (when-let [p (:plan machine)] (assoc p :checks checks))
+                 :retired (vec (sort retired))
                  :from (vec sessions)
                  :hash (evaluate/dataset-hash (map example tasks))
                  :splits (merge {:train 0 :val 0 :test 0} (frequencies (map :split tasks)))
@@ -418,6 +424,34 @@
          :dropped (frequencies (map :reason dropped))})
       {:error (str (or (:project-dir config) (:working-dir config) ".")
                    " is not in a git work tree: a task's start is a turn's git snapshot (RFC-069)")})))
+
+(defn retire!
+  "Take tasks `ids` out of set `set-name` and release their pins
+  (`refs/byj/tasks/<set>/<id>`), so git's gc may take a start no other ref
+  holds; each is kept in the set's `:retired`, so a rebuild does not bring it
+  back from a turn still kept. `{:file :retired [id] :unknown [id] :tasks n}`
+  or `{:error}`."
+  [config set-name ids]
+  (let [set-name (or (not-empty (str set-name)) default-set)
+        old (read-set config set-name)
+        root (changes/root config)]
+    (cond
+      (nil? old) {:error (str "no task set " set-name)}
+      (empty? ids) {:error "which tasks? name their ids (byj loops tasks build --json lists them)"}
+      :else
+      (let [ids (vec (distinct (map str ids)))
+            have (set (map :id (:tasks old)))
+            gone (filterv have ids)
+            f (set-file config set-name)]
+        (when root
+          (doseq [id gone] (git* root "update-ref" "-d" (str "refs/byj/tasks/" (safe set-name) "/" id))))
+        (let [tasks (vec (remove #((set gone) (:id %)) (:tasks old)))]
+          (write-set! f (assoc old
+                               :tasks tasks
+                               :retired (vec (sort (into (set (:retired old)) gone)))
+                               :hash (evaluate/dataset-hash (map example tasks))
+                               :splits (merge {:train 0 :val 0 :test 0} (frequencies (map :split tasks)))))
+          {:file (.getPath f) :retired gone :unknown (vec (remove have ids)) :tasks (count tasks)})))))
 
 (defn summary-lines
   "What `build!` returned, as lines for a person."
