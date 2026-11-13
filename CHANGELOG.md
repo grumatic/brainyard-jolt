@@ -6,6 +6,8 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj loops eval --keep` keeps the clones**: it kept each, then removed
+  the directory that held them. The report says where they are.
 - **`byj loops watch`** compares the turns run since a project's loop last
   changed with the turns before, and when they got worse — costlier, longer,
   more errors or refusals, more turns left unfinished — stages the loop

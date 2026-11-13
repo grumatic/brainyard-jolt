@@ -377,6 +377,7 @@
                            :tasks (count scored) :unscored unscored
                            :runs rows :arms {:base base :candidate cand-sum}
                            :spent spent :stopped stopped
+                           :kept (when (:keep? opts) work)
                            :containment (or (:containment opts)
                                             (if (:run-turn opts)
                                               {:on? false :how :given}
@@ -384,7 +385,9 @@
                           v)
             dir (evals-dir config)
             f (io/file dir (str ln "-" (System/currentTimeMillis) ".edn"))]
-        (when-not (:work opts) (delete-tree! work))
+        ;; --keep keeps the clones, so the directory that holds them stays
+        ;; too, and the report says where
+        (when-not (or (:work opts) (:keep? opts)) (delete-tree! work))
         (.mkdirs dir)
         (spit f (with-out-str (pp/pprint report)))
         {:file (.getPath f) :report report}))))

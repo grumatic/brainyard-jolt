@@ -126,6 +126,15 @@
   (is (= :ask-each-time (:permission-mode (le/clone-config {:permission-mode :auto-approve} "/x")))
       "headless, a gate that would ask refuses; auto-approve would reach outside unasked"))
 
+(deftest keep-keeps-the-clones-and-says-where
+  ;; byj-ng7.15's live run: --keep kept each clone, then the directory that
+  ;; held them was removed with them
+  (let [{:keys [config]} (fixture "keep" 1)
+        {:keys [report]} (le/evaluate! config {:lm mock :candidate writes-done :keep? true})]
+    (is (string? (:kept report)))
+    (is (= 2 (count (.list (io/file (:kept report))))) "a clone per arm")
+    (doseq [f (reverse (file-seq (io/file (:kept report))))] (.delete f))))
+
 (deftest the-spend-cap-stops-the-evaluation-and-decides-nothing
   (let [{:keys [config]} (fixture "cap" 4)
         runs (atom 0)

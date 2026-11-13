@@ -1,9 +1,9 @@
 # RFC-071 — Loop proposals: a better loop, proven and then accepted
 
-**Status:** designed 2026-11-13; built the same day but for what needs a
-person's spend or evidence across projects — a live evaluation
-(`byj-ng7.15`), an improver agent (`byj-ng7.6`, a decision), promotion to
-the bundled loops (`byj-ng7.7`). Epic `byj-ng7`.
+**Status:** designed 2026-11-13; built the same day, and evaluated live once
+("The first live evaluation"), but for what needs evidence across projects
+or a decision — an improver agent (`byj-ng7.6`), promotion to the bundled
+loops (`byj-ng7.7`). Epic `byj-ng7`.
 
 ## Purpose
 
@@ -381,6 +381,49 @@ file that has them, and `--why` or a line made from the verdict. A
 person-written candidate needs nothing else, and an improver agent
 (`byj-ng7.6`) would call the same command.
 
+### The first live evaluation (2026-11-13, `byj-ng7.15`)
+
+Run once, on this repository, with `target/byj` built from `b42c2e3` as both
+the evaluating byj and each run's child, on Claude Code's haiku, under the
+seatbelt.
+
+- **The set.** This repository's ten kept turns made no task: none had a
+  machine check, and none was rewound or held by a commit the person made
+  (`no-check` 10, `not-kept` 2 more recorded). Nor would they rerun fairly —
+  delegating to Claude Code sessions, merging, pushing, the full suite —
+  as a clone refuses or pays for them. So the set was six cases a person
+  wrote (`live15.cases.edn`), each a small change with a machine check,
+  starting at HEAD: a file with a word in it; the count of RFC files; the
+  `:jolt/min-version` from `deps.edn`; a last line added to CHANGELOG.md; an
+  executable script that prints a word; the source files' SPDX identifier.
+- **The candidate**: the bundled react with its iteration bound `:max-n 2`
+  for `:config/max-iterations` — one known change, meant to cost less, so
+  `--aim cost`.
+- **A smoke run first**, one case, one run an arm: both passed, $0.0099,
+  20 s; `:not-better`, since one task is too few for non-inferiority.
+- **The run**: six tasks, `--repeats 2`, 24 runs, `--max-cost 1.00`. Verdict
+  `:cheaper`: checks passed 0.833 in both arms (paired diff 0, every task the
+  same in both), cost per run $0.0072 → $0.0057 (−20 %), tokens 107 k → 81 k,
+  iterations 3.08 → 2.0, wall time 25 s → 18 s, tool errors 0.08 → 0,
+  refusals 0.25 in both. $0.155 spent in all, 8 min 49 s.
+- **What it found.**
+  - The CHANGELOG case failed in every run of both arms: its wording,
+    "a line reading exactly: checked — as the last line", was read with the
+    dash, and both loops wrote `checked —`. A person's case is only as good
+    as its words; that the two arms agreed is what the paired comparison is
+    for — it cost the candidate nothing.
+  - `--keep` kept each clone, then removed the directory holding them;
+    fixed, and the report says where it kept them (`:kept`,
+    `loop-eval-test/keep-keeps-the-clones-and-says-where`).
+  - One refusal in every run of that task, in both arms, and nothing could
+    say what was refused: the rows keep counts, and a clone keeps no session
+    — `byj-ng7.17`.
+  - `:cheaper` here says little of real work: on six one-step tasks a loop
+    of two iterations is enough by construction. A set must resemble the
+    project's turns for its verdict to mean anything about them, which this
+    repository's kept turns, without checks, could not give. Nothing was
+    proposed.
+
 ### Where a better loop comes from
 
 From a person, first: a candidate is a file, tried with `--loop`, then
@@ -483,12 +526,10 @@ Built: `(loop-watch/watch! config {:loop})` → `{:loop :change :before :after
 
 ## Known gaps
 
-What is not built waits on a person — money spent on a live model, or
-evidence from more than one project:
+What is not built waits on a person — money spent on live models, or
+evidence from more than one project — but the first:
 
-- No live evaluation is recorded here yet; the mock provider is what the
-  suite runs, and a live run waits for a person to spend on it —
-  `byj-ng7.15`.
+- A run's refused and failed calls are counted, not named — `byj-ng7.17`.
 - Whether an improver agent earns its place — `byj-ng7.6` (a decision).
 - A loop proven in one project promoted to byj's bundled loops, on evidence
   across projects — `byj-ng7.7`.
