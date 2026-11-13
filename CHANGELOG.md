@@ -6,6 +6,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj loops eval CANDIDATE`** runs a candidate loop against the loop in
+  force on a task set (`byj loops tasks build`): each run a headless turn in
+  a clone of the repository at the task's start, so nothing of the
+  project's is touched; scored by the task's checks, compared per task, with
+  guards on cost, iterations, time, tool errors and refusals, and a
+  `--max-cost` after which no run starts. The report is written under
+  `.brainyard/loops/evals/`. A live model costs money: it runs when asked.
 - **A better loop is a proposal at `/proposals`** (`loop/…`): staged with its
   evidence and why, shown as a diff of the expanded tree against the loop in
   force, and made the project's loop by a person's accept — from the next

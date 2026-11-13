@@ -2,7 +2,7 @@
 
 **Status:** designed 2026-11-13. Built: a project's own loop (`byj-ng7.1`),
 the task set (`byj-ng7.3`), no tool writing a loop (`byj-ng7.12`), `loop/`
-proposals (`byj-ng7.2`); the rest not. Epic `byj-ng7`.
+proposals (`byj-ng7.2`), the evaluation (`byj-ng7.4`); the rest not. Epic `byj-ng7`.
 
 ## Purpose
 
@@ -85,6 +85,39 @@ runs isolated:
   with the tools that reach outside — `git push`, a share — refused;
 - under a **spend cap** per evaluation. Live models cost money (AGENTS.md);
   an evaluation runs when asked, never on a schedule.
+
+How it is built (`byj-ng7.4`, `brainyard.loop-eval`, `byj loops eval`):
+
+- **A run** is one task, one arm, one repeat: `git clone -q --shared
+  --no-checkout` of the project's repository and a detached checkout of the
+  task's start commit, in a temporary directory; a turn there
+  (`agent/ask` with the arm's expanded tree, injectable as `:run-turn`)
+  under `clone-config` — the clone as `:project-dir`, `:working-dir` and the
+  only `:allowed-dirs`; `:auto-approve` read as `:ask-each-time`, and with no
+  permission channel a gate that would ask refuses; `share$*`, `claude$*`,
+  `codex$*`, `session$send`, `agent-registry$*` and the effect
+  `:share/publish` refused, and `git push*`, `byj-share *`, `gh *` as
+  commands; then the task's checks (`sim/checks`) in the clone, and the
+  clone removed. What the turn leaves is the clone's, so the project's
+  sessions and refs are untouched.
+- **Not yet the seatbelt.** The turn runs in byj's own process, which the
+  seatbelt cannot wrap without wrapping byj's own writes too; a shell can
+  still reach outside the clone by a path the gates do not see — a child
+  byj under `--sandbox` per run is `byj-ng7.14`.
+- **The plan** runs, for each repeat, each task with a machine check, base
+  then candidate — alternating, so a drift in the model's service falls on
+  both arms. A task with no machine check is counted as `:unscored` (a judge
+  model, `byj-ng7.8`). Before each run the cost so far is held to
+  `--max-cost`; once it is reached no run starts, the report says why, and
+  the verdict is `:incomplete`.
+- **The report**, `.brainyard/loops/evals/<loop>-<ms>.edn`, holds the set
+  and its hash, the base (where it was found, its hash, its expansion's), the
+  candidate's hashes, byj's version, the model, the repeats and the aim; every
+  run; each arm's `arm-summary` (RFC-021's score: the mean, the per-task
+  means as `:example-scores`, the guard metrics' means); the primary
+  comparison, the guard regressions and the verdict — `:better`, `:cheaper`
+  (`--aim cost`), `:not-better`, `:guard-regressed` or `:incomplete`.
+  `loop-eval/wins?` is what `byj loops propose` stages on (`byj-ng7.5`).
 
 ### Tasks: the project's own work, rebuilt
 
@@ -185,7 +218,11 @@ Both arms run the same tasks `N` times. Then:
   checks passed not worse past the margin, and cost lower.
 - **Guard metrics** — tokens and cost, iterations, wall time, tool errors,
   refusals and asks — each have a bound. A regression past one rejects the
-  candidate whatever the primary metric says.
+  candidate whatever the primary metric says. Built as a bound on the
+  candidate's mean per run, `max(base × ratio, base + slack)`
+  (`loop-eval/default-guards`: cost and tokens ×1.5; iterations ×1.5 or +1;
+  wall time ×2 or +1 s; tool errors and refusals ×1.5 or +1 — an ask is a
+  refusal here, headless).
 
 The report records the task set's hash, the base loop's hash, byj's version,
 the model and the repeats, so that anyone can run it again and get the same
@@ -304,7 +341,7 @@ governing that run.
 
 ```
 byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD] [--json]   ; a task set from past turns (built)
-byj loops eval CANDIDATE --tasks SET [--repeats N] [--max-cost USD]
+byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--keep] [--json]   ; (built)
 byj loops propose CANDIDATE --tasks SET                 ; eval, then stage when it wins
 byj loops revert [LOOP] [--json]                        ; the previous loop, as a proposal (built)
 /proposals loop  ·  /proposals show loop/<id>  ·  /proposals accept|reject loop/<id>   (built)
@@ -316,7 +353,14 @@ Files: `<project>/.brainyard/loops/<name>.edn` (`:based-on`),
 the person's `<set>.cases.edn` beside it (built; their shapes are under
 "Tasks"), and the pins `refs/byj/tasks/<set>/<id>`.
 
-Built: `(loop-proposals/stage! config {:loop :tree :action :report :why
+Built: `(loop-eval/evaluate! config {:lm :candidate :loop :tasks :repeats
+:max-cost :aim :guards :run-turn :work :check-opts :keep?})` → `{:file
+:report}` | `{:error}`; `run-one!`, `make-clone!`, `clone-config`,
+`run-metrics`, `arm-summary`, `verdict`, `guard-regressions`, `wins?`,
+`default-guards`, `loop-of`, `summary-lines`; files
+`.brainyard/loops/evals/<loop>-<ms>.edn`.
+
+`(loop-proposals/stage! config {:loop :tree :action :report :why
 :check-opts})` → `{:id :dir}` | `{:error :problems}`; `list-proposals`,
 `read-proposal`, `accept!` → the history line with `:in-force
 :next-session :said` | `{:error}`, `reject!`, `stage-revert!`, `problems`,
@@ -343,7 +387,11 @@ Built: `(loop-proposals/stage! config {:loop :tree :action :report :why
 | An accepted loop is in force from the next session, and every accept and revert is a history line | `loop-proposals-test/a-person-accepts-a-loop-and-it-is-in-force-from-the-next-session`, `loop-proposals-test/the-session-says-an-accepted-loop-waits-for-the-next-session` |
 | A project's loop is found before the bundled one, for a bare name and the bundled resource path alike | `agent-test/a-project-loop-is-found-before-the-bundled-one` |
 | A project loop is written with its `:based-on`, a history line per write and none per read; doctor names one whose base is not the bundled loop | `agent-test/a-project-loop-is-written-with-its-base-and-a-history-line-per-change`, `agent-test/doctor-names-a-project-loop-whose-base-is-not-the-bundled-loop` |
-| The clone differs from the agent only in its loop, and leaves nothing in the project's sessions or refs | nothing yet — `byj-ng7.4` |
+| The clone differs from the agent only in its loop, and leaves nothing in the project's sessions or refs | `loop-eval-test/a-worse-candidate-loses-and-an-equal-one-ties`, `loop-eval-test/a-run-is-contained-in-its-clone` |
+| A worse candidate loses, an equal one ties and the loop in force is kept, a better one wins, per task and paired | `loop-eval-test/a-worse-candidate-loses-and-an-equal-one-ties` |
+| A guard regression rejects a candidate whatever its checks; `--aim cost` wins only not worse and cheaper | `loop-eval-test/a-guard-regression-rejects-whatever-the-checks-say` |
+| No run starts once the spend cap is reached, and an evaluation it stopped decides nothing | `loop-eval-test/the-spend-cap-stops-the-evaluation-and-decides-nothing` |
+| A candidate that does not check is not run; the report names the set, base, candidate, byj, model and repeats | `loop-eval-test/a-candidate-that-does-not-check-is-not-run`, `loop-eval-test/the-report-says-what-was-measured` |
 | A candidate is staged only past the margin on the primary metric, or non-inferior and cheaper, with no guard regressed | nothing yet — `byj-ng7.5` |
 | A task is a kept turn's question, the parent of its checkpoint commit (pinned) and a check — the machine's, or the person's: rewound a failure, its change held by HEAD a success; a turn with neither is dropped, and every drop is counted with why | `loop-tasks-test/a-task-is-a-question-a-start-and-a-check`, `loop-tasks-test/a-commit-is-a-success-only-while-head-holds-the-change` |
 | A task's split is RFC-021's content hash of its own question and start: adding tasks, a person's cases or a rebuild after its turn was pruned never moves one | `loop-tasks-test/a-split-never-moves-a-task` |
@@ -351,8 +399,14 @@ Built: `(loop-proposals/stage! config {:loop :tree :action :report :why
 
 ## Known gaps
 
-All but a project's own loop, its proposals and the task set is a design.
+All but a project's own loop, its proposals, the task set and the
+evaluation is a design.
 The order of work is the epic's:
+
+- A clone's turn under the seatbelt, a byj process per run — `byj-ng7.14`.
+- No live evaluation is recorded here yet; the mock provider is what the
+  suite runs, and a live run waits for a person to spend on it —
+  `byj-ng7.15`.
 
 - A judge model as a second signal on a rebuilt task, never alone — `byj-ng7.8`.
 - A project's own check command, and a dogfood plan's stage checks
