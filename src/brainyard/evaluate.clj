@@ -59,17 +59,23 @@
 
 (def ^:private hash-space 4294967296.0)
 
+(defn split-of
+  "The split one example falls in by its content hash — `:train`, `:val` or
+  `:test`, the bucket `split` puts it in — so a set that records each item's
+  split (a loop's task set, RFC-071) records the one `split` gives."
+  ([ex] (split-of ex {}))
+  ([ex {:keys [train val] :or {train 0.6 val 0.2}}]
+   (let [u (/ (content-hash ex) hash-space)]
+     (cond (< u train) :train
+           (< u (+ train val)) :val
+           :else :test))))
+
 (defn split
   "{:train [] :val [] :test []} by content hash — brainyard's `split`."
   ([examples] (split examples {}))
-  ([examples {:keys [train val] :or {train 0.6 val 0.2}}]
-   (let [bucket (fn [ex]
-                  (let [u (/ (content-hash ex) hash-space)]
-                    (cond (< u train) :train
-                          (< u (+ train val)) :val
-                          :else :test)))]
-     (merge {:train [] :val [] :test []}
-            (update-vals (group-by bucket examples) vec)))))
+  ([examples opts]
+   (merge {:train [] :val [] :test []}
+          (update-vals (group-by #(split-of % opts) examples) vec))))
 
 (defn dataset-hash
   "A stable 12-hex-char name for a set of examples, so a score can say what it

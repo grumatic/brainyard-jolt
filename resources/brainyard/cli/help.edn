@@ -95,6 +95,13 @@
             {:name "fork" :args "SESSION [TURN [keep-files]] [--json]"
              :summary "a new session with the conversation before a turn, the files put back to it too"
              :doc "A new saved session from SESSION's snapshot, its history and transcript cut before TURN (the whole session when none is named), with :forked-from naming SESSION, which is not touched. With a turn the files are put back as they were when it began, as rewind does, so the new session's conversation and the work tree agree; keep-files leaves them. byj run --resume NEW continues it; a session's own /fork opens it beside, in the full-screen window."}]}]}
+  {:name "loops"
+   :summary "A loop measured on the project's own work: tasks rebuilt from past turns (RFC-071)"
+   :subcommands
+   [{:subs [{:name "tasks" :args "build [--name SET] [--from SESSIONS] [--check CMD] [--json]"
+             :summary "a task set from the project's past turns: each task's question, start commit and check"
+             :doc "Each kept turn (refs/byj/turns, RFC-069) of SESSIONS (comma-separated; every session when none) with its trajectory record (RFC-025) is a task: the record's question, the turn's start snapshot as the commit it starts from — pinned as refs/byj/tasks/SET/ID so git's gc keeps it — and a check. The check is CMD first, run with sh -c in the task's tree as a dogfood stage's check is; then what the person did: a turn rewound or undone is a failure, a turn whose change HEAD holds a success. A turn with neither is dropped, and every drop is counted with why. Cases a person writes in SET.cases.edn are added. Each task's split is RFC-021's content hash of its question and start, so a task never moves. Written to .brainyard/loops/tasks/SET.edn (SET default); what the set held is kept, and CMD is remembered. --json gives {file, set, tasks, added, splits, hash, check, dropped}."}]}]
+   :options [:set-name :from :check-cmd :json]}
   {:name "emacs"
    :summary "byj.el for your Emacs init, and what a turn changed (RFC-067)"
    :subcommands
@@ -177,6 +184,9 @@
   :sandbox-allow-write {:flags "--sandbox-allow-write DIR" :doc "an extra writable directory (repeatable, comma-separated)"}
   :sandbox-no-network {:flags "--sandbox-no-network" :doc "deny network in the sandbox (LLM calls will fail)"}
   :check {:flags "--check" :doc "is there a newer release? (:update-source, a GitHub token)"}
+  :from {:flags "--from SESSIONS" :doc "loops tasks build: the sessions whose turns to rebuild, comma-separated (default: every session)"}
+  :set-name {:flags "--name SET" :doc "loops tasks build: the task set, .brainyard/loops/tasks/SET.edn (default: default)"}
+  :check-cmd {:flags "--check CMD" :doc "loops tasks build: the command a task passes by, run with sh -c in its tree (default: the set's own)"}
   :yes {:flags "--yes" :doc "install it without asking: a binary swaps itself, a Homebrew install runs brew upgrade, a checkout checks the tag out"}
   :rollback {:flags "--rollback" :doc "a binary goes back to the one it replaced; not for a Homebrew install"}
   :share {:flags "--share TARGET" :doc "share this session with invited people through the byj-share sidecar (RFC-043): link, or class:CODE; /share says who watches. Not for a piped session"}

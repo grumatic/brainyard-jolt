@@ -65,6 +65,7 @@
             [brainyard.flow :as flow]
             [brainyard.predictor :as predictor]
             [brainyard.programs :as programs]
+            [brainyard.loop-tasks :as loop-tasks]
             [brainyard.session :as session]
             [brainyard.tasks :as tasks]
             [brainyard.tui :as tui]
@@ -76,7 +77,7 @@
 (defn- effects [s] (set (map keyword (globs s))))
 
 (def ^:private command-names
-  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook"})
+  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops"})
 
 (def ^:private command-aliases
   "Old names a command still answers to: `sessions` (brainyard's `by
@@ -212,7 +213,12 @@
           "--yes" (recur more (assoc opts :yes true))
           "--sure" (recur more (assoc opts :sure true))
           "--candidate" (recur (rest more) (assoc opts :candidate (first more)))
-          "--check" (recur more (assoc opts :check true))
+          ;; `loops tasks build --check CMD` (RFC-071) takes a command;
+          ;; everywhere else --check is a flag (update, init)
+          "--check" (if (= :loops (:command opts))
+                      (recur (rest more) (assoc opts :check-cmd (first more)))
+                      (recur more (assoc opts :check true)))
+          "--from" (recur (rest more) (assoc opts :from (globs (first more))))
           "--rollback" (recur more (assoc opts :rollback true))
           "--install" (recur more (assoc opts :install true))
           "--no-guide" (recur more (assoc opts :no-guide true))
@@ -622,6 +628,23 @@
       ("rewind" "undo-turn" "undo") (turns-back sub more json config)
       "fork" (turns-fork more json config)
       (do (err-println (str "turns: unknown subcommand " (pr-str sub) " — list, diff, rewind, undo-turn, undo, fork")) 2))))
+
+(defn- loops-command
+  "`byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD]`: a
+  task set rebuilt from the project's past turns, written to
+  .brainyard/loops/tasks/SET.edn (RFC-071, byj-ng7.3); `json` for what
+  `loop-tasks/build!` returns. The exit code."
+  [{:keys [questions json name from check-cmd]} config]
+  (let [[sub & more] questions]
+    (case sub
+      "tasks" (if (not= ["build"] (vec more))
+                (do (err-println "usage: byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD] [--json]") 2)
+                (let [r (loop-tasks/build! config {:name name :sessions from :check check-cmd})]
+                  (cond
+                    json (do (println (json/write-str r)) (if (:error r) 1 0))
+                    (:error r) (do (err-println (:error r)) 1)
+                    :else (do (doseq [l (loop-tasks/summary-lines r)] (println l)) 0))))
+      (do (err-println (str "loops: unknown subcommand " (pr-str sub) " — tasks build")) 2))))
 
 (defn- hook-answer
   "What `byj hook pretooluse` prints for the payload `json`, its decision
@@ -1994,6 +2017,12 @@
       (let [wd (or working-dir (System/getProperty "user.dir") ".")
             {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})]
         (*exit* (turns-command opts config)))
+
+      ;; a loop measured on the project's own work (RFC-071)
+      (= :loops command)
+      (let [wd (or working-dir (System/getProperty "user.dir") ".")
+            {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})]
+        (*exit* (loops-command opts config)))
 
       ;; where this machine stands, as /doctor says it (byj-gly.324)
       (= :doctor command)
