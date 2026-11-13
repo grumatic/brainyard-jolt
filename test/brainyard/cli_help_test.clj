@@ -39,7 +39,7 @@
     ;; eval, exam and app are Share's (RFC-070 D4), byj-share's
     (doseq [[cmd f] {"programs" 'programs-command
                      "flow" 'flow-command "session" 'session-command
-                     "emacs" 'emacs-command}]
+                     "emacs" 'emacs-command "loops" 'loops-command}]
       (testing cmd
         (let [d (apply clojure.set/union (map #(dispatched forms %) (if (vector? f) f [f])))]
           (is (seq d) "the dispatch was found")

@@ -101,6 +101,75 @@ Cases a person writes stand beside the rebuilt ones. Splits are RFC-021's
 content hash, so adding a task never moves another and a held-out set stays
 held out.
 
+**Built** (`byj-ng7.3`, `brainyard.loop-tasks`): `byj loops tasks build`
+writes `<project>/.brainyard/loops/tasks/<set>.edn` (`default` unless
+`--name`). Not in brainyard, which measures predictors on datasets and
+never a loop on a project's own work.
+
+- **Which turns:** the kept turns of `--from`'s sessions, or of every
+  session with a trajectory or a kept turn. A subagent's record (it has
+  `:owner`) is not a turn of the session's.
+- **A turn and its record:** a record carries no turn number (RFC-025), so a
+  turn's record is the one written between its start and end snapshots (a
+  second's slack either side), whose question's first line is the ref's
+  subject.
+- **The start** is the turn ref's parent, by commit id, and is **pinned** as
+  `refs/byj/tasks/<set>/<id>`: the repository prunes turn refs past
+  `:changes-turns`, and git's gc would take a start no ref holds. Pins are
+  not pruned.
+- **The machine's check** is `--check CMD`, as `[{:type :command :name
+  "check" :run CMD}]`: the shape of a dogfood stage's `:checks`, which
+  `sim/checks` runs with `sh -c` in a tree, so the clone run (`byj-ng7.4`)
+  runs a task's check as RFC-041 runs a stage's. The set remembers it
+  (`:check`), and a rebuild without `--check` uses the set's. It is every
+  rebuilt task's check.
+- **The person's signal** is `:outcome` with `:by`:
+  - `:failure :rewound` when a rewind ref of the session (RFC-069) took the
+    turn back and still stands: "rewind to turn K's start" takes back K and
+    every turn ended by then, "K's end" every turn after K ended by then,
+    "undo turn K" K alone; a rewind undone by an undo that itself stands
+    takes back nothing. Which turns had ended is read from commit times, to
+    the second.
+  - `:success :committed` when HEAD holds the turn's change: git's three-way
+    merge of the change onto HEAD (`merge-tree --merge-base=<start> HEAD
+    <end>`) leaves HEAD's tree as it is. More of the person's beside it
+    does not count against it; the same lines changed again on HEAD since
+    do.
+  - Neither for a turn that changed no files: there was nothing to take
+    back or commit. Both at once is no signal.
+- **Kept or dropped:** a turn with a check or a signal is a task; with
+  neither it is dropped. Every drop is counted with its reason — `no-check`,
+  `conflicting` (rewound and committed, no check), `not-kept` (a record
+  whose checkpoint is gone), `no-record` (a kept turn with no record),
+  `no-question`, `truncated` (the record cut the question short),
+  `duplicate` (the same question in the same tree), `start-unknown` (a
+  case's start is no commit), `no-session`.
+- **A person's cases** are `<set>.cases.edn` beside the set: a vector of
+  `{:question :start? :checks? :check?}`, `:start` any revision (HEAD when
+  none) saved as its commit id, `:check` a command; a case without a check
+  of its own takes the set's.
+- **The split and the id** are of the task's own content, its question and
+  start: `evaluate/split-of`, RFC-021's content hash as `split` buckets it,
+  and the first 12 hex characters of a SHA-256 of the same two. A rebuild
+  keeps every task the set held, its turn pruned or not, and a task rebuilt
+  replaces its old self, so no task ever changes split.
+
+```clojure
+{:v 1 :set "default" :built-at 1794546437896 :check "make test" :from ["<sid>"]
+ :hash "5ab13852a194"                        ; evaluate/dataset-hash of the tasks
+ :splits {:train 3 :val 1 :test 1}
+ :dropped {:counts {:no-check 1 :not-kept 1}
+           :turns [{:session "<sid>" :turn 3 :reason :no-check :question "…"} …]}
+ :tasks
+ [{:id "3f70ddddabd6" :split :train :question "…" :start "<sha>"
+   :checks [{:type :command :name "check" :run "make test"}]
+   :outcome :success :by :committed          ; the person's, when there is one
+   :source :turn :from {:session "<sid>" :turn 1 :ref "refs/byj/turns/<sid>/1" :end "<sha>"}}
+  {:id "…" :split :test :question "…" :start "<sha>" :checks […] :source :person :case 0}]}
+```
+
+A judge model as a second signal is not built.
+
 ### Judgement
 
 Both arms run the same tasks `N` times. Then:
@@ -201,7 +270,7 @@ governing that run.
 ## API (planned)
 
 ```
-byj loops tasks build [--from SESSIONS] [--check CMD]   ; a task set from past turns
+byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD] [--json]   ; a task set from past turns (built)
 byj loops eval CANDIDATE --tasks SET [--repeats N] [--max-cost USD]
 byj loops propose CANDIDATE --tasks SET                 ; eval, then stage when it wins
 byj loops revert                                        ; the previous loop, as a proposal
@@ -210,7 +279,15 @@ byj loops revert                                        ; the previous loop, as 
 
 Files: `<project>/.brainyard/loops/<name>.edn` (`:based-on`),
 `.brainyard/loops/history.edn`, `.brainyard/loops/proposals/<id>/`
-(`loop.edn`, `report.edn`, why), `.brainyard/loops/tasks/<set>.edn`.
+(`loop.edn`, `report.edn`, why), `.brainyard/loops/tasks/<set>.edn` and
+the person's `<set>.cases.edn` beside it (built; their shapes are under
+"Tasks"), and the pins `refs/byj/tasks/<set>/<id>`.
+
+Built: `(loop-tasks/build! config {:name :sessions :check})` → `{:file :set
+:tasks :added :splits :hash :check :dropped}` | `{:error}`;
+`loop-tasks/turn-tasks`, `person-cases`, `rewound-turns`, `committed?`,
+`person-signal`, `read-set`, `set-file`, `cases-file`, `task-id`,
+`check->checks`, `summary-lines`; `evaluate/split-of` (RFC-021).
 
 ## Invariants
 
@@ -224,6 +301,9 @@ Files: `<project>/.brainyard/loops/<name>.edn` (`:based-on`),
 | A project loop is written with its `:based-on`, a history line per write and none per read; doctor names one whose base is not the bundled loop | `agent-test/a-project-loop-is-written-with-its-base-and-a-history-line-per-change`, `agent-test/doctor-names-a-project-loop-whose-base-is-not-the-bundled-loop` |
 | The clone differs from the agent only in its loop, and leaves nothing in the project's sessions or refs | nothing yet — `byj-ng7.4` |
 | A candidate is staged only past the margin on the primary metric, or non-inferior and cheaper, with no guard regressed | nothing yet — `byj-ng7.5` |
+| A task is a kept turn's question, the parent of its checkpoint commit (pinned) and a check — the machine's, or the person's: rewound a failure, its change held by HEAD a success; a turn with neither is dropped, and every drop is counted with why | `loop-tasks-test/a-task-is-a-question-a-start-and-a-check`, `loop-tasks-test/a-commit-is-a-success-only-while-head-holds-the-change` |
+| A task's split is RFC-021's content hash of its own question and start: adding tasks, a person's cases or a rebuild after its turn was pruned never moves one | `loop-tasks-test/a-split-never-moves-a-task` |
+| `byj loops tasks build` writes the set and says what it holds and what it dropped; `--check` takes a command after `loops` and is a flag elsewhere | `loop-tasks-test/byj-loops-tasks-build-writes-the-set` |
 
 ## Known gaps
 
@@ -234,7 +314,15 @@ work is the epic's:
 - A tool can still write `.brainyard/loops/`, which would make a loop the
   project's with no history line and no person accepting it; the gate
   should refuse or ask — `byj-ng7.12`.
-- Tasks rebuilt from past turns — `byj-ng7.3`.
+- A judge model as a second signal on a rebuilt task, never alone — `byj-ng7.8`.
+- A project's own check command, and a dogfood plan's stage checks
+  (RFC-041), taken as the set's machine check without `--check` —
+  `byj-ng7.9`.
+- Which turns a rewind took back is read from commit times, to the second:
+  a turn ending in the second of the rewind counts as before it —
+  `byj-ng7.10`.
+- A task set only grows: no command retires a task and releases its
+  `refs/byj/tasks` pin — `byj-ng7.11`.
 - The clone run and the comparison — `byj-ng7.4`.
 - `byj loops propose` — `byj-ng7.5`.
 - Whether an improver agent earns its place — `byj-ng7.6` (a decision).

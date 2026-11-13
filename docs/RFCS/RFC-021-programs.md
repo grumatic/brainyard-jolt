@@ -209,7 +209,9 @@ untested.
 
 ## API
 
-`brainyard.evaluate`: `example`, `content-hash`, `split`, `select-split`,
+`brainyard.evaluate`: `example`, `content-hash`, `split`, `split-of` (one
+example's split, as `split` buckets it: what a loop's task set records,
+RFC-071), `select-split`,
 `dataset-hash`, `exact-match`, `schema-valid`, `set-f1`, `channel-choice`,
 `segment-f1`, `weighted`, `all-of`,
 `score->double`, `t-critical`, `compare-scores`, `evaluate`,
