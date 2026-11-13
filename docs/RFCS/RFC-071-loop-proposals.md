@@ -2,8 +2,9 @@
 
 **Status:** designed 2026-11-13; built the same day, and evaluated live once
 ("The first live evaluation"); an improver agent decided not now
-(`byj-ng7.6`); promotion to the bundled loops waits on evidence across
-projects (`byj-ng7.7`). Epic `byj-ng7`.
+(`byj-ng7.6`); what a promotion to the bundled loops carries is written
+down ("Promotion", `byj-ng7.7`), two of the runs it names not yet possible
+(`byj-ng7.18`, `byj-ng7.19`). Epic `byj-ng7`.
 
 ## Purpose
 
@@ -497,6 +498,72 @@ failing again, the no-action guard — and six or more tasks with a machine
 check: it prints that count last. Then measure what the bead asked, on that
 project, against a person's candidates. Auto-acceptance stays out of scope.
 
+### Promotion to the bundled loops (`byj-ng7.7`)
+
+An accepted loop is proven for one project. Making it everyone's is a
+change to `resources/brainyard/loops/<name>.edn`: a proposal issue, then a
+pull request, reviewed as any change is (CONTRIBUTING.md), and never a
+proposal any session can accept. Nothing in byj does it, and nothing here
+builds a way to. What decides it is the evidence the pull request carries,
+written down here (2026-11-13) before any loop is a candidate, so it is
+not shaped to one:
+
+1. **Evaluations in three projects or more, two of them not where the
+   candidate came from.** Each is a `byj loops eval` report whose:
+   - base is the bundled loop at the pull request's base commit
+     (`:base {:from :bundled :hash H}`, H that commit's
+     `project-loops/bundled-hash`), not a project's own, which would measure
+     against something else;
+   - candidate is the file the pull request adds (`:candidate :hash`);
+   - set has six scored tasks or more, each with a machine check — the
+     project's command, a plan's stage or a case's own; a judge's verdict
+     or a person's outcome alone is not a score — and `--repeats 2` or
+     more, with both arms on the same model, named;
+   - verdict is `:better` (which a lead too small to test never is), or
+     `:cheaper` under an aim declared before it ran — so no guard
+     regressed.
+
+   **Every evaluation of that candidate against that base is carried**,
+   its losses and the ones the spend cap stopped included. A promotion is
+   argued from all of them; one that won in three projects and lost in a
+   fourth says so, and why the fourth does not count against it, if it
+   does not.
+
+2. **What is carried of a report is what can be public.** A report holds a
+   project's task ids, set hash and failed calls' first lines, and a project
+   is the person's (RFC-070). The pull request carries each report's
+   summary — what `byj loops eval` prints, failed calls removed or
+   reworded by the project's owner — with its set hash, base and candidate
+   hashes, byj version, model, repeats, verdict and each arm's means,
+   naming the projects as their owners allow (as A, B, C… where they do
+   not). The whole `report.edn` stays with the owner.
+
+3. **The dogfood simulation (RFC-041) shows no harm.** Every plan under
+   `dev/sim/` run to its end twice, on one model: the bundled loop and the
+   candidate. By RFC-041's comparison, no stage goes from pass to fail,
+   gains failed calls or a defect, or costs half again as much. This is a
+   check for harm on a project unlike the evaluating ones, not proof of a
+   win — one run a stage is too few to test — and it is the evidence a
+   reviewer can run again, since the projects' work is not theirs to see.
+   The runner cannot yet run a chosen loop — `byj-ng7.18`.
+
+4. **Terminal-Bench, when byj can run it.** A benchmark nobody here wrote
+   is the one a loop cannot have been fitted to. No adapter runs it as a
+   task set today — `byj-ng7.19`; until one does, a pull request says it
+   was not run.
+
+5. **Where it came from**: the accepted proposal's why, and the evaluation
+   that staged it, when it was one; a candidate written for the purpose
+   needs only the evidence above.
+
+What the merge then changes: the bundled loop's hash moves, so every
+project loop based on the old one is named by `/doctor` and can be
+evaluated against the new one (`byj loops propose --bundled`, above), and
+the CHANGELOG says what a person running byj will notice.
+
+Nothing enforces this list but a maintainer's review; the pull request
+template points at it for a change under `resources/brainyard/loops/`.
+
 ### What samizdat does, and why this differs
 
 samizdat changes the loop while it runs: a supervisor proposes an edit,
@@ -589,7 +656,6 @@ Built: `(loop-watch/watch! config {:loop})` → `{:loop :change :before :after
 
 ## Known gaps
 
-What is not built waits on evidence from more than one project:
-
-- A loop proven in one project promoted to byj's bundled loops, on evidence
-  across projects — `byj-ng7.7`.
+- The dogfood runner runs the bundled loop only, so a promotion's harm
+  check cannot be made — `byj-ng7.18`.
+- No adapter runs Terminal-Bench as a task set — `byj-ng7.19`.

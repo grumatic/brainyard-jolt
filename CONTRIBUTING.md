@@ -15,6 +15,10 @@ are in [AGENTS.md](AGENTS.md), which people and coding agents both follow.
   behaviour as data — loop trees, predictor specs and prompts under
   `resources/` — so many changes are a tree or a prompt, not new code
   (AGENTS.md "The standing rule").
+- **A change to a bundled loop** (`resources/brainyard/loops/`) changes
+  what every byj does on every turn, so it carries evaluations in several
+  projects and the dogfood simulation's comparison, as RFC-071 "Promotion
+  to the bundled loops" lists. Open the proposal issue before running them.
 - **A difference from brainyard**, which byj is ported from: say whether it
   is intended. An intended one is recorded in `docs/divergences.md` and
   `docs/divergences.edn`; one that exists because the port is incomplete is

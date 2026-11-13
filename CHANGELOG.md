@@ -6,6 +6,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **What a change to a bundled loop must carry** is written down (RFC-071
+  "Promotion to the bundled loops", CONTRIBUTING.md): evaluations in three
+  projects or more, every one of them, and the dogfood simulation showing no
+  harm.
 - **A loop evaluation names its failed calls**: each run's row keeps the tool
   and the first line of what each failed call said (the first five), and
   `byj loops eval` prints them with alike ones together, per arm.

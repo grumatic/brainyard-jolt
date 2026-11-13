@@ -19,3 +19,4 @@
 - [ ] `docs/divergences.md` and `.edn`, for an intended difference from brainyard
 - [ ] `docs/provenance.md`, for a guard added because of a specific failure
 - [ ] `CHANGELOG.md`'s Unreleased section, for what a person running byj notices
+- [ ] For a change to a bundled loop (`resources/brainyard/loops/`): the evidence RFC-071 "Promotion to the bundled loops" asks for
