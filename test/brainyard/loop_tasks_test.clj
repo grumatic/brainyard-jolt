@@ -212,3 +212,40 @@
           "the file is EDN, a task a line"))
     (is (= 2 (:exit (run-main "-C" dir "loops" "tasks"))) "build is the one thing tasks does yet")
     (is (= 2 (:exit (run-main "-C" dir "loops" "nosuch"))))))
+
+;; byj-ng7.9: the machine's check by RFC-071's order of trust — a command
+;; given, a dogfood plan's stage, the set's own, then the project's
+(deftest a-sets-machine-check-is-the-most-trusted-one-there-is
+  (let [plan {:plan "p.edn" :stage "code" :checks [{:type :command :name "npm-test" :run "npm test"}]}
+        cfg {:check-command "make check"}
+        m (fn [check plan old] (select-keys (loop-tasks/machine-checks cfg check plan old) [:from :check]))]
+    (is (= {:from :given :check "make test"} (m "make test" plan {:check "old"})))
+    (is (= {:from :plan} (m nil plan {:check "old"})))
+    (is (= {:from :set :check "old"} (m nil nil {:check "old"})))
+    (is (= [{:type :command :name "npm-test" :run "npm test"}]
+           (:checks (loop-tasks/machine-checks cfg nil nil {:plan plan}))) "a plan the set remembers")
+    (is (= {:from :config :check "make check"} (m nil nil nil)))
+    (is (nil? (loop-tasks/machine-checks {} nil nil nil)) "none: the person's signal alone"))
+  (testing "a plan's stage, by id or its last"
+    (let [dir (repo "plan")
+          f (io/file dir "plan.edn")]
+      (spit f (pr-str {:id "p" :stages [{:id :init :checks [{:type :file :name "a" :path "a.txt"}]}
+                                        {:id :code :checks [{:type :command :name "t" :run "{{plan}}/check.sh"}]}
+                                        {:id :empty}]}))
+      (is (= "init" (:stage (loop-tasks/plan-checks (.getPath f) "init"))))
+      (is (= "init" (:stage (loop-tasks/plan-checks (.getPath f) ":init"))))
+      (is (= (str (.getCanonicalPath (io/file dir)) "/check.sh")
+             (:run (first (:checks (loop-tasks/plan-checks (.getPath f) "code")))))
+          "{{plan}} is the plan's own directory")
+      (is (str/includes? (:error (loop-tasks/plan-checks (.getPath f) nil)) "stage empty") "the last stage has none")
+      (is (str/includes? (:error (loop-tasks/plan-checks (.getPath f) "nope")) "no stage nope — init, code, empty"))
+      (is (str/includes? (:error (loop-tasks/plan-checks (.getPath (io/file dir "none.edn")) nil)) "no plan at"))))
+  (testing "built with neither, the set takes the project's :check-command and says so"
+    (let [{:keys [dir cfg]} (fixture)
+          r (loop-tasks/build! (assoc cfg :check-command "test -f b.txt") {:sessions ["s-1"]})]
+      (is (= [:config "test -f b.txt"] [(:checks-from r) (:check r)]))
+      (is (every? #(= "test -f b.txt" (:run (first (:checks %)))) (:tasks (loop-tasks/read-set cfg "default"))))
+      (is (some #(str/includes? % "machine check: test -f b.txt (:check-command)") (loop-tasks/summary-lines r)))
+      (let [{:keys [exit out]} (run-main "-C" dir "loops" "tasks" "build" "--name" "planned" "--plan" (str dir "/missing.edn"))]
+        (is (= 1 exit))
+        (is (= "" out))))))

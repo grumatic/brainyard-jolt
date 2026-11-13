@@ -32,6 +32,7 @@
             [brainyard.changes :as changes]
             [brainyard.effect :as fx]
             [brainyard.evaluate :as evaluate]
+            [brainyard.sim :as sim]
             [brainyard.trajectory :as trajectory]))
 
 (def version 1)
@@ -323,6 +324,40 @@
 
 ;; --- the set -------------------------------------------------------------------
 
+(defn plan-checks
+  "A dogfood plan's stage `:checks` (RFC-041), as a task set takes them:
+  `{:plan :stage :checks}` — the stage `stage` names, by its id, or the last
+  when nil, since a plan's stages build on each other — or `{:error}`."
+  [file stage]
+  (let [plan (try (sim/load-plan file) (catch Throwable e {::error (ex-message e)}))
+        stages (:stages plan)
+        want (some-> stage str (str/replace #"^:" ""))
+        s (if want (first (filter #(= want (name (:id %))) stages)) (last stages))]
+    (cond
+      (::error plan) {:error (str "no plan at " file ": " (::error plan))}
+      (empty? stages) {:error (str file " holds no :stages")}
+      (nil? s) {:error (str "plan " file " has no stage " want " — "
+                            (str/join ", " (map (comp name :id) stages)))}
+      (empty? (:checks s)) {:error (str "stage " (name (:id s)) " of " file " has no :checks")}
+      :else {:plan (:plan-file plan) :stage (name (:id s)) :checks (vec (:checks s))})))
+
+(defn machine-checks
+  "The machine's check a set is built with, by RFC-071's order of trust, and
+  what it came from: a command given (`check`), else a plan's stage given
+  (`plan`, `plan-checks`'s), else what the set held (`old`), else the
+  project's `:check-command`. `{:checks :check :plan :from}`, `:from` one of
+  `:given :plan :set :config`, or nil for none."
+  [config check plan old]
+  (let [cmd (not-empty (str check))]
+    (cond
+      cmd {:checks (check->checks cmd) :check cmd :from :given}
+      plan {:checks (:checks plan) :plan (dissoc plan :checks) :from :plan}
+      (not-empty (str (:check old))) {:checks (check->checks (:check old)) :check (:check old) :from :set}
+      (seq (get-in old [:plan :checks])) {:checks (get-in old [:plan :checks]) :plan (:plan old) :from :set}
+      (not-empty (str (:check-command config)))
+      {:checks (check->checks (:check-command config)) :check (:check-command config) :from :config}
+      :else nil)))
+
 (defn- pin!
   "Each task's start kept from git's gc by a ref of the set's own."
   [root set-name tasks]
@@ -334,15 +369,18 @@
   `sessions` and the person's cases, and written to `set-file`: what the set
   held before stays — its starts are pinned, though the turns they came
   from may be gone — a task rebuilt replaces its old self, and the
-  machine's check, `check` or the set's own, is every rebuilt task's.
-  `{:file :set :tasks n :added n :splits {:train :val :test} :hash :dropped
-  {reason n}}` or `{:error}`."
-  [config {:keys [name sessions check]}]
+  machine's check is every rebuilt task's: `check`, a command, else `plan`'s
+  stage checks (`plan-checks`), else the set's own, else the project's
+  `:check-command` (`machine-checks`). `{:file :set :tasks n :added n
+  :splits {:train :val :test} :hash :check :checks-from :dropped {reason n}}`
+  or `{:error}`."
+  [config {:keys [name sessions check plan]}]
   (let [set-name (or (not-empty (str name)) default-set)]
     (if-let [root (changes/root config)]
       (let [old (read-set config set-name)
-            check (or (not-empty (str check)) (:check old))
-            checks (check->checks check)
+            machine (machine-checks config check plan old)
+            check (:check machine)
+            checks (vec (:checks machine))
             {t1 :tasks d1 :dropped} (turn-tasks config root sessions checks)
             {t2 :tasks d2 :dropped} (person-cases config root set-name checks)
             ;; one task per question and start, the first found kept
@@ -364,6 +402,7 @@
                  :set set-name
                  :built-at (System/currentTimeMillis)
                  :check check
+                 :plan (when-let [p (:plan machine)] (assoc p :checks checks))
                  :from (vec sessions)
                  :hash (evaluate/dataset-hash (map example tasks))
                  :splits (merge {:train 0 :val 0 :test 0} (frequencies (map :split tasks)))
@@ -375,15 +414,23 @@
         {:file (.getPath f) :set set-name :tasks (count tasks)
          :added (count (remove old-ids fresh-ids))
          :splits (:splits out) :hash (:hash out) :check check
+         :checks-from (:from machine)
          :dropped (frequencies (map :reason dropped))})
       {:error (str (or (:project-dir config) (:working-dir config) ".")
                    " is not in a git work tree: a task's start is a turn's git snapshot (RFC-069)")})))
 
 (defn summary-lines
   "What `build!` returned, as lines for a person."
-  [{:keys [file tasks added splits dropped]}]
+  [{:keys [file tasks added splits dropped check checks-from]}]
   (cond-> [(str "wrote " file ": " tasks " task" (when (not= 1 tasks) "s") " (" added " new) — "
-                (:train splits 0) " train, " (:val splits 0) " val, " (:test splits 0) " test")]
+                (:train splits 0) " train, " (:val splits 0) " val, " (:test splits 0) " test")
+           (str "machine check: "
+                (case checks-from
+                  :given (str check)
+                  :plan "the plan's stage checks"
+                  :set (str "the set's own" (when check (str ", " check)))
+                  :config (str check " (:check-command)")
+                  "none — each task is checked by what the person did, rewound or kept"))]
     (seq dropped)
     (conj (str "dropped " (reduce + (vals dropped)) ": "
                (str/join ", " (for [[r n] (sort-by (comp - val) dropped)] (str n " " (clojure.core/name r))))))))

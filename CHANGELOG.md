@@ -6,6 +6,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A loop's task set finds its own check.** `byj loops tasks build` takes,
+  when given no `--check`, a dogfood plan's stage checks (`--plan FILE
+  [--stage ID]`), else the set's own, else the project's new
+  `:check-command` config key, and says which it took.
 - **`byj loops propose CANDIDATE`** evaluates a candidate loop and stages it
   at `/proposals` only when it wins; otherwise it says why and stages
   nothing. `byj loops propose --bundled` evaluates byj's own loop against a

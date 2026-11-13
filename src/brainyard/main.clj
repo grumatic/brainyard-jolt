@@ -174,6 +174,9 @@
           ;; `loops propose`: why, in words; the bundled loop as the candidate
           "--why" (recur (rest more) (assoc opts :why (first more)))
           "--bundled" (recur more (assoc opts :bundled true))
+          ;; `loops tasks build`: a dogfood plan's stage checks as the set's
+          "--plan" (recur (rest more) (assoc opts :plan (first more)))
+          "--stage" (recur (rest more) (assoc opts :stage (first more)))
           "--rubric" (recur (rest more) (assoc opts :rubric (first more)))
           "--id" (recur (rest more) (assoc opts :experiment-id (first more)))
           "--port" (recur (rest more) (assoc opts :port (parse-long (first more))))
@@ -649,12 +652,13 @@
   force on a task set, each run in a clone (byj-ng7.4); `byj loops propose
   CANDIDATE | --bundled [LOOP]`: that evaluation, staged as a proposal when
   it wins (byj-ng7.5); `json` for what each returns. The exit code."
-  [{:keys [questions json name from check-cmd tasks repeats max-cost aim keep why bundled]} lm config]
+  [{:keys [questions json name from check-cmd plan stage tasks repeats max-cost aim keep why bundled]} lm config]
   (let [[sub & more] questions]
     (case sub
       "tasks" (if (not= ["build"] (vec more))
-                (do (err-println "usage: byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD] [--json]") 2)
-                (let [r (loop-tasks/build! config {:name name :sessions from :check check-cmd})]
+                (do (err-println "usage: byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--json]") 2)
+                (let [pc (when plan (loop-tasks/plan-checks plan stage))
+                      r (if (:error pc) pc (loop-tasks/build! config {:name name :sessions from :check check-cmd :plan pc}))]
                   (cond
                     json (do (println (json/write-str r)) (if (:error r) 1 0))
                     (:error r) (do (err-println (:error r)) 1)

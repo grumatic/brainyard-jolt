@@ -153,12 +153,17 @@ never a loop on a project's own work.
   `refs/byj/tasks/<set>/<id>`: the repository prunes turn refs past
   `:changes-turns`, and git's gc would take a start no ref holds. Pins are
   not pruned.
-- **The machine's check** is `--check CMD`, as `[{:type :command :name
-  "check" :run CMD}]`: the shape of a dogfood stage's `:checks`, which
-  `sim/checks` runs with `sh -c` in a tree, so the clone run (`byj-ng7.4`)
-  runs a task's check as RFC-041 runs a stage's. The set remembers it
-  (`:check`), and a rebuild without `--check` uses the set's. It is every
-  rebuilt task's check.
+- **The machine's check** is the most trusted there is
+  (`loop-tasks/machine-checks`, `byj-ng7.9`): `--check CMD`, as `[{:type
+  :command :name "check" :run CMD}]`; else a dogfood plan's stage
+  `:checks` (`--plan FILE [--stage ID]`, its last stage by default, `{{plan}}`
+  filled in as the simulation fills it — `loop-tasks/plan-checks`); else what
+  the set holds (`:check`, or `:plan` with its checks); else the project's
+  `:check-command` (RFC-013, family `:loop`). Each is in the shape of a
+  dogfood stage's `:checks`, which `sim/checks` runs with `sh -c` in a tree,
+  so the clone run (`byj-ng7.4`) runs a task's check as RFC-041 runs a
+  stage's. It is every rebuilt task's check, and the build says which it
+  took (`:checks-from`: `:given`, `:plan`, `:set`, `:config`).
 - **The person's signal** is `:outcome` with `:by`:
   - `:failure :rewound` when a rewind ref of the session (RFC-069) took the
     turn back and still stands: "rewind to turn K's start" takes back K and
@@ -358,7 +363,7 @@ governing that run.
 ## API (planned)
 
 ```
-byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD] [--json]   ; a task set from past turns (built)
+byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--json]   ; a task set from past turns (built)
 byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--keep] [--json]   ; (built)
 byj loops propose CANDIDATE | --bundled [LOOP] [eval's flags] [--why TEXT]   ; eval, then stage when it wins (built)
 byj loops revert [LOOP] [--json]                        ; the previous loop, as a proposal (built)
@@ -390,9 +395,9 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 `.brainyard/loops/proposals/<id>/` (`meta.edn`, `loop.edn`, `report.edn`,
 `why.md`, `replaced.edn`).
 
-`(loop-tasks/build! config {:name :sessions :check})` → `{:file :set
-:tasks :added :splits :hash :check :dropped}` | `{:error}`;
-`loop-tasks/turn-tasks`, `person-cases`, `rewound-turns`, `committed?`,
+`(loop-tasks/build! config {:name :sessions :check :plan})` → `{:file :set
+:tasks :added :splits :hash :check :checks-from :dropped}` | `{:error}`;
+`loop-tasks/machine-checks`, `plan-checks`, `turn-tasks`, `person-cases`, `rewound-turns`, `committed?`,
 `person-signal`, `read-set`, `set-file`, `cases-file`, `task-id`,
 `check->checks`, `summary-lines`; `evaluate/split-of` (RFC-021).
 
@@ -419,6 +424,7 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 | A task is a kept turn's question, the parent of its checkpoint commit (pinned) and a check — the machine's, or the person's: rewound a failure, its change held by HEAD a success; a turn with neither is dropped, and every drop is counted with why | `loop-tasks-test/a-task-is-a-question-a-start-and-a-check`, `loop-tasks-test/a-commit-is-a-success-only-while-head-holds-the-change` |
 | A task's split is RFC-021's content hash of its own question and start: adding tasks, a person's cases or a rebuild after its turn was pruned never moves one | `loop-tasks-test/a-split-never-moves-a-task` |
 | `byj loops tasks build` writes the set and says what it holds and what it dropped; `--check` takes a command after `loops` and is a flag elsewhere | `loop-tasks-test/byj-loops-tasks-build-writes-the-set` |
+| A set's machine check is a command given, else a plan's stage checks, else the set's own, else `:check-command`, and the build says which | `loop-tasks-test/a-sets-machine-check-is-the-most-trusted-one-there-is` |
 
 ## Known gaps
 
@@ -432,9 +438,6 @@ The order of work is the epic's:
   `byj-ng7.15`.
 
 - A judge model as a second signal on a rebuilt task, never alone — `byj-ng7.8`.
-- A project's own check command, and a dogfood plan's stage checks
-  (RFC-041), taken as the set's machine check without `--check` —
-  `byj-ng7.9`.
 - Which turns a rewind took back is read from commit times, to the second:
   a turn ending in the second of the rewind counts as before it —
   `byj-ng7.10`.

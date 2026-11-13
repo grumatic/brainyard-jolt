@@ -159,6 +159,8 @@
    :compaction-summary? {:type "boolean" :default true :family :context
                          :doc "Tier 2 (RFC-014): when eliding is not enough, summarize the iterations older than the verbatim floor into one record (the react/compact predictor) before dropping any. A model call, made only where records would otherwise be dropped."}
    :max-tool-calls {:family :loop :type "integer" :default 30 :doc "Tool calls dispatched per iteration."}
+   :check-command {:family :loop :type "string" :default nil
+                   :doc "The project's own check — its test or build command, run with sh -c in a task's tree — that a loop's task set takes as its machine check when it is built with no --check or --plan and holds none (RFC-071, byj-ng7.9)."}
    :max-retries-on-llm-failure {:family :loop :type "integer" :default 3 :doc "Consecutive provider failures before the turn aborts."}
    :max-retries-on-llm-no-action {:family :loop :type "integer" :default 3 :doc "Consecutive no-action replies before the turn aborts."}
    ;; a session's own shape. These are read from a tree as `:config/…` like any
