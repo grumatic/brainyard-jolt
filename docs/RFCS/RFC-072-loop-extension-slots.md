@@ -1,8 +1,9 @@
 # RFC-072 — Loop extension slots: the bundled loop extended where it says, not copied
 
-**Status:** proposed 2026-11-13; nothing built. Whether to build it, and in
-this shape, is decided by `byj-9sp.1`, measured as "Deciding" says. Epic
-`byj-9sp`.
+**Status:** proposed 2026-11-13; decided 2026-11-14 to build, for
+composition rather than drift ("Decided"). The node kind and its expansion
+are built (`byj-9sp.2`). Attachments' files and proposals (`byj-9sp.3`) and
+the ReAct loop's first slots (`byj-9sp.4`) are not. Epic `byj-9sp`.
 
 ## Purpose
 
@@ -67,9 +68,15 @@ project's.
 - **Trees attached:** `[:scope {:id <slot id> :in <reads> :out <writes>}
   [:sequence {} <each attached tree, expanded>]]`, in the order the project
   declared them.
-- **`:on-failure :ignore`:** that scope inside a `:fallback` whose second
-  child succeeds, so a failing attachment is recorded (`:bt/error`) and the
-  turn goes on.
+- **`:on-failure :ignore`:** that scope inside a `:fallback {:id <slot id>}`
+  whose second child succeeds, so the turn goes on. The failing leaf is
+  recorded as any is, by the `:bt.node/error` event; its `:bt/error` stays
+  in the scope's memory, which the loop does not read.
+
+The node that replaces a slot keeps the slot's contract under `:slot` and the
+attachments' names under `:attached`, so the expansion says what it was made
+of. An attachment's own `:include`s are expanded. A slot inside an
+attachment is refused: an attachment is not extended in turn.
 
 Ticking an unexpanded `:extension` throws, as an unexpanded `:include`
 does.
@@ -77,8 +84,10 @@ does.
 Expanding rather than dispatching is the point of the design: everything
 that already reads a loop reads the extended one with no change.
 
-- `flow check` checks an attachment's memory chain where it sits, and
-  refuses one that writes a key outside the slot's `:writes`.
+- `flow check` checks an attachment's memory chain where it sits: inside the
+  scope it has the slot's `:reads` and nothing else, so a read of any other
+  key is reported as it is in any loop. A write outside `:writes` needs no
+  check: it lands in the scope's memory and never reaches the loop's.
 - A turn record's `:loop :hash` (RFC-025) is the hash of the expansion, so
   it says which attachments a turn ran with.
 - `byj loops eval` evaluates "the bundled loop with this attachment" as a
@@ -110,6 +119,7 @@ other leaves append to — would let it replace that list rather than add to
 it. So a slot's `:writes` names keys under `:ext/`, and the bundled node
 after the slot folds them into the loop's own state: the slot is where the
 attachment speaks, the fold is the bundled loop deciding what that means.
+`expand` refuses a slot whose `:writes` leave `:ext/`.
 
 ### Where an attachment lives, and how it becomes live
 
@@ -140,6 +150,10 @@ what a project loop is held to (RFC-071):
 
 A project that has its own `react.edn` and attachments too gets both: its
 own loop, with its attachments expanded into whatever slots it kept.
+
+A subagent that brings no loop of its own runs the project's ReAct loop
+(`agents/child-opts`), and so runs its attachments, as it runs a project's
+`react.edn`. A slot limited to the root turn waits for a use that needs it.
 
 ### The first slots
 
@@ -265,38 +279,51 @@ Neither has happened yet. No project on the machine the survey ran on
 holds a loop of its own. The only files under any `.brainyard/loops/`
 there are evaluation reports.
 
-## API (proposed)
+### Decided (2026-11-14): build, for composition
+
+Slots are built, and not for drift, which the numbers show is small. They are
+built for the second reason: a project's additions that compose, each one a
+file of its own, attached, evaluated, watched and reverted alone, beside the
+bundled loop rather than inside a copy of it. Experimenting with a project
+loop one addition at a time is the use. A whole-loop override stays, for a
+change no slot reaches.
+
+A patch overlay was not chosen. It would have survived every release so far,
+but it anchors on any node id, which makes every id a promise. A slot is a
+promise made on purpose, at one place, with its keys, and `contract/` holds
+it.
+
+## API
+
+A row not marked built is proposed.
 
 | name | what it is |
 |---|---|
 | `[:extension {:id :reads :writes :on-failure}]` | a slot, in a bundled loop's EDN |
-| `(bt/expand tree load-tree attachments)` | `:include` and `:extension` both expanded; `attachments` a fn from a slot id to the trees attached to it, in order |
+| `(bt/expand tree load-tree [attachments])` | built: `:include` and `:extension` both expanded; `attachments` a fn (or map) from a slot id to `[{:name :tree} …]`, in order; none, every slot empty |
 | `(project-loops/attachments project-dir)` | `{slot-id [tree…]}` from `ext/attach.edn`, each tree read from `ext/` |
 | `(permission/loop-file project-dir path)` | true for anything under `.brainyard/loops/ext/` as well |
 | a proposal `{:kind :attach :slot :tree}` / `{:kind :detach :slot :name}` | staged, evaluated and accepted as a loop proposal |
 | `contract/loops/slots.edn` | every slot the bundled loops offer, with its keys |
 
-## Invariants (proposed)
+## Invariants
 
-Nothing below is enforced yet: each names the bead that builds it.
+The rows naming a bead are proposed and enforced by nothing yet.
 
 | invariant | enforced by |
 |---|---|
-| A loop with no attachments behaves exactly as without its slots. | nothing yet (`byj-9sp.2`) |
-| An attachment writes no key outside its slot's `:writes`, checked before a run. | nothing yet (`byj-9sp.2`) |
-| An attachment with `:on-failure :ignore` never fails the turn. One with `:fail` fails only what its slot decides. | nothing yet (`byj-9sp.2`) |
-| A turn's `:loop :hash` differs with each attachment set. | nothing yet (`byj-9sp.2`) |
+| A loop with no attachments behaves exactly as without its slots. | `extension-test/a-slot-with-nothing-attached-is-a-node-that-does-nothing` |
+| An attachment reads only its slot's `:reads` and changes no key of the loop outside its `:writes`; a slot's `:writes` are under `:ext/`. | `extension-test/an-attachment-sees-the-slots-reads-and-changes-only-its-writes`, `extension-test/flow-check-reads-an-attachment-where-it-sits`, `extension-test/a-malformed-slot-is-refused-at-expansion` |
+| Attachments run in the order declared. | `extension-test/attachments-run-in-the-order-declared` |
+| An attachment with `:on-failure :ignore` never fails the turn. One with `:fail` fails what holds its slot. | `extension-test/a-slot-that-ignores-failure-never-fails-the-loop`, `extension-test/a-slot-whose-failure-counts-fails-what-holds-it` |
+| The expansion names what was attached, and its hash — a turn's `:loop :hash` — differs with each attachment set. | `extension-test/the-expansion-and-its-hash-say-what-was-attached` |
+| An unexpanded slot does not tick; an attachment is not extended in turn. | `extension-test/an-unexpanded-slot-does-not-run`, `extension-test/an-attachment-is-expanded-but-not-extended` |
 | No tool writes under `.brainyard/loops/ext/`. An attachment is live only after a person accepts it. | nothing yet (`byj-9sp.3`) |
 | A slot's id, keys and place change only with `contract/`. | nothing yet (`byj-9sp.4`) |
 | The answer check is on every path that accepts an answer. | nothing yet (`byj-9sp.4`) |
 
 ## Known gaps
 
-- Whether to build slots at all, against a patch overlay or the override
-  alone: `byj-9sp.1`.
-- The node kind, its expansion and its check: `byj-9sp.2`.
-- Attachments' files, gate, proposals, evaluation and watch: `byj-9sp.3`.
+- Attachments' files, gate, proposals, evaluation and watch, and
+  `--print-tree` naming each attachment: `byj-9sp.3`.
 - The ReAct loop's first two slots and their contract: `byj-9sp.4`.
-- A subagent that brings no loop of its own runs the project's ReAct loop
-  (`agents/child-opts`), so it would run its attachments too. Whether a slot can be limited to the root turn is open;
-  it is decided with `byj-9sp.2`.

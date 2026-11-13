@@ -28,6 +28,9 @@
                                   path or a file — spliced in by `expand`
                                   before the tree runs. This is how the ReAct
                                   loop nests inside the session loop.
+    [:extension opts]             a slot (RFC-072): room a loop leaves for a
+                                  project, which `expand` replaces with the
+                                  trees attached to it — or with nothing.
 
   A leaf fn receives ctx with its own node opts under :node.
   An action returns :failure to fail; any other return value is success — or
@@ -222,6 +225,9 @@
     :include   (throw (ex-info (str "behavior tree: unexpanded :include of " (:tree opts)
                                     " — run the tree through `expand` first")
                                {:node node}))
+    :extension (throw (ex-info (str "behavior tree: unexpanded :extension " (:id opts)
+                                    " — run the tree through `expand` first")
+                               {:node node}))
     :condition (leaf-task ctx :condition opts)
     :action    (leaf-task ctx :action opts)
     (throw (ex-info (str "behavior tree: unknown node kind " kind) {:node node}))))
@@ -238,25 +244,82 @@
       (:interrupted r) (throw (InterruptedException. "behavior tree tick interrupted"))
       :else (throw (:err r)))))
 
+(declare nodes)
+
+(defn- slot-problem
+  "Why the slot `opts` cannot be expanded, or nil. A slot's `:writes` are
+  keys of its own, under `:ext/`: `:scope :out` copies an inner key OVER the
+  outer one, so a slot writing a key the loop also keeps would let an
+  attachment replace it rather than add to it (RFC-072)."
+  [{:keys [id reads writes on-failure]}]
+  (cond
+    (not (keyword? id)) "it has no :id"
+    (not (contains? #{:ignore :fail} on-failure)) (str ":on-failure must be :ignore or :fail, not " (pr-str on-failure))
+    (not (and (map? (or reads {})) (map? (or writes {})))) ":reads and :writes are maps, {inner-key outer-key} and {outer-key inner-key}"
+    :else (when-let [k (first (remove #(and (keyword? %) (= "ext" (namespace %))) (keys writes)))]
+            (str "it writes " k ", a key outside :ext/ — an attachment would replace what the loop keeps there"))))
+
+(defn- expand-slot
+  "The slot `opts` with the trees `attached` to it (RFC-072): nothing, a
+  node that succeeds and does nothing; something, a `:scope` holding the
+  attachments to the slot's keys, in a fallback that succeeds anyway when
+  the slot ignores their failure. The slot's contract stays on the node that
+  replaces it, under `:slot`, and the names of what was attached under
+  `:attached`, so the expansion — and its hash — say both."
+  [{:keys [id reads writes on-failure] :as opts} attached]
+  (let [top {:id id :slot (dissoc opts :id)}]
+    (if (empty? attached)
+      [:sequence top]
+      (let [top (assoc top :attached (mapv :name attached))
+            body (into [:sequence {}] (map :tree) attached)
+            scope {:in (or reads {}) :out (or writes {})}]
+        (if (= :ignore on-failure)
+          [:fallback top [:scope scope body] [:sequence {}]]
+          [:scope (merge top scope) body])))))
+
+(defn- expand*
+  [[kind opts & children :as node] load-tree attachments seen]
+  (case kind
+    :include
+    (let [name (:tree opts)]
+      (when (some #{name} seen)
+        (throw (ex-info (str "behavior tree: include cycle " (str/join " → " (conj seen name)))
+                        {:cycle (conj seen name)})))
+      (let [[k o & cs] (expand* (load-tree name) load-tree attachments (conj seen name))]
+        (into [k (merge o (dissoc opts :tree))] cs)))
+
+    :extension
+    (do (when-let [p (slot-problem opts)]
+          (throw (ex-info (str "behavior tree: slot " (pr-str (:id opts)) ": " p) {:node node})))
+        (let [attached (vec (for [{:keys [name tree]} (attachments (:id opts))]
+                              (let [t (expand* tree load-tree (constantly nil) seen)]
+                                (when-let [inner (first (filter #(= :extension (first %)) (nodes tree)))]
+                                  (throw (ex-info (str "behavior tree: " name ", attached to " (:id opts)
+                                                       ", offers a slot of its own (" (:id (second inner))
+                                                       ") — an attachment is not extended in turn")
+                                                  {:attachment name})))
+                                {:name name :tree t})))]
+          (expand-slot opts attached)))
+
+    (into [kind opts] (map #(if (vector? %) (expand* % load-tree attachments seen) %)) children)))
+
 (defn expand
-  "Splice every [:include {:tree name}] with the tree `load-tree` returns for
-  name, recursively. Include opts other than :tree are merged over the
-  included root's opts (so an include can re-:id it). Throws on a cycle."
-  ([tree load-tree] (expand tree load-tree []))
-  ([[kind opts & children :as node] load-tree seen]
-   (if (= :include kind)
-     (let [name (:tree opts)]
-       (when (some #{name} seen)
-         (throw (ex-info (str "behavior tree: include cycle " (str/join " → " (conj seen name)))
-                         {:cycle (conj seen name)})))
-       (let [[k o & cs] (expand (load-tree name) load-tree (conj seen name))]
-         (into [k (merge o (dissoc opts :tree))] cs)))
-     (into [kind opts] (map #(if (vector? %) (expand % load-tree seen) %)) children))))
+  "The tree ready to run: every [:include {:tree name}] spliced with the tree
+  `load-tree` returns for name, recursively — include opts other than :tree
+  merged over the included root's opts, so an include can re-:id it — and
+  every [:extension {:id …}] slot replaced with what `attachments` gives for
+  its id, `[{:name :tree} …]` in order, or nothing (RFC-072). `attachments`
+  may be a map; without it every slot is empty. Throws on an include cycle,
+  a malformed slot, or an attachment that offers a slot of its own."
+  ([tree load-tree] (expand tree load-tree nil))
+  ([tree load-tree attachments]
+   (expand* tree load-tree (or attachments (constantly nil)) [])))
 
 (def node-kinds
-  "Every kind `tick-task` dispatches on. `:include` is expanded away before a
-  tree runs, so a checker that sees one is looking at an unexpanded tree."
-  #{:sequence :fallback :repeat :scope :include :condition :action})
+  "Every kind `tick-task` dispatches on. `:include` and `:extension` are
+  expanded away before a tree runs, so a checker that sees one is looking at
+  an unexpanded tree."
+  #{:sequence :fallback :repeat :scope :include :extension :condition :action})
 
 (defn nodes
   "Every node in the tree, depth-first, as `[kind opts & children]` vectors —

@@ -42,6 +42,7 @@
             [brainyard.predictor-test]
             [brainyard.programs-test]
             [brainyard.session-test]
+            [brainyard.extension-test]
             [brainyard.sdk-test]
             [brainyard.acp-test]
             [brainyard.agents-test]
@@ -134,6 +135,7 @@
     brainyard.predictor-test
     brainyard.programs-test
     brainyard.session-test
+    brainyard.extension-test
     brainyard.sdk-test
     brainyard.acp-test
     brainyard.agents-test

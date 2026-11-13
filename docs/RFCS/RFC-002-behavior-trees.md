@@ -33,6 +33,8 @@ node opts under `:node`) down to leaf fns.
                                returns :failure; a throw is :failure too
 [:scope     opts child]        tick child against a FRESH st-memory
 [:include   opts]              spliced by `expand` before anything ticks
+[:extension opts]              a slot: replaced by `expand` with what a project
+                               attached to it, or with nothing (RFC-072)
 ```
 
 Every node is `[kind opts & children]` and `opts` is always a map; `:id` is
@@ -98,15 +100,25 @@ merged over the included root's opts (so an include can re-`:id` it). A cycle
 throws with the chain. Ticking an unexpanded include throws — the loader always
 expands.
 
+### `:extension` — room a loop leaves
+
+`[:extension {:id :reads :writes :on-failure}]` is a slot (RFC-072): `expand`
+replaces it with the trees attached to its id, held in a `:scope` to the
+slot's `:reads` and `:writes`, or with an empty `:sequence` that succeeds.
+The node that replaces it keeps the slot's `:id`, its contract under `:slot`
+and the attachments' names under `:attached`. A slot whose `:writes` leave
+`:ext/`, or that names no `:on-failure`, throws at expansion, as does an
+attachment offering a slot of its own. Ticking an unexpanded slot throws.
+
 ## API
 
 `brainyard.bt`:
 
 | fn | contract |
 |---|---|
-| `(tick-task ctx node)` | A Task settling with `:success` or `:failure`; fails for a malformed node (non-map opts, unknown kind, unregistered fn, unexpanded include) and when cancelled. |
+| `(tick-task ctx node)` | A Task settling with `:success` or `:failure`; fails for a malformed node (non-map opts, unknown kind, unregistered fn, unexpanded include or slot) and when cancelled. |
 | `(tick ctx node)` | `run!!` over `tick-task`: the status, the failure rethrown, or InterruptedException when the waiting thread is interrupted (after cancelling the tree). |
-| `(expand tree load-tree)` | The tree with every `:include` spliced, via `(load-tree name)`. |
+| `(expand tree load-tree [attachments])` | The tree with every `:include` spliced, via `(load-tree name)`, and every `:extension` replaced with `(attachments slot-id)`, `[{:name :tree} …]`, or nothing (RFC-072). |
 | `(fn-refs tree)` | Every `:fn` and `:until` keyword the tree names. |
 | `(validate tree registry)` | `nil`, or `"unregistered fns: …"`. |
 
@@ -147,6 +159,7 @@ emits: `:bt.node/error`, `:bt.repeat/exhausted`, `:bt.scope/cancelled`.
 | Sequence, fallback, repeat, condition and action semantics as above; a throwing leaf is a failure recorded as `:bt/error`. | `agent-test/bt-semantics`. |
 | A scope's child cannot see or overwrite outer keys except through `:in` / `:out`. | `session-test/scope-isolates-memory`. |
 | Includes expand recursively, re-`:id` from include opts, and a cycle throws. | `session-test/include-expansion`. |
+| A slot expands to what is attached to it or to nothing, and an unexpanded one does not tick. | `extension-test/a-slot-with-nothing-attached-is-a-node-that-does-nothing`, `extension-test/an-unexpanded-slot-does-not-run` |
 | The bundled session tree, expanded, is fully registered. | `session-test/include-expansion`. |
 | An action may return a Task. | `cancellation-test/an-action-may-return-a-task` |
 | Cancelling a tick interrupts the blocked leaf, runs nothing after it, and records no `:bt/error`. | `cancellation-test/cancelling-a-tick-stops-the-tree-and-is-not-an-error` |
