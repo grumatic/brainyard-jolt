@@ -30,8 +30,10 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.changes :as changes]
+            [brainyard.cost :as cost]
             [brainyard.effect :as fx]
             [brainyard.evaluate :as evaluate]
+            [brainyard.predictor :as predictor]
             [brainyard.sim :as sim]
             [brainyard.trajectory :as trajectory]))
 
@@ -268,8 +270,11 @@
   trajectory or a kept turn when nil), each with `checks` — the machine's,
   `[]` for none: `{:tasks [task …] :dropped [{:session :turn? :reason
   :question?} …]}`. A task is `{:id :question :start :checks :outcome? :by?
-  :split :source :turn :from {:session :turn :ref :end}}`."
-  [config root sessions checks]
+  :judge? :split :source :turn :from {:session :turn :ref :end}}`. `judge`,
+  when given, is asked of each turn that is a task — `{:question :answer
+  :files}` → `{:verdict :why}` or nil — and what it says is kept as
+  `:judge`; it makes no turn a task (byj-ng7.8)."
+  [config root sessions checks & [judge]]
   (let [ids (or (seq sessions) (distinct (concat (trajectory/sessions config) (turn-sessions root))))]
     (reduce
      (fn [acc id]
@@ -294,13 +299,43 @@
                   (re-find truncated q) (drop! acc {:turn turn :reason :truncated :question (clip q)})
                   (and (empty? checks) (:conflicting signal)) (drop! acc {:turn turn :reason :conflicting :question (clip q)})
                   (and (empty? checks) (not (:outcome signal))) (drop! acc {:turn turn :reason :no-check :question (clip q)})
-                  :else (update acc :tasks conj
-                                (finish (cond-> {:question q :start before :checks checks :source :turn
-                                                 :from {:session id :turn turn :ref ref :end after}}
-                                          (:outcome signal) (merge (select-keys signal [:outcome :by]))))))))
+                  :else (let [j (when judge
+                                  (judge {:question q :answer (str (:answer rec)) :files (vec (:files row))}))]
+                          (update acc :tasks conj
+                                  (finish (cond-> {:question q :start before :checks checks :source :turn
+                                                   :from {:session id :turn turn :ref ref :end after}}
+                                            (:outcome signal) (merge (select-keys signal [:outcome :by]))
+                                            j (assoc :judge j))))))))
             acc pairs))))
      {:tasks [] :dropped []}
      ids)))
+
+(defn judge-fn
+  "A `turn-tasks` judge: the `loops/judge` predictor on `lm` (its `:light`
+  tier unless params say otherwise), spending at most `max-cost` USD in all —
+  once the verdicts so far cost that, it judges no more, and says nil. A
+  verdict is `{:verdict :pass|:fail|:unsure :why :cost}`; a call that fails
+  is nil. `model`, a \"provider/model\" label, overrides the tier;
+  `light` or nil keeps it. `run` is `predictor/run`'s place, for a test."
+  [config lm model max-cost & [run]]
+  (let [p (predictor/load-predictor "loops/judge" (predictor/default-roots
+                                                   (or (:project-dir config) (:working-dir config) ".")
+                                                   "predictors"))
+        prices (cost/table config)
+        spent (atom 0.0)]
+    (fn [{:keys [question answer files]}]
+      (when (< @spent (or max-cost 0.25))
+        (try
+          (let [{:keys [outputs usage]} ((or run predictor/run) p {:question question
+                                                                   :answer (if (str/blank? answer) "(no answer)" answer)
+                                                                   :files (if (seq files) (str/join "\n" files) "(none)")}
+                                         (cond-> {:lm lm :lm-tiers (:agent-lm-tiers config)}
+                                           (and model (not= "light" (str model))) (assoc :lm-override (str model))))
+                c (or (:total-cost (cost/of prices usage (:provider lm) (:model lm))) 0.0)
+                v (keyword (str/lower-case (str/trim (str (:verdict outputs)))))]
+            (swap! spent + c)
+            {:verdict (if (#{:pass :fail :unsure} v) v :unsure) :why (str (:why outputs)) :cost c})
+          (catch Throwable _ nil))))))
 
 (defn person-cases
   "The cases a person wrote for set `set-name` (`cases-file`): a vector of
@@ -380,14 +415,17 @@
   `:check-command` (`machine-checks`). `{:file :set :tasks n :added n
   :splits {:train :val :test} :hash :check :checks-from :dropped {reason n}}`
   or `{:error}`."
-  [config {:keys [name sessions check plan]}]
+  [config {:keys [name sessions check plan judge]}]
   (let [set-name (or (not-empty (str name)) default-set)]
     (if-let [root (changes/root config)]
       (let [old (read-set config set-name)
             machine (machine-checks config check plan old)
             check (:check machine)
             checks (vec (:checks machine))
-            {t1 :tasks d1 :dropped} (turn-tasks config root sessions checks)
+            {t1 :tasks d1 :dropped} (turn-tasks config root sessions checks judge)
+            ;; a task rebuilt with no judge keeps the verdict it had
+            old-judge (into {} (keep (fn [t] (when (:judge t) [(:id t) (:judge t)])) (:tasks old)))
+            t1 (if judge t1 (mapv #(if-let [j (and (not (:judge %)) (old-judge (:id %)))] (assoc % :judge j) %) t1))
             {t2 :tasks d2 :dropped} (person-cases config root set-name checks)
             ;; one task per question and start, the first found kept
             [fresh dups] (reduce (fn [[keep dup] t]
@@ -427,6 +465,7 @@
          :added (count (remove old-ids fresh-ids))
          :splits (:splits out) :hash (:hash out) :check check
          :checks-from (:from machine)
+         :judged (frequencies (keep (comp :verdict :judge) fresh))
          :dropped (frequencies (map :reason dropped))})
       {:error (str (or (:project-dir config) (:working-dir config) ".")
                    " is not in a git work tree: a task's start is a turn's git snapshot (RFC-069)")})))
@@ -461,7 +500,7 @@
 
 (defn summary-lines
   "What `build!` returned, as lines for a person."
-  [{:keys [file tasks added splits dropped check checks-from]}]
+  [{:keys [file tasks added splits dropped check checks-from judged]}]
   (cond-> [(str "wrote " file ": " tasks " task" (when (not= 1 tasks) "s") " (" added " new) — "
                 (:train splits 0) " train, " (:val splits 0) " val, " (:test splits 0) " test")
            (str "machine check: "
@@ -471,6 +510,9 @@
                   :set (str "the set's own" (when check (str ", " check)))
                   :config (str check " (:check-command)")
                   "none — each task is checked by what the person did, rewound or kept"))]
+    (seq judged)
+    (conj (str "judged " (reduce + (vals judged)) " (a second signal, never alone): "
+               (str/join ", " (for [[v n] (sort-by key judged)] (str n " " (clojure.core/name v))))))
     (seq dropped)
     (conj (str "dropped " (reduce + (vals dropped)) ": "
                (str/join ", " (for [[r n] (sort-by (comp - val) dropped)] (str n " " (clojure.core/name r))))))))

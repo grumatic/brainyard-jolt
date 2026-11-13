@@ -294,3 +294,35 @@
                                      "git" "commit-tree" "-m" "byj s-r rewind to turn 3's start" tree)))]
         (sh dir "git" "update-ref" "refs/byj/rewinds/s-r/2" c)
         (is (= #{1 2 3} (loop-tasks/rewound-turns dir "s-r" (rows))) "dated 2100: every turn ended before it")))))
+
+;; byj-ng7.8: a judge model's verdict, a second signal kept beside :outcome,
+;; never one alone, under a spend cap
+(deftest a-judge-is-a-second-signal-never-one-alone
+  (let [calls (atom 0)
+        run (fn [verdict] (fn [p inputs _]
+                            (swap! calls inc)
+                            (is (= "loops/judge" (:predictor/id p)))
+                            (is (= #{:question :answer :files} (set (keys inputs))))
+                            {:outputs {:verdict verdict :why "the file is there"} :usage {:cost-usd 0.1}}))]
+    (testing "a verdict, its cost counted; once the cap is spent, none"
+      (let [j (loop-tasks/judge-fn {} {:provider :mock} nil 0.25 (run " PASS "))]
+        (is (= {:verdict :pass :why "the file is there" :cost 0.1} (j {:question "q" :answer "a" :files ["x"]})))
+        (j {:question "q" :answer "" :files []})
+        (j {:question "q" :answer "" :files []})
+        (is (nil? (j {:question "q" :answer "" :files []})) "0.3 spent of 0.25: no fourth call")
+        (is (= 3 @calls))))
+    (is (= :unsure (:verdict ((loop-tasks/judge-fn {} {:provider :mock} nil 1.0 (run "maybe")) {:question "q"})))
+        "a verdict it cannot read is unsure")
+    (is (nil? ((loop-tasks/judge-fn {} {:provider :mock} nil 1.0 (fn [& _] (throw (ex-info "down" {})))) {:question "q"}))
+        "a call that fails says nothing"))
+  (testing "kept on the tasks there are, and no turn made a task by it"
+    (let [{:keys [cfg]} (fixture)
+          r (loop-tasks/build! cfg {:sessions ["s-1"] :judge (loop-tasks/judge-fn cfg {:provider :mock} "light" 1.0
+                                                                                 (fn [& _] {:outputs {:verdict "pass" :why "w"} :usage {}}))})
+          ts (:tasks (loop-tasks/read-set cfg "default"))]
+      (is (= 2 (count ts)) "turn 3, with no signal of the person's, is still dropped though the judge passed it")
+      (is (every? #(= :pass (get-in % [:judge :verdict])) ts))
+      (is (= {:pass 2} (:judged r)))
+      (is (some #(str/starts-with? % "judged 2 (a second signal, never alone): 2 pass") (loop-tasks/summary-lines r)))
+      (loop-tasks/build! cfg {:sessions ["s-1"]})
+      (is (every? :judge (:tasks (loop-tasks/read-set cfg "default"))) "a rebuild with no judge keeps the verdicts"))))

@@ -1,0 +1,26 @@
+;; A judge's verdict on a past turn, for a loop's task set (RFC-071 "Tasks",
+;; byj-ng7.8): a second signal beside what a machine repeats and what the
+;; person did, never one alone — a task with neither is dropped whatever the
+;; judge says. Run by `byj loops tasks build --judge`, which asks for it and
+;; caps what it spends. Not a brainyard predictor: brainyard measures no loop
+;; on a project's own work.
+;;
+;; :predict, not :cot, on the light tier: it reads a question and an answer
+;; already written, and a reasoning field would cost more than the verdict.
+{:id "loops/judge"
+ :strategy :predict
+ :tier :light
+ :description "Judge whether a past turn of a coding agent did what it was asked."
+ :instructions "You judge one past turn of a coding agent: the question a person asked it, the answer it gave at the end, and the files the turn changed. Say whether the turn did what was asked.
+
+- `verdict`: `pass` when the answer and the files changed show the request was done; `fail` when they show it was not, or was done wrongly; `unsure` when what is here cannot tell — a question the answer does not settle, work that may or may not be correct. Prefer `unsure` to a guess: this verdict sits beside the project's own checks, and a wrong one is worse than none.
+- `why`: one sentence on what in the answer or the files decided it.
+
+Judge only from what is shown. Do not assume tests passed, or that a file holds what its name suggests."
+ :inputs
+ [[:question {:desc "What the person asked the turn"} :string]
+  [:answer {:desc "The answer the turn ended with"} :string]
+  [:files {:desc "The files the turn changed, one per line, or (none)"} :string]]
+ :outputs
+ [[:verdict {:desc "pass, fail or unsure"} :string]
+  [:why {:desc "One sentence: what decided it"} :string]]}

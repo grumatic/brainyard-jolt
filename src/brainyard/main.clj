@@ -654,7 +654,7 @@
   force on a task set, each run in a clone (byj-ng7.4); `byj loops propose
   CANDIDATE | --bundled [LOOP]`: that evaluation, staged as a proposal when
   it wins (byj-ng7.5); `json` for what each returns. The exit code."
-  [{:keys [questions json name from check-cmd plan stage tasks repeats max-cost aim keep why bundled in-process]} lm config]
+  [{:keys [questions json name from check-cmd plan stage judge tasks repeats max-cost aim keep why bundled in-process]} lm config]
   (let [[sub & more] questions
         ;; an evaluation's turns: each a byj of its own under the seatbelt
         ;; where it can be, else in this one (RFC-071, byj-ng7.14)
@@ -674,9 +674,10 @@
                                             (when (seq (:unknown r)) (str " — not in the set: " (str/join ", " (:unknown r))))))
                               0)))
               (if (not= ["build"] (vec more))
-                (do (err-println "usage: byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--json]") 2)
+                (do (err-println "usage: byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--judge LM [--max-cost USD]] [--json]") 2)
                 (let [pc (when plan (loop-tasks/plan-checks plan stage))
-                      r (if (:error pc) pc (loop-tasks/build! config {:name name :sessions from :check check-cmd :plan pc}))]
+                      r (if (:error pc) pc (loop-tasks/build! config {:name name :sessions from :check check-cmd :plan pc
+                                                                      :judge (when judge (loop-tasks/judge-fn config lm judge max-cost))}))]
                   (cond
                     json (do (println (json/write-str r)) (if (:error r) 1 0))
                     (:error r) (do (err-println (:error r)) 1)
@@ -2100,7 +2101,7 @@
             env (env-fn wd)
             {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn env})
             ;; only an evaluation runs turns, so only it is given a model
-            lm (when (#{"eval" "propose"} (first (:questions opts)))
+            lm (when (or (#{"eval" "propose"} (first (:questions opts))) (:judge opts))
                  (let [[p m] (run-lm-choice provider model config)] (launch/make-lm p m config env)))]
         (*exit* (loops-command opts lm config)))
 

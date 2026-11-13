@@ -179,6 +179,16 @@ never a loop on a project's own work.
   so the clone run (`byj-ng7.4`) runs a task's check as RFC-041 runs a
   stage's. It is every rebuilt task's check, and the build says which it
   took (`:checks-from`: `:given`, `:plan`, `:set`, `:config`).
+- **A judge's verdict** (`byj-ng7.8`) is asked only with `--judge LM`:
+  the `loops/judge` predictor (`:predict`, the `:light` tier, or the
+  `provider/model` given) reads the turn's question, its answer and the
+  files it changed and says `pass`, `fail` or `unsure` with why, kept on the
+  task as `:judge {:verdict :why :cost}` beside `:outcome`. It is a second
+  signal and never one alone: it is asked only of a turn that is already a
+  task, so it makes none. Its calls stop once they cost `--max-cost` (0.25
+  USD); a rebuild with no judge keeps the verdicts a task had
+  (`loop-tasks/judge-fn`). Nothing scores by it yet: the evaluation scores
+  by the machine's checks.
 - **The person's signal** is `:outcome` with `:by`:
   - `:failure :rewound` when a rewind ref of the session (RFC-069) took the
     turn back and still stands: "rewind to turn K's start" takes back K and
@@ -383,7 +393,7 @@ governing that run.
 ## API (planned)
 
 ```
-byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--json]
+byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--judge LM [--max-cost USD]] [--json]
 byj loops tasks retire ID… [--name SET] [--json]                                 ; (built)   ; a task set from past turns (built)
 byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--in-process] [--keep] [--json]   ; (built)
 byj loops propose CANDIDATE | --bundled [LOOP] [eval's flags] [--why TEXT]   ; eval, then stage when it wins (built)
@@ -417,9 +427,9 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 `.brainyard/loops/proposals/<id>/` (`meta.edn`, `loop.edn`, `report.edn`,
 `why.md`, `replaced.edn`).
 
-`(loop-tasks/build! config {:name :sessions :check :plan})` → `{:file :set
-:tasks :added :splits :hash :check :checks-from :dropped}` | `{:error}`;
-`loop-tasks/retire!`, `machine-checks`, `plan-checks`, `turn-tasks`, `person-cases`, `rewound-turns`, `committed?`,
+`(loop-tasks/build! config {:name :sessions :check :plan :judge})` → `{:file :set
+:tasks :added :splits :hash :check :checks-from :judged :dropped}` | `{:error}`;
+`loop-tasks/retire!`, `judge-fn`, `machine-checks`, `plan-checks`, `turn-tasks`, `person-cases`, `rewound-turns`, `committed?`,
 `person-signal`, `read-set`, `set-file`, `cases-file`, `task-id`,
 `check->checks`, `summary-lines`; `evaluate/split-of` (RFC-021).
 
@@ -450,6 +460,7 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 | A set's machine check is a command given, else a plan's stage checks, else the set's own, else `:check-command`, and the build says which | `loop-tasks-test/a-sets-machine-check-is-the-most-trusted-one-there-is` |
 | A retired task leaves the set, its pin is released, and a rebuild leaves it out | `loop-tasks-test/a-retired-task-leaves-the-set-and-its-pin` |
 | A rewind names the session's last turn, and only the turns up to it are taken back, whatever the clock; one without is read from the times | `loop-tasks-test/a-rewind-names-the-last-turn-it-took-back` |
+| A judge's verdict is kept beside a task's outcome, makes no turn a task, and stops at its spend cap | `loop-tasks-test/a-judge-is-a-second-signal-never-one-alone` |
 
 ## Known gaps
 
@@ -459,7 +470,6 @@ and proposing is a design. The order of work is the epic's:
 - No live evaluation is recorded here yet; the mock provider is what the
   suite runs, and a live run waits for a person to spend on it —
   `byj-ng7.15`.
-- A judge model as a second signal on a rebuilt task, never alone — `byj-ng7.8`.
 - The watch after an accept, offering a revert on a regression — `byj-ng7.16`.
 - Whether an improver agent earns its place — `byj-ng7.6` (a decision).
 - A loop proven in one project promoted to byj's bundled loops, on evidence
