@@ -172,3 +172,72 @@
     (let [{:keys [exit out]} (run-main "-C" dir "loops" "revert" "react" "--json")]
       (is (= 0 exit))
       (is (str/includes? out "\"id\":\"react-")))))
+
+;; --- attachments to a slot (RFC-072, byj-9sp.3) --------------------------------------
+
+(def ^:private lint [:action {:id :lint/note :fn :mem/set :set {:ext/notices "LINT: fine"}}])
+
+(defn- note
+  "Another attachment: its own node id, since two trees attached with one id
+  would make a loop whose trace cannot name either."
+  [n]
+  [:action {:id (keyword "note" n) :fn :mem/set :set {:ext/notices n}}])
+
+(deftest an-attachment-is-staged-read-and-accepted-as-a-loop-is
+  (let [dir (fresh-dir "attach")
+        c (config dir)]
+    (testing "refused: no such slot, a name that is no file's, what flow check refuses, a permissions key"
+      (is (str/includes? (:error (lp/stage-attachment! c {:slot :react/nowhere :name "lint" :tree lint}))
+                         "has no slot :react/nowhere — it has :react/ext-after-tools"))
+      (is (str/includes? (:error (lp/stage-attachment! c {:slot :react/ext-after-tools :name "../x" :tree lint}))
+                         "an attachment's name is a word"))
+      (is (str/includes? (:error (lp/stage-attachment! c {:slot :react/ext-after-tools :name "bad"
+                                                          :tree [:action {:id :x/n :fn :no/such-fn}]}))
+                         "unregistered fn :no/such-fn"))
+      (is (str/includes? (:error (lp/stage-attachment! c {:slot :react/ext-after-tools :name "perm"
+                                                          :tree [:action {:id :x/p :fn :mem/set :set {} :permission-mode :auto}]}))
+                         "it names :permission-mode"))
+      (is (str/includes? (:error (lp/stage-attachment! c {:slot :react/ext-after-tools :name "lint" :tree nil}))
+                         "lint is not attached to :react/ext-after-tools"))
+      (is (empty? (lp/list-proposals c))))
+    (let [{:keys [id]} (lp/stage-attachment! c {:slot :react/ext-after-tools :name "lint" :tree lint :why "Lint after a write."})]
+      (testing "listed and shown, with the diff of the loop every turn would run"
+        (is (str/starts-with? id "ext-lint-"))
+        (is (= [(str "attach lint to :react/ext-after-tools in the react loop (in force: attached "
+                     (:hash (lp/attached-in-force c)) ")")]
+               (map :summary (lp/list-proposals c))))
+        (let [{:keys [body]} (proposals/read-one c (str "loop/" id))]
+          (is (str/includes? body "Lint after a write."))
+          (is (str/includes? body "+ ") "a diff")
+          (is (str/includes? body ":lint/note"))))
+      (testing "nothing is attached until a person accepts"
+        (is (= {} (project-loops/attached dir))))
+      (let [r (proposals/accept! c (str "loop/" id) {})]
+        (is (= [:attach :react/ext-after-tools "lint" (str "loop/" id)] ((juxt :action :slot :name :proposal) r)))
+        (is (= {:react/ext-after-tools ["lint"]} (project-loops/attached dir)))
+        (is (= (get (project-loops/slots (agent/load-tree "react")) :react/ext-after-tools)
+               (:contract (project-loops/tree-based-on (edn/read-string (slurp (project-loops/attachment-file dir "lint"))))))
+            "written with the slot's contract it was made against")
+        (is (some #(= :lint/note (:id (second %))) (tree-seq vector? #(filter vector? (drop 2 %)) (agent/load-tree "react" dir))))))
+    (testing "an attachment staged before another change is not accepted"
+      (is (str/includes? (:error (lp/stage-attachment! c {:slot :react/ext-after-tools :name "again" :tree lint}))
+                         "duplicate node id :lint/note")
+          "one tree attached twice is refused")
+      (let [a (lp/stage-attachment! c {:slot :react/ext-after-tools :name "two" :tree (note "two")})
+            b (lp/stage-attachment! c {:slot :react/ext-after-tools :name "three" :tree (note "three")})]
+        (is (nil? (:error (lp/accept! c (:id a)))))
+        (is (str/includes? (:error (lp/accept! c (:id b))) "has changed since"))))
+    (testing "a revert undoes the last change: two, attached last, is detached"
+      (let [{:keys [id]} (lp/stage-revert! c "react")]
+        (is (str/starts-with? (:body (lp/read-proposal c id)) "detach two from :react/ext-after-tools"))
+        (is (nil? (:error (lp/accept! c id))))
+        (is (= {:react/ext-after-tools ["lint"]} (project-loops/attached dir)))
+        (testing "and a revert of that detach attaches it again, as it was"
+          (let [{:keys [id]} (lp/stage-revert! c "react")]
+            (is (nil? (:error (lp/accept! c id))))
+            (is (= {:react/ext-after-tools ["lint" "two"]} (project-loops/attached dir)))))))
+    (testing "a detach is staged by name and accepted"
+      (let [{:keys [id]} (lp/stage-attachment! c {:slot :react/ext-after-tools :name "lint"})]
+        (is (nil? (:error (lp/accept! c id))))
+        (is (= {:react/ext-after-tools ["two"]} (project-loops/attached dir)))
+        (is (= [:attach :attach :detach :attach :detach] (map :action (project-loops/history dir))))))))

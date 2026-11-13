@@ -123,7 +123,7 @@
                     :else :holding)}))))
 
 (defn- revert-waiting? [config ln]
-  (some #(and (= ln (:loop %)) (= :revert (:action %))) (loop-proposals/pending config)))
+  (some #(and (= ln (:loop %)) (or (= :revert (:action %)) (:revert? %))) (loop-proposals/pending config)))
 
 (defn watch!
   "`watch`, and on `:regressed` the loop before the change staged as a revert

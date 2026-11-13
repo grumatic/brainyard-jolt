@@ -3,11 +3,10 @@
 **Status:** proposed 2026-11-13; decided 2026-11-14 to build, for
 composition rather than drift ("Decided"). The node kind and its expansion
 are built (`byj-9sp.2`), and so are the ReAct loop's first two slots, in
-`contract/` (`byj-9sp.4`). A project's attachments are read from
-`.brainyard/loops/ext/` into every loop it runs, and no tool writes there.
-Staging and accepting one at `/proposals`, and evaluating and watching it,
-are not built yet (`byj-9sp.3`): until they are, an attachment is put there
-by hand. Epic `byj-9sp`.
+`contract/` (`byj-9sp.4`), and a project's attachments (`byj-9sp.3`):
+read from `.brainyard/loops/ext/` into every loop it runs, written by no
+tool, evaluated by `byj loops attach`, staged and accepted at `/proposals`,
+watched and reverted as a loop is. Epic `byj-9sp`.
 
 ## Purpose
 
@@ -147,12 +146,21 @@ what a project loop is held to (RFC-071):
   loop file. A tree an agent wrote for itself — an agent's own `loop.edn`
   under `.brainyard/agents/` — is never attached by naming it: an
   attachment is a file under `ext/`, put there by an accepted proposal.
-- **A person makes it live.** Attaching or detaching is staged at
-  `/proposals` with its evaluation, and accepted by a person. It is live
-  from the next session, and the history line records it.
-- **It is watched.** `byj loops watch` compares the turns since with the
-  turns before, as for any loop change, and stages a revert on a
-  regression.
+- **A person makes it live.** `byj loops attach SLOT FILE` evaluates the
+  ReAct loop in force with the tree attached against the loop in force
+  (RFC-071's evaluation, unchanged), and stages it as `loop/ext-<name>-…`
+  when it wins. `byj loops detach SLOT NAME` stages a detach, unevaluated, as
+  a revert is. A person accepts either at `/proposals`. It is live from the
+  next session, and the history line records it. The proposal's base is the
+  hash of the ReAct loop in force with its attachments, so one staged before
+  any other change to the loop or to what is attached is refused at accept.
+- **It is watched.** An attach or a detach is a change to the react loop in
+  `history.edn`, so `byj loops watch` compares the turns since with the
+  turns before, as for any loop change. On a regression it stages the
+  change's opposite: a detach of what was attached (with what it replaced
+  put back), or the attach of what was detached. So does `byj loops revert`.
+- **Two trees attached with one node id are refused**, as a loop with a
+  duplicate id is: a trace could not name either.
 - **It says what it was made against.** `:based-on` is the slot's contract
   when it was attached, not the loop's hash: the loop around a slot may
   change and the attachment with it is as good as it was. `doctor` names an
@@ -354,7 +362,8 @@ A row not marked built is proposed.
 | `(agent/expand-tree tree project-dir)` | built: `bt/expand` with the project's loops and its attachments; `load-tree` and every other expansion go through it |
 | `(project-loops/write-attachment! project-dir slot name tree opts)` | built: attach `tree` as `name` (nil: detach), with a history line `{:action :attach\|:detach :loop :slot :name :hash :replaced}` |
 | `(permission/loop-file project-dir path)` | built: true for anything under `.brainyard/loops/ext/` as well |
-| a proposal `{:kind :attach :slot :tree}` / `{:kind :detach :slot :name}` | staged, evaluated and accepted as a loop proposal |
+| `(loop-proposals/stage-attachment! config {:slot :name :tree :report :why})` | built: an attach (a `:tree`) or a detach (none) staged; meta `{:kind :attach :action :attach\|:detach :slot :name :base}`; `accept!` and `stage-revert!` take it as a loop proposal |
+| `(loop-eval/propose-attachment! config {:slot :candidate :name …})` | built: the loop with it attached evaluated, staged when it wins; `byj loops attach` |
 | `contract/loops/slots.edn` | built: every slot the bundled loops offer, with its keys and its place |
 
 ## Invariants
@@ -372,12 +381,14 @@ The rows naming a bead are proposed and enforced by nothing yet.
 | No tool writes under `.brainyard/loops/ext/`, in any mode, and a shell line naming it is refused. | `permission-test/a-projects-loop-is-written-by-no-tool` |
 | What a project attached is in every loop it runs, `--print-tree` and `doctor` name it, and a detach leaves the bundled loop. | `extension-test/what-a-project-attached-is-in-every-loop-it-runs`, `extension-test/a-project-with-nothing-attached-runs-the-bundled-loop` |
 | An attachment whose slot changed or went is named by `doctor`; one that is not there stops the loop from loading. | `extension-test/an-attachment-whose-slot-changed-is-named-by-doctor`, `extension-test/an-attachment-that-is-not-there-stops-the-loop-rather-than-run-another` |
-| An attachment is live only after a person accepts it. | nothing yet (`byj-9sp.3`) |
+| An attachment is staged only when it checks where it would sit, is live only after a person accepts it, and is refused at accept when the loop or its attachments changed since; a revert undoes an attach or a detach. | `loop-proposals-test/an-attachment-is-staged-read-and-accepted-as-a-loop-is` |
+| `byj loops attach` stages an attachment only when the loop with it wins. | `loop-eval-test/an-attachment-is-evaluated-attached-and-staged-when-it-wins` |
+| A regression since an attach is offered back as a detach. | `loop-watch-test/a-regression-since-an-attachment-is-offered-back-as-a-detach` |
 | A slot's id, keys and place change only with `contract/` (`loops/slots.edn`). | `contract-test/the-slots-the-bundled-loops-offer-are-byjs-contract` |
 | The answer check is on every path that accepts an answer, before the stamp, and stops refusing at `:max-answer-checks`. | `agent-test/the-answer-check-sits-before-every-stamp`, `agent-test/a-projects-answer-check-refuses-on-every-path-that-accepts` |
 | What is attached after the tools is heard in the next iteration, and its failure costs the turn nothing. | `agent-test/an-attachment-after-the-tools-is-heard-next-iteration`, `agent-test/an-attachment-after-the-tools-that-fails-costs-the-turn-nothing` |
 
 ## Known gaps
 
-- Staging an attachment or a detach at `/proposals` with its evaluation,
-  accepting it, and `byj loops watch` over it: `byj-9sp.3`.
+None. Places for slots beyond the first two wait for a use ("The first
+slots"), as does a slot limited to the root turn.

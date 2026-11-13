@@ -107,6 +107,12 @@
             {:name "propose" :args "CANDIDATE | --bundled [LOOP]  [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--in-process] [--why TEXT] [--json]"
              :summary "loops eval, then the candidate staged as a loop/ proposal when it wins"
              :doc "Runs byj loops eval and stages CANDIDATE at /proposals only when it wins: more checks passed past the margin with no guard regressed, or, with --aim cost, not worse and cheaper. Otherwise the report is written and it says why nothing was staged. The proposal keeps the report and --why (else a line made from the verdict). With --bundled the bundled LOOP (react) is the candidate against the project's own: when the project's loop does not beat it past the margin, a revert to the bundled loop is staged — what doctor offers once byj's upgrade has changed the loop a project's was made from. A person accepts at /proposals; nothing changes until then."}
+            {:name "attach" :args "SLOT FILE [--name NAME] [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--in-process] [--why TEXT] [--json]"
+             :summary "the tree in FILE attached to a slot of the ReAct loop, evaluated, and staged when it wins (RFC-072)"
+             :doc "SLOT is a slot of the ReAct loop in force — :react/ext-after-tools, :react/ext-answer-check — and FILE a tree, attached as NAME (FILE's name when none) after what is attached there. It is checked where it would sit (flow check, no permissions key, no node id the loop already has), then the loop with it attached is evaluated against the loop in force as byj loops eval does, and staged at /proposals as loop/ext-NAME-… only when it wins. A person accepts it there; from the next session every turn runs it, from .brainyard/loops/ext/NAME.edn, which no tool writes. byj loops watch and revert treat it as any change to the loop."}
+            {:name "detach" :args "SLOT NAME [--why TEXT] [--json]"
+             :summary "taking NAME off SLOT, staged as a proposal a person accepts at /proposals (RFC-072)"
+             :doc "Stages a detach of NAME from SLOT, unevaluated, as a revert is. Accepted, NAME is no longer attached from the next session and its file is kept in the proposal as replaced.edn. --json gives {id, dir} or {error}."}
             {:name "watch" :args "[LOOP] [--json]"
              :summary "the turns since the loop's last change against the turns before; a regression offered back as a revert"
              :doc "Reads the project's trajectory log: the turns of sessions begun since LOOP's (react) last accept or revert in .brainyard/loops/history.edn — the ones that ran it — against the newest 30 turns that ended before. A mean per turn past its bound on cost, tokens, iterations, tool errors, refusals or the share of turns left unfinished is a regression, and the loop before the change is staged as a revert proposal for a person to accept at /proposals — not while one already waits. Fewer than 5 turns since decide nothing. It reads and stages; it never accepts."}
@@ -197,7 +203,7 @@
   :sandbox-no-network {:flags "--sandbox-no-network" :doc "deny network in the sandbox (LLM calls will fail)"}
   :check {:flags "--check" :doc "is there a newer release? (:update-source, a GitHub token)"}
   :from {:flags "--from SESSIONS" :doc "loops tasks build: the sessions whose turns to rebuild, comma-separated (default: every session)"}
-  :set-name {:flags "--name SET" :doc "loops tasks build: the task set, .brainyard/loops/tasks/SET.edn (default: default)"}
+  :set-name {:flags "--name SET" :doc "loops tasks build: the task set, .brainyard/loops/tasks/SET.edn (default: default); loops attach: the attachment's name"}
   :check-cmd {:flags "--check CMD" :doc "loops tasks build: the command a task passes by, run with sh -c in its tree (default: the set's own, else :check-command)"}
   :plan {:flags "--plan FILE" :doc "loops tasks build: a dogfood plan (RFC-041) whose stage :checks are the set's"}
   :judge {:flags "--judge LM" :doc "loops tasks build: a judge model's verdict on each task, kept as a second signal (light, or provider/model)"}

@@ -530,3 +530,43 @@
        [(str "base means " (pr-str (:means (:base arms))))
         (str "candidate means " (pr-str (:means (:candidate arms))))])
      [(str "report: " file)])))
+
+;; --- an attachment to a slot (RFC-072) ----------------------------------------------
+
+(defn slot-id
+  "The slot a person names on the command line — `:react/ext-after-tools` or
+  `react/ext-after-tools` — as a keyword, or nil."
+  [s]
+  (when-let [[_ ns n] (re-matches #":?([\w.-]+)/([\w-]+)" (str s))]
+    (keyword ns n)))
+
+(defn propose-attachment!
+  "Evaluate attaching the tree in file `:candidate` to `:slot` as `:name` (its
+  file's stem when nil) — the ReAct loop in force with it attached, against
+  the loop in force — and stage the attachment when it wins (`wins?`), as
+  `propose!` stages a loop. `evaluate!`'s other opts. `{:file :report :staged}`,
+  `{:file :report :not-staged}` or `{:error}`."
+  [config {:keys [slot candidate] :as opts}]
+  (let [tree (try (read-candidate candidate) (catch Throwable e {::unreadable (ex-message e)}))
+        name (or (:name opts) (second (re-matches #"(.+)\.edn" (.getName (io/file (str candidate))))))
+        ps (when (vector? tree) (loop-proposals/attachment-problems config slot name tree (:check-opts opts)))]
+    (cond
+      (not (vector? tree)) {:error (str "no attachment: " candidate " is not a file holding a tree"
+                                        (when-let [m (::unreadable tree)] (str " (" m ")")))}
+      ps {:error (str "the attachment does not check: " (:problem (first ps))) :problems (vec ps)}
+      :else
+      (let [r (evaluate! config (assoc opts :loop "react"
+                                       :candidate (loop-proposals/with-attachment config slot name tree)))
+            r (cond-> r (:report r) (assoc-in [:report :candidate :file] (str candidate)))]
+        (if (:error r)
+          r
+          (let [rep (:report r)]
+            (if-not (and (not= :incomplete (:verdict rep)) (wins? rep))
+              (assoc r :not-staged (if (= :incomplete (:verdict rep))
+                                     (str "the evaluation decided nothing: " (or (:stopped rep) "no task was scored"))
+                                     (str "attached, the loop did not win (" (clojure.core/name (:verdict rep)) "): nothing is attached")))
+              (let [s (loop-proposals/stage-attachment!
+                       config {:slot slot :name name :tree tree
+                               :report (assoc (dissoc rep :runs) :eval-file (:file r))
+                               :why (or (:why opts) (str (why-text rep false) " Attached to " slot " as " name "."))})]
+                (if (:error s) (assoc r :error (:error s)) (assoc r :staged s))))))))))

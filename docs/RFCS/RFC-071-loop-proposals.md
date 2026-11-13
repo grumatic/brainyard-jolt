@@ -611,6 +611,8 @@ byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cos
 byj loops propose CANDIDATE | --bundled [LOOP] [eval's flags] [--why TEXT]   ; eval, then stage when it wins (built)
 byj loops watch [LOOP] [--json]                         ; the turns since a change against those before; a regression staged as a revert (built)
 byj loops revert [LOOP] [--json]                        ; the previous loop, as a proposal (built)
+byj loops attach SLOT FILE [--name NAME] [eval's flags] [--why TEXT]   ; a tree attached to a slot, evaluated, staged when it wins (RFC-072, built)
+byj loops detach SLOT NAME [--why TEXT] [--json]        ; a detach, as a proposal (RFC-072, built)
 /proposals loop  ·  /proposals show loop/<id>  ·  /proposals accept|reject loop/<id>   (built)
 ```
 

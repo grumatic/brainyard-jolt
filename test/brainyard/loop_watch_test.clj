@@ -83,3 +83,21 @@
                                                       :result "{:hook-blocked true, :reason \"Tool call refused (loop): …\"}"}
                                                      {:name "read-file" :result "a gate's ask is refused, headless"}]}]})]
     (is (= {:tool-errors 1 :refusals 1} (select-keys m [:tool-errors :refusals])))))
+
+(deftest a-regression-since-an-attachment-is-offered-back-as-a-detach
+  ;; RFC-072: attaching to a slot is a change to the loop every turn runs,
+  ;; watched as any is, and undone by its opposite
+  (let [dir (fresh-dir "attached")
+        c {:project-dir dir :working-dir dir}
+        now (System/currentTimeMillis)]
+    (turns! dir "before" 8 (- now 600000) 2 :answer-channel)
+    (lp/accept! c (:id (lp/stage-attachment! c {:slot :react/ext-after-tools :name "lint"
+                                                :tree [:action {:id :lint/n :fn :mem/set :set {:ext/notices "x"}}]})))
+    (turns! dir "after" 6 (+ now 60000) 9 :max-iterations)
+    (let [w (watch/watch! c {})
+          p (lp/read-proposal c (:id (:staged w)))]
+      (is (= :regressed (:verdict w)))
+      (is (= :attach (get-in w [:change :action])))
+      (is (= [:attach :detach "lint" true] ((juxt :kind :action :name :revert?) p)))
+      (is (str/starts-with? (:why p) "Since loop/ext-lint-")))
+    (is (str/includes? (:not-staged (watch/watch! c {})) "already waits"))))

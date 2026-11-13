@@ -656,7 +656,10 @@
   CANDIDATE | --bundled [LOOP]`: that evaluation, staged as a proposal when
   it wins (byj-ng7.5); `byj loops watch [LOOP]`: the turns since the loop's
   last change against those before, a regression staged as a revert
-  (byj-ng7.16); `json` for what each returns. The exit code."
+  (byj-ng7.16); `byj loops attach SLOT FILE [--name NAME]`: the tree in FILE
+  attached to a slot of the ReAct loop, evaluated, and staged when it wins;
+  `byj loops detach SLOT NAME`: a detach staged (RFC-072); `json` for what
+  each returns. The exit code."
   [{:keys [questions json name from check-cmd plan stage judge tasks repeats max-cost aim keep why bundled in-process]} lm config]
   (let [[sub & more] questions
         ;; an evaluation's turns: each a byj of its own under the seatbelt
@@ -721,6 +724,37 @@
                 (if json
                   (do (println (json/write-str r)) 0)
                   (do (doseq [l (loop-watch/summary-lines r)] (println l)) 0)))
+      "attach" (let [[slot file] more
+                     sid (loop-eval/slot-id slot)]
+                 (if (or (nil? sid) (str/blank? (str file)))
+                   (do (err-println "usage: byj loops attach SLOT FILE [--name NAME] [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--why TEXT] [--json]") 2)
+                   (let [r (loop-eval/propose-attachment! config (merge {:lm lm :slot sid :candidate file :name name :why why
+                                                                         :tasks tasks :repeats repeats :max-cost max-cost :aim aim :keep? keep}
+                                                                        (contained)))]
+                     (cond
+                       json (do (println (json/write-str (if (:error r) r (-> r (update :report dissoc :runs)))))
+                                (if (:error r) 1 0))
+                       (:error r) (do (err-println (:error r))
+                                      (doseq [{:keys [node problem]} (rest (:problems r))]
+                                        (err-println (str "  " node " " problem)))
+                                      1)
+                       :else (do (doseq [l (loop-eval/summary-lines r)] (println l))
+                                 (println (if-let [{:keys [id]} (:staged r)]
+                                            (str "staged loop/" id " — /proposals show loop/" id
+                                                 " to read it; a person's accept attaches it from the next session")
+                                            (str "not staged: " (:not-staged r))))
+                                 0)))))
+      "detach" (let [[slot nm] more
+                     sid (loop-eval/slot-id slot)]
+                 (if (or (nil? sid) (str/blank? (str nm)))
+                   (do (err-println "usage: byj loops detach SLOT NAME [--why TEXT] [--json]") 2)
+                   (let [r (loop-proposals/stage-attachment! config {:slot sid :name nm :why why})]
+                     (cond
+                       json (do (println (json/write-str r)) (if (:error r) 1 0))
+                       (:error r) (do (err-println (:error r)) 1)
+                       :else (do (println (str "staged loop/" (:id r) " — /proposals show loop/" (:id r)
+                                               " to read it, accept to detach " nm " from the next session"))
+                                 0)))))
       "revert" (let [r (loop-proposals/stage-revert! config (first more))]
                  (cond
                    json (do (println (json/write-str r)) (if (:error r) 1 0))
@@ -728,7 +762,7 @@
                    :else (do (println (str "staged loop/" (:id r) " — /proposals show loop/" (:id r)
                                            " to read it, accept to make it the project's loop from the next session"))
                              0)))
-      (do (err-println (str "loops: unknown subcommand " (pr-str sub) " — tasks build, eval, propose, watch, revert")) 2))))
+      (do (err-println (str "loops: unknown subcommand " (pr-str sub) " — tasks build, eval, propose, attach, detach, watch, revert")) 2))))
 
 (defn- hook-answer
   "What `byj hook pretooluse` prints for the payload `json`, its decision
@@ -2109,7 +2143,7 @@
             env (env-fn wd)
             {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn env})
             ;; only an evaluation runs turns, so only it is given a model
-            lm (when (or (#{"eval" "propose"} (first (:questions opts))) (:judge opts))
+            lm (when (or (#{"eval" "propose" "attach"} (first (:questions opts))) (:judge opts))
                  (let [[p m] (run-lm-choice provider model config)] (launch/make-lm p m config env)))]
         (*exit* (loops-command opts lm config)))
 

@@ -303,3 +303,43 @@
         (is (every? #(= 2 (count (:failed-calls %))) (:runs report)))
         (is (str/includes? out "write-file (refused): Tool call refused (loop)"))
         (is (str/includes? out "bash: exit 2: no such file — base 1, candidate 1"))))))
+
+;; --- an attachment to a slot (RFC-072, byj-9sp.3) -----------------------------------
+
+(def ^:private slotted-nothing
+  "`does-nothing` with a slot before it answers, as a project's own loop may
+  keep one."
+  '[:sequence {:id :t/turn}
+    [:action {:id :t/init :fn :react/init}]
+    [:extension {:id :t/before-answer :reads {} :writes {} :on-failure :fail}]
+    [:action {:id :t/answer :fn :mem/set :set {:answer "done"}}]])
+
+(def ^:private does-the-task
+  "An attachment that does the task the loop around it skips."
+  '[:sequence {:id :a/do}
+    [:action {:id :a/seed :fn :mem/set :set {:p "done.txt" :c "done\n"}}]
+    [:action {:id :a/write :fn :tool/run :tool "write-file" :in {:path :p :content :c}}]])
+
+(deftest an-attachment-is-evaluated-attached-and-staged-when-it-wins
+  (let [{:keys [dir config]} (fixture "attach" 6)
+        f (io/file dir "do.edn")]
+    (project-loops/write-loop! dir "react" slotted-nothing {:action :accept})
+    (spit f (pr-str does-the-task))
+    (is (= :react/ext-after-tools (le/slot-id "react/ext-after-tools")))
+    (is (= :t/before-answer (le/slot-id ":t/before-answer")))
+    (testing "a slot the loop in force does not have"
+      (is (str/includes? (:error (le/propose-attachment! config {:lm mock :slot :react/ext-after-tools :candidate (str f)}))
+                         "has no slot :react/ext-after-tools — it has :t/before-answer")))
+    (let [r (le/propose-attachment! config {:lm mock :slot :t/before-answer :candidate (str f)})
+          p ((requiring-resolve 'brainyard.loop-proposals/read-proposal) config (:id (:staged r)))]
+      (is (= :better (get-in r [:report :verdict])) "the loop with it attached did the task; the loop in force did not")
+      (is (= (str f) (get-in r [:report :candidate :file])))
+      (is (= [:attach :t/before-answer "do"] ((juxt :action :slot :name) p)) "named for its file")
+      (is (str/includes? (:why p) "Attached to :t/before-answer as do."))
+      (is (= {} (project-loops/attached dir)) "staged only")
+      (is (nil? (:error ((requiring-resolve 'brainyard.loop-proposals/accept!) config (:id (:staged r))))))
+      (is (= {:t/before-answer ["do"]} (project-loops/attached dir))))
+    (testing "one that does not win is not staged"
+      (let [r (le/propose-attachment! config {:lm mock :slot :t/before-answer :name "nothing"
+                                              :candidate '[:action {:id :a/noop :fn :mem/set :set {}}]})]
+        (is (str/includes? (:not-staged r) "did not win"))))))

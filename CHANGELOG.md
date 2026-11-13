@@ -6,6 +6,20 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A project can add to the ReAct loop without copying it** (RFC-072).
+  The loop now has two slots, both empty unless a project fills them:
+  - after the tools run: what it finds reaches the next iteration as a
+    notice;
+  - before an answer is final: it can refuse the answer, with its reason,
+    up to `:max-answer-checks` times in a turn.
+
+  `byj loops attach SLOT FILE` evaluates the loop with the tree attached,
+  and stages it at `/proposals` when it wins. `byj loops detach SLOT NAME`
+  stages taking one off. A person accepts either. Attachments live under
+  `.brainyard/loops/ext/`, which no tool writes. `byj loops watch` and
+  `byj loops revert` treat an attach as they do any loop change, and
+  `doctor` names an attachment whose slot has changed.
+
 - **A command with `//` in it is no longer refused as naming a login or a
   key.** jq's `a // b` and Python's `7 // 2` were read as the root
   directory, which holds them all. A refusal now says which word in the

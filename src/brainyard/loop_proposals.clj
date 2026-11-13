@@ -26,6 +26,13 @@
   changed since — another accepted, byj upgraded — is refused at accept: its
   evidence was about the loop that was in force then.
 
+  An attachment to a slot (RFC-072) is staged here too, as `ext-<name>-<ts>/`
+  with `:kind :attach` in its meta: `loop.edn` the tree to attach (absent:
+  a detach), `replaced.edn` once accepted the tree it replaced or removed.
+  Its base is the hash of the ReAct loop in force, expanded with what is
+  attached now, so any change to the loop or its attachments since refuses
+  the accept, as for a loop.
+
   brainyard has no counterpart: its loops are code."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
@@ -173,10 +180,15 @@
 
 (defn summary
   "One line of what a proposal would do."
-  [{:keys [loop action tree report base]}]
-  (str (if (= :revert action)
+  [{:keys [loop action tree report base kind slot] :as p}]
+  (str (cond
+         (= :attach kind)
+         (if (= :attach action)
+           (str "attach " (:name p) " to " slot " in the " loop " loop")
+           (str "detach " (:name p) " from " slot " in the " loop " loop"))
+         (= :revert action)
          (str "revert " loop (if tree " to the loop before its last change" " to the bundled loop"))
-         (str "a new " loop " loop"))
+         :else (str "a new " loop " loop"))
        " (in force: " (name (:from base)) " " (:hash base) ")"
        (when report (str " — " (report-line report)))))
 
@@ -242,6 +254,8 @@
                        ["  …"])))
            (str/join "\n")))))
 
+(declare with-attachment accept-attachment! set-status!)
+
 (defn read-proposal
   "One proposal with its `:body`: what it does, why, the evidence, and the
   expanded tree's diff against the loop in force now."
@@ -249,10 +263,11 @@
   (when-let [p (proposal config id)]
     (let [now (try ((requiring-resolve 'brainyard.agent/load-tree) (:loop p) (project-dir config))
                    (catch Throwable e [:error {:problem (ex-message e)}]))
-          after (if (:tree p)
-                  (try (expand config (:tree p)) (catch Throwable e [:error {:problem (ex-message e)}]))
-                  (try (expand config (project-loops/bundled-tree (:loop p)))
-                       (catch Throwable e [:error {:problem (ex-message e)}])))]
+          after (try (cond
+                       (= :attach (:kind p)) (with-attachment config (:slot p) (:name p) (:tree p))
+                       (:tree p) (expand config (:tree p))
+                       :else (expand config (project-loops/bundled-tree (:loop p))))
+                     (catch Throwable e [:error {:problem (ex-message e)}]))]
       (assoc p :body (str (summary p)
                           (when (:why p) (str "\n\nWhy:\n" (:why p)))
                           (when (:report p) (str "\n\nEvidence (report.edn):\n"
@@ -261,11 +276,104 @@
                           (tree-diff now after)
                           "\n\nAccepted, it is in force from the next session.")))))
 
+;; --- attachments to a slot (RFC-072) ---------------------------------------------
+
+(defn with-attachment
+  "The ReAct loop in force, expanded with the project's attachments and
+  `tree` attached to `slot` as `name` after them — or, `tree` nil, `name`
+  detached: what accepting would make every turn run."
+  [config slot name tree]
+  (let [pd (project-dir config)
+        resolve (requiring-resolve 'brainyard.agent/resolve-tree)
+        now (project-loops/attachments pd)
+        names (remove #{name} (map :name (get now slot)))
+        after (if tree
+                (assoc now slot (conj (vec (filter #((set names) (:name %)) (get now slot))) {:name name :tree tree}))
+                (assoc now slot (vec (filter #((set names) (:name %)) (get now slot)))))]
+    (bt/expand (resolve "react" pd) #(resolve % pd) after)))
+
+(defn attached-in-force
+  "What the project's ReAct loop is now, attachments and all: `{:from
+  :attached :hash}`, the hash of its expansion — an attachment's base."
+  [config]
+  {:from :attached
+   :hash (flow/tree-hash ((requiring-resolve 'brainyard.agent/load-tree) "react" (project-dir config)))})
+
+(defn attachment-problems
+  "Why `tree` cannot be attached to `slot` as `name`, `[{:node :problem}]`,
+  or nil: a name that is no file's, a slot the loop in force does not have,
+  and what `problems` says of the loop with it attached."
+  [config slot name tree opts]
+  (let [slots (project-loops/slots ((requiring-resolve 'brainyard.agent/load-tree) "react" (project-dir config)))]
+    (cond
+      (not (project-loops/attachment-name name))
+      [{:node :tree :problem (str "an attachment's name is a word of letters, digits, - and _, not " (pr-str name))}]
+      (not (contains? slots slot))
+      [{:node :tree :problem (str "the react loop in force has no slot " slot
+                                  (when (seq slots) (str " — it has " (str/join ", " (sort (map str (keys slots)))))))}]
+      (not (and (vector? tree) (keyword? (first tree)) (map? (second tree))))
+      [{:node :tree :problem "an attachment is a tree: [kind opts & children]"}]
+      :else
+      (let [ks (permission-keys-in tree)
+            expanded (try (with-attachment config slot name tree) (catch Throwable e e))]
+        (seq (concat
+              (when (seq ks)
+                [{:node :tree :problem (str "it names " (str/join ", " ks) " — an attachment sets nothing of the permissions family")}])
+              (if (instance? Throwable expanded)
+                [{:node :tree :problem (ex-message expanded)}]
+                (flow/check expanded (or opts (check-opts config))))))))))
+
+(defn stage-attachment!
+  "Stage attaching `:tree` to `:slot` as `:name` — or, `:tree` nil,
+  detaching `:name` from it: `{:id :dir}` or `{:error :problems}`. `:report`
+  and `:why` as `stage!`'s; `:revert?` marks one a watch or `byj loops
+  revert` staged. Nothing a tool calls."
+  [config {:keys [slot name tree report why check-opts revert?]}]
+  (let [pd (project-dir config)
+        attached? (some #{name} (get (project-loops/attached pd) slot))]
+    (if-let [ps (cond
+                  (and (nil? tree) (not attached?)) [{:node :tree :problem (str name " is not attached to " slot)}]
+                  tree (attachment-problems config slot name tree check-opts))]
+      {:error (str "not staged: " (:problem (first ps)) (when (next ps) (str " (and " (dec (count ps)) " more)")))
+       :problems (vec ps)}
+      (let [dir (proposals-dir config)
+            id (new-id dir (str "ext-" name))
+            d (io/file dir id)]
+        (.mkdirs d)
+        (when tree (spit-edn (io/file d "loop.edn") tree))
+        (when report (spit-edn (io/file d "report.edn") report))
+        (when-not (str/blank? (str why)) (spit (io/file d "why.md") (str (str/trim (str why)) "\n")))
+        (spit-edn (io/file d "meta.edn")
+                  (cond-> {:kind :attach :loop "react" :slot slot :name name
+                           :action (if tree :attach :detach) :status "pending"
+                           :created-ts (System/currentTimeMillis) :base (attached-in-force config)}
+                    revert? (assoc :revert? true)))
+        {:id id :dir (.getPath d)}))))
+
+(defn- accept-attachment! [config p]
+  (let [pd (project-dir config)
+        now (attached-in-force config)]
+    (if (not= (:hash (:base p)) (:hash now))
+      {:error (str "the react loop in force, with its attachments, has changed since loop/" (:id p) " was proposed ("
+                   (:hash (:base p)) " then, " (:hash now) " now) — its evidence was about the loop then;"
+                   " reject it and propose it again")}
+      (let [old (project-loops/attachment-file pd (:name p))
+            contract (get (project-loops/slots ((requiring-resolve 'brainyard.agent/load-tree) "react" pd)) (:slot p))]
+        (when (.isFile old) (spit (io/file (:dir p) "replaced.edn") (slurp old)))
+        (let [line (project-loops/write-attachment! pd (:slot p) (:name p) (:tree p)
+                                                    {:contract contract :loop (:loop p) :proposal (str "loop/" (:id p))})]
+          (set-status! p "accepted")
+          (assoc line :in-force :next-session
+                 :said (str (if (:tree p)
+                              (str (:name p) " is attached to " (:slot p) " (.brainyard/loops/ext/" (:name p) ".edn)")
+                              (str (:name p) " is detached from " (:slot p)))
+                            " (history.edn)")))))))
+
 ;; --- a person's decision -----------------------------------------------------------
 
 (defn- set-status! [p status]
   (spit-edn (io/file (:dir p) "meta.edn")
-            (assoc (select-keys p [:loop :action :created-ts :base]) :status status
+            (assoc (select-keys p [:loop :action :created-ts :base :kind :slot :name :revert?]) :status status
                    :decided-ts (System/currentTimeMillis))))
 
 (defn accept!
@@ -280,6 +388,7 @@
     (cond
       (nil? p) {:error (str "no loop proposal named '" id "'")}
       (not= "pending" (:status p)) {:error (str "loop/" id " is " (:status p) ", not pending")}
+      (= :attach (:kind p)) (accept-attachment! config p)
       (not= (:hash (:base p)) (:hash (in-force config (:loop p))))
       {:error (str "the " (:loop p) " loop in force has changed since loop/" id " was proposed ("
                    (:hash (:base p)) " then, " (:hash (in-force config (:loop p))) " now) — its evidence"
@@ -319,6 +428,17 @@
     (cond
       (nil? ln) {:error (str "not a loop name: " which)}
       (nil? last-change) {:error (str "nothing to revert: the " ln " loop has no change in .brainyard/loops/history.edn")}
+      ;; an attachment's change is undone by its opposite: a detach of what
+      ;; was attached, putting back what it replaced if anything; an attach of
+      ;; what was detached (RFC-072)
+      (#{:attach :detach} (:action last-change))
+      (let [{:keys [slot name]} last-change
+            kept (when (:replaced last-change) (read-edn (io/file (proposals-dir config) (str from) "replaced.edn")))]
+        (if (and (:replaced last-change) (nil? kept))
+          {:error (str name " before its last change is not kept (no replaced.edn under loop/" from ")")}
+          (stage-attachment! config {:slot slot :name name :tree kept :revert? true
+                                     :why (str "Puts " name " back as it was before " (or (:proposal last-change) "its last change")
+                                               " (" (clojure.core/name (:action last-change)) " at " (:at last-change) ").")})))
       (and (:replaced last-change) (not (.isFile (io/file (proposals-dir config) (str from) "replaced.edn"))))
       {:error (str "the " ln " loop before its last change is not kept (no replaced.edn under loop/" from ")")}
       :else
