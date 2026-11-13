@@ -136,6 +136,9 @@ emits: `:bt.node/error`, `:bt.repeat/exhausted`, `:bt.scope/cancelled`.
 
 ## Known gaps
 
+- A project cannot put a loop of its own in place of a bundled one by name:
+  `resolve-tree` finds only the bundled loop for a bare name and for
+  `brainyard/loops/<name>.edn` (RFC-071, `byj-ng7.1`).
 - Pause/resume (brainyard's per-pause `m/dfv` beside a `Condition`,
   `check-interrupt-cancel-pause!`) is not ported; cancellation is structural
   only (divergence `turn-cancel-is-structural`).
