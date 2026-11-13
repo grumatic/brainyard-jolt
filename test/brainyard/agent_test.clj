@@ -548,7 +548,7 @@
   "A turn that optionally calls a tool, then answers. `think` supplies extra
   think-step outputs per answer number; `verdicts` supplies the gate's verdict
   per gate call. Returns [result call-kinds think-prompts]."
-  [cfg {:keys [tool? think verdicts] :or {think (constantly nil) verdicts {}}}]
+  [cfg {:keys [tool? think verdicts tree registry] :or {think (constantly nil) verdicts {}}}]
   (let [calls (atom []) n (atom 0) g (atom 0) prompts (atom [])]
     [(agent/ask "what is in notes.txt?"
                 {:lm {:provider :mock :format :mock
@@ -568,7 +568,8 @@
                                     :tool-calls [{:tool-name "bash" :tool-args {:command "echo hi"}}]}
                                    (merge {:reasoning "r" :tool-calls [] :answer (str "v" i)}
                                           (think i))))))))}
-                 :config (merge {:working-dir "." :max-iterations 6 :persist-session? false} cfg)})
+                 :config (merge {:working-dir "." :max-iterations 6 :persist-session? false} cfg)
+                 :tree tree :registry registry})
      @calls @prompts]))
 
 (def ^:private said-done (constantly {:goal-achieved true}))
@@ -650,6 +651,86 @@
       (is (= 1 (count (filter #{:gate} calls)))
           "past the budget it does not ask — a verdict it cannot act on is not worth buying")
       (is (= :answer-channel (:terminated-by r)) "the turn ends normally"))))
+
+;; --- the ReAct loop's slots (RFC-072, byj-9sp.4) ------------------------------------
+
+(defn- slotted
+  "The bundled ReAct loop with `attachments` expanded into its slots."
+  [attachments]
+  (bt/expand (agent/resolve-tree "react") agent/resolve-tree attachments))
+
+(defn ^{:reads #{:last-tool-results :question} :writes #{:ext/notices}} ext-note-action
+  "An attachment's leaf: says what the tools returned, in :ext/notices."
+  [{:keys [st-memory]}]
+  (swap! st-memory assoc :ext/notices
+         [(str "LINT: " (count (:last-tool-results @st-memory)) " result(s) for: " (:question @st-memory))]))
+
+(defn ^{:reads #{:answer} :writes #{:ext/critique}} ext-refuse-v-action
+  "An attachment's check: refuses an answer that is v1, with a reason."
+  [{:keys [st-memory]}]
+  (if (= "v1" (:answer @st-memory))
+    (do (swap! st-memory assoc :ext/critique "v1 is never right here.") :failure)
+    :success))
+
+(deftest the-bundled-loop-offers-its-slots-empty
+  (let [react (agent/load-tree nil)]
+    (is (= #{:react/ext-after-tools :react/ext-answer-check}
+           (set (keep (fn [[_ o]] (when (:slot o) (:id o))) (bt/nodes react)))))
+    (is (empty? (filter #(:attached (second %)) (bt/nodes react))))))
+
+(deftest the-answer-check-sits-before-every-stamp
+  ;; an answer is final once stamped (`:agent.answer/final`), so a check that
+  ;; ran after a stamp, or beside one, would be passed by it
+  (let [react (agent/resolve-tree "react")
+        stamps (filter (fn [[k o]] (and (= :action k) (= :react/stamp-answer (:fn o)))) (bt/nodes react))
+        parent-of (fn [id] (first (filter (fn [n] (some #(and (vector? %) (= id (:id (second %)))) n)) (bt/nodes react))))]
+    (is (seq stamps))
+    (doseq [[_ {:keys [id]}] stamps
+            :let [siblings (map #(:id (second %)) (filter vector? (drop 2 (parent-of id))))]]
+      (is (= [:react/answer-verdict :react/answer-checked id] siblings) (str id)))
+    (is (= :react/answer-checked (:id (second (parent-of :react/ext-answer-check)))))))
+
+(deftest an-attachment-after-the-tools-is-heard-next-iteration
+  (let [[r calls prompts] (gate-run {} {:tool? true :think said-done
+                                        :tree (slotted {:react/ext-after-tools
+                                                        [{:name "lint" :tree [:action {:id :x/note :fn :x/note}]}]})
+                                        :registry {:x/note #'ext-note-action}})]
+    (is (= [:think :think] calls))
+    (is (= "v2" (:answer r)))
+    (is (not (str/includes? (first prompts) "LINT")))
+    (is (str/includes? (second prompts) "LINT: 1 result(s) for: what is in notes.txt?"))))
+
+(deftest an-attachment-after-the-tools-that-fails-costs-the-turn-nothing
+  (let [[r calls] (gate-run {} {:tool? true :think said-done
+                                :tree (slotted {:react/ext-after-tools
+                                                [{:name "broken" :tree [:action {:id :x/boom :fn :x/boom}]}]})
+                                :registry {:x/boom (fn [_] (throw (ex-info "lint crashed" {})))}})]
+    (is (= [:think :think] calls))
+    (is (= "v2" (:answer r)))))
+
+(deftest a-projects-answer-check-refuses-on-every-path-that-accepts
+  (let [check {:react/ext-answer-check [{:name "no-v1" :tree [:action {:id :x/check :fn :x/check}]}]}
+        reg {:x/check #'ext-refuse-v-action}]
+    (testing "the gate off: an accepted answer is refused for the check's reason"
+      (let [[r calls prompts] (gate-run {} {:think said-done :tree (slotted check) :registry reg})]
+        (is (= [:think :think] calls))
+        (is (= "v2" (:answer r)))
+        (is (str/includes? (last prompts) "ANSWER REFUSED: v1 is never right here."))))
+    (testing "the gate on: an answer the evaluator confirmed is refused too"
+      (let [[r calls] (gate-run {:max-refinements 2}
+                                {:tool? true :think (fn [i] {:goal-achieved true :answer (if (= 2 i) "v1" (str "v" i))})
+                                 :verdicts {1 {:reasoning "r" :verdict "COMPLETE" :detail "ok"}
+                                            2 {:reasoning "r" :verdict "COMPLETE" :detail "ok"}}
+                                 :tree (slotted check) :registry reg})]
+        (is (= [:think :think :gate :think :gate] calls))
+        (is (= "v3" (:answer r)))))
+    (testing "and it cannot refuse forever: past :max-answer-checks the answer stands"
+      (let [[r calls] (gate-run {:max-answer-checks 1}
+                                {:think (constantly {:goal-achieved true :answer "v1"})
+                                 :tree (slotted check) :registry reg})]
+        (is (= [:think :think] calls))
+        (is (= "v1" (:answer r)))
+        (is (= :answer-channel (:terminated-by r)))))))
 
 (deftest read-file-pages-a-file-too-big-for-one-result
   ;; a whole read of a spill was cut and spilled again, and the model read that

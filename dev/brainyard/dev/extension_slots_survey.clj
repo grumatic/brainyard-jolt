@@ -30,7 +30,7 @@
     attachment, since the slot moves with the loop.
 
   Then the cost of two empty slots: the expansion's time and hash, with the
-  slots as the `:sequence` they would expand to."
+  ReAct loop's slots and without them."
   (:require [clojure.edn :as edn]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -148,37 +148,35 @@
                                                            (and (contains? il id) (= parent (get-in il [id :parent]))))
                                                          i0)))}}))
 
-(defn- with-empty-slots
-  "Today's ReAct loop with the two slots as the empty `:sequence` they would
-  expand to when nothing is attached."
+(defn- without-slots
+  "The ReAct loop with its `:extension` slots taken out: the loop as it was
+  before `byj-9sp.4` put them in."
   [tree]
-  (let [slot (fn [id] [:sequence {:id id}])]
-    (letfn [(walk [[k o & cs]]
-              (into [k o]
-                    (mapcat (fn [c]
-                              (cond
-                                (not (vector? c)) [c]
-                                (= :react/tool-dispatch (:id (second c))) [(walk c) (slot :react/ext-after-tools)]
-                                (= :react/answer-gate (:id (second c))) [(slot :react/ext-answer-check) (walk c)]
-                                :else [(walk c)])))
-                    cs))]
-      (walk tree))))
+  (letfn [(walk [[k o & cs]]
+            (into [k o] (keep #(cond (not (vector? %)) %
+                                     (= :extension (first %)) nil
+                                     :else (walk %)))
+                  cs))]
+    (walk tree)))
 
 (defn- time-ms [n f]
   (let [t0 (System/nanoTime)] (dotimes [_ n] (f)) (/ (- (System/nanoTime) t0) 1e6 n)))
 
 (defn cost
-  "Expanding the session loop, which includes the ReAct loop: ms each, today
-  and with the two empty slots, and the ReAct loop's hash before and after."
+  "Expanding the session loop, which includes the ReAct loop: ms each, with
+  the ReAct loop's two slots empty and without them, and the expanded ReAct
+  loop's hash and node count each way. (Measured on 2026-11-13 before the
+  slots were in the bundled loop, by adding them; now by taking them out.)"
   []
   (let [react (agent/resolve-tree "react" nil)
-        slotted (with-empty-slots react)
+        with (bt/expand react agent/resolve-tree)
+        without (without-slots react)
         session #(bt/expand (agent/resolve-tree "session" nil)
                             (fn [n] (if (str/includes? (str n) "react") % (agent/resolve-tree n nil))))
         n 200]
-    {:expand-ms {:today (time-ms n #(session react)) :with-slots (time-ms n #(session slotted))}
-     :hash {:today (flow/tree-hash react) :with-slots (flow/tree-hash slotted)}
-     :nodes {:today (count (index react)) :with-slots (count (index slotted))}}))
+    {:expand-ms {:without-slots (time-ms n #(session without)) :with-slots (time-ms n #(session react))}
+     :hash {:without-slots (flow/tree-hash without) :with-slots (flow/tree-hash with)}
+     :nodes {:without-slots (count (index without)) :with-slots (count (index with))}}))
 
 (defn- print-series [label {:keys [versions steps totals]}]
   (println (str "\n" label ": " versions " versions, " (:steps totals) " steps"))

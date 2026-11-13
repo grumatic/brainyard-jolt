@@ -14,6 +14,7 @@ so it never reads byj's tree, and byj's own suite never reads its tree either.
 | `trajectory/meta.edn` | the session's `meta.edn` beside it | RFC-016, RFC-031 |
 | `agent/agents.json` | `byj agent --json` in a project of byj's own agents | RFC-018 |
 | `prices.edn` | the price table byj costs a run by | RFC-006 |
+| `loops/slots.edn` | every slot the bundled loops offer a project: its id, keys and place | RFC-072 |
 
 What varies between two runs is written `<varies>` (times, pids, durations),
 `<sid>` (a session id), `<dir>` (the project's directory) and `<socket>` (the

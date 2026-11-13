@@ -1,0 +1,2 @@
+{:loop "react", :id :react/ext-answer-check, :reads {:answer :answer, :question :question, :iterations :iterations}, :writes #:ext{:critique :ext/critique}, :on-failure :fail, :in :react/answer-checked, :after nil}
+{:loop "react", :id :react/ext-after-tools, :reads {:last-tool-results :last-tool-results, :tool-calls :tool-calls, :question :question}, :writes #:ext{:notices :ext/notices}, :on-failure :ignore, :in :react/tool-path, :after :react/tool-dispatch}

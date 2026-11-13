@@ -30,8 +30,10 @@ init → hook ask/pre → budget
           recover-native-tool-calls
           strip-unbound-tools
           resolve-channel-conflicts
-          [answer-non-blank? → stamp-answer     ← router, path A
+          [answer-non-blank? → answer gate      ← router, path A
+             → ‹ext-answer-check› → stamp-answer
            | has-tool-calls? → tool-dispatch    ← path C (path B, code, is off)
+             → ‹ext-after-tools› → fold-ext-notices
            | repair]                            ← path D, no action
           accumulate → hook iteration/post
        | loop-fallback]                         ← loop-guard
@@ -233,6 +235,36 @@ leaving it would stamp it next pass — and sends the reason through the notice
 channel a failed tool call already uses (divergence
 `refusal-rides-the-notice-channel`).
 
+**One stamp, after the verdict and the project's check.** The gate is a
+fallback of three:
+
+- refine itself;
+- accept: a verdict, then the project's check, then the stamp;
+- refine.
+
+The verdict is itself a fallback: the budget is spent, or the evaluator
+confirms. So every answer that becomes final passes `:react/answer-checked`
+first. This is where a project's answer check attaches
+(`:react/ext-answer-check`, RFC-072). It is checked before the stamp because
+the stamp says the answer is final (`:agent.answer/final`).
+
+### The slots (RFC-072)
+
+The loop offers a project two slots. Both are empty unless the project
+attaches a tree, and an empty slot is a node that does nothing.
+
+- **`:react/ext-after-tools`**, after `:react/tool-dispatch`. An attachment
+  reads `:last-tool-results`, `:tool-calls` and `:question`, and writes
+  `:ext/notices`, a string or strings. `:react/fold-ext-notices` queues them
+  as notices for the next iteration's prompt. If the attachment fails, the
+  failure is ignored.
+- **`:react/ext-answer-check`**, inside `:react/answer-checked`. An
+  attachment reads `:answer`, `:question` and `:iterations`. Its failure
+  refuses the answer, and the reason is what it left in `:ext/critique`.
+  `:react/answer-check-spent?` lets the answer through once the turn has
+  been refused `:max-answer-checks` times (default 2), counting every
+  refusal. So a check cannot refuse forever, even with the answer gate off.
+
 ### What is measured, and what is not
 
 **brainyard never measured this.** Its `:max-refinements 0` came in with an
@@ -308,6 +340,8 @@ that is the case in which this gate would earn its call.
 | A self-reported failure and an ungrounded answer are both handled without buying an evaluation. | `agent-test/the-two-refusals-that-cost-nothing` |
 | An answer the tools do not support is refused, and the reason returns as an instruction. | `agent-test/an-answer-the-tools-do-not-support-is-refused` |
 | A critic that cannot judge accepts, and the gate cannot refuse forever. | `agent-test/a-critic-that-cannot-judge-does-not-cost-a-turn-its-answer` |
+| The loop's slots are empty unless a project attaches to them. What is attached after the tools is heard in the next iteration, and its failure costs the turn nothing. | `agent-test/the-bundled-loop-offers-its-slots-empty`, `agent-test/an-attachment-after-the-tools-is-heard-next-iteration`, `agent-test/an-attachment-after-the-tools-that-fails-costs-the-turn-nothing` |
+| A project's answer check runs before every stamp, refuses for its own reason on each path that accepts, and stops refusing at `:max-answer-checks`. | `agent-test/the-answer-check-sits-before-every-stamp`, `agent-test/a-projects-answer-check-refuses-on-every-path-that-accepts` |
 | A malformed reply is repaired with a notice and the loop continues. | `agent-test/malformed-reply-is-repaired` |
 | Three consecutive failures abort with `:llm-error`. | `agent-test/repeated-llm-failure-aborts` |
 | Three consecutive no-action replies abort with `:none-channel-loop-guard`. | `agent-test/no-action-guard` |

@@ -322,7 +322,7 @@
         said (into [nil nil nil] (map second (filter #(= :info (first %)) out)))]
     (testing "/config lists the families — brainyard's /feature — with what is on and what changed"
       (is (str/starts-with? (said 3) "settings by family"))
-      (is (re-find #"\n  loop +7 settings · 1 changed" (said 3)))
+      (is (re-find #"\n  loop +8 settings · 1 changed" (said 3)))
       (is (re-find #"\n  session +\d+/\d+ on · " (said 3)) "a family with switches counts them"))
     (testing "/config FAMILY lists its settings, a secret-shaped value masked"
       ;; five since :default-lm (byj-gly.257)

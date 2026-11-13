@@ -614,7 +614,7 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
         (emit! ctx :agent.answer/evaluated {:verdict verdict :detail (:detail outputs)})
         (not refused?)))))
 
-(defn ^{:reads #{:critique :next-user-prompt} :writes #{:answer :goal-achieved :critique :refinements :pending-notices}}
+(defn ^{:reads #{:critique :next-user-prompt} :writes #{:answer :goal-achieved :critique :ext/critique :refinements :pending-notices}}
   refine-action
   "The answer was refused: hand the reason back and let the loop try again.
 
@@ -623,13 +623,22 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
   reason rides the notice channel, the same one a failed tool call uses, so it
   reaches the next iteration's prompt through machinery that already exists.
   brainyard appends a synthetic `[evaluation]` iteration record for the same
-  purpose (divergence `refusal-rides-the-notice-channel`)."
+  purpose (divergence `refusal-rides-the-notice-channel`).
+
+  An answer refused by the project's own check, attached to
+  `:react/ext-answer-check` (RFC-072), is refused for the reason that check
+  left in `:ext/critique`, or for being refused by a check when it left none."
   [{:keys [st-memory] :as ctx}]
   (let [m @st-memory
         self? (= :refine-self (:answer-decision m))
         np (str (:next-user-prompt m))
+        ext (:ext/critique m)
         reason (cond
                  (not (str/blank? (str (:critique m)))) (str (:critique m))
+                 (not (str/blank? (str ext))) (str ext)
+                 (not self?)
+                 (str "A check this project runs on answers refused yours. Look again at what the "
+                      "question asks and what the tools showed, then answer again.")
                  ;; the model said it was not done and named its own next step
                  (not (str/blank? np))
                  (str "You reported the goal was not achieved. Your own next step: "
@@ -640,10 +649,37 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
         reason (cond-> (str/trim reason) (not (re-find #"[.!?]$" (str/trim reason))) (str "."))]
     (swap! st-memory #(-> %
                           (assoc :answer "" :goal-achieved false :critique nil)
+                          (dissoc :ext/critique)
                           (update :refinements (fnil inc 0))
                           (queue-notice (str "ANSWER REFUSED: " reason))))
     (emit! ctx :agent.answer/refused {:reason reason :self-reported self?})
     :success))
+
+(defn ^{:reads #{:refinements} :writes #{}}
+  answer-check-spent?
+  "Condition `:react/answer-check-spent?` — has the turn been refused
+  `:max-answer-checks` times? Then a project's answer check (RFC-072) that
+  fails no longer refuses: the answer is accepted, as the answer gate accepts
+  once `:max-refinements` is spent. A check that can refuse forever is a turn
+  that never answers. Every refusal counts, whatever made it."
+  [{:keys [config] :as ctx}]
+  (>= (:refinements (mem ctx) 0) (:max-answer-checks config 2)))
+
+(defn ^{:reads #{} :writes #{:ext/notices :pending-notices}}
+  fold-ext-notices-action
+  "Action `:react/fold-ext-notices` — what a project's attachment to
+  `:react/ext-after-tools` said, in `:ext/notices`, a string or strings,
+  queued for the next iteration's prompt as a failed call's notice is
+  (RFC-072). The slot writes its own key and this node decides what it means,
+  so an attachment adds to the notices and never replaces them. It reads the
+  key without declaring it: an empty slot writes nothing, and nothing is what
+  there is to fold."
+  [{:keys [st-memory]}]
+  (when-let [said (:ext/notices @st-memory)]
+    (swap! st-memory (fn [m]
+                       (reduce queue-notice (dissoc m :ext/notices)
+                               (remove str/blank? (map str (if (sequential? said) said [said])))))))
+  :success)
 
 (def native-tool-call-notice
   (str "TOOL CHANNEL: your previous reply called tools directly, which fails with "
@@ -1060,6 +1096,8 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
    :react/refine-self? #'refine-self?
    :react/evaluate-answer #'evaluate-answer-condition
    :react/refine #'refine-action
+   :react/answer-check-spent? #'answer-check-spent?
+   :react/fold-ext-notices #'fold-ext-notices-action
    :hooks/fire #'hooks/fire-action
    :context/enforce #'context/enforce-action})
 

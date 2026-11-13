@@ -2,8 +2,10 @@
 
 **Status:** proposed 2026-11-13; decided 2026-11-14 to build, for
 composition rather than drift ("Decided"). The node kind and its expansion
-are built (`byj-9sp.2`). Attachments' files and proposals (`byj-9sp.3`) and
-the ReAct loop's first slots (`byj-9sp.4`) are not. Epic `byj-9sp`.
+are built (`byj-9sp.2`), and so are the ReAct loop's first two slots, in
+`contract/` (`byj-9sp.4`). Attachments' files and proposals are not
+(`byj-9sp.3`): until they are, nothing attaches to a slot outside a test.
+Epic `byj-9sp`.
 
 ## Purpose
 
@@ -168,13 +170,50 @@ breaking the projects attached to it. Two are proposed for the ReAct loop
 | `:react/ext-after-tools` | after `:react/tool-dispatch` in the tool path | `:last-tool-results`, `:tool-calls`, `:question` | `:ignore`: a lint or a check after a write, told to the model next iteration |
 | `:react/ext-answer-check` | on every path that accepts an answer | `:answer`, `:question`, `:iterations` | `:fail`: a project's own check of an answer; a failure sends it to refine with the slot's critique |
 
+After the tools, `:react/fold-ext-notices` queues what the attachment left in
+`:ext/notices` for the next iteration's prompt, beside the other notices.
+
 **An answer check must sit on every path that accepts.** The answer gate
-is a fallback of three ways to accept (`:react/accept`,
-`:react/self-refine`, `:react/confirm`) and a refine. A check placed in the
-first alone would be passed by the third, which accepts on the judge
-model's word. Placing it before the gate, in `:react/answer-path`, fails the
-whole path and sends the turn to `:react/repair`, not to refine. Where it
-goes is part of what `byj-9sp.4` builds and tests.
+was a fallback of three ways to accept: the gate off, the model refining
+itself, the judge model confirming. A check placed in the first alone would
+have been passed by the third. Placed before the gate, in
+`:react/answer-path`, its failure would fail the whole path and send the turn
+to `:react/repair`, not to refine. So the gate was reshaped, keeping its
+behaviour (RFC-003 "The answer gate"):
+
+```
+answer-gate  fallback
+  self-refine     refine-self? → refine
+  accept          answer-verdict (accept-answer? | evaluate-answer)
+                  → answer-checked (‹ext-answer-check› | answer-check-spent?)
+                  → stamp-answer
+  refine-eval
+```
+
+There is one stamp now, and the check is before it, because the stamp makes
+the answer final (`:agent.answer/final`). A failed check falls to
+`refine-eval`. `refine-eval` gives `:ext/critique` as the reason, or says
+that a check refused the answer when the check left none.
+
+**A check cannot refuse forever.** `:react/answer-check-spent?` lets the
+answer through once the turn has had `:max-answer-checks` refusals (default
+2). Every refusal counts, the gate's too. It is a budget of its own, not
+`:max-refinements`: at that key's default of 0, an answer check would never
+refuse, and raising it would also turn on the judge model's call.
+
+**What this change to the bundled loop carries.** A change to a bundled loop
+carries evaluations and the dogfood simulation (RFC-071 "Promotion to the
+bundled loops"). This one carries neither, on the argument that it changes
+nothing a turn does:
+
+- both slots are empty, and an empty slot is a node that succeeds and does
+  nothing;
+- the gate's reshaping runs the same leaves in the same order on each of its
+  paths, and the gate's tests pass unchanged.
+
+The suite is the evidence. Whether that argument is enough, or the dogfood
+comparison is run anyway, is the maintainers' call before this is
+released.
 
 Places that are not proposed yet:
 
@@ -304,7 +343,7 @@ A row not marked built is proposed.
 | `(project-loops/attachments project-dir)` | `{slot-id [tree…]}` from `ext/attach.edn`, each tree read from `ext/` |
 | `(permission/loop-file project-dir path)` | true for anything under `.brainyard/loops/ext/` as well |
 | a proposal `{:kind :attach :slot :tree}` / `{:kind :detach :slot :name}` | staged, evaluated and accepted as a loop proposal |
-| `contract/loops/slots.edn` | every slot the bundled loops offer, with its keys |
+| `contract/loops/slots.edn` | built: every slot the bundled loops offer, with its keys and its place |
 
 ## Invariants
 
@@ -319,11 +358,11 @@ The rows naming a bead are proposed and enforced by nothing yet.
 | The expansion names what was attached, and its hash — a turn's `:loop :hash` — differs with each attachment set. | `extension-test/the-expansion-and-its-hash-say-what-was-attached` |
 | An unexpanded slot does not tick; an attachment is not extended in turn. | `extension-test/an-unexpanded-slot-does-not-run`, `extension-test/an-attachment-is-expanded-but-not-extended` |
 | No tool writes under `.brainyard/loops/ext/`. An attachment is live only after a person accepts it. | nothing yet (`byj-9sp.3`) |
-| A slot's id, keys and place change only with `contract/`. | nothing yet (`byj-9sp.4`) |
-| The answer check is on every path that accepts an answer. | nothing yet (`byj-9sp.4`) |
+| A slot's id, keys and place change only with `contract/` (`loops/slots.edn`). | `contract-test/the-slots-the-bundled-loops-offer-are-byjs-contract` |
+| The answer check is on every path that accepts an answer, before the stamp, and stops refusing at `:max-answer-checks`. | `agent-test/the-answer-check-sits-before-every-stamp`, `agent-test/a-projects-answer-check-refuses-on-every-path-that-accepts` |
+| What is attached after the tools is heard in the next iteration, and its failure costs the turn nothing. | `agent-test/an-attachment-after-the-tools-is-heard-next-iteration`, `agent-test/an-attachment-after-the-tools-that-fails-costs-the-turn-nothing` |
 
 ## Known gaps
 
 - Attachments' files, gate, proposals, evaluation and watch, and
   `--print-tree` naming each attachment: `byj-9sp.3`.
-- The ReAct loop's first two slots and their contract: `byj-9sp.4`.

@@ -60,26 +60,45 @@
       ;; path is what it was.
       [:action {:id :react/answer-decision :fn :react/answer-decision}]
       [:fallback {:id :react/answer-gate}
-       ;; the gate is off, or its budget is spent
-       [:sequence {:id :react/accept}
-        [:condition {:id :react/accept-answer? :fn :react/accept-answer?}]
-        [:action {:id :react/stamp-answer :fn :react/stamp-answer}]]
        ;; the model itself said the goal was not met — believe it, and spend
        ;; nothing asking a second opinion for the same verdict
        [:sequence {:id :react/self-refine}
         [:condition {:id :react/refine-self? :fn :react/refine-self?}]
         [:action {:id :react/refine-self :fn :react/refine}]]
-       ;; otherwise check the answer against what the tools returned
-       [:sequence {:id :react/confirm}
-        [:condition {:id :react/evaluate-answer :fn :react/evaluate-answer
-                     :predictor "react/evaluate-answer"}]
-        [:action {:id :react/stamp-checked :fn :react/stamp-answer}]]
+       ;; every way an answer is accepted goes through here, so the project's
+       ;; own check (RFC-072) sits on all of them, before the answer is final
+       [:sequence {:id :react/accept}
+        [:fallback {:id :react/answer-verdict}
+         ;; the gate is off, or its budget is spent
+         [:condition {:id :react/accept-answer? :fn :react/accept-answer?}]
+         ;; otherwise check the answer against what the tools returned
+         [:condition {:id :react/evaluate-answer :fn :react/evaluate-answer
+                      :predictor "react/evaluate-answer"}]]
+        ;; a slot: what a project attaches here judges the answer; its failure
+        ;; refuses it, with :ext/critique as the reason, while the turn has
+        ;; refusals left under :max-answer-checks
+        [:fallback {:id :react/answer-checked}
+         [:extension {:id :react/ext-answer-check
+                      :reads {:answer :answer :question :question :iterations :iterations}
+                      :writes {:ext/critique :ext/critique}
+                      :on-failure :fail}]
+         [:condition {:id :react/answer-check-spent? :fn :react/answer-check-spent?}]]
+        [:action {:id :react/stamp-answer :fn :react/stamp-answer}]]
        ;; refused: the reason goes back and the loop gets another pass
        [:action {:id :react/refine-eval :fn :react/refine}]]]
      ;; Path C — tool channel (path B, code, is disabled in react-agent)
      [:sequence {:id :react/tool-path}
       [:condition {:id :react/has-tool-calls? :fn :react/has-tool-calls?}]
-      [:action {:id :react/tool-dispatch :fn :react/tool-dispatch}]]
+      [:action {:id :react/tool-dispatch :fn :react/tool-dispatch}]
+      ;; a slot (RFC-072): what a project attaches here sees the calls and
+      ;; what they returned — a lint after a write — and says what it found
+      ;; in :ext/notices, which the next iteration's prompt carries. Its
+      ;; failure is recorded and ignored
+      [:extension {:id :react/ext-after-tools
+                   :reads {:last-tool-results :last-tool-results :tool-calls :tool-calls :question :question}
+                   :writes {:ext/notices :ext/notices}
+                   :on-failure :ignore}]
+      [:action {:id :react/fold-ext-notices :fn :react/fold-ext-notices}]]
      ;; Path D — nothing populated
      [:action {:id :react/repair :fn :react/repair}]]
     [:action {:id :react/accumulate :fn :react/accumulate}]

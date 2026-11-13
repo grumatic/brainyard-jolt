@@ -270,6 +270,9 @@
    ;; at 0 the gate costs no model call and the answer path is unchanged.
    :max-refinements {:type "integer" :default 0 :family :loop
                      :doc "How many times a turn may have its answer refused and try again. 0 disables the gate entirely."}
+   ;; a project's own answer check, attached to :react/ext-answer-check (RFC-072)
+   :max-answer-checks {:type "integer" :default 2 :family :loop
+                       :doc "How many refusals a turn may have before a check attached to the ReAct loop's answer-check slot no longer refuses its answer (RFC-072). Every refusal counts, the answer gate's too."}
    ;; MCP servers as tools (RFC-024)
    :mcp? {:type "boolean" :default true :family :tools
           :doc "Offer mcp$servers when any MCP server is connected."}

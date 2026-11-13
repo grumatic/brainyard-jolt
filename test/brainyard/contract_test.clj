@@ -13,7 +13,9 @@
   - `trajectory/trajectory.edn`, `trajectory/meta.edn`: what that turn leaves
     on disk (RFC-025, RFC-016);
   - `agent/agents.json`: `byj agent --json` in a project of byj's own agents;
-  - `prices.edn`: the price table byj costs a run by.
+  - `prices.edn`: the price table byj costs a run by;
+  - `loops/slots.edn`: every slot the bundled loops offer a project, with its
+    keys and its place (RFC-072).
 
   What varies between two runs — times, ids, the scratch directory, the
   socket's name — is written `<varies>`, `<sid>`, `<dir>` and `<socket>`, and
@@ -26,6 +28,8 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [clojure.walk :as walk]
+            [brainyard.agent :as agent]
+            [brainyard.bt :as bt]
             [brainyard.channel :as channel]
             [brainyard.config :as config]
             [brainyard.json :as json]
@@ -158,3 +162,24 @@
 
 (deftest the-price-table-is-byjs-contract
   (held "prices.edn" (slurp (io/resource "brainyard/prices.edn"))))
+
+(defn slots
+  "Every `:extension` slot in the bundled loop `name`'s own file, in tree
+  order: its id and contract, and its place — the node it sits in and the
+  node before it there (RFC-072)."
+  [name]
+  (letfn [(walk [[_ opts & cs]]
+            (let [kids (filter vector? cs)]
+              (concat
+               (for [[prev [k o]] (map vector (cons nil kids) kids) :when (= :extension k)]
+                 {:loop name :id (:id o) :reads (:reads o) :writes (:writes o) :on-failure (:on-failure o)
+                  :in (:id opts) :after (some-> prev second :id)})
+               (mapcat walk kids))))]
+    (walk (agent/resolve-tree name))))
+
+(deftest the-slots-the-bundled-loops-offer-are-byjs-contract
+  ;; a project attaches to a slot by its id and is held to its keys, so a slot
+  ;; that moved or changed its keys breaks every project attached to it
+  (held "loops/slots.edn"
+        (lines-text (mapcat slots (sort (map #(str/replace (.getName %) #"\.edn$" "")
+                                             (.listFiles (io/file "resources/brainyard/loops"))))))))
