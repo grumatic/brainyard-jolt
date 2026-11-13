@@ -107,8 +107,9 @@ share sidecar (RFC-043), ACP and the SDK (RFC-053), the trajectory
    cold-load on every pull request and push to main (`ci.yml`), nightly
    builds the binary and runs the SDK against it (`nightly.yml`), a test
    holds NOTICE to `deps.edn`, and `split-test` keeps byj naming no program
-   built on it. What it searched for — secrets and internal identifiers —
-   nothing searches for yet (`byj-okw`). The tracker and the agents'
+   built on it. What it searched for is GitHub secret scanning's for secrets,
+   with push protection, since 2026-11-13; nothing searches for an internal
+   identifier yet (`byj-okw`). The tracker and the agents'
    settings, which it kept out, are public by design since: beads sync to
    this repository (AGENTS.md "Issues").
 
@@ -138,15 +139,16 @@ share sidecar (RFC-043), ACP and the SDK (RFC-053), the trajectory
 | Every test byj's RFCs, divergences and provenance cite, by namespace and name, is a test or helper of that namespace (a `*` for the name, the namespace) | `divergences-test/every-test-a-document-cites-is-there` |
 | byj's tree passes its suite and loads each namespace on its own, and builds | `.github/workflows/ci.yml` (`jolt test:byj`, `dev/cold-load.sh`) on every pull request and push to main; `.github/workflows/nightly.yml` builds the binary and runs the SDK against it, nightly; until the split, `dev/byj-export.sh` (item 5) |
 | byj's tree carries its LICENSE and a NOTICE that names every library `deps.edn` pins, at its revision | `release-test/the-notice-names-every-library-deps-edn-pins`; what those libraries depend on in turn is read by a person |
-| byj's tree names no internal identifier and holds no secret | nothing since the split (`byj-okw`): until then `dev/byj-export.sh`'s search and gitleaks; a person read the key-shaped fixtures (`trajectory_export_test.clj`'s are an alphabet run) |
+| byj's tree holds no secret | GitHub secret scanning with push protection on the public repository (on since 2026-11-13; until the split, gitleaks in `dev/byj-export.sh`); a person read the key-shaped fixtures (`trajectory_export_test.clj`'s are an alphabet run) |
+| byj's tree names no internal identifier | nothing since the split (`byj-okw`): until then `dev/byj-export.sh`'s search, its list kept outside the tree; a person in review |
 | byj's source holds no run of eight words or more of samizdat's text beyond the reviewed runs | nothing runs it on its own (decided 2026-11-13): `dev/samizdat-check.sh`, by hand, when wanted |
 | An accepted run that no longer occurs is taken off the list | nothing enforces it: `dev/samizdat-check.sh` over the whole checkout names one as a warning |
 
 ## Known gaps
 
-- Nothing searches the public repository for a secret or an internal
-  identifier since the export gate retired; GitHub's secret scanning is off
-  for it (`byj-okw`).
+- Nothing searches the public repository for an internal identifier
+  since the export gate retired (`byj-okw`); secrets are GitHub secret
+  scanning's, with push protection, since 2026-11-13.
 - Nothing yet shows that a person outside the team can build, test and send
   a change from the public documents alone; the public CI has run since
   2026-11-11 (`byj-s97`).
