@@ -354,11 +354,16 @@
 (defn rewind!
   "Session `id`'s work tree put back as it was when turn `turn` began — or
   ended, with `end?` — whatever came after, the person's work included,
-  kept first as a rewind ref. `{:turn :end? :files :saved}` or `{:error}`."
+  kept first as a rewind ref. Its message names the session's last turn
+  then (\"rewind to turn K's start, after turn N\"), so which turns it took
+  back is known exactly, not from commit times to the second (byj-ng7.10).
+  `{:turn :end? :files :saved}` or `{:error}`."
   [config id turn & [end?]]
   (if-let [r (root config)]
     (if-let [{:keys [before after]} (commits r (ref-name id turn))]
-      (-> (restore! config r id (if end? after before) (str "rewind to turn " turn (if end? "'s end" "'s start")))
+      (-> (restore! config r id (if end? after before)
+                    (str "rewind to turn " turn (if end? "'s end" "'s start")
+                         (when-let [n (last (turns config id))] (str ", after turn " n))))
           (merge {:turn turn :end? (boolean end?)}))
       {:error (str "turn " turn " of session " id " is not kept: byj turns list " id " says which are")})
     (no-git config)))

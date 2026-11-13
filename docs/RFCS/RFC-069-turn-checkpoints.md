@@ -98,7 +98,11 @@ the question's first line.
 Each of the three operations below works the same way:
 1. It snapshots the work tree as it is, and keeps that as
    `refs/byj/rewinds/<session>/<n>`. So what it replaces is never lost, the
-   person's own work since the turn included.
+   person's own work since the turn included. The snapshot's message says
+   what it did — "byj ID rewind to turn K's start, after turn N" (or "K's
+   end"), "byj ID undo turn K", "byj ID undo rewind M" — N the session's
+   last kept turn then, so a reader knows which turns came before it
+   exactly (RFC-071 reads it, `byj-ng7.10`).
 2. It makes the work tree the target by git's own binary diff from that
    snapshot. git writes the diff to a file, so a file's bytes never pass
    through a string. `git apply` applies it all or nothing: what differs is

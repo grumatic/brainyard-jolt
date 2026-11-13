@@ -139,19 +139,22 @@
 
 (defn- rewind-entries
   "Session `id`'s rewind refs (RFC-069) read back as what each did:
-  `{:n :at :kind :turn :undoes}`, `:kind` `:rewind-start`, `:rewind-end`,
-  `:undo-turn` or `:undo-rewind` — read off the snapshot's message, which
-  `changes/restore!` writes as \"byj ID rewind to turn K's start\",
-  \"… K's end\", \"byj ID undo turn K\" or \"byj ID undo rewind N\"."
+  `{:n :at :kind :turn :last :undoes}`, `:kind` `:rewind-start`,
+  `:rewind-end`, `:undo-turn` or `:undo-rewind` — read off the snapshot's
+  message, which `changes/restore!` writes as \"byj ID rewind to turn K's
+  start, after turn N\", \"… K's end, after turn N\", \"byj ID undo turn K\"
+  or \"byj ID undo rewind M\". `:last` is N, the session's last turn when it
+  rewound; a rewind made before byj-ng7.10 has none."
   [root id]
   (vec (for [l (git-lines root "for-each-ref" "--format=%(refname)%09%(committerdate:unix)%09%(subject)"
                           (str "refs/byj/rewinds/" (safe id) "/"))
              :let [[ref at subject] (str/split l #"\t" 3)
                    n (some-> (re-find #"/(\d+)$" (str ref)) second parse-long)
-                   [_ k se ut ur] (re-find #"^byj \S+ (?:rewind to turn (\d+)'s (start|end)|undo turn (\d+)|undo rewind (\d+))$" (str subject))]
+                   [_ k se lt ut ur] (re-find #"^byj \S+ (?:rewind to turn (\d+)'s (start|end)(?:, after turn (\d+))?|undo turn (\d+)|undo rewind (\d+))$" (str subject))]
              :when (and n (or k ut ur))]
          (cond-> {:n n :at (some-> at parse-long)}
            k (assoc :kind (if (= "start" se) :rewind-start :rewind-end) :turn (parse-long k))
+           lt (assoc :last (parse-long lt))
            ut (assoc :kind :undo-turn :turn (parse-long ut))
            ur (assoc :kind :undo-rewind :undoes (parse-long ur))))))
 
@@ -166,17 +169,20 @@
 
 (defn rewound-turns
   "The turns of session `id` a person took back, and so failed, given its
-  kept `rows`: a rewind to turn K's start takes back K and every turn ended
-  by then, a rewind to K's end every turn after K ended by then, an undone
-  turn that turn — unless the rewind was itself undone. `#{turn …}`."
+  kept `rows`: a rewind to turn K's start takes back K and every turn before
+  it, a rewind to K's end every turn after K before it, an undone turn that
+  turn — unless the rewind was itself undone. \"Before it\" is up to the
+  last turn its message names; a rewind made before byj-ng7.10 names none,
+  and is read from the times, to the second. `#{turn …}`."
   [root id rows]
-  (set (for [{:keys [kind turn at]} (in-force (rewind-entries root id))
+  (set (for [{:keys [kind turn at last]} (in-force (rewind-entries root id))
              :when (not= :undo-rewind kind)
              {t :turn end :at} rows
+             :let [before? (if last (<= t last) (<= (or end 0) (or at 0)))]
              :when (case kind
                      :undo-turn (= t turn)
-                     :rewind-start (and (>= t turn) (<= (or end 0) (or at 0)))
-                     :rewind-end (and (> t turn) (<= (or end 0) (or at 0))))]
+                     :rewind-start (and (>= t turn) before?)
+                     :rewind-end (and (> t turn) before?))]
          t)))
 
 (defn committed?

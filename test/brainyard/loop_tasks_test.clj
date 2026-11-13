@@ -272,3 +272,25 @@
       (is (= 0 exit))
       (is (str/starts-with? out "retired 1 task(s) from "))
       (is (empty? (:tasks (loop-tasks/read-set cfg "default")))))))
+
+;; byj-ng7.10: which turns a rewind took back was read from commit times in
+;; whole seconds, so a turn ending in the second of a rewind counted as
+;; before it; the rewind now names the session's last turn
+(deftest a-rewind-names-the-last-turn-it-took-back
+  (let [dir (repo "rewind-order")
+        cfg {:project-dir dir :working-dir dir :session-id "s-r"}
+        rows #(changes/rows cfg "s-r")]
+    (turn! cfg 1 "one" #(spit (io/file dir "a.txt") "1\n"))
+    (turn! cfg 2 "two" #(spit (io/file dir "b.txt") "2\n"))
+    (is (:saved (changes/rewind! cfg "s-r" 1)))
+    (is (str/includes? (sh dir "git" "log" "-1" "--format=%s" "refs/byj/rewinds/s-r/1") "rewind to turn 1's start, after turn 2"))
+    ;; at once: in the same second as the rewind, as often as not
+    (turn! cfg 3 "three" #(spit (io/file dir "c.txt") "3\n"))
+    (is (= #{1 2} (loop-tasks/rewound-turns dir "s-r" (rows))) "turn 3 came after the rewind, whatever the clock says")
+    (testing "a rewind written before the message named its last turn is read from the times"
+      (let [tree (sh dir "git" "rev-parse" "HEAD^{tree}")
+            c (str/trim (:out (fx/sh {:dir dir :out :string :err :string
+                                      :env (assoc (into {} (System/getenv)) "GIT_COMMITTER_DATE" "@4102444800 +0000")}
+                                     "git" "commit-tree" "-m" "byj s-r rewind to turn 3's start" tree)))]
+        (sh dir "git" "update-ref" "refs/byj/rewinds/s-r/2" c)
+        (is (= #{1 2 3} (loop-tasks/rewound-turns dir "s-r" (rows))) "dated 2100: every turn ended before it")))))

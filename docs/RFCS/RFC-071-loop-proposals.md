@@ -184,7 +184,9 @@ never a loop on a project's own work.
     turn back and still stands: "rewind to turn K's start" takes back K and
     every turn ended by then, "K's end" every turn after K ended by then,
     "undo turn K" K alone; a rewind undone by an undo that itself stands
-    takes back nothing. Which turns had ended is read from commit times, to
+    takes back nothing. Which turns came before it is the last turn its
+    message names — "rewind to turn K's start, after turn N", written since
+    `byj-ng7.10` — and, for a rewind made before, read from commit times, to
     the second.
   - `:success :committed` when HEAD holds the turn's change: git's three-way
     merge of the change onto HEAD (`merge-tree --merge-base=<start> HEAD
@@ -447,6 +449,7 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 | `byj loops tasks build` writes the set and says what it holds and what it dropped; `--check` takes a command after `loops` and is a flag elsewhere | `loop-tasks-test/byj-loops-tasks-build-writes-the-set` |
 | A set's machine check is a command given, else a plan's stage checks, else the set's own, else `:check-command`, and the build says which | `loop-tasks-test/a-sets-machine-check-is-the-most-trusted-one-there-is` |
 | A retired task leaves the set, its pin is released, and a rebuild leaves it out | `loop-tasks-test/a-retired-task-leaves-the-set-and-its-pin` |
+| A rewind names the session's last turn, and only the turns up to it are taken back, whatever the clock; one without is read from the times | `loop-tasks-test/a-rewind-names-the-last-turn-it-took-back` |
 
 ## Known gaps
 
@@ -457,9 +460,6 @@ and proposing is a design. The order of work is the epic's:
   suite runs, and a live run waits for a person to spend on it —
   `byj-ng7.15`.
 - A judge model as a second signal on a rebuilt task, never alone — `byj-ng7.8`.
-- Which turns a rewind took back is read from commit times, to the second:
-  a turn ending in the second of the rewind counts as before it —
-  `byj-ng7.10`.
 - The watch after an accept, offering a revert on a regression — `byj-ng7.16`.
 - Whether an improver agent earns its place — `byj-ng7.6` (a decision).
 - A loop proven in one project promoted to byj's bundled loops, on evidence

@@ -6,6 +6,9 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A rewind says the last turn it came after** ("rewind to turn K's start,
+  after turn N"), so a loop's task set knows exactly which turns it took
+  back, not from commit times to the second.
 - **`byj loops tasks retire ID…`** takes tasks out of a set and releases the
   refs that kept their start commits; a rebuild does not bring them back.
 - **`byj loops eval` runs each turn in a byj of its own under the macOS
