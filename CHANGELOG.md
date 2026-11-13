@@ -6,6 +6,12 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj loops propose CANDIDATE`** evaluates a candidate loop and stages it
+  at `/proposals` only when it wins; otherwise it says why and stages
+  nothing. `byj loops propose --bundled` evaluates byj's own loop against a
+  project's: when the project's no longer beats it, its removal is proposed —
+  what `byj doctor` now names once an upgrade changed the loop it was made
+  from.
 - **`byj loops eval CANDIDATE`** runs a candidate loop against the loop in
   force on a task set (`byj loops tasks build`): each run a headless turn in
   a clone of the repository at the task's start, so nothing of the

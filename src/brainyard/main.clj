@@ -171,6 +171,9 @@
           "--max-cost" (recur (rest more) (assoc opts :max-cost (parse-double (str (first more)))))
           "--aim" (recur (rest more) (assoc opts :aim (keyword (first more))))
           "--keep" (recur more (assoc opts :keep true))
+          ;; `loops propose`: why, in words; the bundled loop as the candidate
+          "--why" (recur (rest more) (assoc opts :why (first more)))
+          "--bundled" (recur more (assoc opts :bundled true))
           "--rubric" (recur (rest more) (assoc opts :rubric (first more)))
           "--id" (recur (rest more) (assoc opts :experiment-id (first more)))
           "--port" (recur (rest more) (assoc opts :port (parse-long (first more))))
@@ -643,9 +646,10 @@
   .brainyard/loops/tasks/SET.edn (RFC-071, byj-ng7.3); `byj loops revert
   [LOOP]`: the loop before its last change, staged as a proposal
   (byj-ng7.2); `byj loops eval CANDIDATE`: the candidate against the loop in
-  force on a task set, each run in a clone (byj-ng7.4); `json` for what each
-  returns. The exit code."
-  [{:keys [questions json name from check-cmd tasks repeats max-cost aim keep]} lm config]
+  force on a task set, each run in a clone (byj-ng7.4); `byj loops propose
+  CANDIDATE | --bundled [LOOP]`: that evaluation, staged as a proposal when
+  it wins (byj-ng7.5); `json` for what each returns. The exit code."
+  [{:keys [questions json name from check-cmd tasks repeats max-cost aim keep why bundled]} lm config]
   (let [[sub & more] questions]
     (case sub
       "tasks" (if (not= ["build"] (vec more))
@@ -669,6 +673,22 @@
                                     (err-println (str "  " node " " problem)))
                                   1)
                    :else (do (doseq [l (loop-eval/summary-lines r)] (println l)) 0))))
+      "propose" (if (and (not bundled) (str/blank? (str (first more))))
+                  (do (err-println "usage: byj loops propose CANDIDATE | --bundled [LOOP]  [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--why TEXT] [--json]") 2)
+                  (let [r (loop-eval/propose! config {:lm lm :candidate (when-not bundled (first more))
+                                                      :loop (if bundled (or (first more) "react") (loop-eval/loop-of (first more)))
+                                                      :remove? (boolean bundled) :why why
+                                                      :tasks tasks :repeats repeats :max-cost max-cost :aim aim :keep? keep})]
+                    (cond
+                      json (do (println (json/write-str (if (:error r) r (-> r (update :report dissoc :runs)))))
+                               (if (:error r) 1 0))
+                      (:error r) (do (err-println (:error r)) 1)
+                      :else (do (doseq [l (loop-eval/summary-lines r)] (println l))
+                                (println (if-let [{:keys [id]} (:staged r)]
+                                           (str "staged loop/" id " — /proposals show loop/" id
+                                                " to read it; a person's accept makes it the project's loop from the next session")
+                                           (str "not staged: " (:not-staged r))))
+                                0))))
       "revert" (let [r (loop-proposals/stage-revert! config (first more))]
                  (cond
                    json (do (println (json/write-str r)) (if (:error r) 1 0))
@@ -676,7 +696,7 @@
                    :else (do (println (str "staged loop/" (:id r) " — /proposals show loop/" (:id r)
                                            " to read it, accept to make it the project's loop from the next session"))
                              0)))
-      (do (err-println (str "loops: unknown subcommand " (pr-str sub) " — tasks build, eval, revert")) 2))))
+      (do (err-println (str "loops: unknown subcommand " (pr-str sub) " — tasks build, eval, propose, revert")) 2))))
 
 (defn- hook-answer
   "What `byj hook pretooluse` prints for the payload `json`, its decision
@@ -2056,7 +2076,7 @@
             env (env-fn wd)
             {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn env})
             ;; only an evaluation runs turns, so only it is given a model
-            lm (when (= "eval" (first (:questions opts)))
+            lm (when (#{"eval" "propose"} (first (:questions opts)))
                  (let [[p m] (run-lm-choice provider model config)] (launch/make-lm p m config env)))]
         (*exit* (loops-command opts lm config)))
 

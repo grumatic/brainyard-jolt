@@ -154,3 +154,56 @@
   (is (= "react" (le/loop-of '[:sequence {:id :a :based-on {:loop "react"}}])))
   (is (= "react" (le/loop-of "/nowhere/candidate.edn")))
   (is (= "session" (le/loop-of "/nowhere/session.edn")) "a file named for a bundled loop"))
+
+;; --- byj loops propose (byj-ng7.5) ---------------------------------------------------
+
+(defn- same-steps? [tree like] (= (drop 2 tree) (drop 2 like)))
+
+(deftest a-candidate-is-proposed-only-when-it-wins
+  (let [{:keys [dir config]} (fixture "propose" 3)
+        ls #(map :id ((requiring-resolve 'brainyard.proposals/list-all) config "loop"))]
+    (testing "worse: the report is written, nothing staged, and it says why"
+      (let [r (le/propose! config {:lm mock :candidate does-nothing})]
+        (is (str/includes? (:not-staged r) "did not win (not-better)"))
+        (is (.isFile (io/file (:file r))))
+        (is (empty? (ls)))))
+    (testing "better: staged with its report and why, for a person to accept"
+      (project-loops/write-loop! dir "react" does-nothing {:action :accept})
+      (let [{:keys [staged file]} (le/propose! config {:lm mock :candidate writes-done})
+            p ((requiring-resolve 'brainyard.loop-proposals/read-proposal) config (:id staged))]
+        (is (= [(str "loop/" (:id staged))] (ls)))
+        (is (= :better (get-in p [:report :verdict])))
+        (is (= file (get-in p [:report :eval-file])) "the eval's own file, with every run")
+        (is (nil? (get-in p [:report :runs])))
+        (is (str/starts-with? (:why p) "byj loops eval: better — checks passed 1.000 against 0.000"))
+        (is (same-steps? (edn/read-string (slurp (project-loops/project-loop-file dir "react"))) does-nothing)
+            "staged only: the loop in force is unchanged")
+        (is (nil? (:error ((requiring-resolve 'brainyard.loop-proposals/accept!) config (:id staged)))))
+        (is (same-steps? (edn/read-string (slurp (project-loops/project-loop-file dir "react"))) writes-done))))
+    (testing "a stopped evaluation stages nothing"
+      (let [r (le/propose! config {:lm mock :candidate does-nothing :max-cost 0.1
+                                   :run-turn (fn [_] {:usage {:cost 1.0}})})]
+        (is (str/includes? (:not-staged r) "decided nothing"))))))
+
+(deftest the-bundled-loop-is-proposed-back-when-a-projects-own-no-longer-beats-it
+  (let [run-turn (fn [writes?] (fn [{:keys [config tree]}]
+                                 (when (writes? tree) (spit (io/file (:project-dir config) "done.txt") "done\n"))
+                                 {:iterations 1}))
+        bundled? #(not (or (same-steps? % writes-done) (same-steps? % does-nothing)))]
+    (let [{:keys [config]} (fixture "remove-none" 1)]
+      (project-loops/write-loop! (:project-dir config) "react" nil {:action :revert})
+      (is (str/includes? (:error (le/propose! config {:lm mock :remove? true})) "no react loop of its own")))
+    (testing "the project's loop does the task and the bundled one does not: it is kept"
+      (let [{:keys [config]} (fixture "remove-kept" 3)
+            r (le/propose! config {:lm mock :remove? true :run-turn (run-turn #(same-steps? % writes-done))})]
+        (is (str/includes? (:not-staged r) "beats the bundled one past the margin: it is kept"))))
+    (testing "a tie: the project's loop no longer beats the bundled one, so its removal is proposed"
+      (let [{:keys [dir config]} (fixture "remove-tie" 3)
+            r (le/propose! config {:lm mock :remove? true :run-turn (run-turn #(or (bundled? %) (same-steps? % writes-done)))})
+            lp (requiring-resolve 'brainyard.loop-proposals/read-proposal)
+            p (lp config (:id (:staged r)))]
+        (is (= :revert (:action p)))
+        (is (nil? (:tree p)) "a revert to the bundled loop")
+        (is (str/starts-with? (:why p) "The bundled react loop is not worse past the margin than the project's own"))
+        (is (nil? (:error ((requiring-resolve 'brainyard.loop-proposals/accept!) config (:id (:staged r))))))
+        (is (nil? (project-loops/project-loop-file dir "react")))))))

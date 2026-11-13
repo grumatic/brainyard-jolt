@@ -177,11 +177,12 @@
            (and stale? based-on)
            (str "the project's " where " was made from an older bundled " ln " (" base
                 "); the bundled one is now " bundled-hash
-                " — evaluate it again against the bundled loop before keeping it (RFC-071)")
+                " — evaluate it again against the bundled loop before keeping it: byj loops propose --bundled "
+                ln " (RFC-071)")
            stale?
            (str "the project's " where " does not say which bundled " ln
                 " it was made from (no :based-on) — evaluate it against the bundled loop ("
-                bundled-hash ") before keeping it (RFC-071)")
+                bundled-hash ") before keeping it: byj loops propose --bundled " ln " (RFC-071)")
            :else
            (str "the project's " where ", made from the bundled " ln " as it is (" base ")")))))
 

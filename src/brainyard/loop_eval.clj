@@ -308,6 +308,59 @@
         (spit f (with-out-str (pp/pprint report)))
         {:file (.getPath f) :report report}))))
 
+(defn- why-text [{:keys [verdict primary tasks repeats loop]} remove?]
+  (str (if remove?
+         (str "The bundled " loop " loop is not worse past the margin than the project's own")
+         (str "byj loops eval: " (name verdict)))
+       (when primary
+         (format " — checks passed %.3f against %.3f in force" (double (:candidate primary)) (double (:base primary))))
+       ", over " tasks " task(s) × " repeats "."))
+
+(defn- outdone?
+  "Does the loop in force beat the candidate past the margin? — what keeps
+  a project's own loop when the bundled one is evaluated against it."
+  [report]
+  (let [{:keys [base candidate]} (:arms report)]
+    (boolean (:better? (evaluate/compare-scores base candidate)))))
+
+(defn propose!
+  "Evaluate `:candidate` (`evaluate!`'s opts) and stage it as a `loop/`
+  proposal only when it wins (`wins?`): the report kept with it, without its
+  runs, and the eval's file named. Else the report is written and nothing
+  staged, and `:not-staged` says why. `{:file :report :staged {:id :dir}}`,
+  `{:file :report :not-staged}` or `{:error}`.
+
+  `:remove? true` asks the other way, for a project's own loop byj's upgrade
+  may have overtaken (RFC-071 \"After adoption\"): the bundled loop is the
+  candidate, and when the project's loop does not beat it past the margin, a
+  revert to the bundled loop is staged. `:why` replaces the generated why."
+  [config {:keys [remove?] :as opts}]
+  (let [ln (or (project-loops/loop-name (or (:loop opts) "react")) "react")
+        pd (loop-proposals/project-dir config)]
+    (if (and remove? (nil? (project-loops/project-loop-file pd ln)))
+      {:error (str "the project has no " ln " loop of its own to remove")}
+      (let [opts (cond-> (assoc opts :loop ln)
+                   remove? (assoc :candidate (project-loops/bundled-tree ln)))
+            r (evaluate! config opts)]
+        (if (:error r)
+          r
+          (let [rep (:report r)
+                kept (assoc (dissoc rep :runs) :eval-file (:file r))
+                why (or (:why opts) (why-text rep remove?))
+                stage? (and (not= :incomplete (:verdict rep))
+                            (if remove? (not (outdone? rep)) (wins? rep)))]
+            (if-not stage?
+              (assoc r :not-staged
+                     (cond
+                       (= :incomplete (:verdict rep)) (str "the evaluation decided nothing: " (or (:stopped rep) "no task was scored"))
+                       remove? (str "the project's " ln " loop beats the bundled one past the margin: it is kept")
+                       :else (str "the candidate did not win (" (name (:verdict rep)) "): the loop in force is kept")))
+              (let [s (loop-proposals/stage! config (if remove?
+                                                      {:loop ln :tree nil :action :revert :report kept :why why}
+                                                      {:loop ln :tree (read-candidate (:candidate opts)) :report kept :why why
+                                                       :check-opts (:check-opts opts)}))]
+                (if (:error s) (assoc r :error (:error s)) (assoc r :staged s))))))))))
+
 (defn summary-lines
   "What `byj loops eval` prints of a report."
   [{:keys [file report]}]
