@@ -1,9 +1,9 @@
 # RFC-071 — Loop proposals: a better loop, proven and then accepted
 
 **Status:** designed 2026-11-13; built the same day, and evaluated live once
-("The first live evaluation"), but for what needs evidence across projects
-or a decision — an improver agent (`byj-ng7.6`), promotion to the bundled
-loops (`byj-ng7.7`). Epic `byj-ng7`.
+("The first live evaluation"); an improver agent decided not now
+(`byj-ng7.6`); promotion to the bundled loops waits on evidence across
+projects (`byj-ng7.7`). Epic `byj-ng7`.
 
 ## Purpose
 
@@ -435,6 +435,54 @@ answers given while a check fails, costly turns — and writes candidates.
 Whether it earns its place is a decision measured first (`byj-ng7.6`), as
 `byj-gly.63` decided for an authoring loop.
 
+**Decided 2026-11-13: not now** (`byj-ng7.6`). The question the bead asked —
+of an improver's candidates, how many are staged and how many a person
+accepts, against candidates people write — cannot be asked yet, because
+what an improver needs is not there; that much was measured without a model.
+
+*Method.* `dev/brainyard/dev/improver_survey.clj` (`jolt -A:dev -m
+brainyard.dev.improver-survey DIR…`) reads each project's trajectory log and
+turn checkpoints, read only. It counts the live root turns (not the mock
+provider's, not a subagent's) and each failure an improver would look for —
+a turn not ended by an answer, ended at `max-iterations`, with a model
+error, with failed or refused calls, failing in three iterations or more —
+a pattern being three turns or more of one failure. Then what could prove a
+candidate: the kept turns that are tasks today (`loop-tasks/turn-tasks`, no
+machine check) and whether the project names a `:check-command`. It was run
+over every project on one machine that had a trajectory log: 26, labelled
+A–Z here.
+
+*Result.* 773 live turns in 26 projects, 9 of them with 10 or more.
+
+| | turns | at `max-iterations` | failing again | recurring (≥3) | tasks today / kept turns | `:check-command` |
+|---|---|---|---|---|---|---|
+| the 26 | 773 | 0 | 1 | failed calls in 4 (O, T, U, X), unfinished in 3 (Q, V, X) | 0 / 15 (R 10, U 5) | none |
+
+- **Loop-level failure is rare.** No turn ended at the iteration cap; one
+  failed in three or more iterations. What recurs is a failing call (a
+  command that exits non-zero, a tool error) — a tool's or a skill's to fix
+  (RFC-010, RFC-017), not a loop's. Of the 51 unfinished turns in Q, V and
+  X, 23 are not failures at all — Q is brainyard's JVM log, whose
+  `end_turn` (16) is an ordinary end, and X's `answer` (7) an older
+  record's — 16 the provider's errors (`llm-error`), 2 a turn's `error`,
+  and 10 the loop's own no-action guard
+  (`none-channel-loop-guard`), 8 of them in Q, brainyard's own loop, 2 in
+  X.
+- **Nothing could prove a candidate.** No project has a single task today:
+  turn checkpoints (RFC-069) are new, 15 kept turns in all, and none the
+  person rewound or committed; no project names a check command. A
+  candidate is staged only past the paired margin, which needs six tasks
+  moving the same way (RFC-021's sign test) — so every candidate an improver
+  wrote now would be evaluated on nothing and staged never. The one live
+  evaluation (above) had to be run on cases a person wrote for the purpose.
+
+*So:* no improver is built. A person's candidate, tried with `--loop` and
+proposed, stays the way a better loop comes in. **Revisit** when the survey
+shows a project with both a loop-level failure that recurs — at the cap,
+failing again, the no-action guard — and six or more tasks with a machine
+check: it prints that count last. Then measure what the bead asked, on that
+project, against a person's candidates. Auto-acceptance stays out of scope.
+
 ### What samizdat does, and why this differs
 
 samizdat changes the loop while it runs: a supervisor proposes an edit,
@@ -530,6 +578,5 @@ What is not built waits on a person — money spent on live models, or
 evidence from more than one project — but the first:
 
 - A run's refused and failed calls are counted, not named — `byj-ng7.17`.
-- Whether an improver agent earns its place — `byj-ng7.6` (a decision).
 - A loop proven in one project promoted to byj's bundled loops, on evidence
   across projects — `byj-ng7.7`.
