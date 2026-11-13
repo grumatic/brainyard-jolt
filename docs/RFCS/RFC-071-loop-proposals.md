@@ -1,9 +1,9 @@
 # RFC-071 — Loop proposals: a better loop, proven and then accepted
 
-**Status:** designed 2026-11-13. Built: a project's own loop (`byj-ng7.1`),
-the task set (`byj-ng7.3`), no tool writing a loop (`byj-ng7.12`), `loop/`
-proposals (`byj-ng7.2`), the evaluation (`byj-ng7.4`), proposing
-(`byj-ng7.5`); the rest not. Epic `byj-ng7`.
+**Status:** designed 2026-11-13; built the same day but for what needs a
+person's spend or evidence across projects — a live evaluation
+(`byj-ng7.15`), an improver agent (`byj-ng7.6`, a decision), promotion to
+the bundled loops (`byj-ng7.7`). Epic `byj-ng7`.
 
 ## Purpose
 
@@ -341,8 +341,21 @@ How a proposal is staged, read and decided (`byj-ng7.2`,
 
 The turns after an accept are compared with the turns before, from the
 trajectory log. A regression yields a **revert proposal** — the previous
-loop, from the history — which a person accepts like any other. (Built: the
-revert, `byj loops revert`; the watch that offers it is `byj-ng7.16`.)
+loop, from the history — which a person accepts like any other.
+
+Built (`byj-ng7.16`, `brainyard.loop-watch`, `byj loops watch [LOOP]`): the
+turns of every session whose first turn ended after the loop's last change in
+`history.edn` — the sessions that ran it, since a session expands its loop
+when it starts; one begun before runs the old loop to its end and counts on
+neither side — against the newest 30 turns that ended before it, subagents'
+turns aside. Each side's mean per turn is held to the evaluation's guards
+(`loop-eval/guard-regressions`): cost, tokens, iterations, tool errors and
+refusals as `default-guards` bound them, and `:unfinished`, the share of
+turns that did not end with an answer (×1.5 or +0.1). A turn's wall time is
+not in its record and is not watched. Fewer than 5 turns since, or none
+before, is `:too-early`; a regression stages the loop before the change with
+`stage-revert!` and a why naming each regressed metric — never an accept, and
+nothing while a revert of that loop already waits. It runs when asked.
 
 When byj is upgraded and the bundled loop no longer has the `:based-on`
 hash, `byj doctor` says the project's loop was made from an older one and
@@ -397,6 +410,7 @@ byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE 
 byj loops tasks retire ID… [--name SET] [--json]                                 ; (built)   ; a task set from past turns (built)
 byj loops eval CANDIDATE [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--in-process] [--keep] [--json]   ; (built)
 byj loops propose CANDIDATE | --bundled [LOOP] [eval's flags] [--why TEXT]   ; eval, then stage when it wins (built)
+byj loops watch [LOOP] [--json]                         ; the turns since a change against those before; a regression staged as a revert (built)
 byj loops revert [LOOP] [--json]                        ; the previous loop, as a proposal (built)
 /proposals loop  ·  /proposals show loop/<id>  ·  /proposals accept|reject loop/<id>   (built)
 ```
@@ -407,7 +421,11 @@ Files: `<project>/.brainyard/loops/<name>.edn` (`:based-on`),
 the person's `<set>.cases.edn` beside it (built; their shapes are under
 "Tasks"), and the pins `refs/byj/tasks/<set>/<id>`.
 
-Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
+Built: `(loop-watch/watch! config {:loop})` → `{:loop :change :before :after
+:means :regressions :verdict :staged? :not-staged?}`; `watch`, `split-turns`,
+`turn-metrics`, `last-change`, `guards`; `loop-proposals/pending`.
+
+`(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 `{:file :report :staged {:id :dir}}` | `{:file :report :not-staged}` |
 `{:error}`.
 
@@ -454,6 +472,7 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 | A candidate that does not check is not run; the report names the set, base, candidate, byj, model and repeats | `loop-eval-test/a-candidate-that-does-not-check-is-not-run`, `loop-eval-test/the-report-says-what-was-measured` |
 | A candidate is staged only past the margin on the primary metric, or non-inferior and cheaper, with no guard regressed; a stopped evaluation stages nothing | `loop-eval-test/a-candidate-is-proposed-only-when-it-wins` |
 | The bundled loop is proposed back when a project's own does not beat it past the margin, a tie included, and not when it does | `loop-eval-test/the-bundled-loop-is-proposed-back-when-a-projects-own-no-longer-beats-it` |
+| The turns of sessions begun since a change are held against those before it; a regression stages a revert, never an accept and never a second; too few turns, or holding, stage nothing | `loop-watch-test/a-regression-since-a-change-is-offered-back-as-a-revert`, `loop-watch-test/turns-that-hold-stage-nothing` |
 | A task is a kept turn's question, the parent of its checkpoint commit (pinned) and a check — the machine's, or the person's: rewound a failure, its change held by HEAD a success; a turn with neither is dropped, and every drop is counted with why | `loop-tasks-test/a-task-is-a-question-a-start-and-a-check`, `loop-tasks-test/a-commit-is-a-success-only-while-head-holds-the-change` |
 | A task's split is RFC-021's content hash of its own question and start: adding tasks, a person's cases or a rebuild after its turn was pruned never moves one | `loop-tasks-test/a-split-never-moves-a-task` |
 | `byj loops tasks build` writes the set and says what it holds and what it dropped; `--check` takes a command after `loops` and is a flag elsewhere | `loop-tasks-test/byj-loops-tasks-build-writes-the-set` |
@@ -464,13 +483,12 @@ Built: `(loop-eval/propose! config {…evaluate!'s opts :remove? :why})` →
 
 ## Known gaps
 
-All but a project's own loop, its proposals, the task set, the evaluation
-and proposing is a design. The order of work is the epic's:
+What is not built waits on a person — money spent on a live model, or
+evidence from more than one project:
 
 - No live evaluation is recorded here yet; the mock provider is what the
   suite runs, and a live run waits for a person to spend on it —
   `byj-ng7.15`.
-- The watch after an accept, offering a revert on a regression — `byj-ng7.16`.
 - Whether an improver agent earns its place — `byj-ng7.6` (a decision).
 - A loop proven in one project promoted to byj's bundled loops, on evidence
   across projects — `byj-ng7.7`.

@@ -6,6 +6,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj loops watch`** compares the turns run since a project's loop last
+  changed with the turns before, and when they got worse — costlier, longer,
+  more errors or refusals, more turns left unfinished — stages the loop
+  before as a revert at `/proposals`. It never accepts one.
 - **`byj loops tasks build --judge LM`** asks a judge model, on the light
   tier unless one is named, whether each task's turn did what was asked, and
   keeps its verdict beside the task as a second signal — never the only one.

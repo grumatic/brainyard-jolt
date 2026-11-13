@@ -69,6 +69,7 @@
             [brainyard.loop-tasks-test]
             [brainyard.loop-proposals-test]
             [brainyard.loop-eval-test]
+            [brainyard.loop-watch-test]
             [brainyard.links-test]
             [brainyard.release-test]
             [brainyard.update-test]
@@ -160,6 +161,7 @@
     brainyard.loop-tasks-test
     brainyard.loop-proposals-test
     brainyard.loop-eval-test
+    brainyard.loop-watch-test
     brainyard.links-test
     brainyard.release-test
     brainyard.update-test

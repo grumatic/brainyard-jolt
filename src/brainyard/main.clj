@@ -69,6 +69,7 @@
             [brainyard.loop-tasks :as loop-tasks]
             [brainyard.loop-eval :as loop-eval]
             [brainyard.loop-proposals :as loop-proposals]
+            [brainyard.loop-watch :as loop-watch]
             [brainyard.session :as session]
             [brainyard.tasks :as tasks]
             [brainyard.tui :as tui]
@@ -653,7 +654,9 @@
   (byj-ng7.2); `byj loops eval CANDIDATE`: the candidate against the loop in
   force on a task set, each run in a clone (byj-ng7.4); `byj loops propose
   CANDIDATE | --bundled [LOOP]`: that evaluation, staged as a proposal when
-  it wins (byj-ng7.5); `json` for what each returns. The exit code."
+  it wins (byj-ng7.5); `byj loops watch [LOOP]`: the turns since the loop's
+  last change against those before, a regression staged as a revert
+  (byj-ng7.16); `json` for what each returns. The exit code."
   [{:keys [questions json name from check-cmd plan stage judge tasks repeats max-cost aim keep why bundled in-process]} lm config]
   (let [[sub & more] questions
         ;; an evaluation's turns: each a byj of its own under the seatbelt
@@ -714,6 +717,10 @@
                                                 " to read it; a person's accept makes it the project's loop from the next session")
                                            (str "not staged: " (:not-staged r))))
                                 0))))
+      "watch" (let [r (loop-watch/watch! config {:loop (first more)})]
+                (if json
+                  (do (println (json/write-str r)) 0)
+                  (do (doseq [l (loop-watch/summary-lines r)] (println l)) 0)))
       "revert" (let [r (loop-proposals/stage-revert! config (first more))]
                  (cond
                    json (do (println (json/write-str r)) (if (:error r) 1 0))
@@ -721,7 +728,7 @@
                    :else (do (println (str "staged loop/" (:id r) " — /proposals show loop/" (:id r)
                                            " to read it, accept to make it the project's loop from the next session"))
                              0)))
-      (do (err-println (str "loops: unknown subcommand " (pr-str sub) " — tasks build, eval, propose, revert")) 2))))
+      (do (err-println (str "loops: unknown subcommand " (pr-str sub) " — tasks build, eval, propose, watch, revert")) 2))))
 
 (defn- hook-answer
   "What `byj hook pretooluse` prints for the payload `json`, its decision

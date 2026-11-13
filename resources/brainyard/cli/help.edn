@@ -96,7 +96,7 @@
              :summary "a new session with the conversation before a turn, the files put back to it too"
              :doc "A new saved session from SESSION's snapshot, its history and transcript cut before TURN (the whole session when none is named), with :forked-from naming SESSION, which is not touched. With a turn the files are put back as they were when it began, as rewind does, so the new session's conversation and the work tree agree; keep-files leaves them. byj run --resume NEW continues it; a session's own /fork opens it beside, in the full-screen window."}]}]}
   {:name "loops"
-   :summary "A loop measured on the project's own work: tasks rebuilt from past turns, a candidate evaluated and proposed, a change taken back (RFC-071)"
+   :summary "A loop measured on the project's own work: tasks rebuilt from past turns, a candidate evaluated and proposed, a change watched and taken back (RFC-071)"
    :subcommands
    [{:subs [{:name "tasks" :args "build [--name SET] [--from SESSIONS] [--check CMD | --plan FILE [--stage ID]] [--judge LM [--max-cost USD]] [--json]  |  retire ID… [--name SET] [--json]"
              :summary "a task set from the project's past turns: each task's question, start commit and check; or tasks taken out of it"
@@ -107,6 +107,9 @@
             {:name "propose" :args "CANDIDATE | --bundled [LOOP]  [--tasks SET] [--repeats N] [--max-cost USD] [--aim cost] [--in-process] [--why TEXT] [--json]"
              :summary "loops eval, then the candidate staged as a loop/ proposal when it wins"
              :doc "Runs byj loops eval and stages CANDIDATE at /proposals only when it wins: more checks passed past the margin with no guard regressed, or, with --aim cost, not worse and cheaper. Otherwise the report is written and it says why nothing was staged. The proposal keeps the report and --why (else a line made from the verdict). With --bundled the bundled LOOP (react) is the candidate against the project's own: when the project's loop does not beat it past the margin, a revert to the bundled loop is staged — what doctor offers once byj's upgrade has changed the loop a project's was made from. A person accepts at /proposals; nothing changes until then."}
+            {:name "watch" :args "[LOOP] [--json]"
+             :summary "the turns since the loop's last change against the turns before; a regression offered back as a revert"
+             :doc "Reads the project's trajectory log: the turns of sessions begun since LOOP's (react) last accept or revert in .brainyard/loops/history.edn — the ones that ran it — against the newest 30 turns that ended before. A mean per turn past its bound on cost, tokens, iterations, tool errors, refusals or the share of turns left unfinished is a regression, and the loop before the change is staged as a revert proposal for a person to accept at /proposals — not while one already waits. Fewer than 5 turns since decide nothing. It reads and stages; it never accepts."}
             {:name "revert" :args "[LOOP] [--json]"
              :summary "the loop before its last change, staged as a proposal a person accepts at /proposals"
              :doc "The project's LOOP (react when none) as it was before its last accept or revert in .brainyard/loops/history.edn — the file that change replaced, or the bundled loop when it replaced none — staged as loop/ID under .brainyard/loops/proposals (RFC-071). Nothing changes until a person accepts it at /proposals; accepted, it is in force from the next session. --json gives {id, dir} or {error}."}]}]

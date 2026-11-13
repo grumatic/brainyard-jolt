@@ -184,6 +184,16 @@
        " (in force: " (name (:from base)) " " (:hash base) ")"
        (when report (str " — " (report-line report)))))
 
+(defn pending
+  "Every pending loop proposal's meta, with its `:id`."
+  [config]
+  (let [d (proposals-dir config)]
+    (vec (for [f (sort-by #(.getName %) (or (seq (.listFiles d)) []))
+               :when (.isDirectory f)
+               :let [meta (read-edn (io/file f "meta.edn"))]
+               :when (= "pending" (:status meta))]
+           (assoc meta :id (.getName f))))))
+
 (defn list-proposals
   "Pending loop proposals: `[{:name :summary :created-ts}]`."
   [config]
