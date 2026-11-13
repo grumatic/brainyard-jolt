@@ -364,12 +364,14 @@
   that cannot be loaded or expanded is itself the problem.
 
   `:hash` is of the SOURCE, not the expansion — it is what a patch guards
-  against, and the two differ for any tree with an `:include`."
+  against, and the two differ for any tree with an `:include`. The tree and
+  its includes are found for `(:project-dir opts)`, the project's own loop
+  first (RFC-071)."
   [tree-name opts]
   (try
     (let [resolve-tree (requiring-resolve 'brainyard.agent/resolve-tree)
-          tree ((requiring-resolve 'brainyard.agent/load-tree) tree-name)]
-      {:tree tree :problems (check tree opts) :hash (tree-hash (resolve-tree tree-name))})
+          tree ((requiring-resolve 'brainyard.agent/load-tree) tree-name (:project-dir opts))]
+      {:tree tree :problems (check tree opts) :hash (tree-hash (resolve-tree tree-name (:project-dir opts)))})
     (catch Throwable e
       {:problems [{:node :tree :problem (ex-message e)}]})))
 
@@ -586,7 +588,8 @@
             (if (::failed patched)
               {:error (::failed patched)}
               (let [expanded (try {:t (bt/expand patched
-                                                 (requiring-resolve 'brainyard.agent/resolve-tree))}
+                                                 #((requiring-resolve 'brainyard.agent/resolve-tree)
+                                                   % (:project-dir opts)))}
                                   (catch Throwable e {:error (ex-message e)}))
                     problems (if (:error expanded)
                                [{:node :tree :problem (:error expanded)}]
@@ -608,6 +611,8 @@
   against the same keys wherever the check is run from."
   [ctx]
   {:registry (:registry ctx)
+   ;; where a loop named by name is found: the project's own first (RFC-071)
+   :project-dir (:project-dir (:config ctx))
    :tools (some-> (:tools ctx) deref)
    :predictor-roots (predictor/default-roots
                      (or (:project-dir (:config ctx)) (:working-dir (:config ctx)) ".")

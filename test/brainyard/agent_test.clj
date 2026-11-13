@@ -7,12 +7,15 @@
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
             [brainyard.bt :as bt]
+            [brainyard.flow :as flow]
             [brainyard.instructions :as instructions]
             [brainyard.json :as json]
             [brainyard.llm :as llm]
             [brainyard.predictor :as predictor]
+            [brainyard.project-loops :as project-loops]
             [brainyard.signature :as sig]
             [brainyard.tools :as tools]
+            [brainyard.version :as version]
             [jolt.process :as p]))
 
 (defn- reply [m] (json/write-str (merge {:reasoning "r" :tool-calls [] :answer ""} m)))
@@ -857,3 +860,104 @@
   (let [e (try (agent/resolve-tree "no-such-loop") nil (catch Exception e e))]
     (is (re-find #"not found: no-such-loop" (ex-message e)))
     (is (re-find #"name a bundled loop" (ex-message e)) "and says how a loop is named")))
+
+;; --- a project's own loop (RFC-071, byj-ng7.1) ------------------------------------
+
+(defn- project-dir
+  "A project of the test's own, outside this repository, so nothing it writes
+  under .brainyard/ lands here."
+  [tag]
+  (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-" tag "-" (System/nanoTime)))
+                       .mkdirs)))
+
+(def ^:private own-react
+  "A loop that answers by itself: proof that a turn ran the project's tree."
+  [:action {:id :project-react :fn :test/answer-from-the-project}])
+
+(deftest a-project-loop-is-found-before-the-bundled-one
+  (let [pd (project-dir "loop")
+        f (io/file pd ".brainyard" "loops" "react.edn")
+        bundled (agent/resolve-tree "react")]
+    (testing "with no file of the project's, the bundled loop"
+      (is (= bundled (agent/resolve-tree "react" pd) (agent/resolve-tree "brainyard/loops/react.edn" pd)))
+      (is (= {:from :bundled :path "brainyard/loops/react.edn"} (agent/tree-source "react" pd))))
+    (io/make-parents f)
+    (spit f (pr-str own-react))
+    (testing "with one, the project's — for a bare name and the bundled resource path alike"
+      (is (= own-react (agent/resolve-tree "react" pd)))
+      (is (= own-react (agent/resolve-tree "brainyard/loops/react.edn" pd)))
+      (is (= :project (:from (agent/tree-source "brainyard/loops/react.edn" pd))))
+      (is (= (.getPath f) (:path (agent/tree-source "react" pd)))))
+    (testing "and only for that project"
+      (is (= bundled (agent/resolve-tree "react")))
+      (is (= bundled (agent/resolve-tree "react" (project-dir "other")))))
+    (testing "so the session tree's :include of the turn's loop is the project's"
+      (let [session (agent/load-tree "brainyard/loops/session.edn" pd)]
+        (is (some #(= :project-react (:id (second %)))
+                  (filter vector? (tree-seq vector? seq session))))
+        (is (= [:bundled :project] (mapv :from (agent/tree-sources "session" pd))) "and --print-tree can say so")))
+    (testing "and a turn whose config names the project runs it"
+      (is (= "the project's loop answered"
+             (:answer (agent/ask "q" {:lm {:provider :mock :format :mock :responses (atom [])}
+                                      :config {:max-iterations 2 :working-dir pd :project-dir pd}
+                                      :registry {:test/answer-from-the-project
+                                                 (fn [{:keys [st-memory]}]
+                                                   (swap! st-memory assoc :answer "the project's loop answered")
+                                                   :success)}})))))
+    (testing "finding a loop never writes a history line"
+      (is (not (.exists (project-loops/history-file pd)))))))
+
+(deftest a-project-loop-is-written-with-its-base-and-a-history-line-per-change
+  (let [pd (project-dir "adopt")
+        f (io/file pd ".brainyard" "loops" "react.edn")
+        accepted (project-loops/write-loop! pd "react" own-react {:action :accept :proposal "loop/1"})
+        written (agent/resolve-tree "react" pd)]
+    (testing "an accept writes the tree with what it was based on"
+      (is (= {:loop "react" :hash (project-loops/bundled-hash "react") :byj (version/version)}
+             (:based-on (second written))))
+      (is (= (project-loops/bundled-hash "react") (flow/tree-hash (agent/resolve-tree "react")))
+          "the bundled loop's hash is flow's tree-hash of it as read")
+      (is (= (assoc-in own-react [1 :based-on] (:based-on (second written))) written)))
+    (testing "and one history line"
+      (is (= [accepted] (project-loops/history pd)))
+      (is (= {:action :accept :loop "react" :hash (flow/tree-hash written) :replaced nil :proposal "loop/1"}
+             (select-keys accepted [:action :loop :hash :replaced :proposal]))))
+    (agent/load-tree "session" pd)
+    (agent/tree-sources "session" pd)
+    (is (= 1 (count (project-loops/history pd))) "reading it writes none")
+    (testing "a revert to the bundled loop removes the file and is a line too"
+      (let [reverted (project-loops/write-loop! pd "brainyard/loops/react.edn" nil {:action :revert})]
+        (is (not (.exists f)))
+        (is (= (agent/resolve-tree "react") (agent/resolve-tree "react" pd)))
+        (is (= {:action :revert :loop "react" :hash nil :replaced (flow/tree-hash written)}
+               (select-keys reverted [:action :loop :hash :replaced])))
+        (is (= [:accept :revert] (mapv :action (project-loops/history pd))))))
+    (testing "a candidate that says what it was made from keeps saying it"
+      (let [old {:loop "react" :hash "000000000000" :byj "v0.0.1"}]
+        (project-loops/write-loop! pd "react" (assoc-in own-react [1 :based-on] old) {:action :accept})
+        (is (= old (:based-on (second (agent/resolve-tree "react" pd)))))))
+    (testing "nothing but an accept or a revert writes, and only a loop's name"
+      (is (thrown? Exception (project-loops/write-loop! pd "react" own-react {})))
+      (is (thrown? Exception (project-loops/write-loop! pd "some/file.edn" own-react {:action :accept})))
+      (is (= 3 (count (project-loops/history pd)))))))
+
+(deftest doctor-names-a-project-loop-whose-base-is-not-the-bundled-loop
+  (let [pd (project-dir "doctor")
+        dir (io/file pd ".brainyard" "loops")
+        put (fn [n tree] (spit (io/file dir (str n ".edn")) (pr-str tree)))]
+    (is (nil? (project-loops/report-text pd)) "a project with no loop of its own: nothing to say")
+    (.mkdirs dir)
+    (put "react" (assoc-in own-react [1 :based-on] (project-loops/based-on "react")))
+    (put "plan-act-eval" (assoc-in own-react [1 :based-on] {:loop "plan-act-eval" :hash "000000000000" :byj "v0.0.1"}))
+    (put "session" own-react)
+    (put "mine" own-react)
+    (spit (io/file dir "history.edn") "")
+    (let [by-loop (into {} (map (juxt :loop identity)) (project-loops/overrides pd))
+          text (project-loops/report-text pd)]
+      (is (= #{"react" "plan-act-eval" "session" "mine"} (set (keys by-loop))) "history.edn is not a loop")
+      (is (= {"react" false "plan-act-eval" true "session" true "mine" false}
+             (update-vals by-loop :stale?)))
+      (is (re-find #"plan-act-eval: the project's \.brainyard/loops/plan-act-eval\.edn was made from an older bundled plan-act-eval \(000000000000, byj v0\.0\.1\); the bundled one is now [0-9a-f]{12}" text))
+      (is (re-find #"session: .* does not say which bundled session it was made from" text))
+      (is (re-find #"react: .*made from the bundled react as it is" text))
+      (is (re-find #"mine: .*byj bundles none of that name" text)))))

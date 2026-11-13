@@ -116,7 +116,7 @@
                     (into (mapv #(get given (:name %) %) tools/builtin-tools)
                           (remove #(contains? (tools/tools-by-name tools/builtin-tools) (:name %)) tools)))
            :hooks (vec hooks)
-           :tree (agent/load-tree tree-name)
+           :tree (agent/load-tree tree-name (:project-dir config))
            :config config
            :config-loaded config
            :reload-config load

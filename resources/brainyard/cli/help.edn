@@ -140,7 +140,7 @@
   :question {:flags "-q, --question TEXT" :doc "a question (repeatable; positional arguments also work)"}
   :prompt {:flags "--prompt TEXT" :doc "answer TEXT and exit, as ask does, instead of starting a session (-p is --provider)"}
   :inline {:flags "-i, --inline" :doc "a line at a time instead of the full-screen renderer, the default wherever a terminal allows it (ctrl-c cancels a turn, ctrl-q quits)"}
-  :print-tree {:flags "--print-tree" :doc "print the loop tree, :include nodes expanded, and exit"}
+  :print-tree {:flags "--print-tree" :doc "print the loop tree, :include nodes expanded, each loop said where it was found (the project's own, or bundled), and exit"}
   :params {:flags "--params FILE" :doc "EDN {predictor-id params}: the highest-precedence params layer"}
   :todo {:flags "--todo SLUG" :doc "continue this checklist instead of planning a new one (brainyard/loops/plan-act-eval.edn)"}
   :print-predictor {:flags "--print-predictor ID" :doc "print a predictor, its resolved params and their source, and exit"}
