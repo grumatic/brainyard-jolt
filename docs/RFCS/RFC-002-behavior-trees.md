@@ -111,10 +111,27 @@ expands.
 | `(validate tree registry)` | `nil`, or `"unregistered fns: …"`. |
 
 A loop is named by `brainyard.agent/resolve-tree` — what `--loop`, an agent
-spec's `:loop`, an `:include` and `flow$status`'s `:tree` all go through: a
-bare name (`react`, `plan-act-eval`) is the bundled
-`brainyard/loops/<name>.edn`; anything else is a classpath resource, else a
-file (byj-gly.374).
+spec's `:loop`, an `:include` and `flow$status`'s `:tree` all go through. It
+looks, in order:
+
+1. **the project's own** `<project-dir>/.brainyard/loops/<name>.edn`, for a
+   bare name (`react`) and for the bundled resource path
+   (`brainyard/loops/react.edn`) alike — so a project's `react` is also what
+   `session.edn`'s `:include` splices (RFC-071, `brainyard.project-loops`);
+2. the bundled `brainyard/loops/<name>.edn`, for a bare name (`react`,
+   `plan-act-eval`);
+3. any other classpath resource, else a file (byj-gly.374).
+
+| fn | contract |
+|---|---|
+| `(resolve-tree name [project-dir])` | The tree's source data, found as above; no project dir, no step 1. Only reads. |
+| `(load-tree name [project-dir])` | `resolve-tree`, with every `:include` expanded through `resolve-tree` for the same project dir. |
+| `(tree-source name project-dir)` | Where it would be found: `{:from :project\|:bundled\|:resource\|:file :path}`, and `:based-on` for the project's. |
+| `(tree-sources name project-dir)` | That, for the tree and each loop it includes — what `--print-tree` prints above the tree, as `;;` lines. |
+
+The project dir comes from the run's config (`:project-dir`): a session's and
+a turn's tree, a persona's turn loop, an agent spec's `:loop`, the SDK's,
+`--print-tree` and `flow check`/`flow$status` (`flow/ctx-opts`) each pass it.
 
 `ctx` keys the interpreter reads: `:registry`, `:st-memory`, `:config`,
 `:on-event`, `:cancellers`, `:ctx-box`. Everything else passes through to leaves. Events it
@@ -125,6 +142,8 @@ emits: `:bt.node/error`, `:bt.repeat/exhausted`, `:bt.scope/cancelled`.
 | invariant | enforced by |
 |---|---|
 | A loop's bare name is the bundled loop of that name; a resource path and a file path still work; an unknown name says how a loop is named. | `agent-test/a-loop-is-named-by-its-name-a-resource-or-a-file`. |
+| A project's own loop is found before the bundled one, for a bare name and the bundled resource path alike, includes too, and a turn runs it; without one, or for another project, the bundled loop. | `agent-test/a-project-loop-is-found-before-the-bundled-one` |
+| `--print-tree` says where each loop of the tree was found. | `main-test/print-tree-says-where-each-loop-was-found` |
 | Sequence, fallback, repeat, condition and action semantics as above; a throwing leaf is a failure recorded as `:bt/error`. | `agent-test/bt-semantics`. |
 | A scope's child cannot see or overwrite outer keys except through `:in` / `:out`. | `session-test/scope-isolates-memory`. |
 | Includes expand recursively, re-`:id` from include opts, and a cycle throws. | `session-test/include-expansion`. |
@@ -136,9 +155,6 @@ emits: `:bt.node/error`, `:bt.repeat/exhausted`, `:bt.scope/cancelled`.
 
 ## Known gaps
 
-- A project cannot put a loop of its own in place of a bundled one by name:
-  `resolve-tree` finds only the bundled loop for a bare name and for
-  `brainyard/loops/<name>.edn` (RFC-071, `byj-ng7.1`).
 - Pause/resume (brainyard's per-pause `m/dfv` beside a `Condition`,
   `check-interrupt-cancel-pause!`) is not ported; cancellation is structural
   only (divergence `turn-cancel-is-structural`).

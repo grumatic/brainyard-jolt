@@ -43,6 +43,7 @@
             [brainyard.bt :as bt]
             [brainyard.agents :as agents]
             [brainyard.agent-reach :as agent-reach]
+            [brainyard.project-loops :as project-loops]
             [brainyard.project-views :as project-views]
             [brainyard.rail-state :as rail-state]
             [brainyard.project-overview :as project-overview]
@@ -2023,7 +2024,15 @@
             {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})]
         (System/exit (init-command opts config)))
 
-      print-tree (pp/pprint (agent/load-tree tree-name))
+      ;; the tree as it would run here, and where each of its loops was found:
+      ;; the project's own before the bundled one (RFC-071)
+      print-tree
+      (let [wd (or working-dir (System/getProperty "user.dir") ".")
+            {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})
+            pd (:project-dir config)]
+        (doseq [src (agent/tree-sources tree-name pd)]
+          (println (project-loops/source-line src)))
+        (pp/pprint (agent/load-tree tree-name pd)))
 
       sessions
       (let [wd (or working-dir (System/getProperty "user.dir") ".")
@@ -2113,7 +2122,7 @@
               :lm-flagged? (boolean (or (:provider opts) (:model opts)))
               :tools (vec tools/builtin-tools)
               :mcp-box mcp-box
-                  :tree (agent/load-tree tree-name)
+                  :tree (agent/load-tree tree-name (:project-dir config))
                   :params (some-> params-file read-params-file)
                   :config config
                   :on-event (event-bus config (tracer opts))

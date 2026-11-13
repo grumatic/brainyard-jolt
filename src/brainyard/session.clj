@@ -45,6 +45,7 @@
             [brainyard.share-tools :as share-tools]
             [brainyard.persist :as persist]
             [brainyard.proposals :as proposals]
+            [brainyard.project-loops :as project-loops]
             [brainyard.tool-distill :as tool-distill]
             [brainyard.toolbox :as toolbox]
             [brainyard.schema :as schema]
@@ -1447,7 +1448,9 @@
                          (claude-usage/limit-lines u)))))
 
 (defn doctor-report
-  "`/doctor`: the tools and the project (`init$check`), what is installed —
+  "`/doctor`: the tools and the project (`init$check`), the project's own
+  loops — one made from an older bundled loop named so (RFC-071) — what is
+  installed —
   the byj that runs by name, and every other copy on PATH,
   shadowed, with how it is updated or removed (byj-gly.181.13) — then Claude
   Code's sign-in — the account, when its refresh token runs out, which is
@@ -1465,6 +1468,7 @@
         {:keys [email organization plan refresh-expires-at]} (:account u)
         days (when refresh-expires-at (quot (- refresh-expires-at (System/currentTimeMillis)) 86400000))]
     (str (:text checked)
+         (some->> (project-loops/report-text (:project-dir (:config ctx))) (str "\n\n"))
          "\n\nInstalled" (when checkout (str " (this run is from the checkout " checkout ")")) ":\n"
          (str/join "\n" (map :text installed))
          "\n\nClaude Code:\n"
@@ -3321,7 +3325,7 @@
                                       " — its URL follows when the relay answers"))))))
     ;; however the tree ends — /quit, end of input, max turns, a throw — the
     ;; session has closed (byj-gly.334)
-    (try (agent/run-tree! ctx (or tree (agent/load-tree session-loop)))
+    (try (agent/run-tree! ctx (or tree (agent/load-tree session-loop (:project-dir (:config ctx)))))
          (finally (fire-session! ctx :agent.session/closed)))
     @st-memory))
 
@@ -3329,15 +3333,16 @@
   "The session loop, each turn running `turn-tree` — a tree resource or file —
   where it would run the bundled ReAct loop: what an agent spec's own `:loop`
   (RFC-022) is to a session started as that agent (RFC-031), as it is to a
-  subagent of it."
-  [turn-tree]
+  subagent of it. Both are found for `project-dir`, the project's own loop
+  first (RFC-071)."
+  [turn-tree & [project-dir]]
   (bt/expand (walk/postwalk (fn [x]
                               (if (and (vector? x) (= :include (first x))
                                        (= agent/react-loop (:tree (second x))))
                                 (assoc-in x [1 :tree] turn-tree)
                                 x))
-                            (agent/resolve-tree session-loop))
-             agent/resolve-tree))
+                            (agent/resolve-tree session-loop project-dir))
+             #(agent/resolve-tree % project-dir)))
 
 (defn with-persona
   "The base — `session/run`'s argument map, `:config`, `:lm` and `:tree` among
@@ -3352,7 +3357,7 @@
     (when-let [a (first (filter #(= name (:name %)) agents))]
       (cond-> (update base :config #(agents/persona-config a %))
         (and (:lm a) (not (:lm-flagged? base))) (assoc :lm (agents/child-lm a base nil))
-        (and (agents/loop-path a) (not loop)) (assoc :tree (tree-with-turn-loop (agents/loop-path a)))))))
+        (and (agents/loop-path a) (not loop)) (assoc :tree (tree-with-turn-loop (agents/loop-path a) (get-in base [:config :project-dir])))))))
 
 (defn cancel-turn!
   "Cancel the running turn, if any, through the cancellers atom given to

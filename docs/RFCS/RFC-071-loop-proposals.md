@@ -1,6 +1,6 @@
 # RFC-071 — Loop proposals: a better loop, proven and then accepted
 
-**Status:** designed 2026-11-13, not built. Epic `byj-ng7`.
+**Status:** designed 2026-11-13; a project's own loop built (`byj-ng7.1`), the rest not. Epic `byj-ng7`.
 
 ## Purpose
 
@@ -131,6 +131,31 @@ Accepting writes `<project>/.brainyard/loops/<name>.edn` with
 resource path alike, since `session.edn` includes the turn's loop as
 `brainyard/loops/react.edn` — and falls back to the bundled loop.
 
+How it is built (`byj-ng7.1`, `brainyard.project-loops`):
+
+- **Found.** `agent/resolve-tree` and `load-tree` take the run's
+  `:project-dir`, and every place a loop is named passes it: the session's
+  tree and its includes, a turn's, a persona's turn loop, an agent spec's
+  `:loop`, the SDK's, `flow check` and `flow$status` (RFC-002 says the
+  order). Finding a loop only reads. `--print-tree` prints, above the tree,
+  a `;;` line per loop in it saying where it was found — the project's file
+  with its `:based-on`, or bundled.
+- **`:based-on`** sits in the tree's root opts, so the file is a tree like
+  any other — `flow check`, `--loop` and `:include` take it as it is.
+  `:hash` is `flow/tree-hash` of the bundled loop: the first 12 hex of the
+  SHA-256 of the tree **as read and printed** (`pr-str`), not of the
+  resource's bytes, so a comment or a re-indent of the bundled file is not a
+  new base; it is the hash `flow$status` shows. `:byj` is
+  `version/version` (RFC-029).
+- **Written** only by `project-loops/write-loop!`, which an accept and a
+  revert call (`byj-ng7.2`) and nothing a tool reaches. A tree is written
+  with its `:based-on` — the one given, else the one the tree carries, else
+  the bundled loop's now — and nil removes the file, the bundled loop in
+  force again. Each call appends one line to `history.edn`:
+  `{:at :action :loop :hash :replaced :based-on :proposal}` — `:action`
+  `:accept` or `:revert`, `:hash` of the tree written (nil: removed),
+  `:replaced` of the file it replaced (nil: the bundled loop was in force).
+
 **An accepted loop is in force from the next session.** Other proposals
 apply from the next turn, but a session expands its tree, includes and all,
 when it starts; replacing the procedure in the middle of a conversation is a
@@ -146,7 +171,10 @@ loop, from the history — which a person accepts like any other.
 When byj is upgraded and the bundled loop no longer has the `:based-on`
 hash, `byj doctor` says the project's loop was made from an older one and
 offers to evaluate it again against the new bundled loop: an override that
-no longer beats it is proposed for removal.
+no longer beats it is proposed for removal. (Built: doctor's `Loops:`
+section, `project-loops/report-text`, names every loop the project holds,
+and one whose base is not the bundled loop's hash — or that records none —
+as to be evaluated again. Proposing the removal waits for `byj-ng7.5`.)
 
 ### Where a better loop comes from
 
@@ -192,15 +220,16 @@ Files: `<project>/.brainyard/loops/<name>.edn` (`:based-on`),
 | A loop proposal carries no config key of the permissions family, and the gates run in `tools/call-tool` (`:agent.tool-use/pre`) whatever the tree, so no candidate weakens them | nothing yet — `byj-ng7.2` |
 | No tool reaches a loop's accept; only a person, at `/proposals` or the CLI | nothing yet — `byj-ng7.2` |
 | An accepted loop is in force from the next session, and every accept and revert is a history line | nothing yet — `byj-ng7.2` |
-| A project's loop is found before the bundled one, for a bare name and the bundled resource path alike | nothing yet — `byj-ng7.1` |
+| A project's loop is found before the bundled one, for a bare name and the bundled resource path alike | `agent-test/a-project-loop-is-found-before-the-bundled-one` |
+| A project loop is written with its `:based-on`, a history line per write and none per read; doctor names one whose base is not the bundled loop | `agent-test/a-project-loop-is-written-with-its-base-and-a-history-line-per-change`, `agent-test/doctor-names-a-project-loop-whose-base-is-not-the-bundled-loop` |
 | The clone differs from the agent only in its loop, and leaves nothing in the project's sessions or refs | nothing yet — `byj-ng7.4` |
 | A candidate is staged only past the margin on the primary metric, or non-inferior and cheaper, with no guard regressed | nothing yet — `byj-ng7.5` |
 
 ## Known gaps
 
-All of it: this RFC is a design. The order of work is the epic's:
+All of it but a project's own loop: the rest is a design. The order of
+work is the epic's:
 
-- A project's own loop, with what it was based on — `byj-ng7.1`.
 - `loop/` proposals — `byj-ng7.2`.
 - Tasks rebuilt from past turns — `byj-ng7.3`.
 - The clone run and the comparison — `byj-ng7.4`.

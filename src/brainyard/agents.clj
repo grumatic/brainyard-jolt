@@ -605,7 +605,7 @@
      ;; needed. A relative :loop is resolved beside agent.edn, and a
      ;; `predictors/` directory there is searched first.
      :tree (when-let [t (loop-path agent)]
-             ((requiring-resolve 'brainyard.agent/load-tree) t))
+             ((requiring-resolve 'brainyard.agent/load-tree) t (:project-dir config)))
      ;; the gate that binds the parent binds the child (RFC-012)
      :permission-fn (:permission-fn ctx)
      :permission-mode-box (:permission-mode-box ctx)

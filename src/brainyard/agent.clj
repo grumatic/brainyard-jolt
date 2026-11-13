@@ -43,6 +43,7 @@
             [brainyard.programs :as programs]
             [brainyard.todo :as todo]
             [brainyard.proposals :as proposals]
+            [brainyard.project-loops :as project-loops]
             [brainyard.channel :as channel]
             [brainyard.claude-agent :as claude-agent]
             [brainyard.codex-agent :as codex-agent]
@@ -1063,29 +1064,72 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
 
 ;; --- entry point -------------------------------------------------------------
 
+(defn tree-source
+  "Where `resolve-tree` finds the loop `name`, or nil when it is nowhere:
+  `{:from :path}`, `:from` being
+
+    :project   the project's own `<project-dir>/.brainyard/loops/<name>.edn`,
+               with its `:based-on` — looked for first, for a bare name
+               (`react`) and for the bundled resource path
+               (`brainyard/loops/react.edn`) alike, so an override of `react`
+               reaches the session tree's `:include` too (RFC-071, byj-ng7.1)
+    :bundled   byj's own `brainyard/loops/<name>.edn`
+    :resource  another classpath resource
+    :file      a file
+
+  A bare name — no `/`, no `.` — is a loop's name, as a person names a loop
+  and as `flow$status` was asked for one and said it was not found
+  (byj-gly.374). No project dir: no project loop."
+  [name project-dir]
+  (let [bundled (when (re-matches #"[\w-]+" (str name)) (project-loops/bundled-resource name))]
+    (if-let [f (project-loops/project-loop-file project-dir name)]
+      {:from :project :path (.getPath f)
+       :based-on (try (project-loops/tree-based-on (edn/read-string (slurp f))) (catch Throwable _ nil))}
+      (cond
+        (some-> bundled io/resource) {:from :bundled :path bundled}
+        (io/resource (str name)) {:from (if (project-loops/loop-name name) :bundled :resource) :path (str name)}
+        (.isFile (io/file (str name))) {:from :file :path (str name)}))))
+
 (defn resolve-tree
-  "Tree data for a name: a classpath resource if one exists, else a file. A
-  bare name — no `/`, no `.` — is a bundled loop's, `react` being
-  `brainyard/loops/react.edn`: as a person names a loop, and as `flow$status`
-  was asked for one and said it was not found (byj-gly.374)."
-  [name]
-  (let [bundled (when (re-matches #"[\w-]+" (str name)) (str "brainyard/loops/" name ".edn"))]
-    (edn/read-string (if-let [r (or (some-> bundled io/resource) (io/resource name))]
-                       (slurp r)
-                       (if (.isFile (io/file name))
-                         (slurp name)
-                         (throw (ex-info (str "loop tree not found: " name
-                                              " — name a bundled loop (react, for brainyard/loops/react.edn),"
-                                              " a resource path, or a file")
-                                         {:tree name})))))))
+  "Tree data for a name, found where `tree-source` says: the project's own loop
+  of that name first, then the bundled loop, a classpath resource, a file.
+  Only reads — finding a loop never writes one, nor a history line (RFC-071)."
+  ([name] (resolve-tree name nil))
+  ([name project-dir]
+   (if-let [{:keys [from path]} (tree-source name project-dir)]
+     (edn/read-string (slurp (if (#{:bundled :resource} from) (io/resource path) path)))
+     (throw (ex-info (str "loop tree not found: " name
+                          " — name a bundled loop (react, for brainyard/loops/react.edn),"
+                          " a resource path, or a file")
+                     {:tree name})))))
 
 (def react-loop "brainyard/loops/react.edn")
 
 (defn load-tree
-  "A loop tree by resource name or file path (default the bundled ReAct loop),
-  with its :include nodes expanded."
-  [name]
-  (bt/expand (resolve-tree (or name react-loop)) resolve-tree))
+  "A loop tree by name, resource or file path (default the ReAct loop), with
+  its :include nodes expanded — the tree and every include found by
+  `resolve-tree` for `project-dir`, so a project's own loop is in force
+  wherever it is named."
+  ([name] (load-tree name nil))
+  ([name project-dir]
+   (let [resolve #(resolve-tree % project-dir)]
+     (bt/expand (resolve (or name react-loop)) resolve))))
+
+(defn tree-sources
+  "Every loop the tree `name` is made of, each with where it was found
+  (`tree-source`, plus `:name`): the tree's own first, then each `:include`,
+  depth first, once each. What `--print-tree` says of a tree."
+  [name project-dir]
+  (letfn [(includes [tree]
+            (keep #(when (and (vector? %) (= :include (first %))) (:tree (second %)))
+                  (tree-seq vector? seq tree)))
+          (walk [n seen]
+            (if (seen n)
+              []
+              (into [(assoc (tree-source n project-dir) :name n)]
+                    (mapcat #(walk % (conj seen n)))
+                    (includes (resolve-tree n project-dir)))))]
+    (vec (distinct (walk (or name react-loop) #{})))))
 
 (defn session-context
   "brainyard's session-context zone: system information, the bound tools,
@@ -1517,7 +1561,7 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                           history-context (assoc :history-context history-context)
                           (seq parent-trail) (assoc :parent-trail (vec parent-trail))))
         ctx (assoc (make-ctx opts) :st-memory st-memory)
-        tree (or tree (load-tree nil))]
+        tree (or tree (load-tree nil (:project-dir (:config ctx))))]
     (when-let [problem (bt/validate tree (:registry ctx))]
       (throw (ex-info (str "invalid loop tree: " problem) {})))
     (m/sp

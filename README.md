@@ -131,7 +131,9 @@ session/init → repeat(until /quit or EOF)
 
 - **`:include`** splices another tree in by resource name or file path
   before the tree runs, and detects include cycles. `--print-tree` shows the
-  fully expanded result.
+  fully expanded result, and where each loop in it was found: a project's
+  own `.brainyard/loops/<name>.edn` is found before the bundled loop of
+  that name (RFC-071).
 - **`:scope`** runs its child against a fresh `st-memory`, so the inner
   loop's keys (`:answer`, `:terminated`, …) never collide with the outer
   loop's. Data crosses only through the scope's `:in` and `:out` maps.

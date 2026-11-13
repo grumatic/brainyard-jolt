@@ -442,6 +442,22 @@
         (is (str/includes? err (str "byj " (first (remove #(str/starts-with? % "-") args)))) "with the command's help")
         (is (str/blank? out) "and nothing of the command's own")))))
 
+(deftest print-tree-says-where-each-loop-was-found
+  ;; RFC-071, byj-ng7.1: the project's own loop is found before the bundled
+  ;; one, and --print-tree says which, as EDN comments so it still reads
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-print-tree-" (System/nanoTime))) .mkdirs))
+        f (io/file dir ".brainyard" "loops" "react.edn")
+        print-tree #(:out (run-main "-C" dir "--print-tree" "--loop" %))]
+    (let [out (print-tree "session")]
+      (is (str/starts-with? out ";; session — bundled, brainyard/loops/session.edn\n;; brainyard/loops/react.edn — bundled, brainyard/loops/react.edn\n"))
+      (is (vector? (edn/read-string out)) "the rest is the tree"))
+    (io/make-parents f)
+    (spit f (pr-str [:action {:id :mine :fn :react/terminated? :based-on {:loop "react" :hash "abcdef012345" :byj "v9"}}]))
+    (let [out (print-tree "session")]
+      (is (str/includes? out (str ";; brainyard/loops/react.edn — the project's " (.getPath f)
+                                  ", based on the bundled react abcdef012345 (byj v9)\n")))
+      (is (str/includes? out ":id :mine") "and the tree it prints is the one that runs"))))
+
 (deftest a-measurement-that-cannot-be-had-is-said-in-a-line
   ;; byj-gly.440: a model or a dataset programs eval cannot have was an
   ;; unhandled exception and its trace. On the mock provider, outside this
