@@ -42,13 +42,19 @@
 
 (defn- calls [record] (mapcat :tools (:iterations record)))
 
-(defn- failed? [c]
+(defn- failed?
+  "A call the record marks failed (`:error?`, RFC-025), or whose result reads
+  as one: an error map, or a command's non-zero exit."
+  [c]
   (let [s (str (:result c))]
-    (boolean (or (str/starts-with? s "{:error") (re-find #":exit-code [1-9]" s)))))
+    (boolean (or (:error? c) (str/starts-with? s "{:error") (re-find #":exit-code [1-9]" s)))))
 
-(defn- refused? [c]
-  (let [s (str (:result c))]
-    (boolean (and (str/starts-with? s "{:error") (str/includes? s "refused")))))
+(defn- refused?
+  "A failed call whose result says it was refused — a gate's block included,
+  which prints as `{:hook-blocked …}`. Only a failed one: a read of a file
+  that mentions refusals is not (byj-ng7.17)."
+  [c]
+  (and (failed? c) (str/includes? (str (:result c)) "refused")))
 
 (defn turn-metrics
   "What one turn record says of the guards: `{:cost :tokens :iterations

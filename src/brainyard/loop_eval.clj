@@ -109,22 +109,55 @@
 (defn- call-results [trajectory]
   (for [it trajectory r (:tool-results it)] r))
 
-(defn- refused? [r]
-  (boolean (re-find #"refused" (str (or (:error r) (:tool-result r) (:error-message r))))))
-
 (defn- errored? [r]
   (boolean (or (:tool-error? r) (:error r) (:error-message r))))
 
+(defn- refused?
+  "A failed call whose result says it was refused. Only a FAILED one: a
+  result is text, and a call that read a file mentioning refusals — this
+  repository's CHANGELOG — is not one (byj-ng7.17)."
+  [r]
+  (and (errored? r)
+       (boolean (re-find #"refused" (str (or (:error r) (:error-message r) (:tool-result r)))))))
+
+(def noted-calls
+  "How many of a run's failed calls its row names, and how much of each."
+  {:max 5 :chars 200})
+
+(defn- call-line
+  "What a failed call said, on one line: the message of an error map a result
+  prints as (`:error-message`, `:error`, a gate's `:reason`), else the
+  result's first line, cut to `(:chars noted-calls)`."
+  [r]
+  (let [s (str (or (:error-message r) (:error r) (:tool-result r)))
+        m (when (str/starts-with? (str/triml s) "{")
+            (try (let [v (edn/read-string s)] (when (map? v) v)) (catch Throwable _ nil)))
+        line (str/trim (first (str/split-lines (str (or (:error-message m) (:error m) (:reason m) s)))))
+        n (:chars noted-calls)]
+    (if (> (count line) n) (str (subs line 0 n) "…") line)))
+
+(defn failed-calls
+  "A run's failed calls, named: `[{:tool :line :refused?}…]`, the first
+  `(:max noted-calls)`, from the trajectory `agent/ask` returns (`ask
+  --json`'s, for a child)."
+  [trajectory]
+  (vec (for [r (take (:max noted-calls) (filter errored? (call-results trajectory)))]
+         (cond-> {:tool (str (:tool-name r)) :line (call-line r)}
+           (refused? r) (assoc :refused? true)))))
+
 (defn run-metrics
   "What one run of a turn cost and did, from what `agent/ask` returns:
-  `{:cost :tokens :iterations :tool-errors :refusals}`."
+  `{:cost :tokens :iterations :tool-errors :refusals}`, and `:failed-calls`
+  when any failed."
   [{:keys [usage iterations trajectory]}]
-  (let [rs (call-results trajectory)]
-    {:cost (double (or (:cost usage) 0.0))
-     :tokens (+ (or (:input-tokens usage) 0) (or (:output-tokens usage) 0))
-     :iterations (or iterations 0)
-     :tool-errors (count (filter errored? rs))
-     :refusals (count (filter refused? rs))}))
+  (let [rs (call-results trajectory)
+        fc (failed-calls trajectory)]
+    (cond-> {:cost (double (or (:cost usage) 0.0))
+             :tokens (+ (or (:input-tokens usage) 0) (or (:output-tokens usage) 0))
+             :iterations (or iterations 0)
+             :tool-errors (count (filter errored? rs))
+             :refusals (count (filter refused? rs))}
+      (seq fc) (assoc :failed-calls fc))))
 
 (defn default-run-turn
   "The agent's own turn, on the clone: `agent/ask` with the arm's tree."
@@ -445,6 +478,21 @@
                                                        :check-opts (:check-opts opts)}))]
                 (if (:error s) (assoc r :error (:error s)) (assoc r :staged s))))))))))
 
+(defn failed-call-lines
+  "The report's failed calls, alike ones together, each with how many times
+  it failed in each arm — so the report says why `:tool-errors` or
+  `:refusals` moved — the most frequent eight, then how many more."
+  [runs]
+  (let [by (group-by (juxt :tool :line :refused?) (for [r runs c (:failed-calls r)] (assoc c :arm (:arm r))))
+        rows (sort-by (fn [[_ cs]] (- (count cs))) by)
+        shown 8]
+    (concat
+     (for [[[tool line refused?] cs] (take shown rows)
+           :let [f (frequencies (map :arm cs))]]
+       (str "  " tool (when refused? " (refused)") ": " line
+            " — base " (f :base 0) ", candidate " (f :candidate 0)))
+     (when (> (count rows) shown) [(str "  …and " (- (count rows) shown) " more in the report's :runs")]))))
+
 (defn summary-lines
   "What `byj loops eval` prints of a report."
   [{:keys [file report]}]
@@ -476,6 +524,8 @@
                     ""))])
      (for [{:keys [metric base candidate bound]} guards]
        (format "guard %s: candidate %.2f against base %.2f, bound %.2f" (name metric) candidate base bound))
+     (when-let [ls (seq (failed-call-lines (:runs report)))]
+       (cons "failed calls (alike ones together):" ls))
      (when arms
        [(str "base means " (pr-str (:means (:base arms))))
         (str "candidate means " (pr-str (:means (:candidate arms))))])

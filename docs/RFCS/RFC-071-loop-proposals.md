@@ -258,7 +258,16 @@ Both arms run the same tasks `N` times. Then:
   candidate's mean per run, `max(base × ratio, base + slack)`
   (`loop-eval/default-guards`: cost and tokens ×1.5; iterations ×1.5 or +1;
   wall time ×2 or +1 s; tool errors and refusals ×1.5 or +1 — an ask is a
-  refusal here, headless).
+  refusal here, headless). A refusal is a call that failed and says it was
+  refused; a call that succeeded and returned the word, like a read of a
+  file that mentions refusals, is not one.
+
+Each run's row names the calls that failed, not only how many: the tool and
+the first line of what it said (an error map's message, or a gate's reason),
+whether it was a refusal, the first 5 a run made, each cut at 200
+characters (`loop-eval/failed-calls`, `noted-calls`). `byj loops eval`
+prints them with alike calls together and how many times each failed in each
+arm, so a moved guard says why (`byj-ng7.17`).
 
 The report records the task set's hash, the base loop's hash, byj's version,
 the model and the repeats, so that anyone can run it again and get the same
@@ -405,7 +414,7 @@ seatbelt.
   `:cheaper`: checks passed 0.833 in both arms (paired diff 0, every task the
   same in both), cost per run $0.0072 → $0.0057 (−20 %), tokens 107 k → 81 k,
   iterations 3.08 → 2.0, wall time 25 s → 18 s, tool errors 0.08 → 0,
-  refusals 0.25 in both. $0.155 spent in all, 8 min 49 s.
+  refusals 0.25 in both, which were not refusals (below). $0.155 spent in all, 8 min 49 s.
 - **What it found.**
   - The CHANGELOG case failed in every run of both arms: its wording,
     "a line reading exactly: checked — as the last line", was read with the
@@ -415,9 +424,14 @@ seatbelt.
   - `--keep` kept each clone, then removed the directory holding them;
     fixed, and the report says where it kept them (`:kept`,
     `loop-eval-test/keep-keeps-the-clones-and-says-where`).
-  - One refusal in every run of that task, in both arms, and nothing could
-    say what was refused: the rows keep counts, and a clone keeps no session
-    — `byj-ng7.17`.
+  - One refusal in every run of that task, in both arms, and in one run of
+    another, and nothing could say what was refused: the rows kept counts,
+    and a clone keeps no session. Each of those rows had no failed call at
+    all: the count matched "refused" in whatever a call returned, and the
+    task read CHANGELOG.md, which uses the word. Read again under the rule
+    that came of it (a refusal is a failed call), the run had none. Rows now
+    name their failed calls (`byj-ng7.17`); the clones are gone, so what
+    the one counted tool error was is not known.
   - `:cheaper` here says little of real work: on six one-step tasks a loop
     of two iterations is enough by construction. A set must resemble the
     project's turns for its verdict to mean anything about them, which this
@@ -523,7 +537,7 @@ Built: `(loop-watch/watch! config {:loop})` → `{:loop :change :before :after
 `(loop-eval/evaluate! config {:lm :candidate :loop :tasks :repeats
 :max-cost :aim :guards :run-turn :containment :work :check-opts :keep?})` → `{:file
 :report}` | `{:error}`; `run-one!`, `make-clone!`, `clone-config`,
-`run-metrics`, `process-run-turn`, `containment`, `child-config`,
+`run-metrics`, `failed-calls`, `noted-calls`, `failed-call-lines`, `process-run-turn`, `containment`, `child-config`,
 `child-argv`, `arm-summary`, `verdict`, `guard-regressions`, `wins?`,
 `default-guards`, `loop-of`, `summary-lines`; files
 `.brainyard/loops/evals/<loop>-<ms>.edn`.
@@ -558,6 +572,7 @@ Built: `(loop-watch/watch! config {:loop})` → `{:loop :change :before :after
 | A run can be a byj of its own: its argv puts the question after `-q`, its project config is the clone's containment, and its answer is read back past a banner; a child that prints none is the run's error | `loop-eval-test/a-run-can-be-a-byj-of-its-own` |
 | The clone differs from the agent only in its loop, and leaves nothing in the project's sessions or refs | `loop-eval-test/a-worse-candidate-loses-and-an-equal-one-ties`, `loop-eval-test/a-run-is-contained-in-its-clone` |
 | A worse candidate loses, an equal one ties and the loop in force is kept, a better one wins, per task and paired — and a lead too small to test is not a win | `loop-eval-test/a-worse-candidate-loses-and-an-equal-one-ties` |
+| A run's row names its failed calls, bounded, and counts as a refusal only a call that failed and says so — a read whose text mentions refusals is neither; `loop watch` reads the trajectory log by the same rule, a gate's block included | `loop-eval-test/a-runs-failed-calls-are-named-and-only-a-failed-one-is-a-refusal`, `loop-watch-test/a-refusal-is-a-failed-call-that-says-so` |
 | A guard regression rejects a candidate whatever its checks; `--aim cost` wins only not worse and cheaper | `loop-eval-test/a-guard-regression-rejects-whatever-the-checks-say` |
 | No run starts once the spend cap is reached, and an evaluation it stopped decides nothing | `loop-eval-test/the-spend-cap-stops-the-evaluation-and-decides-nothing` |
 | A candidate that does not check is not run; the report names the set, base, candidate, byj, model and repeats | `loop-eval-test/a-candidate-that-does-not-check-is-not-run`, `loop-eval-test/the-report-says-what-was-measured` |
@@ -574,9 +589,7 @@ Built: `(loop-watch/watch! config {:loop})` → `{:loop :change :before :after
 
 ## Known gaps
 
-What is not built waits on a person — money spent on live models, or
-evidence from more than one project — but the first:
+What is not built waits on evidence from more than one project:
 
-- A run's refused and failed calls are counted, not named — `byj-ng7.17`.
 - A loop proven in one project promoted to byj's bundled loops, on evidence
   across projects — `byj-ng7.7`.

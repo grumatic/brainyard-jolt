@@ -275,3 +275,31 @@
       (is (every? #(str/includes? (str (:error %)) "the child byj printed no answer (exit 3): no json here") (:runs report)))
       (is (every? #(= 0.0 (:score %)) (:runs report)))))
   (is (= :in-process (get-in (le/containment nil) [:sandbox :how])) "no byj to run: in process, and the report says so"))
+
+(deftest a-runs-failed-calls-are-named-and-only-a-failed-one-is-a-refusal
+  ;; byj-ng7.15's live run counted a refusal in every run of the task that
+  ;; read CHANGELOG.md, with no call failed: the word was in what it read
+  (let [blocked (pr-str {:hook-blocked true :reason "Tool call refused (loop): .brainyard/loops/react.edn is a project loop\nmore"})
+        trajectory [{:tool-results [{:tool-name "read-file" :tool-result "- a gate's ask is refused, headless"}
+                                    {:tool-name "write-file" :tool-result blocked :tool-error? true}]}
+                    {:tool-results [{:tool-name "bash" :tool-result (pr-str {:error-message "exit 2: no such file"}) :tool-error? true}]}]
+        m (le/run-metrics {:trajectory trajectory :iterations 2})]
+    (is (= {:tool-errors 2 :refusals 1} (select-keys m [:tool-errors :refusals])))
+    (is (= [{:tool "write-file" :line "Tool call refused (loop): .brainyard/loops/react.edn is a project loop" :refused? true}
+            {:tool "bash" :line "exit 2: no such file"}]
+           (:failed-calls m))
+        "the tool and its message's first line; a read that mentions refusals is neither")
+    (is (not (contains? (le/run-metrics {:trajectory [{:tool-results [(first (:tool-results (first trajectory)))]}]}) :failed-calls)) "none failed, none named")
+    (testing "bounded: a long turn names its first few, each cut short"
+      (let [many [{:tool-results (vec (repeat 9 {:tool-name "bash" :tool-result (apply str (repeat 500 "x")) :tool-error? true}))}]
+            fc (:failed-calls (le/run-metrics {:trajectory many}))]
+        (is (= (:max le/noted-calls) (count fc)))
+        (is (= (inc (:chars le/noted-calls)) (count (:line (first fc)))))))
+    (testing "the report's rows carry them, and the summary says them per arm"
+      (let [{:keys [config]} (fixture "failed-calls" 1)
+            {:keys [report]} (le/evaluate! config {:lm mock :candidate writes-done
+                                                   :run-turn (fn [_] {:iterations 2 :trajectory trajectory})})
+            out (str/join "\n" (le/summary-lines {:file "f" :report report}))]
+        (is (every? #(= 2 (count (:failed-calls %))) (:runs report)))
+        (is (str/includes? out "write-file (refused): Tool call refused (loop)"))
+        (is (str/includes? out "bash: exit 2: no such file — base 1, candidate 1"))))))

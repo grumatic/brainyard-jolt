@@ -6,6 +6,12 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A loop evaluation names its failed calls**: each run's row keeps the tool
+  and the first line of what each failed call said (the first five), and
+  `byj loops eval` prints them with alike ones together, per arm.
+- **A refusal is a call that failed and says so**, in `byj loops eval` and
+  `byj loops watch`: a read of a file that mentions refusals was counted as
+  one, and `loops watch` missed a gate's block.
 - **`byj loops eval --keep` keeps the clones**: it kept each, then removed
   the directory that held them. The report says where they are.
 - **`byj loops watch`** compares the turns run since a project's loop last

@@ -74,3 +74,12 @@
       (is (= 6 (:after w)))
       (is (nil? (:staged w)))
       (is (empty? (lp/pending c))))))
+
+(deftest a-refusal-is-a-failed-call-that-says-so
+  ;; a gate's block prints as {:hook-blocked …}, and a read of a file that
+  ;; mentions refusals did not fail (byj-ng7.17)
+  (let [m (watch/turn-metrics {:terminated-by :answer-channel
+                               :iterations [{:tools [{:name "write-file" :error? true
+                                                      :result "{:hook-blocked true, :reason \"Tool call refused (loop): …\"}"}
+                                                     {:name "read-file" :result "a gate's ask is refused, headless"}]}]})]
+    (is (= {:tool-errors 1 :refusals 1} (select-keys m [:tool-errors :refusals])))))
