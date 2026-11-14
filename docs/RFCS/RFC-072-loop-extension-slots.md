@@ -516,12 +516,43 @@ measure nothing finer than that.
   - One extensions run cost $3.10: its model delegated two beads to
     `agent$claude`, Claude Code sessions on the person's default model, not
     the plan's. Without it the arm's mean is $0.14.
-  - Untested: the same plans with the rule written into AGENTS.md and the
-    conservative default off (`byj-93l`).
 
-What an attachment can add is what the model does not do on its own. On
-the first runs that looked like the state the work was left in; on more
-runs, what decided it was what the project's instructions said.
+- **The rules written into AGENTS.md** (`rules-written.edn` against
+  `rules-written-baseline.edn`, 5 runs each): the project starts with an
+  AGENTS.md that states the rules and opts in to the Beads block's
+  Team-maintainer profile, and Claude Code delegations run on haiku. No run
+  cited the conservative default.
+
+  | rule (20 stages each) | baseline | with extensions |
+  |---|---|---|
+  | work tree committed | 5/20 | 17/20 |
+  | bead closed | 18/20 | 20/20 |
+  | CHANGELOG line | 19/20 | 20/20 |
+  | errors JSON, no framework | 20/20, 20/20 | 20/20, 20/20 |
+  | cost, time (mean of 5) | $0.093, 577 s | $0.119, 846 s |
+
+  - With the rules where it reads them, the model kept them: every
+    baseline run committed each bead's work under its id and closed the
+    bead, but one, which left the last stage uncommitted and its bead open.
+  - What `rule-committed` counted against the baseline was mostly
+    `node_modules/`: no baseline run put it in `.gitignore`, so from the
+    terminal stage on the work tree was never clean. Every extensions run
+    did, in its terminal commit; `work` refused for it in two runs (3
+    refusals), and in the other three the model added it with no refusal
+    that stage. Why those three did is not established.
+  - `work` refused once per run at `/init`, whose turn leaves its files
+    uncommitted; the model then committed them.
+  - The plans' `agents-md` check failed in both arms: with an AGENTS.md
+    already holding a project section, `/init` drafts no
+    `BRAINYARD:project` block.
+
+What an attachment can add is what the model does not do on its own. Here
+that was not the rules the person wrote down, which the model kept, nor
+rules the project's instructions contradicted, which no refusal overturned;
+it was the end state of the work tree checked mechanically every turn,
+catching what the model overlooked (installed dependencies left untracked)
+and the run in five that slipped, for about a quarter more cost and half
+again the time.
 
 ## API
 
