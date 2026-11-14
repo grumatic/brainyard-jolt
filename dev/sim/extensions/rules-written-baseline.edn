@@ -1,0 +1,78 @@
+;; rules-baseline.edn with the rules written where the model reads them first
+;; (RFC-072, byj-93l). Run five times each, rules*.edn split by run and not by
+;; arm: every run cited the project's AGENTS.md, whose Beads block (bd setup)
+;; keeps a conservative default of no commits unless asked, and the person's
+;; rules were said only in the init conversation. Here the project starts with
+;; an AGENTS.md (project/AGENTS.md) that states the rules and opts in to the
+;; block's Team-maintainer profile; /init and bd setup add their blocks to it.
+;; A delegation to Claude Code runs on haiku (:claude-model), as the plan's
+;; own calls do: one rules.edn run delegated on the person's default model.
+;; Nothing attached; rules-written.edn is the same with the attachments.
+;;
+;;   jolt sim:byj dev/sim/extensions/rules-written-baseline.edn --keep-going   # ×N
+;;   jolt sim:byj dev/sim/extensions/rules-written.edn --keep-going            # ×N
+;;   jolt -A:dev -m brainyard.dev.sim-tally ~/Projects/byj-sim/rules-written-*
+{:id "rules-written-baseline"
+ :projects-dir "~/Projects/byj-sim"
+ :provider "claude-code" :model "haiku"
+ :permission-mode :auto
+ :timeout-s 1800
+ :cap-usd 5.0
+ :notice-markers ["DECISION 0001" "ANSWER REFUSED: WORK" "ANSWER REFUSED: CHANGELOG"]
+ :project-config {:claude-model "haiku"}
+ :project-files {"AGENTS.md" "project/AGENTS.md"
+                 "CHANGELOG.md" "project/CHANGELOG.md"
+                 "docs/decisions/0001-no-framework.md" "project/decisions/0001-no-framework.md"
+                 "docs/decisions/0002-errors-are-json.md" "project/decisions/0002-errors-are-json.md"}
+ :answers [{:match "pkill" :answer "n"}
+           {:match "node --check" :answer "y"}
+           {:match "npm test" :answer "y"}
+           {:match "npm install" :answer "y"}
+           {:match "WORK (git and bd" :answer "y"}
+           {:match "CHANGELOG (checked" :answer "y"}
+           {:match "docs/decisions" :answer "y"}
+           {:match "DECISION 0001" :answer "y"}]
+ :default-answer "n"
+ :stages
+ [{:id :init
+   :lines ["/init"
+           "This project is a mini-playground: a small web workspace with a Terminal section first. Stack: Node 20+, a plain node:http server with ws and node-pty, tests with node --test. Conventions: npm start runs the server on the port in PORT (default 3000), npm test runs the tests. File each of these as a bead at priority 1, in order, each depending on the one before: (1) server shell: a page with a sidebar of sections Terminal, Files, Editor and Chat, GET /api/health answering {\"ok\":true}, and 404 for unknown paths; (2) a terminal over a WebSocket at /term spawning $SHELL in the project dir, with JSON frames {\"t\":\"i\",\"d\":text} from the client and {\"t\":\"o\",\"d\":text} from the server, the shell killed when the socket closes; (3) GET /api/health answers {\"ok\":true,\"uptime\":n,\"version\":s}: the server's uptime in whole seconds and the version in package.json; (4) a file tree and a text editor: GET /api/files?path= lists a directory, GET /api/file?path= answers a file's text and PUT /api/file?path= writes the request body, the file's text as it is, and any path outside the project dir is answered 400. Project rules: decisions are recorded in docs/decisions/ and the work keeps to them; every change someone using the workspace could notice adds a line under ## Unreleased in CHANGELOG.md, in the same commit; work on a bead ends committed, with the bead closed. Don't start building yet."]
+   :checks [{:type :file :name "agents-md" :path "AGENTS.md" :contains "BRAINYARD:project"}
+            {:type :command :name "four-beads" :run "test $(bd list 2>/dev/null | grep -c '^○') -ge 4"}]}
+  {:id :server
+   :lines ["build the server shell"]
+   :checks [{:type :command :name "health" :run "node {{plan}}/../playground/checks/checks.cjs health" :timeout-s 60}
+            {:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "rule-committed" :run "test -z \"$(git status --porcelain -- . ':!.beads' ':!.brainyard' ':!.claude')\""}
+            {:type :command :name "rule-beads-closed" :run "test $(bd list --status closed --json 2>/dev/null | node -e 'let n=0;for(const b of JSON.parse(String(require(\"fs\").readFileSync(0))||\"[]\"))if(b.priority===1)n++;console.log(n)') -ge 1"}
+            {:type :command :name "rule-changelog" :run "test $(sed -n '/^## Unreleased/,/^## [^U]/p' CHANGELOG.md | grep -c '^- ') -ge 1"}
+            {:type :command :name "rule-errors-json" :run "node {{plan}}/../playground/checks/checks.cjs errors" :timeout-s 60}
+            {:type :command :name "rule-no-framework" :run "node -e 'const p=require(\"./package.json\");const x=Object.keys({...p.dependencies,...p.devDependencies}).filter(d=>![\"ws\",\"node-pty\"].includes(d));if(x.length){console.log(x.join(\",\"));process.exit(1)}'"}]}
+  {:id :term
+   :lines ["now the terminal"]
+   :checks [{:type :command :name "term" :run "node {{plan}}/../playground/checks/checks.cjs term" :timeout-s 60}
+            {:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "rule-committed" :run "test -z \"$(git status --porcelain -- . ':!.beads' ':!.brainyard' ':!.claude')\""}
+            {:type :command :name "rule-beads-closed" :run "test $(bd list --status closed --json 2>/dev/null | node -e 'let n=0;for(const b of JSON.parse(String(require(\"fs\").readFileSync(0))||\"[]\"))if(b.priority===1)n++;console.log(n)') -ge 2"}
+            {:type :command :name "rule-changelog" :run "test $(sed -n '/^## Unreleased/,/^## [^U]/p' CHANGELOG.md | grep -c '^- ') -ge 2"}
+            {:type :command :name "rule-errors-json" :run "node {{plan}}/../playground/checks/checks.cjs errors" :timeout-s 60}
+            {:type :command :name "rule-no-framework" :run "node -e 'const p=require(\"./package.json\");const x=Object.keys({...p.dependencies,...p.devDependencies}).filter(d=>![\"ws\",\"node-pty\"].includes(d));if(x.length){console.log(x.join(\",\"));process.exit(1)}'"}]}
+  {:id :health
+   :lines ["health needs to say more"]
+   :checks [{:type :command :name "health2" :run "node {{plan}}/../playground/checks/checks.cjs health2" :timeout-s 60}
+            {:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "rule-committed" :run "test -z \"$(git status --porcelain -- . ':!.beads' ':!.brainyard' ':!.claude')\""}
+            {:type :command :name "rule-beads-closed" :run "test $(bd list --status closed --json 2>/dev/null | node -e 'let n=0;for(const b of JSON.parse(String(require(\"fs\").readFileSync(0))||\"[]\"))if(b.priority===1)n++;console.log(n)') -ge 3"}
+            {:type :command :name "rule-changelog" :run "test $(sed -n '/^## Unreleased/,/^## [^U]/p' CHANGELOG.md | grep -c '^- ') -ge 3"}
+            {:type :command :name "rule-errors-json" :run "node {{plan}}/../playground/checks/checks.cjs errors" :timeout-s 60}
+            {:type :command :name "rule-no-framework" :run "node -e 'const p=require(\"./package.json\");const x=Object.keys({...p.dependencies,...p.devDependencies}).filter(d=>![\"ws\",\"node-pty\"].includes(d));if(x.length){console.log(x.join(\",\"));process.exit(1)}'"}]}
+  {:id :files
+   :lines ["the files api next"]
+   :checks [{:type :command :name "files" :run "node {{plan}}/../playground/checks/checks.cjs files" :timeout-s 60}
+            {:type :command :name "errors400" :run "node {{plan}}/../playground/checks/checks.cjs errors400" :timeout-s 60}
+            {:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "rule-committed" :run "test -z \"$(git status --porcelain -- . ':!.beads' ':!.brainyard' ':!.claude')\""}
+            {:type :command :name "rule-beads-closed" :run "test $(bd list --status closed --json 2>/dev/null | node -e 'let n=0;for(const b of JSON.parse(String(require(\"fs\").readFileSync(0))||\"[]\"))if(b.priority===1)n++;console.log(n)') -ge 4"}
+            {:type :command :name "rule-changelog" :run "test $(sed -n '/^## Unreleased/,/^## [^U]/p' CHANGELOG.md | grep -c '^- ') -ge 4"}
+            {:type :command :name "rule-errors-json" :run "node {{plan}}/../playground/checks/checks.cjs errors" :timeout-s 60}
+            {:type :command :name "rule-no-framework" :run "node -e 'const p=require(\"./package.json\");const x=Object.keys({...p.dependencies,...p.devDependencies}).filter(d=>![\"ws\",\"node-pty\"].includes(d));if(x.length){console.log(x.join(\",\"));process.exit(1)}'"}]}]}

@@ -474,6 +474,21 @@
     (is (some? ((requiring-resolve 'brainyard.predictor/load-predictor) "user/refine-question"
                 [(str (io/file dir ".brainyard" "predictors"))])))))
 
+(deftest the-written-rules-plans-are-the-rules-plans-with-the-rules-in-agents-md
+  ;; dev/sim/extensions/rules-written*.edn (byj-93l): rules*.edn's stages,
+  ;; the project starting with an AGENTS.md that states the rules and opts in
+  ;; to commits, and Claude Code delegations on the plan's model
+  (doseq [[a b] [["rules-written.edn" "rules.edn"] ["rules-written-baseline.edn" "rules-baseline.edn"]]
+          :let [w (sim/load-plan (str "dev/sim/extensions/" a))
+                r (sim/load-plan (str "dev/sim/extensions/" b))]]
+    (is (= (:stages w) (:stages r)) a)
+    (is (= (:attachments w) (:attachments r)) a)
+    (is (= {:claude-model "haiku"} (:project-config w)) a)
+    (is (= (assoc (:project-files r) "AGENTS.md" "project/AGENTS.md") (:project-files w)) a))
+  (let [agents (slurp "dev/sim/extensions/project/AGENTS.md")]
+    (is (str/includes? agents "opts in to the Team-maintainer profile"))
+    (is (str/includes? agents "commit its work, then close it"))))
+
 (deftest the-rules-plans-differ-only-in-what-is-attached-and-start-committed
   ;; dev/sim/extensions/rules*.edn (byj-93l): the same stages and rule
   ;; checks, the project's decision records and CHANGELOG.md committed before
