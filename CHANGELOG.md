@@ -19,6 +19,11 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   `.brainyard/loops/ext/`, which no tool writes. `byj loops watch` and
   `byj loops revert` treat an attach as they do any loop change, and
   `doctor` names an attachment whose slot has changed.
+- **A call a loop's tree made says so in the turn's record**: `:node`,
+  and `:slot` when a slot's attachment made it. `byj loops eval` and
+  `byj loops watch` count tool errors and refusals from the model's calls
+  only, so an attachment's check that fails on purpose is not a
+  regression.
 
 - **A command with `//` in it is no longer refused as naming a login or a
   key.** jq's `a // b` and Python's `7 // 2` were read as the root

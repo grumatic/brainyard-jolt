@@ -467,13 +467,18 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
         ;; answer and no calls, and a judge read an agent that did nothing
         ;; (byj-gly.322). The record only — `:iterations`, what a prompt
         ;; shows the model, is not this leaf's to grow — and the engine's
-        ;; (`bt/record-keys`), not the node's contract
+        ;; (`bt/record-keys`), not the node's contract. It says which node
+        ;; made it, and the slot it ran in: a tree's call is not the model's,
+        ;; and counted as one it made a simulation's calls rise and a lint
+        ;; after every write look like a model repeating itself (byj-8gc)
         (swap! st-memory update :trajectory-iterations
                (fn [its] (conj (vec its)
                                {:iteration (inc (count its)) :channel "tool"
-                                :tool-results [{:tool-name (:tool node) :tool-args args
-                                                :tool-result (result->str result)
-                                                :tool-error? (boolean failed)}]})))
+                                :tool-results [(cond-> {:tool-name (:tool node) :tool-args args
+                                                        :tool-result (result->str result)
+                                                        :tool-error? (boolean failed)
+                                                        :node (or (:id node) :tool/run)}
+                                                 (:attached-to ctx) (assoc :slot (:attached-to ctx)))]})))
         (if failed
           (do (emit! ctx :agent.tree/tool-failed {:node (:id node) :tool (:tool node) :error failed})
               (if (= :success (:on-error node)) :success :failure))

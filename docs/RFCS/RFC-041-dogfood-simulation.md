@@ -127,7 +127,12 @@ check).
   (`eval-bench/verify`'s `:command` and `:file`), and reads what the stage
   did from every trajectory record since it began, subagents' included
   (`stage-metrics`): turns, subagents, iterations, calls, failed calls (the
-  first few, as they read), cost, tokens.
+  first few, as they read), cost, tokens. Calls and failed calls are the
+  model's, and so are the calls a finding reads; the calls the loop's tree
+  made (`:tool/run`, an attachment's) are counted apart, `:tree-calls` and
+  by slot or node `:tree-calls-by` (`byj-8gc`, RFC-025). A run before that
+  counted both as the model's, so it can show more calls than one since on
+  the same work.
 - **A run can be on a loop of the person's choosing** (`--loop FILE`,
   `byj-ng7.18`), for RFC-071's promotion check: the loop in a file, which
   must be one `byj loops eval` would run and is named as it names it
@@ -545,6 +550,7 @@ exercises it.
 | The last run a run is compared with is one of the same plan, not of a plan whose id begins the same. A failed stage passed on re-check keeps its first attempt's turns, cost and time. | `sim-test/the-last-run-is-one-of-the-same-plan`, `sim-test/a-stopped-run-is-continued` |
 | What a stage's command leaves running is recorded when its turns end and stopped by the session's end: nothing outlives the session. | `sim-test/what-a-stage-starts-does-not-outlive-its-session` |
 | A run stopped at a failed stage is continued: the passed stages kept, the failed one re-checked (passing without a turn when its checks pass now), the report marked continued; a directory with no run is refused. | `sim-test/a-stopped-run-is-continued` |
+| A call the loop's tree made is counted apart from the model's, and no finding reads it as the model's. | `sim-test/a-call-the-loops-tree-made-is-counted-apart-from-the-models` |
 | A plan's attachments are checked, attached before the first stage, and their notices counted per stage. | `sim-test/a-plans-attachments-are-checked-installed-and-their-notices-counted` |
 | A run on a chosen loop runs it: the loop made the project's own as an accept makes one, the report and its markdown naming the loop of every run. A loop byj would not run is refused before the project is made, and `--loop` with `--continue`. Two runs on different loops say so in their comparison, and a regression fails `compare`. | `sim-test/a-run-on-a-chosen-loop-runs-it-and-says-so`, `sim-test/a-loop-byj-would-not-run-is-refused-before-the-project-is-made`, `sim-test/two-runs-on-different-loops-say-so-and-a-regression-fails-the-comparison` |
 | A plan is played stage by stage. Each stage's checks decide its verdict, and `{{plan}}` reaches the plan's scripts. A permission prompt is answered by the plan and recorded. Each stage resumes the one session. A line past 1024 characters is taken. The report and each stage's screen are written and kept out of the project's git. A project that is not empty is refused. | `sim-test/a-plan-is-played-stage-by-stage-and-reported` |

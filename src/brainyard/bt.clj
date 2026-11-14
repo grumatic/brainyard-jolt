@@ -184,14 +184,18 @@
        (finally
          (swap! cancellers dissoc key))))))
 
-(defn- scope-task [ctx {:keys [in out cancellable on-cancel id]} child]
+(defn- scope-task [ctx {:keys [in out cancellable on-cancel id] :as opts} child]
   (m/sp
    (let [outer (:st-memory ctx)
          inner (atom (into {} (for [[ik ok] in
                                     :let [v (get @outer ok)]
                                     :when (some? v)]
                                 [ik v])))
-         child-task (tick-task (assoc ctx :st-memory inner :parent-memory outer) child)
+         ;; what runs in a slot knows which (`:attached-to`, RFC-072), so a
+         ;; call it makes is recorded as the slot's and not the model's
+         child-task (tick-task (cond-> (assoc ctx :st-memory inner :parent-memory outer)
+                                 (:attached-to opts) (assoc :attached-to (:attached-to opts)))
+                               child)
          cancellers (:cancellers ctx)]
      (try
        (if (and cancellable cancellers)
@@ -282,7 +286,8 @@
       [:sequence top]
       (let [top (assoc top :attached (mapv :name attached))
             body (into [:sequence {}] (map :tree) attached)
-            scope {:in (merge (or reads {}) slot-carried) :out (merge (or writes {}) slot-carried)}]
+            scope {:in (merge (or reads {}) slot-carried) :out (merge (or writes {}) slot-carried)
+                   :attached-to id}]
         (if (= :ignore on-failure)
           [:fallback top [:scope scope body] [:sequence {}]]
           [:scope (merge top scope) body])))))

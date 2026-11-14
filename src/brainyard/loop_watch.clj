@@ -40,7 +40,11 @@
       (dissoc :wall-ms)
       (assoc :unfinished {:ratio 1.5 :slack 0.1})))
 
-(defn- calls [record] (mapcat :tools (:iterations record)))
+(defn- calls
+  "The model's calls in `record`: a tree's own (`:tool/run`, an attachment's
+  lint) are not its errors or refusals (byj-8gc)."
+  [record]
+  (filter trajectory/model-call? (mapcat :tools (:iterations record))))
 
 (defn- failed?
   "A call the record marks failed (`:error?`, RFC-025), or whose result reads

@@ -261,7 +261,9 @@ Both arms run the same tasks `N` times. Then:
   candidate's mean per run, `max(base × ratio, base + slack)`
   (`loop-eval/default-guards`: cost and tokens ×1.5; iterations ×1.5 or +1;
   wall time ×2 or +1 s; tool errors and refusals ×1.5 or +1 — an ask is a
-  refusal here, headless). A refusal is a call that failed and says it was
+  refusal here, headless). Tool errors and refusals are the model's calls':
+  a call a tree made (`:tool/run`, an attachment's check failing on purpose)
+  is not one (`byj-8gc`, RFC-025). A refusal is a call that failed and says it was
   refused; a call that succeeded and returned the word, like a read of a
   file that mentions refusals, is not one.
 

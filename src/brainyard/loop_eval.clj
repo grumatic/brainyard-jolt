@@ -48,6 +48,7 @@
             [brainyard.loop-proposals :as loop-proposals]
             [brainyard.loop-tasks :as loop-tasks]
             [brainyard.project-loops :as project-loops]
+            [brainyard.trajectory :as trajectory]
             [brainyard.sandbox :as sandbox]
             [brainyard.sim :as sim]
             [brainyard.version :as version]))
@@ -106,8 +107,11 @@
 
 ;; --- one run ----------------------------------------------------------------------------
 
-(defn- call-results [trajectory]
-  (for [it trajectory r (:tool-results it)] r))
+(defn- call-results
+  "The model's calls in a run's trajectory: a tree's own (`:tool/run`, an
+  attachment's check) are not its errors or refusals (byj-8gc)."
+  [trajectory]
+  (for [it trajectory r (:tool-results it) :when (trajectory/model-call? r)] r))
 
 (defn- errored? [r]
   (boolean (or (:tool-error? r) (:error r) (:error-message r))))

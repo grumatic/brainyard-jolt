@@ -117,6 +117,14 @@ record was its answer alone, and the task score judged `/init` as an agent
 that did nothing (`byj-gly.322`). The record is the engine's own
 (`bt/record-keys`), not part of the node's contract.
 
+Such a call says it was the tree's: `:node`, the id of the node that made
+it, and `:slot`, the slot it ran in when an attachment made it (RFC-072).
+A model's call has neither, and `trajectory/model-call?` tells the two
+apart. A simulation's call count, its findings, and a loop evaluation's
+and watch's tool errors and refusals are the model's. A lint attached after
+every write is the loop working as made, not the model repeating itself
+(`byj-8gc`).
+
 ### The answer is always read through `record-answer`
 
 v3 keeps the answer in its terminal iteration; v2 kept it at the top. The file
@@ -217,6 +225,7 @@ hold, and neither does the default.
 | Turns append; position is the ordering. | `trajectory-test/a-second-turn-appends-rather-than-replacing` |
 | The record keeps every iteration, though the prompt is capped. | `trajectory-test/the-record-keeps-what-the-prompt-was-made-to-forget` |
 | A `:tool/run` leaf's call is in the record, failed or not, and not in the prompt's history; agent$init's record holds its commands. | `flow-test/a-leaf-can-be-a-tool`, `init-test/init-sets-up-a-project-and-reports-what-it-did` |
+| A tree's call says its `:node`, and its `:slot` when an attachment made it; a model's says neither. | `agent-test/a-call-the-loops-tree-made-says-so-in-the-record` |
 | An answer written after the loop still gets a terminal iteration, and it claims no reasoning. | `trajectory-test/a-turn-that-answered-outside-the-loop-still-has-an-answer-iteration` |
 | The answer reads the same from a v2 or a v3 record. | `trajectory-test/the-answer-is-read-the-same-way-whatever-wrote-the-record` |
 | **An ending nobody classified is not a success.** | `trajectory-test/a-record-says-how-the-turn-ended-and-whether-that-counts-as-success` |

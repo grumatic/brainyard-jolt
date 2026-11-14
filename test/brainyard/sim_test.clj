@@ -363,3 +363,14 @@
   (is (= {"LINT" 2 "ANSWER REFUSED" 1}
          (sim/notice-counts [{:iterations [{:notices "LINT: x"} {:notices "ANSWER REFUSED: y\n\nLINT: z"} {}]}]
                             ["LINT" "ANSWER REFUSED"]))))
+
+(deftest a-call-the-loops-tree-made-is-counted-apart-from-the-models
+  ;; byj-8gc: an attachment's lint after every write was 3x a repeated-call
+  ;; warn and a third of a stage's calls
+  (let [lint {:name "bash" :args {:command "lint"} :result "" :node :lint/run :slot :react/ext-after-tools}
+        records [{:iterations [{:tools [{:name "bash" :args {:command "npm test"} :result "ok"}]}
+                               {:tools [lint]} {:tools [lint]} {:tools [(assoc lint :result "{:exit-code 1}")]}]}]
+        m (sim/stage-metrics records)]
+    (is (= [1 3 {":react/ext-after-tools" 3} 0] ((juxt :calls :tree-calls :tree-calls-by :failed-calls) m)))
+    (is (not-any? #(= :repeated-call (:rule %))
+                  (sim/findings (sim/rules-for {}) {:stage {:prompts []} :records records :answer "a" :dir "." :t0 0 :plan {}})))))

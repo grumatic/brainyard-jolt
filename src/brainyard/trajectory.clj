@@ -68,8 +68,12 @@
       (= "answer" c) (assoc :answer (trunc answer max-answer-chars))
       (= "llm-error" c) (assoc :error (str error))
       (seq tool-results)
-      (assoc :tools (mapv (fn [{:keys [tool-name tool-args tool-result tool-error? spilled]}]
+      (assoc :tools (mapv (fn [{:keys [tool-name tool-args tool-result tool-error? spilled node slot]}]
                             (cond-> {:name (str tool-name)}
+                              ;; a tree's call (`:tool/run`): the node that
+                              ;; made it, and the slot it ran in (byj-8gc)
+                              node (assoc :node node)
+                              slot (assoc :slot slot)
                               (some? tool-args) (assoc :args tool-args)
                               (some? tool-result) (assoc :result (trunc tool-result max-field-chars))
                               ;; where the whole of a result the prompt cut went
@@ -79,6 +83,14 @@
                               ;; on every successful call is noise
                               tool-error? (assoc :error? true)))
                           tool-results)))))
+
+(defn model-call?
+  "Did the model make this call — a record's `:tools` entry, or a loop's
+  `:tool-results` one? Not when a tree's `:tool/run` did, which says its
+  `:node` (byj-8gc): what a model did is counted apart from what its loop
+  did around it."
+  [call]
+  (nil? (:node call)))
 
 (defn- answer-iteration? [it] (= "answer" (:channel it)))
 
@@ -157,7 +169,9 @@
                                      [:args {:optional true} :any]
                                      [:result {:optional true} :string]
                                      [:spilled {:optional true} :string]
-                                     [:error? {:optional true} :boolean]]]]]]]
+                                     [:error? {:optional true} :boolean]
+                                     [:node {:optional true} :keyword]
+                                     [:slot {:optional true} :keyword]]]]]]]
    [:session {:optional true} :string]
    [:agent {:optional true} :string]
    ;; who injected the turn over the session channel (RFC-043): a person's

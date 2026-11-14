@@ -6,6 +6,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
+            [brainyard.trajectory :as trajectory]
             [brainyard.bt :as bt]
             [brainyard.flow :as flow]
             [brainyard.instructions :as instructions]
@@ -699,6 +700,25 @@
     (is (= "v2" (:answer r)))
     (is (not (str/includes? (first prompts) "LINT")))
     (is (str/includes? (second prompts) "LINT: 1 result(s) for: what is in notes.txt?"))))
+
+(deftest a-call-the-loops-tree-made-says-so-in-the-record
+  ;; byj-8gc: an attachment's call was recorded as the model's, so a
+  ;; simulation counted it as one and flagged a lint after every write as a
+  ;; model repeating itself
+  (let [[r] (gate-run {} {:tool? true :think said-done
+                          :tree (slotted {:react/ext-after-tools
+                                          [{:name "lint" :tree [:sequence {:id :x/lint}
+                                                                [:action {:id :x/seed :fn :mem/set :set {:x/cmd "echo linted"}}]
+                                                                [:action {:id :x/run :fn :tool/run :tool "bash" :in {:command :x/cmd}}]]}]})})
+        calls (for [it (:trajectory r) c (:tool-results it)] c)
+        [model tree] ((juxt filter remove) trajectory/model-call? calls)]
+    (is (= ["echo hi"] (map #(get-in % [:tool-args :command]) model)))
+    (is (= [["echo linted" :x/run :react/ext-after-tools]]
+           (map (juxt #(get-in % [:tool-args :command]) :node :slot) tree)))
+    (testing "and the record written keeps it"
+      (is (= [{:node :x/run :slot :react/ext-after-tools}]
+             (for [it (:trajectory r) t (:tools (trajectory/project-iteration it)) :when (:node t)]
+               (select-keys t [:node :slot])))))))
 
 (deftest an-attachment-after-the-tools-that-fails-costs-the-turn-nothing
   (let [[r calls] (gate-run {} {:tool? true :think said-done

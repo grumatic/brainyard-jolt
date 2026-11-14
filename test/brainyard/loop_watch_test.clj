@@ -101,3 +101,11 @@
       (is (= [:attach :detach "lint" true] ((juxt :kind :action :name :revert?) p)))
       (is (str/starts-with? (:why p) "Since loop/ext-lint-")))
     (is (str/includes? (:not-staged (watch/watch! c {})) "already waits"))))
+
+(deftest a-call-the-loops-tree-made-is-no-tool-error-of-the-model
+  ;; byj-8gc: an attachment that runs the tests and fails on purpose is the
+  ;; tree deciding, not the model erring
+  (is (= [1 0] ((juxt :tool-errors :refusals)
+                (watch/turn-metrics {:iterations [{:tools [{:name "bash" :result "{:exit-code 2}"}
+                                                           {:name "bash" :result "{:exit-code 1}" :node :tests/run
+                                                            :slot :react/ext-answer-check}]}]})))))

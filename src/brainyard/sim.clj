@@ -381,7 +381,11 @@
   "What `records` say a stage did: turns, iterations, calls, failed calls (the
   first few, as they read), cost and tokens."
   [records]
-  (let [calls (mapcat (fn [r] (mapcat :tools (:iterations r))) records)
+  (let [all (mapcat (fn [r] (mapcat :tools (:iterations r))) records)
+        ;; the model's calls; a tree's own (`:tool/run`, an attachment's) are
+        ;; counted apart (byj-8gc)
+        calls (filter trajectory/model-call? all)
+        tree (remove trajectory/model-call? all)
         failed (filter failed-call? calls)
         cmd #(let [c (get-in % [:args :command] (:args %))] (subs (str c) 0 (min 100 (count (str c)))))]
     {:records (count records)
@@ -389,6 +393,8 @@
      :subagents (vec (distinct (keep #(when (str/includes? (str (:agent %)) "/") (first (str/split (str (:agent %)) #"/"))) records)))
      :iterations (reduce + (map #(or (:total-iterations %) 0) records))
      :calls (count calls)
+     :tree-calls (count tree)
+     :tree-calls-by (into (sorted-map) (frequencies (map #(str (or (:slot %) (:node %))) tree)))
      :failed-calls (count failed)
      :failed (vec (for [c (take 5 failed)]
                     {:tool (:name c) :call (cmd c) :result (subs (str (:result c)) 0 (min 200 (count (str (:result c)))))}))
@@ -457,7 +463,12 @@
                           (str/starts-with? p (str root "/")))]
            {:session n :path p}))))
 
-(defn- calls-of [records] (mapcat (fn [r] (mapcat :tools (:iterations r))) records))
+(defn- calls-of
+  "The model's calls in `records`: a finding is about what it did, and a
+  tree's call repeated every iteration — an attachment's lint — is the tree
+  working as made (byj-8gc)."
+  [records]
+  (filter trajectory/model-call? (mapcat (fn [r] (mapcat :tools (:iterations r))) records)))
 
 (defn- refused?
   "A call a gate refused: an error that says so. The word anywhere in a result
@@ -790,6 +801,9 @@
          (str/join (for [s stages]
                      (str "\n## " (name (:id s)) " — " (name (:verdict s)) "\n\n"
                           (str/join (for [c (:checks s)] (str "- " (if (:pass? c) "✓" "✗") " " (:name c) ": " (:detail c) "\n")))
+                          (when (pos? (or (m s :tree-calls) 0))
+                            (str "- calls the loop's tree made, not the model: " (m s :tree-calls)
+                                 " (" (str/join ", " (for [[k n] (m s :tree-calls-by)] (str k " " n))) ")\n"))
                           (when-let [ns (m s :notices)]
                             (str "- notices shown: " (str/join ", " (for [[mk n] ns] (str "\"" mk "\" " n))) "\n"))
                           (str/join (for [a (:attempts s)]
