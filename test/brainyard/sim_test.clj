@@ -425,6 +425,33 @@
             (is (str/includes? (:out r) "?? made.js"))
             (is (not (str/includes? (:out r) "found.txt")))))))))
 
+(deftest the-question-plans-carry-a-tool-and-a-predictor-their-attachments-call
+  ;; dev/sim/extensions/question*.edn (byj-10y): the same stages, the
+  ;; project's own tool and predictor put in place before the first stage,
+  ;; and the tool finding the lines that name the question's words
+  (let [ext (sim/load-plan "dev/sim/extensions/question.edn")
+        base (sim/load-plan "dev/sim/extensions/question-baseline.edn")
+        dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "sim-question-" (random-uuid))) .mkdirs))]
+    (is (= (:stages ext) (:stages base)))
+    (is (= (dissoc ext :id :attachments :plan-file) (dissoc base :id :plan-file)))
+    (is (= {:react/ext-question-check ["find" "refine"]} (:attachments ext)))
+    (is (= 2 (count (sim/plan-attachments ext dir))))
+    (sim/write-project-files! dir ext)
+    (is (thrown-with-msg? Exception #"no project file" (sim/write-project-files! dir (assoc ext :project-files {"x" "nowhere.edn"}))))
+    (io/make-parents (io/file dir "src" "server.js"))
+    (spit (io/file dir "src" "server.js") "// GET /api/health answers ok\nconst x = 1;\n")
+    (let [skipped (atom [])
+          ctx (agent/make-ctx {:lm {:provider :mock :format :mock :responses (constantly "{}")}
+                               :config {:working-dir dir :project-dir dir :user-tools? true}
+                               :on-event (fn [e d] (when (= :tools/user-tool-skipped e) (swap! skipped conj d)))})
+          tool (get @(:tools ctx) "user$tool$find-related")]
+      (is (some? tool) (str "the user tool compiles: " (pr-str @skipped)))
+      (let [r ((requiring-resolve 'brainyard.tools/call-tool) tool {:question "health needs to say more"} ctx)]
+        (is (= ["health"] (:words r)))
+        (is (some #(str/includes? % "src/server.js:1:// GET /api/health") (:hits r)) (pr-str r))))
+    (is (some? ((requiring-resolve 'brainyard.predictor/load-predictor) "user/refine-question"
+                [(str (io/file dir ".brainyard" "predictors"))])))))
+
 (deftest a-call-the-loops-tree-made-is-counted-apart-from-the-models
   ;; byj-8gc: an attachment's lint after every write was 3x a repeated-call
   ;; warn and a third of a stage's calls

@@ -1,0 +1,21 @@
+;; A project's own predictor (RFC-005, .brainyard/predictors/user/), called by
+;; the refine attachment at the start of a turn (RFC-072, byj-10y): the
+;; question as the agent should take it, from the person's words and a brief
+;; of the project. The person is asked before it is used.
+{:id "user/refine-question"
+ :strategy :predict
+ :tier :light
+ :description "Ask the person's question the way this project's agent should take it."
+ :instructions "A person is about to ask a coding agent working in this project a question. You see their question and a brief of the project: its open work from the issue tracker, its recent commits and its AGENTS.md.
+
+Write the question as the agent should take it:
+- When the brief makes clear what the question refers to — a bead, a file, an endpoint — name it, with its id, so the agent does not have to guess.
+- Keep everything the person asked, in their order. Add nothing they did not ask for: no extra steps, no extra checks, no conventions they did not mention.
+- Keep it short: one or two sentences.
+
+When the question is already specific, or the brief does not say what it refers to, return it exactly as it was asked, character for character."
+ :inputs
+ [[:question {:desc "The question, as the person asked it"} :string]
+  [:brief {:desc "The project: its open work, recent commits and AGENTS.md"} :string]]
+ :outputs
+ [[:proposed {:desc "The question as the agent should take it, or the question unchanged"} :string]]}

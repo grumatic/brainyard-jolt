@@ -1,0 +1,8 @@
+;; Attached to :react/ext-question-check (RFC-072, byj-10y): as the turn
+;; begins, the lines of the project's own files that name a word of the
+;; question are the turn's context — a keyword search, the simplest RAG.
+;; It calls the project's user tool find-related (.brainyard/tools/), the
+;; question passed as the tool's argument and never into a shell line. What
+;; it found reaches every call of the turn; nothing found adds nothing.
+[:action {:id :find/related :fn :tool/run :tool "user$tool$find-related"
+          :in {:question :question} :out {:ext/context :hits}}]

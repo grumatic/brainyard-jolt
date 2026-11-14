@@ -228,8 +228,11 @@ decides what each means:
   the session, as at any prompt. Only a yes makes it the turn's `:question`.
   - The trajectory keeps what was asked as `:asked` (RFC-025), as it keeps a
     slash command beside the question it became.
-  - A subagent's question is its caller's: there it is kept as asked,
-    and so is the question of a run with no person to ask.
+  - A subagent's question is its caller's, and a slash command's is the
+    command's: both are kept as asked, and so is the question of a run with
+    no person to ask. A command's question carries the command's own
+    instructions. In a simulation, `/init`'s question, rewritten and
+    accepted, lost "do it through `agent$init`".
   - `agent.question/rewritten` or `agent.question/kept` says which.
 
 An attachment cannot change the question on its own: its writes are under
@@ -435,6 +438,26 @@ measure nothing finer than that.
   - The `node_modules/` refusal stayed, and the model again added the
     `.gitignore`.
 
+- **The question slot** (`question.edn` against `question-baseline.edn`,
+  haiku, `byj-10y`). The stages were asked as a person in a hurry asks:
+  "now the terminal", "health needs to say more". `ext/find.edn` greps the
+  project's files for the question's words. `ext/refine.edn` has a predictor
+  of the project's propose the question naming its bead, from `bd ready`,
+  recent commits and AGENTS.md. The plan accepted every proposal.
+  - Baseline: 5/5, $0.08, 439 s. With the slot: 4/5, $0.10, 561 s.
+  - The context was mostly AGENTS.md's own boilerplate: in a young project,
+    a keyword search finds the agent's instructions.
+  - Three proposals were made. `/init`'s question was rewritten, and its
+    "do it through `agent$init`" was lost. Since then a command's question
+    is never offered for a rewrite.
+  - At the server stage, the proposal named the right bead.
+  - At the health stage, it named the bead `bd ready` offered. That was the
+    server bead, never closed: neither run closed a bead when asked this
+    briefly. Accepted, the turn worked on the server bead again, and the
+    stage failed.
+  - A proposal is only as good as its brief. A person who accepts without
+    reading carries its errors into the turn: the plan's blanket yes did.
+
 What an attachment can add is what the model does not do on its own. On
 these runs that was the state the work was left in, not whether it passed
 its tests.
@@ -479,7 +502,7 @@ The rows naming a bead are proposed and enforced by nothing yet.
 | A slot's id, keys and place change only with `contract/` (`loops/slots.edn`). | `contract-test/the-slots-the-bundled-loops-offer-are-byjs-contract` |
 | A slot reads the turn's start: the parent of the turn's `refs/byj/turns` ref. | `session-test/a-slot-reads-where-the-turn-began` |
 | Context an attachment found at the turn's start is in every call of the turn. | `agent-test/a-project-adds-context-for-the-question-to-every-call-of-the-turn` |
-| A question asked differently is the turn's only on the person's yes, in a root turn; the trajectory keeps what was asked. | `agent-test/a-question-asked-differently-is-the-turns-only-when-the-person-says-yes` |
+| A question asked differently is the turn's only on the person's yes, in a root turn and never a slash command's; the trajectory keeps what was asked. | `agent-test/a-question-asked-differently-is-the-turns-only-when-the-person-says-yes` |
 | An attachment at the turn's start that fails costs the turn nothing. | `agent-test/an-attachment-at-the-turns-start-that-fails-costs-the-turn-nothing` |
 | The answer check is on every path that accepts an answer, before the stamp, and stops refusing at `:max-answer-checks`. | `agent-test/the-answer-check-sits-before-every-stamp`, `agent-test/a-projects-answer-check-refuses-on-every-path-that-accepts` |
 | What is attached after the tools is heard in the next iteration, and its failure costs the turn nothing. | `agent-test/an-attachment-after-the-tools-is-heard-next-iteration`, `agent-test/an-attachment-after-the-tools-that-fails-costs-the-turn-nothing` |

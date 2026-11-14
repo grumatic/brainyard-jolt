@@ -1,0 +1,43 @@
+;; The question slot's baseline: pressure-baseline.edn's project, its stages
+;; asked the way a person in a hurry asks — "now the terminal" — with
+;; nothing attached. question.edn is the same with the two attachments to
+;; :react/ext-question-check (RFC-072, byj-10y). Both carry the project's user
+;; tool and predictor (:project-files), so the model sees the same tools.
+{:id "question-baseline"
+ :projects-dir "~/Projects/byj-sim"
+ :provider "claude-code" :model "haiku"
+ :permission-mode :auto
+ :timeout-s 1800
+ :cap-usd 5.0
+ :project-files {".brainyard/tools/find-related.edn" "project/find-related.edn"
+                 ".brainyard/predictors/user/refine-question.edn" "project/refine-question.edn"}
+ :answers [{:match "pkill" :answer "n"}
+           {:match "node --check" :answer "y"}
+           {:match "npm test" :answer "y"}
+           {:match "npm install" :answer "y"}
+           {:match "proposes asking instead" :answer "y"}
+           {:match "bd ready 2>/dev/null" :answer "y"}
+           {:match "WORK (git and bd" :answer "y"}]
+ :default-answer "n"
+ :stages
+ [{:id :init
+   :lines ["/init"
+           "This project is a mini-playground: a small web workspace with a Terminal section first. Stack: Node 20+, a plain node:http server with ws and node-pty, tests with node --test. Conventions: npm start runs the server on the port in PORT (default 3000), npm test runs the tests. File each of these as a bead at priority 1, in order, each depending on the one before: (1) server shell: a page with a sidebar of sections Terminal, Files, Editor and Chat, GET /api/health answering {\"ok\":true}, and 404 for unknown paths; (2) a terminal over a WebSocket at /term spawning $SHELL in the project dir, with JSON frames {\"t\":\"i\",\"d\":text} from the client and {\"t\":\"o\",\"d\":text} from the server, the shell killed when the socket closes; (3) GET /api/health answers {\"ok\":true,\"uptime\":n,\"version\":s}: the server's uptime in whole seconds and the version in package.json; (4) a file tree and a text editor: GET /api/files?path= lists a directory, GET /api/file?path= answers a file's text and PUT /api/file?path= writes the request body, the file's text as it is, and any path outside the project dir is answered 400. Don't start building yet."]
+   :checks [{:type :file :name "agents-md" :path "AGENTS.md" :contains "BRAINYARD:project"}
+            {:type :command :name "four-beads" :run "test $(bd list 2>/dev/null | grep -c '^○') -ge 4"}]}
+  {:id :server
+   :lines ["let's get the server going"]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "health" :run "node {{plan}}/../playground/checks/checks.cjs health" :timeout-s 60}]}
+  {:id :term
+   :lines ["now the terminal"]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "term" :run "node {{plan}}/../playground/checks/checks.cjs term" :timeout-s 60}]}
+  {:id :health
+   :lines ["health needs to say more"]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "health2" :run "node {{plan}}/../playground/checks/checks.cjs health2" :timeout-s 60}]}
+  {:id :files
+   :lines ["the files api next"]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "files" :run "node {{plan}}/../playground/checks/checks.cjs files" :timeout-s 60}]}]}

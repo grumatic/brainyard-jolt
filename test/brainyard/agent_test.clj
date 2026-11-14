@@ -759,6 +759,13 @@
       (is (empty? asked))
       (is (not (str/includes? (first prompts) "line by line")))
       (is (= "a subagent's question is its caller's" (:reason (second (first events)))))))
+  (testing "a slash command's question is the command's: kept, and the person is not asked"
+    (let [st (atom {:question "Prepare this project. Do it through agent$init." :command-input "/init"
+                    :ext/question "Prepare this project." :user-context ""})
+          asked (atom [])]
+      (agent/fold-ext-question-action {:st-memory st :permission-fn (fn [r] (swap! asked conj r) {:allowed true})})
+      (is (empty? @asked))
+      (is (= "Prepare this project. Do it through agent$init." (:question @st)))))
   (testing "a proposal that is the question itself asks nothing"
     (let [[_ _ asked events] (question-run {:react/ext-question-check
                                             [{:name "same" :tree [:action {:id :x/same :fn :mem/set

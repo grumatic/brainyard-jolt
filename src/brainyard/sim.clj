@@ -243,6 +243,20 @@
     (io/make-parents f)
     (spit f (with-out-str (pp/pprint {:agent {:config config}})))))
 
+(defn write-project-files!
+  "Copy the plan's `:project-files`, `{\"path in the project\" \"path from the
+  plan's directory\"}`, into project `dir` before its first stage: what its
+  person had there already, such as the user tools and predictors an
+  attachment calls (byj-10y). A source that is not there is thrown on,
+  before anything runs."
+  [dir plan]
+  (doseq [[to from] (:project-files plan)
+          :let [src (io/file (:plan-dir plan) from)
+                dst (io/file dir to)]]
+    (when-not (.isFile src) (throw (ex-info (str "no project file " src) {:file (str src)})))
+    (io/make-parents dst)
+    (io/copy src dst)))
+
 (defn prepare-project!
   "A fresh project at `dir`: a git repository with one empty commit, and
   `.sim/` kept out of it."
@@ -305,9 +319,16 @@
   "The plan's `:attachments` as `[{:slot :name :tree :file}]`, each read from
   `<plan>/ext/<name>.edn` and checked where it would sit in a project at
   `dir` (`loop-proposals/attachment-problems`); thrown otherwise, before
-  anything is made."
+  anything is made. A plan with `:project-files` is checked against a scratch
+  project holding them, since an attachment may call a tool of theirs
+  (byj-10y)."
   [plan dir]
-  (vec (for [[slot names] (:attachments plan)
+  (let [dir (if (seq (:project-files plan))
+              (doto (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "sim-check-" (random-uuid)))
+                                         .mkdirs))
+                (write-project-files! plan))
+              dir)]
+   (vec (for [[slot names] (:attachments plan)
              n names
              :let [f (io/file (:plan-dir plan) "ext" (str n ".edn"))
                    _ (when-not (.isFile f) (throw (ex-info (str "no attachment file " f) {:file (str f)})))
@@ -317,7 +338,7 @@
            (throw (ex-info (str f " cannot be attached to " slot ": "
                                 (str/join "; " (map #(str (pr-str (:node %)) " " (:problem %)) ps)))
                            {:file (str f) :problems ps}))
-           {:slot slot :name n :tree tree :file (.getCanonicalPath f)}))))
+           {:slot slot :name n :tree tree :file (.getCanonicalPath f)})))))
 
 (defn install-attachments!
   "Attach each of `as` (`plan-attachments`) in project `dir`, in order, as a
@@ -889,6 +910,7 @@
                 ;; the project's own config, as its person would have set it:
                 ;; which model Claude Code runs on, say (byj-gly.320)
                 (:project-config plan) (doto (write-project-config! (:project-config plan)))
+                (:project-files plan) (doto (write-project-files! plan))
                 cand (doto (install-loop! cand))))
         attached (if prior (:attachments prior) (when (seq attach) (install-attachments! dir attach)))
         sess (str "sim-" (str/replace (.getName (io/file dir)) #"[^A-Za-z0-9-]" "-"))

@@ -1,0 +1,15 @@
+;; Attached to :react/ext-question-check (RFC-072, byj-10y): as the turn
+;; begins, the project's predictor user/refine-question proposes the question
+;; asked as the agent should take it, from a brief of the project — its open
+;; beads, recent commits and AGENTS.md, read by a fixed command. The person is
+;; asked whether to use the proposal; a proposal that is the question itself
+;; asks nothing. A subagent's turn skips it: its question is its caller's.
+[:fallback {:id :refine/root-only}
+ [:condition {:id :refine/subagent? :fn :mem/true? :key :parent-trail}]
+ [:sequence {:id :refine/propose}
+  [:action {:id :refine/seed :fn :mem/set
+            :set {:refine/command "{ echo '## Open work (bd ready)'; bd ready 2>/dev/null | head -20; echo; echo '## Recent commits'; git log --oneline -5 2>/dev/null; echo; echo '## AGENTS.md'; head -60 AGENTS.md 2>/dev/null; } | head -120"}}]
+  [:action {:id :refine/brief :fn :tool/run :tool "bash" :in {:command :refine/command}
+            :out {:refine/brief :output}}]
+  [:action {:id :refine/ask :fn :predictor/run :predictor "user/refine-question"
+            :in {:question :question :brief :refine/brief} :out {:ext/question :proposed}}]]]

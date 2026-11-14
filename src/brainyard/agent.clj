@@ -707,8 +707,8 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
     whether to use it, through the turn's permission channel, every time. Only
     their yes makes it the turn's `:question`, and the one they asked is kept as
     `:question-asked`, which the trajectory records as `:asked`. A subagent's
-    question is its caller's to ask, and a run with no person to ask keeps
-    the question as it was.
+    question is its caller's to ask, a slash command's is the command's, and
+    a run with no person to ask keeps the question as it was.
 
   The slot writes its own keys and this node decides what they mean: an
   attachment cannot change the question on its own. It reads the keys
@@ -725,6 +725,10 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
              #(str % "\n\n## Context this project found for the question\n\n" (cap context ext-context-chars))))
     (when (and proposed (not= proposed (str/trim asked)))
       (let [no (cond
+                 ;; a slash command's question is the command's text, its
+                 ;; instructions included: a sim's /init, so rewritten,
+                 ;; lost "do it through agent$init" (byj-10y)
+                 (not (str/blank? (str (:command-input m)))) "the question is a command's"
                  (some? (:parent-trail m)) "a subagent's question is its caller's"
                  (nil? permission-fn) "there is no person to ask in this run"
                  :else (let [r (try (permission-fn

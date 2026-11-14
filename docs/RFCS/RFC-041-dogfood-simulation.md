@@ -156,7 +156,12 @@ check).
   are one shorter plan with different attachments and with none, made so
   an attachment has something to do (RFC-072 "Measured in a simulation");
   `sim-test/the-pressure-plans-differ-only-in-what-is-attached` holds them
-  to the same stages.
+  to the same stages. A plan's `:project-files`, `{"path in the project"
+  "path from the plan"}`, are copied into the project before its first
+  stage (`sim/write-project-files!`): the user tools and predictors an
+  attachment calls, as its person would have had them. An attachment is
+  checked against a scratch project that holds them. `question.edn` and
+  `question-baseline.edn` carry them (`byj-10y`).
 - **A failed call** is one the trajectory marks failed (`:error?`), or whose
   result reads as one: a gate's block, which prints as `{:hook-blocked …}`,
   was not counted before `byj-ng7.18`, so a run since can show more failed
