@@ -490,9 +490,38 @@ measure nothing finer than that.
     refused: `work` refused first, and a refused answer runs no check after
     it.
 
+- **The same, again, 5 runs each** (after `work` learned to name an open
+  bead a turn's commit names and installed dependencies, and the server
+  stage was asked as "build the server shell"). The signal above did not
+  hold:
+
+  | rule (20 stages each) | baseline | with extensions |
+  |---|---|---|
+  | work committed | 11/20 | 8/20 (`work` refused 38 answers) |
+  | bead closed | 11/20 | 12/20 |
+  | CHANGELOG line | 18/20 | 17/20 |
+  | errors JSON, no framework | 20/20, 20/20 | 20/20, 20/20 |
+  | cost, time (mean of 5) | $0.098, 633 s | $0.735, 980 s |
+
+  - The runs split by run, not by arm: a run committed every stage or
+    none. In all ten runs the model cited the project's own AGENTS.md,
+    whose Beads block (written by `bd setup`) sets a "conservative" default
+    of no commits unless explicitly asked. The person's rule was said in
+    the init conversation and never reached AGENTS.md. Refused, the model
+    answered that it had not committed, and why, until `:max-answer-checks`
+    let the answer through.
+  - An answer check cannot outvote what the project's instructions say;
+    the rule has to be where the model reads it first. The comparison
+    measured that conflict, not the check.
+  - One extensions run cost $3.10: its model delegated two beads to
+    `agent$claude`, Claude Code sessions on the person's default model, not
+    the plan's. Without it the arm's mean is $0.14.
+  - Untested: the same plans with the rule written into AGENTS.md and the
+    conservative default off (`byj-93l`).
+
 What an attachment can add is what the model does not do on its own. On
-these runs that was the state the work was left in, not whether it passed
-its tests.
+the first runs that looked like the state the work was left in; on more
+runs, what decided it was what the project's instructions said.
 
 ## API
 
