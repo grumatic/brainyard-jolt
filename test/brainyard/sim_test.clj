@@ -423,7 +423,29 @@
             (is (= 1 (:exit r)))
             (is (str/includes? (:out r) "changes this turn made that no commit holds"))
             (is (str/includes? (:out r) "?? made.js"))
-            (is (not (str/includes? (:out r) "found.txt")))))))))
+            (is (not (str/includes? (:out r) "found.txt")))
+            (is (not (str/includes? (:out r) "installed dependencies"))))
+          (testing "installed dependencies are named as what .gitignore is for"
+            (spit (doto (io/file dir "node_modules" "ws" "index.js") io/make-parents) "x")
+            (is (str/includes? (:out (run start)) "node_modules holds installed dependencies")))
+          (testing "an open bead a commit of the turn names is to be closed"
+            ;; bd stood in for: rules-1 open, rules-1.1 open and not named
+            (let [bin (doto (io/file dir ".bin") .mkdirs)
+                  bd (io/file bin "bd")
+                  run-bd #(fx/sh {:dir (str dir) :out :string :err :string
+                                  :env (assoc (into {} (System/getenv)) "PATH" (str bin ":" (System/getenv "PATH")))}
+                                 "bash" "-c" (command %))]
+              (spit bd (str "#!/bin/sh\ncase \"$*\" in *open*) echo '[{\"id\":\"rules-1\",\"title\":\"server\"},{\"id\":\"rules-1.1\",\"title\":\"sub\"}]';; *) echo '[]';; esac\n"))
+              (.setExecutable bd true)
+              (spit (io/file dir ".gitignore") "node_modules/\n.bin/\n")
+              (git "add" "-A")
+              (git "commit" "-qm" "The server shell (rules-1).")
+              (let [r (run-bd start)]
+                (is (= 1 (:exit r)))
+                (is (str/includes? (:out r) "rules-1 (server) is named by a commit this turn made and is still open"))
+                (is (not (str/includes? (:out r) "rules-1.1")))
+                (is (not (str/includes? (:out r) "no commit holds"))))
+              (is (zero? (:exit (run start))) "no bead open: nothing off"))))))))
 
 (deftest the-question-plans-carry-a-tool-and-a-predictor-their-attachments-call
   ;; dev/sim/extensions/question*.edn (byj-10y): the same stages, the

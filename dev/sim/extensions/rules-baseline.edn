@@ -39,7 +39,7 @@
    :checks [{:type :file :name "agents-md" :path "AGENTS.md" :contains "BRAINYARD:project"}
             {:type :command :name "four-beads" :run "test $(bd list 2>/dev/null | grep -c '^○') -ge 4"}]}
   {:id :server
-   :lines ["let's get the server going"]
+   :lines ["build the server shell"]
    :checks [{:type :command :name "health" :run "node {{plan}}/../playground/checks/checks.cjs health" :timeout-s 60}
             {:type :command :name "npm-test" :run "npm test" :timeout-s 300}
             {:type :command :name "rule-committed" :run "test -z \"$(git status --porcelain -- . ':!.beads' ':!.brainyard' ':!.claude')\""}
