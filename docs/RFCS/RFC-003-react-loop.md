@@ -23,7 +23,7 @@ model, how to route what it returns, when to stop.
 ## Model
 
 ```
-init → hook ask/pre → budget
+init → hook ask/pre → ‹ext-question-check› → fold-ext-question → budget
      → [repeat max-iterations until terminated?
           inc-iter → rebudget (every nth) → hook iteration/pre
           [think-act | repair]                  ← llm-guard
@@ -250,8 +250,17 @@ the stamp says the answer is final (`:agent.answer/final`).
 
 ### The slots (RFC-072)
 
-The loop offers a project two slots. Both are empty unless the project
-attaches a tree, and an empty slot is a node that does nothing.
+The loop offers a project three slots. Each is empty unless the project
+attaches a tree, and an empty slot is a node that does nothing. All three
+also read `:turn-start`, the work tree's snapshot as the turn began.
+
+- **`:react/ext-question-check`**, after the `agent.ask/pre` hook, once a
+  turn. An attachment reads `:question`, `:history-context` and
+  `:parent-trail`. It writes `:ext/context`, which
+  `:react/fold-ext-question` puts in the turn's user-context zone, and
+  `:ext/question`, the question asked differently. The fold asks the person
+  whether to use it, and only their yes changes `:question`, in a root turn
+  only. If the attachment fails, the failure is ignored.
 
 - **`:react/ext-after-tools`**, after `:react/tool-dispatch`. An attachment
   reads `:last-tool-results`, `:tool-calls` and `:question`, and writes

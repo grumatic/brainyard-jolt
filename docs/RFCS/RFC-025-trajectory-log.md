@@ -96,6 +96,11 @@ carries `:injected-by {:user :name :role :approval}` (a session's
 them: `read-trajectories` leaves notes out, `read-notes` reads only them, and
 `read-entries` both. No `:v` bump: a reader of turns never sees a note.
 
+**A question asked differently** (RFC-072, `byj-10y`). When the person accepts
+a project's proposal to ask the question differently, `:question` is what the
+turn worked on and `:asked` is what they asked, as `:command` keeps a slash
+command beside the question it became. Optional, no `:v` bump.
+
 `:provider` is recorded beside `:model` because the same model string is served
 by more than one provider at different prices.
 

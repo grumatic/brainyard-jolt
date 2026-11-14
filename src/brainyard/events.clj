@@ -132,6 +132,8 @@
    :agent.repair/no-action {:level :trace :doc "A reply populated neither channel; {:streak}."}
    :agent.answer/evaluated {:level :trace :doc "The answer gate's verdict (RFC-003); {:verdict :detail}."}
    :agent.answer/refused {:level :trace :doc "The gate sent the answer back; {:reason :self-reported}."}
+   :agent.question/rewritten {:level :trace :label "question asked differently" :doc "The person accepted a project's proposal to ask the turn's question differently (RFC-072); {:asked :question}."}
+   :agent.question/kept {:level :trace :label "question kept as asked" :doc "A project's proposal to ask the question differently was not used: declined, a subagent's turn, or no person to ask (RFC-072); {:proposed :reason}."}
    :agent.context/budgeted {:level :trace :doc "What the prompt cost and what was elided (RFC-014)."}
    :agent.tasks/harvested {:level :trace :doc "Background work folded back into the turn (RFC-019)."}
    :predictor/call

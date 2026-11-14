@@ -118,7 +118,7 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
 ;; --- actions -----------------------------------------------------------------
 
 (defn ^{:reads #{} :writes #{:iterations :trajectory-iterations :started-at :task-polls :answer :terminated :terminated-by :iteration-count :tool-calls :goal-achieved :next-user-prompt :last-reasoning :last-channel :last-tool-results :consecutive-llm-failures :no-action-streak :pending-notices :usage :usage-calls :user-context
-                   :refinements :critique :answer-decision}}
+                   :refinements :critique :answer-decision :question-asked}}
   init-action [ctx]
   (swap! (:st-memory ctx) merge
          {:iterations [] :trajectory-iterations []
@@ -129,6 +129,9 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
           ;; the answer gate's turn state (RFC-003, byj-gly.12). Seeded here so
           ;; a reader does not depend on a branch having run.
           :refinements 0 :critique nil :answer-decision nil
+          ;; set only when the person accepts a project's proposal to ask
+          ;; the question differently (RFC-072, byj-10y)
+          :question-asked nil
           ;; polls of a running task, per task, this turn (RFC-019). Reset here
           ;; so the auto-park threshold is per turn, as brainyard's is.
           :task-polls {}
@@ -686,6 +689,58 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                                (remove str/blank? (map str (if (sequential? said) said [said])))))))
   :success)
 
+(def ext-context-chars
+  "How much of what a project's attachment to `:react/ext-question-check`
+  found the turn's prompt carries: a search's hits, not a corpus. It is in
+  every call of the turn, so more is paid for on each."
+  12000)
+
+(defn ^{:reads #{} :writes #{:ext/context :ext/question :user-context :question :question-asked}}
+  fold-ext-question-action
+  "Action `:react/fold-ext-question` — what a project's attachment to
+  `:react/ext-question-check` left as the turn began (RFC-072, byj-10y):
+
+  - `:ext/context`, a string or strings: put in the turn's user-context zone
+    under a heading of its own, for every call of the turn, up to
+    `ext-context-chars`.
+  - `:ext/question`: the question asked differently. The person is asked
+    whether to use it, through the turn's permission channel, every time. Only
+    their yes makes it the turn's `:question`, and the one they asked is kept as
+    `:question-asked`, which the trajectory records as `:asked`. A subagent's
+    question is its caller's to ask, and a run with no person to ask keeps
+    the question as it was.
+
+  The slot writes its own keys and this node decides what they mean: an
+  attachment cannot change the question on its own. It reads the keys
+  without declaring them, as `:react/fold-ext-notices` does."
+  [{:keys [st-memory permission-fn] :as ctx}]
+  (let [m @st-memory
+        said (:ext/context m)
+        context (->> (if (sequential? said) said [said]) (keep #(some-> % str str/trim not-empty)) (str/join "\n\n"))
+        asked (str (:question m))
+        proposed (some-> (:ext/question m) str str/trim not-empty)]
+    (swap! st-memory dissoc :ext/context :ext/question)
+    (when-not (str/blank? context)
+      (swap! st-memory update :user-context
+             #(str % "\n\n## Context this project found for the question\n\n" (cap context ext-context-chars))))
+    (when (and proposed (not= proposed (str/trim asked)))
+      (let [no (cond
+                 (some? (:parent-trail m)) "a subagent's question is its caller's"
+                 (nil? permission-fn) "there is no person to ask in this run"
+                 :else (let [r (try (permission-fn
+                                     ;; no :tool: a front end titles the request by its
+                                     ;; :display (ACP's call-title), the proposal itself;
+                                     ;; an "always" is remembered by :pattern
+                                     {:type :command :pattern "react$question"
+                                      :display (str "this project proposes asking instead: " proposed)})
+                                    (catch Throwable e {:denied true :reason (ex-message e)}))]
+                         (when-not (:allowed r) (or (not-empty (str (:reason r))) "declined"))))]
+        (if no
+          (emit! ctx :agent.question/kept {:proposed proposed :reason no})
+          (do (swap! st-memory assoc :question proposed :question-asked asked)
+              (emit! ctx :agent.question/rewritten {:asked asked :question proposed})))))
+    :success))
+
 (def native-tool-call-notice
   (str "TOOL CHANNEL: your previous reply called tools directly, which fails with "
        "\"No such tool available\" — that error does NOT mean the tool is missing. "
@@ -999,7 +1054,7 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
   is no reason for the record to forget what happened."
   [{:keys [st-memory config lm] :as ctx}]
   (when-let [f (trajectory/log-file config)]
-    (let [{:keys [question trajectory-iterations answer terminated-by usage started-at injected-by command-input]} @st-memory
+    (let [{:keys [question question-asked trajectory-iterations answer terminated-by usage started-at injected-by command-input]} @st-memory
           rec (trajectory/record
                {:session (:session-id config)
                 ;; which turn in a tree of turns this was: a subagent's
@@ -1015,6 +1070,9 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                 ;; the mode in force: a person's last choice, else the config's (permission/mode)
                 :permission-mode (or (some-> (:permission-mode-box ctx) deref) (get config :permission-mode :auto))
                 :question question
+                ;; what the person asked, when they accepted the project's
+                ;; proposal to ask it differently (RFC-072, byj-10y)
+                :asked question-asked
                 :iterations trajectory-iterations
                 :answer answer
                 :success (trajectory/succeeded? answer terminated-by)
@@ -1103,6 +1161,7 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
    :react/refine #'refine-action
    :react/answer-check-spent? #'answer-check-spent?
    :react/fold-ext-notices #'fold-ext-notices-action
+   :react/fold-ext-question #'fold-ext-question-action
    :hooks/fire #'hooks/fire-action
    :context/enforce #'context/enforce-action})
 

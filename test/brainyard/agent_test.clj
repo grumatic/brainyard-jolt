@@ -675,7 +675,7 @@
 
 (deftest the-bundled-loop-offers-its-slots-empty
   (let [react (agent/load-tree nil)]
-    (is (= #{:react/ext-after-tools :react/ext-answer-check}
+    (is (= #{:react/ext-question-check :react/ext-after-tools :react/ext-answer-check}
            (set (keep (fn [[_ o]] (when (:slot o) (:id o))) (bt/nodes react)))))
     (is (empty? (filter #(:attached (second %)) (bt/nodes react))))))
 
@@ -700,6 +700,78 @@
     (is (= "v2" (:answer r)))
     (is (not (str/includes? (first prompts) "LINT")))
     (is (str/includes? (second prompts) "LINT: 1 result(s) for: what is in notes.txt?"))))
+
+(defn- question-run
+  "A turn of the bundled loop with `attachments` in its slots, the person
+  answering a proposal with `allow?` (no person when nil): [result prompts
+  asked events], prompts being each think call's whole text."
+  [attachments allow? & [opts]]
+  (let [prompts (atom []) asked (atom []) events (atom [])]
+    [(agent/ask "what is in notes.txt?"
+                (merge {:lm {:provider :mock :format :mock
+                             :responses (fn [m]
+                                          (swap! prompts conj (str/join "\n" (map :content m)))
+                                          (json/write-str {:reasoning "r" :tool-calls [] :answer "done" :goal-achieved true}))}
+                        :config {:working-dir "." :max-iterations 4 :persist-session? false}
+                        :tree (slotted attachments)
+                        :on-event (fn [e d] (when (= "agent.question" (namespace e)) (swap! events conj [e d])))}
+                       (when (some? allow?)
+                         {:permission-fn (fn [req] (swap! asked conj req)
+                                           (if allow? {:allowed true} {:denied true :reason "denied by user"}))})
+                       opts))
+     @prompts @asked @events]))
+
+(def ^:private propose
+  {:react/ext-question-check
+   [{:name "ask-better" :tree [:action {:id :x/propose :fn :mem/set
+                                        :set {:ext/question "what is in notes.txt, line by line?"}}]}]})
+
+(deftest a-project-adds-context-for-the-question-to-every-call-of-the-turn
+  (let [[r prompts] (question-run {:react/ext-question-check
+                                   [{:name "found" :tree [:action {:id :x/found :fn :mem/set
+                                                                   :set {:ext/context ["notes.txt: three lines of notes" " "]}}]}]}
+                                  nil)]
+    (is (= "done" (:answer r)))
+    (is (seq prompts))
+    (is (every? #(str/includes? % "## Context this project found for the question\n\nnotes.txt: three lines of notes") prompts))))
+
+(deftest a-question-asked-differently-is-the-turns-only-when-the-person-says-yes
+  (testing "yes: the turn works on the proposal, and keeps what was asked"
+    (let [[r prompts asked events] (question-run propose true)]
+      (is (= 1 (count asked)))
+      (is (str/includes? (:display (first asked)) "what is in notes.txt, line by line?"))
+      (is (str/includes? (first prompts) "what is in notes.txt, line by line?"))
+      (is (= [[:agent.question/rewritten {:asked "what is in notes.txt?" :question "what is in notes.txt, line by line?"}]] events))
+      (is (= "what is in notes.txt?" (:asked (trajectory/record {:question "what is in notes.txt, line by line?"
+                                                                  :asked "what is in notes.txt?" :iterations []}))))
+      (is (= "done" (:answer r)))))
+  (testing "no: the question stays as it was asked"
+    (let [[_ prompts asked events] (question-run propose false)]
+      (is (= 1 (count asked)))
+      (is (not (str/includes? (first prompts) "line by line")))
+      (is (= :agent.question/kept (ffirst events)))))
+  (testing "no person to ask: kept, and nothing asked"
+    (let [[_ prompts _ events] (question-run propose nil)]
+      (is (not (str/includes? (first prompts) "line by line")))
+      (is (= "there is no person to ask in this run" (:reason (second (first events)))))))
+  (testing "a subagent's question is its caller's: kept, and the person is not asked"
+    (let [[_ prompts asked events] (question-run propose true {:parent-trail [{:question "the caller's" :answer "a"}]})]
+      (is (empty? asked))
+      (is (not (str/includes? (first prompts) "line by line")))
+      (is (= "a subagent's question is its caller's" (:reason (second (first events)))))))
+  (testing "a proposal that is the question itself asks nothing"
+    (let [[_ _ asked events] (question-run {:react/ext-question-check
+                                            [{:name "same" :tree [:action {:id :x/same :fn :mem/set
+                                                                           :set {:ext/question "  what is in notes.txt?  "}}]}]}
+                                           true)]
+      (is (empty? asked))
+      (is (empty? events)))))
+
+(deftest an-attachment-at-the-turns-start-that-fails-costs-the-turn-nothing
+  (let [[r] (question-run {:react/ext-question-check
+                           [{:name "broken" :tree [:action {:id :x/boom :fn :x/boom}]}]}
+                          nil {:registry {:x/boom (fn [_] (throw (ex-info "search crashed" {})))}})]
+    (is (= "done" (:answer r)))))
 
 (deftest a-call-the-loops-tree-made-says-so-in-the-record
   ;; byj-8gc: an attachment's call was recorded as the model's, so a

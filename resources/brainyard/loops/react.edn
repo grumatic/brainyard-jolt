@@ -15,6 +15,19 @@
  ;; hook points are nodes (RFC-011): the event, and the payload built from
  ;; st-memory (keywords) and config (:config/…)
  [:action {:id :react/hook-ask-pre :fn :hooks/fire :event :agent.ask/pre :payload {:input :question}}]
+ ;; a slot (RFC-072): what a project attaches here sees the question as the
+ ;; turn begins, and can add context for the whole turn (:ext/context: what
+ ;; a search of the project, an index or the web found for it) or propose
+ ;; the question asked differently (:ext/question). :react/fold-ext-question
+ ;; puts the context in the turn's user-context zone, and asks the person
+ ;; whether to use the proposal: only their yes changes the question, and
+ ;; only in a root turn. Its failure is recorded and ignored
+ [:extension {:id :react/ext-question-check
+              :reads {:question :question :history-context :history-context
+                      :turn-start :turn-start :parent-trail :parent-trail}
+              :writes {:ext/context :ext/context :ext/question :ext/question}
+              :on-failure :ignore}]
+ [:action {:id :react/fold-ext-question :fn :react/fold-ext-question}]
  ;; the prompt is measured here and again every nth iteration (RFC-014); a loop
  ;; that wants no compaction drops these two nodes. :predictor is tier 2's
  ;; summarizer, used only when :compaction-summary? is on

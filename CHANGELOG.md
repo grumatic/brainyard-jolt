@@ -7,7 +7,7 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 ## Unreleased
 
 - **A project can add to the ReAct loop without copying it** (RFC-072).
-  The loop now has two slots, both empty unless a project fills them:
+  The loop now has slots, each empty unless a project fills it:
   - after the tools run: what it finds reaches the next iteration as a
     notice;
   - before an answer is final: it can refuse the answer, with its reason,
@@ -21,6 +21,12 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   `doctor` names an attachment whose slot has changed. Both slots read
   `:turn-start`, the work tree's snapshot as the turn began, so an
   attachment can judge only what the turn changed and not what it found.
+- **A third slot, at the start of a turn** (`:react/ext-question-check`).
+  An attachment there can add context for the question: what a search of
+  the project, an index or the web found, carried in every call of the
+  turn. It can also propose the question asked differently. You are asked
+  whether to use it, and only a yes changes the question. The trajectory
+  keeps what you asked as `:asked`.
 - **A call a loop's tree made says so in the turn's record**: `:node`,
   and `:slot` when a slot's attachment made it. `byj loops eval` and
   `byj loops watch` count tool errors and refusals from the model's calls

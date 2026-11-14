@@ -3,7 +3,8 @@
 **Status:** proposed 2026-11-13; decided 2026-11-14 to build, for
 composition rather than drift ("Decided"). The node kind and its expansion
 are built (`byj-9sp.2`), and so are the ReAct loop's first two slots, in
-`contract/` (`byj-9sp.4`), and a project's attachments (`byj-9sp.3`):
+`contract/` (`byj-9sp.4`), a third at the start of a turn (`byj-10y`), and
+a project's attachments (`byj-9sp.3`):
 read from `.brainyard/loops/ext/` into every loop it runs, written by no
 tool, evaluated by `byj loops attach`, staged and accepted at `/proposals`,
 watched and reverted as a loop is. Epic `byj-9sp`.
@@ -190,11 +191,12 @@ A subagent that brings no loop of its own runs the project's ReAct loop
 The bundled loops offer slots one at a time, each with a use behind it,
 because every slot is a promise: its id, its keys and its place are in
 `contract/`, held by `contract-test`, and a slot cannot move without
-breaking the projects attached to it. Two are proposed for the ReAct loop
+breaking the projects attached to it. Three are offered by the ReAct loop
 (RFC-003):
 
 | slot | place | reads | kind |
 |---|---|---|---|
+| `:react/ext-question-check` | after `:react/hook-ask-pre`, once a turn | `:question`, `:history-context`, `:turn-start`, `:parent-trail` | `:ignore`: context for the question, or the question asked differently, for the person to accept (`byj-10y`) |
 | `:react/ext-after-tools` | after `:react/tool-dispatch` in the tool path | `:last-tool-results`, `:tool-calls`, `:question`, `:turn-start` | `:ignore`: a lint or a check after a write, told to the model next iteration |
 | `:react/ext-answer-check` | on every path that accepts an answer | `:answer`, `:question`, `:iterations`, `:turn-start` | `:fail`: a project's own check of an answer; a failure sends it to refine with the slot's critique |
 
@@ -209,6 +211,32 @@ snapshot. Without it, a check of the work tree held the turn to account for
 what it found. In a simulation that check refused six answers for files
 that `/init` leaves for the person on purpose, and refused one usefully
 (`byj-4hk`; "Measured in a simulation").
+
+**At the start of a turn, an attachment prepares the question** (`byj-10y`).
+It runs once a turn, before the prompt is measured, so what it adds is
+measured with the rest. It writes two keys, and `:react/fold-ext-question`
+decides what each means:
+
+- `:ext/context`, a string or strings: what a search of the project, an
+  index or the web found for the question. It goes in the turn's
+  user-context zone under its own heading, so every call of the turn carries
+  it, up to `agent/ext-context-chars` (12000). It is in every call, so it is
+  paid for on each, and a search's hits belong there, not a corpus.
+- `:ext/question`: the question asked differently, fitted to what the project
+  is for. The fold asks the person whether to use it, through the turn's
+  permission channel (RFC-012), every time. An "always" is remembered for
+  the session, as at any prompt. Only a yes makes it the turn's `:question`.
+  - The trajectory keeps what was asked as `:asked` (RFC-025), as it keeps a
+    slash command beside the question it became.
+  - A subagent's question is its caller's: there it is kept as asked,
+    and so is the question of a run with no person to ask.
+  - `agent.question/rewritten` or `agent.question/kept` says which.
+
+An attachment cannot change the question on its own: its writes are under
+`:ext/`, and only the fold, with the person's yes, writes `:question`. A
+search that needs the question as an argument passes it through a tool's
+arguments (`:tool/run`'s `:in`), never spliced into a shell line: the
+question is the person's text.
 
 After the tools, `:react/fold-ext-notices` queues what the attachment left in
 `:ext/notices` for the next iteration's prompt, beside the other notices.
@@ -259,8 +287,10 @@ Places that are not proposed yet:
 
 - before the model is asked (`:react/iteration`, before `:react/llm-guard`)
   costs a call per iteration for anything that asks a model;
-- the start and end of a turn are what `:hooks/fire`'s `agent.ask/pre` and
-  `agent.ask/post` already offer to a command.
+- the end of a turn is what `:hooks/fire`'s `agent.ask/post` already offers
+  to a command. The start was too, until a use came that a command could not
+  serve: context the turn's prompt carries, and a question the person
+  accepts asked differently (`:react/ext-question-check`).
 
 Each waits for a use.
 
@@ -424,6 +454,7 @@ A row not marked built is proposed.
 | `(loop-proposals/stage-attachment! config {:slot :name :tree :report :why})` | built: an attach (a `:tree`) or a detach (none) staged; meta `{:kind :attach :action :attach\|:detach :slot :name :base}`; `accept!` and `stage-revert!` take it as a loop proposal |
 | `(loop-eval/propose-attachment! config {:slot :candidate :name …})` | built: the loop with it attached evaluated, staged when it wins; `byj loops attach` |
 | `contract/loops/slots.edn` | built: every slot the bundled loops offer, with its keys and its place |
+| `:react/fold-ext-question` | built: `:ext/context` into the turn's user-context zone; `:ext/question` the turn's `:question` on the person's yes, the asked one kept as `:question-asked` and recorded as `:asked` |
 
 ## Invariants
 
@@ -447,10 +478,15 @@ The rows naming a bead are proposed and enforced by nothing yet.
 | A regression since an attach is offered back as a detach. | `loop-watch-test/a-regression-since-an-attachment-is-offered-back-as-a-detach` |
 | A slot's id, keys and place change only with `contract/` (`loops/slots.edn`). | `contract-test/the-slots-the-bundled-loops-offer-are-byjs-contract` |
 | A slot reads the turn's start: the parent of the turn's `refs/byj/turns` ref. | `session-test/a-slot-reads-where-the-turn-began` |
+| Context an attachment found at the turn's start is in every call of the turn. | `agent-test/a-project-adds-context-for-the-question-to-every-call-of-the-turn` |
+| A question asked differently is the turn's only on the person's yes, in a root turn; the trajectory keeps what was asked. | `agent-test/a-question-asked-differently-is-the-turns-only-when-the-person-says-yes` |
+| An attachment at the turn's start that fails costs the turn nothing. | `agent-test/an-attachment-at-the-turns-start-that-fails-costs-the-turn-nothing` |
 | The answer check is on every path that accepts an answer, before the stamp, and stops refusing at `:max-answer-checks`. | `agent-test/the-answer-check-sits-before-every-stamp`, `agent-test/a-projects-answer-check-refuses-on-every-path-that-accepts` |
 | What is attached after the tools is heard in the next iteration, and its failure costs the turn nothing. | `agent-test/an-attachment-after-the-tools-is-heard-next-iteration`, `agent-test/an-attachment-after-the-tools-that-fails-costs-the-turn-nothing` |
 
 ## Known gaps
 
-None. Places for slots beyond the first two wait for a use ("The first
-slots"), as does a slot limited to the root turn.
+None. Places for further slots wait for a use ("The first slots"), as does
+a slot limited to the root turn: `:react/ext-question-check` runs in a
+subagent's turn too, reads `:parent-trail` so an attachment can tell, and
+only its proposal is kept to the root turn.

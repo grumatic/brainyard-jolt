@@ -173,6 +173,7 @@
                                      [:node {:optional true} :keyword]
                                      [:slot {:optional true} :keyword]]]]]]]
    [:session {:optional true} :string]
+   [:asked {:optional true} :string]
    [:agent {:optional true} :string]
    ;; who injected the turn over the session channel (RFC-043): a person's
    ;; {:user :name :role}, a session's {:session}, with its :approval
@@ -195,7 +196,7 @@
   There is no `:turn` key, and that is deliberate in the original: a per-agent
   turn counter restarts at 1 when a session resumes, so two records claimed to
   be turn 1. Position in the append-only file is the ordering."
-  [{:keys [session agent owner question iterations answer success terminated-by
+  [{:keys [session agent owner question asked iterations answer success terminated-by
            model provider usage started-at ended-at injected-by command permission-mode loop-hash]}]
   (let [entries (with-answer-iteration (mapv project-iteration iterations) answer)
         ended (or ended-at (System/currentTimeMillis))]
@@ -216,6 +217,9 @@
       (some? injected-by) (assoc :injected-by injected-by)
       ;; a question that came from a slash command keeps the command as typed
       (not (str/blank? (str command))) (assoc :command (str command))
+      ;; a question the person accepted asked differently keeps what they
+      ;; asked; :question is what the turn worked on (RFC-072, byj-10y)
+      (not (str/blank? (str asked))) (assoc :asked (trunc asked max-field-chars))
       ;; the permission mode in force when the turn ended — what a scorer
       ;; reads, as Claude Code's transcript gives it per line
       permission-mode (assoc :permission-mode (name permission-mode))
