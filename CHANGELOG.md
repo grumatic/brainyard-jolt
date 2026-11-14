@@ -18,7 +18,9 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   stages taking one off. A person accepts either. Attachments live under
   `.brainyard/loops/ext/`, which no tool writes. `byj loops watch` and
   `byj loops revert` treat an attach as they do any loop change, and
-  `doctor` names an attachment whose slot has changed.
+  `doctor` names an attachment whose slot has changed. Both slots read
+  `:turn-start`, the work tree's snapshot as the turn began, so an
+  attachment can judge only what the turn changed and not what it found.
 - **A call a loop's tree made says so in the turn's record**: `:node`,
   and `:slot` when a slot's attachment made it. `byj loops eval` and
   `byj loops watch` count tool errors and refusals from the model's calls

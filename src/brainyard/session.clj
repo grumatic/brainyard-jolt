@@ -2573,7 +2573,7 @@
          (try (coach/context-text @coach-templates (coach/stance (config-now ctx)))
               (catch Throwable _ nil))))
 
-(defn ^{:reads #{:input :command-input :console-activity :previous-turns} :writes #{:turn :turn-count :turn-started-at :config-pending-told :injected-by :console-activity :history-context}}
+(defn ^{:reads #{:input :command-input :console-activity :previous-turns} :writes #{:turn :turn-count :turn-started-at :turn-start :config-pending-told :injected-by :console-activity :history-context}}
   begin-turn [{:keys [st-memory] :as ctx}]
   ;; what the config files say now, in force from this turn (RFC-013)
   (refresh-config! ctx)
@@ -2593,8 +2593,11 @@
     ;; told this turn as the person's console activity (RFC-069, byj-gly.488)
     (when-let [id (some-> (:config ctx) :session-id str not-empty)]
       (tell-next-turn! ctx (persist/take-notes! (:config ctx) id)))
-    ;; the work tree as the turn finds it, git's snapshot, for a review (RFC-067)
-    (changes/begin-turn! (:config ctx) n (:input @st-memory))
+    ;; the work tree as the turn finds it, git's snapshot, for a review
+    ;; (RFC-067) — and for the loop's extension slots, which read it as
+    ;; :turn-start to tell what this turn changed from what it found
+    ;; (RFC-072, byj-4hk); nil when no snapshot is kept
+    (swap! st-memory assoc :turn-start (changes/begin-turn! (:config ctx) n (:input @st-memory)))
     ;; …and says so on the bus, so a share's sidecar attributes the turn
     (events/emit! ctx :session.turn/start
                   (cond-> {:turn n :question (:input @st-memory)}

@@ -57,6 +57,17 @@ const checks = {
       if ((await fetch(`http://${b}/no-such-thing`)).status !== 404) fail('an unknown path is not 404');
     });
   },
+  // the health endpoint as dev/sim/extensions/pressure.edn changes it: the
+  // server's uptime and package.json's version beside ok
+  async health2() {
+    await withServer(async (b) => {
+      const h = await (await fetch(`http://${b}/api/health`)).json();
+      const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+      if (h.ok !== true) fail('/api/health did not answer ok:true: ' + JSON.stringify(h));
+      if (!Number.isInteger(h.uptime) || h.uptime < 0) fail('/api/health has no whole-second uptime: ' + JSON.stringify(h));
+      if (h.version !== version) fail(`/api/health's version is not package.json's ${version}: ` + JSON.stringify(h));
+    });
+  },
   async term() {
     await withServer(async (b) => {
       const c = await term(`ws://${b}/term`);

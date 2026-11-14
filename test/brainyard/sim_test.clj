@@ -9,6 +9,8 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [brainyard.agent :as agent]
+            [brainyard.bt :as bt]
             [brainyard.config]
             [clojure.test :refer [deftest is testing]]
             [brainyard.effect :as fx]
@@ -363,6 +365,65 @@
   (is (= {"LINT" 2 "ANSWER REFUSED" 1}
          (sim/notice-counts [{:iterations [{:notices "LINT: x"} {:notices "ANSWER REFUSED: y\n\nLINT: z"} {}]}]
                             ["LINT" "ANSWER REFUSED"]))))
+
+(deftest the-pressure-plans-differ-only-in-what-is-attached
+  ;; dev/sim/extensions/pressure*.edn against their baseline: the same stages,
+  ;; so a comparison of two runs measures the attachments and nothing else
+  (let [base (sim/load-plan "dev/sim/extensions/pressure-baseline.edn")
+        own-checks #{"lint-ran" "tests-ran" "work-ran"}
+        stages (fn [p] (mapv (fn [s] (update s :checks #(vec (remove (comp own-checks :name) %)))) (:stages p)))
+        dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "sim-pressure-" (random-uuid))) .mkdirs))]
+    (is (nil? (:attachments base)))
+    (doseq [[file attached] [["pressure.edn" {:react/ext-after-tools ["lint"] :react/ext-answer-check ["tests"]}]
+                             ["pressure-work.edn" {:react/ext-answer-check ["work"]}]]
+            :let [ext (sim/load-plan (str "dev/sim/extensions/" file))]]
+      (is (= (stages ext) (stages base)) file)
+      (is (= (dissoc ext :id :attachments :stages :plan-file) (dissoc base :id :stages :plan-file)) file)
+      (is (= attached (:attachments ext)) file)
+      (is (= (count (mapcat val attached)) (count (sim/plan-attachments ext dir))) "each can be attached"))))
+
+(deftest the-work-check-reads-what-the-turn-changed-and-says-what-is-off
+  ;; dev/sim/extensions/ext/work.edn's command, made by its own seed and join
+  ;; from a :turn-start, and run in a project as its attachment would: what
+  ;; git shows decides it (bd is not asked here)
+  (let [[_ _ seed join] (edn/read-string (slurp "dev/sim/extensions/ext/work.edn"))
+        command (fn [start]
+                  (let [m (atom {:turn-start start})]
+                    (bt/tick {:st-memory m :registry agent/registry} [:sequence {} seed join])
+                    (:work/command @m)))
+        dir (doto (io/file (System/getProperty "java.io.tmpdir") (str "sim-work-" (random-uuid))) .mkdirs)
+        git (fn [& args] (:out (apply fx/sh {:dir (str dir) :out :string :err :string} "git" "-c" "user.name=t" "-c" "user.email=t@t" args)))
+        run #(fx/sh {:dir (str dir) :out :string :err :string} "bash" "-c" (command %))
+        snapshot (fn []
+                   ;; the work tree as a commit, as changes/begin-turn! makes it
+                   (let [idx (str (io/file dir ".git" "sim-index"))
+                         sh #(:out (fx/sh {:dir (str dir) :out :string :err :string :env (assoc (into {} (System/getenv)) "GIT_INDEX_FILE" idx)} "bash" "-c" %))]
+                     (str/trim (sh "git add -A && git -c user.name=t -c user.email=t@t commit-tree -m start $(git write-tree)"))))]
+    (when (zero? (:exit (fx/sh {:out :string :err :string} "bash" "-c" "command -v node")))
+      (is (str/starts-with? (command "abc123") "export START=abc123;node -e"))
+      (is (str/starts-with? (command nil) "export START=;node -e") "no snapshot: no sha")
+      (is (zero? (:exit (run nil))) "no git: nothing to ask")
+      (git "init" "-q")
+      (spit (io/file dir "server.js") "1")
+      (let [r (run nil)]
+        (is (= 1 (:exit r)))
+        (is (str/includes? (:out r) "WORK (git and bd"))
+        (is (str/includes? (:out r) "?? server.js")))
+      (git "add" "-A")
+      (git "commit" "-qm" "x")
+      (is (zero? (:exit (run nil))) "committed: nothing off")
+      (testing "with the turn's start, what the turn found is not its to answer for"
+        (spit (io/file dir "found.txt") "left by /init")
+        (let [start (snapshot)]
+          (is (re-matches #"[0-9a-f]{40}" start))
+          (is (= 1 (:exit (run nil))) "without it, found.txt is held against the turn")
+          (is (zero? (:exit (run start))))
+          (spit (io/file dir "made.js") "2")
+          (let [r (run start)]
+            (is (= 1 (:exit r)))
+            (is (str/includes? (:out r) "changes this turn made that no commit holds"))
+            (is (str/includes? (:out r) "?? made.js"))
+            (is (not (str/includes? (:out r) "found.txt")))))))))
 
 (deftest a-call-the-loops-tree-made-is-counted-apart-from-the-models
   ;; byj-8gc: an attachment's lint after every write was 3x a repeated-call

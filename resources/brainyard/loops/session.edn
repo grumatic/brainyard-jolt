@@ -93,6 +93,9 @@
                     ;; (RFC-018), and cannot re-cut a string someone else made
                     :previous-turns :previous-turns
                     :turn-number :turn-count
+                    ;; the work tree's snapshot as the turn began (RFC-069),
+                    ;; for the ReAct loop's extension slots (RFC-072)
+                    :turn-start :turn-start
                     :memory-hint :memory-hint
                     :editor-context :editor-context
                     :coach-context :coach-context

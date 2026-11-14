@@ -195,8 +195,20 @@ breaking the projects attached to it. Two are proposed for the ReAct loop
 
 | slot | place | reads | kind |
 |---|---|---|---|
-| `:react/ext-after-tools` | after `:react/tool-dispatch` in the tool path | `:last-tool-results`, `:tool-calls`, `:question` | `:ignore`: a lint or a check after a write, told to the model next iteration |
-| `:react/ext-answer-check` | on every path that accepts an answer | `:answer`, `:question`, `:iterations` | `:fail`: a project's own check of an answer; a failure sends it to refine with the slot's critique |
+| `:react/ext-after-tools` | after `:react/tool-dispatch` in the tool path | `:last-tool-results`, `:tool-calls`, `:question`, `:turn-start` | `:ignore`: a lint or a check after a write, told to the model next iteration |
+| `:react/ext-answer-check` | on every path that accepts an answer | `:answer`, `:question`, `:iterations`, `:turn-start` | `:fail`: a project's own check of an answer; a failure sends it to refine with the slot's critique |
+
+**Both read where the turn began.** `:turn-start` is the work tree's git
+snapshot as the turn began, a commit id (RFC-069): the session's
+`begin-turn` keeps it, and the session loop's scope hands it to the ReAct
+loop. It is nil without a session (`byj ask`), outside git, or with
+`:changes?` off. An attachment that judges the turn's work needs it to tell
+what the turn changed from what it found: an untracked path is the turn's
+when the snapshot has none, and a tracked one when it differs from the
+snapshot. Without it, a check of the work tree held the turn to account for
+what it found. In a simulation that check refused six answers for files
+that `/init` leaves for the person on purpose, and refused one usefully
+(`byj-4hk`; "Measured in a simulation").
 
 After the tools, `:react/fold-ext-notices` queues what the attachment left in
 `:ext/notices` for the next iteration's prompt, beside the other notices.
@@ -360,6 +372,43 @@ but it anchors on any node id, which makes every id a promise. A slot is a
 promise made on purpose, at one place, with its keys, and `contract/` holds
 it.
 
+### Measured in a simulation (2026-11-14)
+
+Simulated projects (RFC-041) with attachments, each condition run once on
+claude-code. These numbers say what happened. With one run each, they
+measure nothing finer than that.
+
+- **The playground with a lint and a test check** (`dev/sim/extensions/plan.edn`
+  against `dev/sim/playground/plan.edn`, sonnet, twice): every stage passed
+  either way, and neither attachment ever spoke. The model ran `npm test`
+  itself before every answer and wrote nothing that failed to parse.
+- **A plan made to give them something to do** (`pressure.edn`, haiku): the
+  stages asked only to build, commit and close; one bead changed what an
+  earlier one built; a smaller model. Still neither spoke. The model ran the
+  tests on its own (4 and 5 times), and it rewrote the test the change
+  broke in the same commit.
+- **A check of the work, not the tests** (`ext/work.edn`, `pressure-work.edn`,
+  haiku): it refuses while the work tree holds a change no commit holds, a
+  bead is left in progress, or a closed bead has no commit. Against the
+  baseline (5/5, $0.09, 516 s) it passed 5/5 for $0.12 and 689 s, and
+  refused 7 answers.
+  - 6 of them were for `.claude/skills/`, which `/init` leaves for the
+    person on purpose. Four of those were in turns that only found it there.
+  - 1 was for `node_modules/` with no `.gitignore`. The model then fixed it,
+    and only this run ended with a clean work tree.
+- **The same check reading `:turn-start`** (`byj-4hk`): 5/5, $0.10, 577 s,
+  and 3 refusals.
+  - The turns that found `.claude/skills/` were no longer refused.
+  - `/init`'s own turn, which wrote it, was refused twice. The check holds
+    the turn that made a file to account for it, and `/init` leaves that
+    file uncommitted by design.
+  - The `node_modules/` refusal stayed, and the model again added the
+    `.gitignore`.
+
+What an attachment can add is what the model does not do on its own. On
+these runs that was the state the work was left in, not whether it passed
+its tests.
+
 ## API
 
 A row not marked built is proposed.
@@ -397,6 +446,7 @@ The rows naming a bead are proposed and enforced by nothing yet.
 | `byj loops attach` stages an attachment only when the loop with it wins. | `loop-eval-test/an-attachment-is-evaluated-attached-and-staged-when-it-wins` |
 | A regression since an attach is offered back as a detach. | `loop-watch-test/a-regression-since-an-attachment-is-offered-back-as-a-detach` |
 | A slot's id, keys and place change only with `contract/` (`loops/slots.edn`). | `contract-test/the-slots-the-bundled-loops-offer-are-byjs-contract` |
+| A slot reads the turn's start: the parent of the turn's `refs/byj/turns` ref. | `session-test/a-slot-reads-where-the-turn-began` |
 | The answer check is on every path that accepts an answer, before the stamp, and stops refusing at `:max-answer-checks`. | `agent-test/the-answer-check-sits-before-every-stamp`, `agent-test/a-projects-answer-check-refuses-on-every-path-that-accepts` |
 | What is attached after the tools is heard in the next iteration, and its failure costs the turn nothing. | `agent-test/an-attachment-after-the-tools-is-heard-next-iteration`, `agent-test/an-attachment-after-the-tools-that-fails-costs-the-turn-nothing` |
 

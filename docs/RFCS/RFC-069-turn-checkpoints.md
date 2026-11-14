@@ -34,7 +34,9 @@ knows git and the session's id, not providers, tools or renderers.
 
 **It hands** the session (RFC-004) `begin-turn!`, `end-turn!` and the
 commands' mechanism; persistence (RFC-016) the cut of a snapshot before a
-turn; the CLI `byj turns`; Emacs (RFC-067) the diff its review opens.
+turn; the CLI `byj turns`; Emacs (RFC-067) the diff its review opens; the
+ReAct loop's extension slots (RFC-072) the turn's start as `:turn-start`,
+which `session/begin-turn` keeps from what `begin-turn!` returns.
 
 ## Model
 

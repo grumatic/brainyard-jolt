@@ -152,6 +152,11 @@ check).
   are words counted per stage in the notices its turns were shown
   (`:notices {marker n}`): what an attachment said, and `ANSWER REFUSED`
   for a refusal. `dev/sim/extensions/plan.edn` is the playground built so.
+  `pressure.edn`, `pressure-work.edn` and `pressure-baseline.edn` beside it
+  are one shorter plan with different attachments and with none, made so
+  an attachment has something to do (RFC-072 "Measured in a simulation");
+  `sim-test/the-pressure-plans-differ-only-in-what-is-attached` holds them
+  to the same stages.
 - **A failed call** is one the trajectory marks failed (`:error?`), or whose
   result reads as one: a gate's block, which prints as `{:hook-blocked …}`,
   was not counted before `byj-ng7.18`, so a run since can show more failed

@@ -828,6 +828,35 @@
       (is (= ["a.txt"] files))
       (is (str/includes? diff "-before\n+after\n")))))
 
+(deftest a-slot-reads-where-the-turn-began
+  ;; RFC-072, byj-4hk: the work tree's snapshot as the turn began reaches the
+  ;; ReAct loop's slots as :turn-start, so an attachment can tell what the
+  ;; turn changed from what it found. Here one says it after the tools, and
+  ;; the next call's prompt carries it
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "slot-start-" (System/nanoTime))) .mkdirs))
+        f (io/file dir "a.txt")
+        _ (spit f "before\n")
+        _ (fx/sh {:dir dir :out :string :err :string} "git" "init" "-q")
+        _ (project-loops/write-attachment!
+           dir :react/ext-after-tools "start"
+           [:sequence {:id :start/say}
+            [:action {:id :start/seed :fn :mem/set :set {:start/label "TURN STARTED AT"}}]
+            [:action {:id :start/join :fn :mem/join :in {:a :start/label :b :turn-start} :sep " "
+                      :out {:ext/notices :ext/notices}}]]
+           {:contract (get (project-loops/slots (agent/load-tree "react")) :react/ext-after-tools)})
+        cfg {:working-dir dir :project-dir dir :session-id "s-start" :persist-session? false :max-iterations 4
+             :memory-hint? false :recap? false}
+        replies (atom [(json/write-str {:reasoning "r" :answer ""
+                                        :tool-calls [{:tool-name "write-file" :tool-args {:path (str f) :content "after\n"}}]})
+                       (json/write-str {:reasoning "r" :tool-calls [] :answer "written"})])
+        {:keys [prompts]} (run-session ["write it"] (fn [_] (let [r (first @replies)] (swap! replies #(vec (rest %))) r))
+                                       :config cfg)
+        start (str/trim (:out (fx/sh {:dir dir :out :string :err :string} "git" "rev-parse" "refs/byj/turns/s-start/1^")))
+        said (re-find #"TURN STARTED AT ?([0-9a-f]*)" (str (last prompts)))]
+    (is (re-matches #"[0-9a-f]{40}" start))
+    (is (some? said) "the attachment ran after the write and its notice reached the model")
+    (is (= start (second said)) "the slot read the turn's start: the parent of the turn's ref")))
+
 (deftest the-person-puts-files-back-and-the-next-turn-is-told
   ;; RFC-069 (byj-gly.484): /rewind lists the turns, puts the files back as
   ;; they were when one began, and is taken back; /undo-turn takes back one

@@ -1,0 +1,61 @@
+;; The extensions plan (plan.edn) where its attachments have something to do.
+;; On the playground's own stages the model ran the tests itself before every
+;; answer, and wrote nothing that failed to parse, so neither attachment ever
+;; spoke (runs extensions-20261114-0933 and -1010). Here:
+;;
+;; - a stage asks only to build, commit and close — not to make the tests
+;;   pass; AGENTS.md (from /init) says how the tests run, as a project's does;
+;; - one bead changes what an earlier one built: /api/health answers more than
+;;   {"ok":true}, which a test written two stages before is likely to pin;
+;; - a smaller model, which leaves more undone.
+;;
+;; The beads are filed at priority 1: at /init's priority 2, `bd ready` once
+;; offered /init's getting-started bead first, and the baseline built one
+;; stage behind from there on (run pressure-20261114-1145).
+;;
+;; Every stage's checks still run npm test: whether the project ends a stage
+;; green is what is measured. pressure-baseline.edn is the same plan with
+;; nothing attached:
+;;
+;;   jolt sim:byj dev/sim/extensions/pressure-baseline.edn --keep-going
+;;   jolt sim:byj dev/sim/extensions/pressure.edn --keep-going
+;;   jolt sim:byj compare BASELINE-RUN PRESSURE-RUN
+{:id "extensions-pressure"
+ :projects-dir "~/Projects/byj-sim"
+ :provider "claude-code" :model "haiku"
+ :permission-mode :auto
+ :timeout-s 1800
+ :cap-usd 5.0
+ :attachments {:react/ext-after-tools ["lint"]
+               :react/ext-answer-check ["tests"]}
+ :notice-markers ["LINT (node --check" "ANSWER REFUSED: TESTS" "ANSWER REFUSED: WORK"]
+ :answers [{:match "pkill" :answer "n"}
+           {:match "node --check" :answer "y"}
+           {:match "npm test" :answer "y"}
+           {:match "npm install" :answer "y"}
+           {:match "WORK (git and bd" :answer "y"}]
+ :default-answer "n"
+ :stages
+ [{:id :init
+   :lines ["/init"
+           "This project is a mini-playground: a small web workspace with a Terminal section first. Stack: Node 20+, a plain node:http server with ws and node-pty, tests with node --test. Conventions: npm start runs the server on the port in PORT (default 3000), npm test runs the tests. File each of these as a bead at priority 1, in order, each depending on the one before: (1) server shell: a page with a sidebar of sections Terminal, Files, Editor and Chat, GET /api/health answering {\"ok\":true}, and 404 for unknown paths; (2) a terminal over a WebSocket at /term spawning $SHELL in the project dir, with JSON frames {\"t\":\"i\",\"d\":text} from the client and {\"t\":\"o\",\"d\":text} from the server, the shell killed when the socket closes; (3) GET /api/health answers {\"ok\":true,\"uptime\":n,\"version\":s}: the server's uptime in whole seconds and the version in package.json; (4) a file tree and a text editor: GET /api/files?path= lists a directory, GET /api/file?path= answers a file's text and PUT /api/file?path= writes the request body, the file's text as it is, and any path outside the project dir is answered 400. Don't start building yet."]
+   :checks [{:type :file :name "agents-md" :path "AGENTS.md" :contains "BRAINYARD:project"}
+            {:type :command :name "four-beads" :run "test $(bd list 2>/dev/null | grep -c '^○') -ge 4"}]}
+  {:id :server
+   :lines ["Work on the next ready bead (bd ready): build it, commit, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "health" :run "node {{plan}}/../playground/checks/checks.cjs health" :timeout-s 60}]}
+  {:id :term
+   :lines ["Work on the next ready bead (bd ready): build it, commit, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "term" :run "node {{plan}}/../playground/checks/checks.cjs term" :timeout-s 60}]}
+  {:id :health
+   :lines ["Work on the next ready bead (bd ready): build it, commit, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "health2" :run "node {{plan}}/../playground/checks/checks.cjs health2" :timeout-s 60}]}
+  {:id :files
+   :lines ["Work on the next ready bead (bd ready): build it, commit, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "files" :run "node {{plan}}/../playground/checks/checks.cjs files" :timeout-s 60}
+            {:type :command :name "lint-ran" :run "grep -q 'node --check' .brainyard/sessions/*/trajectory.edn"}
+            {:type :command :name "tests-ran" :run "grep -q 'run before your answer is final' .brainyard/sessions/*/trajectory.edn"}]}]}

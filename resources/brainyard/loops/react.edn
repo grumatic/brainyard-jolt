@@ -76,10 +76,12 @@
                       :predictor "react/evaluate-answer"}]]
         ;; a slot: what a project attaches here judges the answer; its failure
         ;; refuses it, with :ext/critique as the reason, while the turn has
-        ;; refusals left under :max-answer-checks
+        ;; refusals left under :max-answer-checks. Both slots read
+        ;; :turn-start, the work tree's git snapshot as the turn began
+        ;; (RFC-069): nil without a session, outside git, or with :changes? off
         [:fallback {:id :react/answer-checked}
          [:extension {:id :react/ext-answer-check
-                      :reads {:answer :answer :question :question :iterations :iterations}
+                      :reads {:answer :answer :question :question :iterations :iterations :turn-start :turn-start}
                       :writes {:ext/critique :ext/critique}
                       :on-failure :fail}]
          [:condition {:id :react/answer-check-spent? :fn :react/answer-check-spent?}]]
@@ -95,7 +97,7 @@
       ;; in :ext/notices, which the next iteration's prompt carries. Its
       ;; failure is recorded and ignored
       [:extension {:id :react/ext-after-tools
-                   :reads {:last-tool-results :last-tool-results :tool-calls :tool-calls :question :question}
+                   :reads {:last-tool-results :last-tool-results :tool-calls :tool-calls :question :question :turn-start :turn-start}
                    :writes {:ext/notices :ext/notices}
                    :on-failure :ignore}]
       [:action {:id :react/fold-ext-notices :fn :react/fold-ext-notices}]]

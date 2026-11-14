@@ -1,0 +1,28 @@
+;; Attached to :react/ext-answer-check (RFC-072): before an answer is final,
+;; the project is asked whether it shows what a finished answer says — read
+;; from git and bd, no model called. Refused, with what is off, when what
+;; this turn did leaves:
+;;
+;; - a change no commit holds (.beads and .brainyard aside);
+;; - a bead it touched still in progress;
+;; - a bead it closed with no commit, between the bead's filing and a minute
+;;   after its close, that changes the project.
+;;
+;; "This turn" is read from :turn-start, the work tree's snapshot as the turn
+;; began (RFC-069): an untracked path is the turn's when the snapshot has
+;; none, a tracked one when it differs from the snapshot. What the turn found
+;; is not its to answer for — /init leaves .claude/skills/ for the person, and
+;; the check refused six answers for it before the slot could read the start
+;; (byj-4hk). Without a snapshot (byj ask, no git) it reads the whole work
+;; tree and the beads of the last hour. With no git or no bd it passes what it
+;; cannot be asked. It refuses at most :max-answer-checks times in a turn.
+[:sequence {:id :work/answer-check}
+ [:action {:id :work/seed :fn :mem/set
+           :set {:work/a "export START="
+                 :work/c ";node -e 'const x=require(\"child_process\").execSync;const sh=c=>{try{return x(c,{encoding:\"utf8\",stdio:[\"ignore\",\"pipe\",\"ignore\"]})}catch(e){return \"\"}};const ok=c=>{try{x(c,{stdio:\"ignore\"});return true}catch(e){return false}};const js=c=>{try{return JSON.parse(sh(c)||\"[]\")}catch(e){return []}};const S=process.env.START||\"\";const start=/^[0-9a-f]{7,64}$/.test(S)&&ok(`git cat-file -e ${S}^{commit}`)?S:\"\";const since=start?Date.parse(sh(`git log -1 --format=%cI ${start}`).trim()):Date.now()-36e5;const own=` -- . \":!.beads\" \":!.brainyard\"`;const mine=l=>{const f=l.slice(3).split(\" -> \").pop().replace(/^\"|\"$/g,\"\").replace(/\\/$/,\"\");return !start||(l.startsWith(\"??\")?!sh(`git ls-tree --name-only ${start} -- \"${f}\"`).trim():!ok(`git diff --quiet ${start} -- \"${f}\"`))};const p=[];const dirty=sh(`git status --porcelain${own}`).split(\"\\n\").filter(l=>l.trim()&&mine(l));if(dirty.length)p.push((start?\"changes this turn made that no commit holds\":\"changes no commit holds\")+\":\\n  \"+dirty.slice(0,8).join(\"\\n  \"));for(const b of js(\"bd list --status in_progress --json\").filter(b=>Date.parse(b.updated_at)>=since))p.push(`${b.id} (${b.title}) is still in progress`);for(const b of js(\"bd list --status closed --json\").filter(b=>Date.parse(b.closed_at)>=since))if(!sh(`git log --since=${b.created_at} --until=${new Date(Date.parse(b.closed_at)+6e4).toISOString()} --format=%h${own}`).trim())p.push(`${b.id} (${b.title}) is closed, but no commit between its filing and its close changes the project (.beads and .brainyard aside)`);if(p.length){console.log(\"WORK (git and bd, checked before your answer is final): the project does not show what a finished answer says:\\n- \"+p.join(\"\\n- \")+\"\\nFinish it, or reopen what is not done, then answer again.\");process.exit(1)}'"}}]
+ ;; export START=<sha>;node -e …, the sha left out when there is none
+ [:action {:id :work/command :fn :mem/join :in {:a :work/a :b :turn-start :c :work/c} :sep ""
+           :out {:work/command :work/command}}]
+ [:action {:id :work/run :fn :tool/run :tool "bash" :in {:command :work/command}
+           :out {:ext/critique :output :work/status :status}}]
+ [:condition {:id :work/passed? :fn :mem/match? :key :work/status :pattern "^completed$"}]]
