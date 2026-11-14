@@ -32,6 +32,16 @@ async function withServer(fn) {
   } finally { try { process.kill(-srv.pid, 'SIGTERM'); } catch {} started.delete(srv.pid); }
 }
 
+// an error answer as decision 0002 says: content-type JSON, {error: string}
+async function jsonError(r, what) {
+  const ct = r.headers.get('content-type') || '';
+  const text = await r.text();
+  if (!/application\/json/.test(ct)) fail(`${what} is not JSON (content-type ${ct || 'none'}): ${text.slice(0, 80)}`);
+  let body;
+  try { body = JSON.parse(text); } catch { fail(`${what} does not parse as JSON: ${text.slice(0, 80)}`); }
+  if (typeof body.error !== 'string' || !body.error) fail(`${what} has no {error: "…"}: ${text.slice(0, 80)}`);
+}
+
 // a WebSocket client that collects output frames {t:'o', d}
 function term(url) {
   return new Promise((resolve, reject) => {
@@ -66,6 +76,21 @@ const checks = {
       if (h.ok !== true) fail('/api/health did not answer ok:true: ' + JSON.stringify(h));
       if (!Number.isInteger(h.uptime) || h.uptime < 0) fail('/api/health has no whole-second uptime: ' + JSON.stringify(h));
       if (h.version !== version) fail(`/api/health's version is not package.json's ${version}: ` + JSON.stringify(h));
+    });
+  },
+  // dev/sim/extensions/project/decisions/0002: an error is JSON {error}
+  async errors() {
+    await withServer(async (b) => {
+      const r = await fetch(`http://${b}/no-such-thing`);
+      if (r.status !== 404) fail('an unknown path is ' + r.status + ', not 404');
+      await jsonError(r, 'the 404');
+    });
+  },
+  async errors400() {
+    await withServer(async (b) => {
+      const r = await fetch(`http://${b}/api/file?path=${encodeURIComponent('../../etc/passwd')}`);
+      if (r.status !== 400) fail('a path outside the project is ' + r.status + ', not 400');
+      await jsonError(r, 'the 400');
     });
   },
   async term() {

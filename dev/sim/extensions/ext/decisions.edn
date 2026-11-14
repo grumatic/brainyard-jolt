@@ -1,0 +1,10 @@
+;; Attached to :react/ext-question-check (RFC-072, byj-93l): the project's
+;; decision records (docs/decisions/*.md) are the turn's context, so every
+;; call of the turn has them in front of it — a corpus small enough to carry
+;; whole. A fixed command reads them; the question is never in it. A project
+;; with none adds nothing.
+[:sequence {:id :decisions/context}
+ [:action {:id :decisions/seed :fn :mem/set
+           :set {:decisions/command "ls docs/decisions/*.md >/dev/null 2>&1 || exit 0; echo 'The decision records of this project (docs/decisions/). Its work keeps to them:'; for f in docs/decisions/*.md; do echo; echo \"### $f\"; sed -n '1,40p' \"$f\"; done | head -160"}}]
+ [:action {:id :decisions/read :fn :tool/run :tool "bash" :in {:command :decisions/command}
+           :out {:ext/context :output}}]]

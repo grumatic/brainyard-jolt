@@ -458,6 +458,38 @@ measure nothing finer than that.
   - A proposal is only as good as its brief. A person who accepts without
     reading carries its errors into the turn: the plan's blanket yes did.
 
+- **Rules the person states, with and without extensions** (`rules.edn`
+  against `rules-baseline.edn`, haiku, 3 runs each, `byj-93l`). The project
+  starts with two decision records (no framework; errors are JSON) and a
+  CHANGELOG.md, committed. The init line states three rules: keep to the
+  decisions; add a CHANGELOG line for every change; a bead's work ends
+  committed, with the bead closed. The stages were asked briefly. Each rule
+  was checked apart at every stage (`dev/brainyard/dev/sim_tally.clj`).
+  - In one run of each arm, the model read "let's get the server going" as
+    "start the server", found nothing to start, and built nothing. The
+    counts below are the other two runs of each arm, 8 stages each.
+
+  | rule | baseline | with extensions | the extension for it |
+  |---|---|---|---|
+  | work committed | 0/8 (no work commit at all) | 3/8 (5 work commits) | `work`: refused 12 answers |
+  | bead closed | 0/8 | 4/8 | `work` |
+  | CHANGELOG line | 6/8 | 8/8 | `changelog`: never refused |
+  | errors are JSON | 8/8 | 8/8 | `decisions` context |
+  | no framework | 8/8 | 8/8 | `deps`: never spoke |
+  | cost, time (mean of 3) | $0.077, 533 s | $0.097, 711 s | |
+
+  - The decisions were kept without help. The rule the model knew and did
+    not keep was the bookkeeping: under brief asks, no baseline run
+    committed its work or closed a bead.
+  - The answer check moved that, and only partly:
+    - a run that closed every bead left `node_modules/` uncommitted;
+    - a run that committed every stage never claimed its beads, which
+      `work` does not ask to close;
+    - `:max-answer-checks` (2) let the third answer through.
+  - The CHANGELOG difference cannot be put on its check, which never
+    refused: `work` refused first, and a refused answer runs no check after
+    it.
+
 What an attachment can add is what the model does not do on its own. On
 these runs that was the state the work was left in, not whether it passed
 its tests.

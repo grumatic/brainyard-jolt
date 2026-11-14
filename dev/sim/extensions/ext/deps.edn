@@ -1,0 +1,14 @@
+;; Attached to :react/ext-after-tools (RFC-072, byj-93l): decision 0001 of
+;; the project (docs/decisions/0001-no-framework.md) kept as the work goes:
+;; after a batch of calls that could have written, package.json's
+;; dependencies are read, and one beyond ws and node-pty is told to the model
+;; in the next iteration. Nothing is said when there is none.
+[:fallback {:id :deps/after-a-write}
+ [:sequence {:id :deps/check}
+  [:condition {:id :deps/wrote? :fn :mem/match? :key :tool-calls
+               :pattern "\"(write-file|update-file|bash)\""}]
+  [:action {:id :deps/seed :fn :mem/set
+            :set {:deps/command "node -e 'try{const p=JSON.parse(require(\"fs\").readFileSync(\"package.json\",\"utf8\"));const extra=Object.keys({...p.dependencies,...p.devDependencies}).filter(d=>![\"ws\",\"node-pty\"].includes(d));if(extra.length)console.log(\"DECISION 0001 (docs/decisions/0001-no-framework.md): package.json depends on \"+extra.join(\", \")+\", and the project allows only ws and node-pty until a decision says otherwise. The server is node:http, the tests node --test. Remove it and do the work with node itself.\")}catch(e){}'"}}]
+  [:action {:id :deps/run :fn :tool/run :tool "bash" :in {:command :deps/command}
+            :out {:ext/notices :output}}]]
+ [:sequence {:id :deps/nothing-written}]]

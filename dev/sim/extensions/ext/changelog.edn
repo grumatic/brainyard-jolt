@@ -1,0 +1,15 @@
+;; Attached to :react/ext-answer-check (RFC-072, byj-93l): a project rule the
+;; person states and the model knows, kept every time. When this turn changed
+;; code someone using the workspace could notice (a .js, .html or .css outside
+;; test/), CHANGELOG.md must have changed too; otherwise the answer is refused
+;; with the files named. "This turn" is what differs from :turn-start, the
+;; work tree as the turn began, committed or not. Without a snapshot it passes.
+[:sequence {:id :changelog/answer-check}
+ [:action {:id :changelog/seed :fn :mem/set
+           :set {:changelog/a "export START="
+                 :changelog/c ";node -e 'const x=require(\"child_process\").execSync;const sh=c=>{try{return x(c,{encoding:\"utf8\",stdio:[\"ignore\",\"pipe\",\"ignore\"]})}catch(e){return \"\"}};const ok=c=>{try{x(c,{stdio:\"ignore\"});return true}catch(e){return false}};const S=process.env.START||\"\";if(!/^[0-9a-f]{7,64}$/.test(S)||!ok(`git cat-file -e ${S}^{commit}`))process.exit(0);const fresh=f=>!sh(`git ls-tree --name-only ${S} -- \"${f}\"`).trim();const changed=[...sh(`git diff --name-only ${S}`).split(\"\\n\"),...sh(\"git ls-files --others --exclude-standard\").split(\"\\n\").filter(fresh)].filter(f=>f.trim());const code=[...new Set(changed.filter(f=>/\\.(js|cjs|mjs|html|css)$/.test(f)&&!/^(test|tests|node_modules)\\//.test(f)&&!/\\.test\\.[a-z]+$/.test(f)))];const logged=changed.includes(\"CHANGELOG.md\");if(code.length&&!logged){console.log(\"CHANGELOG (checked before your answer is final): this turn changed \"+code.slice(0,6).join(\", \")+(code.length>6?\", …\":\"\")+\" and CHANGELOG.md has no line for it. The project adds one under ## Unreleased for every change someone using the workspace could notice, in the same commit. Add it, then answer again.\");process.exit(1)}'"}}]
+ [:action {:id :changelog/command :fn :mem/join :in {:a :changelog/a :b :turn-start :c :changelog/c} :sep ""
+           :out {:changelog/command :changelog/command}}]
+ [:action {:id :changelog/run :fn :tool/run :tool "bash" :in {:command :changelog/command}
+           :out {:ext/critique :output :changelog/status :status}}]
+ [:condition {:id :changelog/passed? :fn :mem/match? :key :changelog/status :pattern "^completed$"}]]

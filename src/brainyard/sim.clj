@@ -248,14 +248,19 @@
   plan's directory\"}`, into project `dir` before its first stage: what its
   person had there already, such as the user tools and predictors an
   attachment calls (byj-10y). A source that is not there is thrown on,
-  before anything runs."
+  before anything runs. In a git project they are committed, as a person's
+  files would be, so what the first turn finds uncommitted is its own
+  (byj-93l)."
   [dir plan]
   (doseq [[to from] (:project-files plan)
           :let [src (io/file (:plan-dir plan) from)
                 dst (io/file dir to)]]
     (when-not (.isFile src) (throw (ex-info (str "no project file " src) {:file (str src)})))
     (io/make-parents dst)
-    (io/copy src dst)))
+    (io/copy src dst))
+  (when (and (seq (:project-files plan)) (.isDirectory (io/file dir ".git")))
+    (apply sh! (io/file dir) "git" "add" "-f" "--" (keys (:project-files plan)))
+    (sh! (io/file dir) "git" "commit" "-q" "-m" "The project's own files, as its person had them")))
 
 (defn prepare-project!
   "A fresh project at `dir`: a git repository with one empty commit, and

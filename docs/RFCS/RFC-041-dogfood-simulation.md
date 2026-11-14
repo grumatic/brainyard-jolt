@@ -161,7 +161,13 @@ check).
   stage (`sim/write-project-files!`): the user tools and predictors an
   attachment calls, as its person would have had them. An attachment is
   checked against a scratch project that holds them. `question.edn` and
-  `question-baseline.edn` carry them (`byj-10y`).
+  `question-baseline.edn` carry them (`byj-10y`). Committed in a git
+  project, so what is uncommitted later is the turns'.
+- **Runs repeated** are counted together by `dev/brainyard/dev/sim_tally.clj`
+  (`byj-93l`): per plan, each check's passes over the runs that reached its
+  stage, by stage and in all, with notices, cost and time. One run is one
+  sample. `rules.edn` and `rules-baseline.edn` check each project rule apart
+  (`rule-*`) for it.
 - **A failed call** is one the trajectory marks failed (`:error?`), or whose
   result reads as one: a gate's block, which prints as `{:hook-blocked …}`,
   was not counted before `byj-ng7.18`, so a run since can show more failed

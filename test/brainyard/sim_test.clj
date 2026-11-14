@@ -452,6 +452,25 @@
     (is (some? ((requiring-resolve 'brainyard.predictor/load-predictor) "user/refine-question"
                 [(str (io/file dir ".brainyard" "predictors"))])))))
 
+(deftest the-rules-plans-differ-only-in-what-is-attached-and-start-committed
+  ;; dev/sim/extensions/rules*.edn (byj-93l): the same stages and rule
+  ;; checks, the project's decision records and CHANGELOG.md committed before
+  ;; the first stage, so what is uncommitted later is the turns'
+  (let [ext (sim/load-plan "dev/sim/extensions/rules.edn")
+        base (sim/load-plan "dev/sim/extensions/rules-baseline.edn")
+        dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "sim-rules-" (random-uuid))) .mkdirs))]
+    (is (= (:stages ext) (:stages base)))
+    (is (= (dissoc ext :id :attachments :plan-file) (dissoc base :id :plan-file)))
+    (is (= 4 (count (sim/plan-attachments ext dir))))
+    (is (every? (fn [s] (= #{"rule-committed" "rule-beads-closed" "rule-changelog" "rule-errors-json" "rule-no-framework"}
+                           (set (filter #(str/starts-with? % "rule-") (map :name (:checks s))))))
+                (rest (:stages ext))))
+    (fx/sh {:dir dir} "git" "init" "-q")
+    (sim/write-project-files! dir ext)
+    (is (= "" (str/trim (:out (fx/sh {:dir dir :out :string :err :string} "git" "status" "--porcelain")))))
+    (is (str/includes? (:out (fx/sh {:dir dir :out :string :err :string} "git" "ls-files"))
+                       "docs/decisions/0002-errors-are-json.md"))))
+
 (deftest a-call-the-loops-tree-made-is-counted-apart-from-the-models
   ;; byj-8gc: an attachment's lint after every write was 3x a repeated-call
   ;; warn and a third of a stage's calls
