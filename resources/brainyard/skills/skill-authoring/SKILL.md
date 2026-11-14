@@ -44,7 +44,49 @@ tags: deploy, staging
 - The body is numbered steps, each an action you can check. Name the exact
   commands and files.
 
-## 3. Make it callable
+## 3. Add scripts and resources (when the procedure needs them)
+
+A skill's directory may hold two more directories beside `SKILL.md`:
+
+```
+deploy-staging/
+  SKILL.md
+  scripts/     commands a step runs, such as scripts/check.sh
+  resources/   files a step reads: templates, checklists, reference tables
+```
+
+- Nothing in them is loaded or run on its own. Calling `skill$<name>` returns
+  `SKILL.md` and its `:path`; the body says which step uses which file, by a
+  path relative to the skill's directory (the directory of `:path`).
+- A script is run with `bash`. Write the step as the command, with what it
+  prints and what counts as success:
+  `3. Run bash scripts/check.sh <url>; it prints ok, anything else is a failure.`
+  Put in a script what is easier to get right once than to type every time,
+  and keep the judgement in `SKILL.md`.
+- A resource is read with `read-file` by the step that needs it:
+  `4. Fill in resources/report-template.md and show it.` Long reference
+  material belongs here, not in `SKILL.md`, so it costs nothing until a step
+  needs it.
+- `skills$write` writes them with `create` or `update`: `scripts` and
+  `resources`, each a map of file name to text.
+
+  ```json
+  {"op": "create", "skill-name": "deploy-staging",
+   "content": "<the whole SKILL.md>",
+   "scripts": {"check.sh": "<the script>"},
+   "resources": {"report-template.md": "<the template>"}}
+  ```
+
+  Only a file's own name is kept, so an extra cannot land outside its skill or
+  in a subdirectory. A `.sh` is made executable. `update` with only `scripts`
+  or `resources` adds or replaces those files and leaves `SKILL.md` alone.
+- A built-in skill carries no scripts, because an embedded file is not on disk
+  for `bash` to run, and its resources cannot be opened with `read-file`. Its
+  index entry (`{:name "<name>" :resources ["file" …]}` in
+  `resources/brainyard/skills/index.edn`) names the files that calling it
+  returns under `:resources`, file name to text. Keep them small.
+
+## 4. Make it callable
 
 `skills$write` with `op` `create`, `skill-name` and `content` (the whole file,
 frontmatter included) writes it and registers it at once. A SKILL.md written
