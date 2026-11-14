@@ -61,6 +61,24 @@
     (is (= "a" (:answer mem)) "a key outside :writes is the attachment's own")
     (is (= [:before :after] (:trail mem)))))
 
+(deftest what-an-attachment-spends-and-calls-is-the-turns
+  ;; a scope is a fresh memory: an attachment's tool call and model cost were
+  ;; left in it, out of the turn's record and usage (RFC-072)
+  (let [reg (assoc registry :t/spend (fn [{:keys [st-memory]}]
+                                       (swap! st-memory #(-> %
+                                                             (update :usage update :cost (fnil + 0) 0.5)
+                                                             (update :usage-calls (fnil conj []) {:cost 0.5})
+                                                             (update :trajectory-iterations (fnil conj []) {:tool-name "bash"})))))]
+    (doseq [slot [slot-after slot-check]
+            :let [id (:id (second slot))
+                  tree (bt/expand (loop-with slot) {} {id (attach [:action {:id :x/s :fn :t/spend}])})
+                  m (atom {:question "q" :answer "a" :usage {:cost 1.0} :usage-calls [{:cost 1.0}]
+                           :trajectory-iterations [{:tool-name "read-file"}]})]]
+      (is (= :success (bt/tick {:st-memory m :registry reg} tree)))
+      (is (= 1.5 (get-in @m [:usage :cost])) (str id))
+      (is (= 2 (count (:usage-calls @m))))
+      (is (= ["read-file" "bash"] (map :tool-name (:trajectory-iterations @m)))))))
+
 (deftest attachments-run-in-the-order-declared
   (let [order (atom [])
         reg (assoc registry :t/say (fn [{:keys [node]}] (swap! order conj (:say node))))

@@ -124,6 +124,13 @@ after the slot folds them into the loop's own state: the slot is where the
 attachment speaks, the fold is the bundled loop deciding what that means.
 `expand` refuses a slot whose `:writes` leave `:ext/`.
 
+What the turn keeps of everything run in it is carried through every slot's
+scope, in and out, whatever its contract (`bt/slot-carried`): the turn's
+record, `:trajectory-iterations`, where `:tool/run` puts each call, and what
+it spent, `:usage` and `:usage-calls`. Without them an attachment's calls
+were in no record and its model calls in no cost. That was found while
+writing the first attachments for a simulation, before anything shipped.
+
 ### Where an attachment lives, and how it becomes live
 
 ```
@@ -374,6 +381,7 @@ The rows naming a bead are proposed and enforced by nothing yet.
 |---|---|
 | A loop with no attachments behaves exactly as without its slots. | `extension-test/a-slot-with-nothing-attached-is-a-node-that-does-nothing` |
 | An attachment reads only its slot's `:reads` and changes no key of the loop outside its `:writes`; a slot's `:writes` are under `:ext/`. | `extension-test/an-attachment-sees-the-slots-reads-and-changes-only-its-writes`, `extension-test/flow-check-reads-an-attachment-where-it-sits`, `extension-test/a-malformed-slot-is-refused-at-expansion` |
+| An attachment's tool calls are in the turn's record and its spending in the turn's usage. | `extension-test/what-an-attachment-spends-and-calls-is-the-turns` |
 | Attachments run in the order declared. | `extension-test/attachments-run-in-the-order-declared` |
 | An attachment with `:on-failure :ignore` never fails the turn. One with `:fail` fails what holds its slot. | `extension-test/a-slot-that-ignores-failure-never-fails-the-loop`, `extension-test/a-slot-whose-failure-counts-fails-what-holds-it` |
 | The expansion names what was attached, and its hash — a turn's `:loop :hash` — differs with each attachment set. | `extension-test/the-expansion-and-its-hash-say-what-was-attached` |

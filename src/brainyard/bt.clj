@@ -246,6 +246,16 @@
 
 (declare nodes)
 
+(def slot-carried
+  "What a turn keeps of everything that runs in it, carried into a slot's
+  scope and back out whatever its `:reads` and `:writes`: the turn's record
+  (`:trajectory-iterations`, where `:tool/run` puts each call) and what it
+  spent (`:usage`, `:usage-calls`, where a predictor counts its call). A
+  scope is a fresh memory, so without these an attachment's calls were in no
+  record and its model calls in no cost: a turn that ran one looked cheaper
+  than it was (RFC-072)."
+  {:trajectory-iterations :trajectory-iterations :usage :usage :usage-calls :usage-calls})
+
 (defn- slot-problem
   "Why the slot `opts` cannot be expanded, or nil. A slot's `:writes` are
   keys of its own, under `:ext/`: `:scope :out` copies an inner key OVER the
@@ -272,7 +282,7 @@
       [:sequence top]
       (let [top (assoc top :attached (mapv :name attached))
             body (into [:sequence {}] (map :tree) attached)
-            scope {:in (or reads {}) :out (or writes {})}]
+            scope {:in (merge (or reads {}) slot-carried) :out (merge (or writes {}) slot-carried)}]
         (if (= :ignore on-failure)
           [:fallback top [:scope scope body] [:sequence {}]]
           [:scope (merge top scope) body])))))
