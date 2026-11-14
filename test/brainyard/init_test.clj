@@ -519,6 +519,48 @@
         (init/onboard {} {:dir p2 :path bin2 :missing []})
         (is (not (str/includes? (slurp (io/file bin2 "bd.log")) "Run /init again")))))))
 
+(def ^:private bd-block
+  ;; bd 1.3's AGENTS.md block, the lines that set its git default
+  (str "<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:0 -->\n## Agent Context Profiles\n\n"
+       "- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked.\n"
+       "- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close.\n"
+       "<!-- END BEADS INTEGRATION -->\n"))
+
+(deftest the-git-default-bds-block-sets-is-the-persons-to-state
+  ;; byj-aww: bd's block lets agents commit only when asked, and in
+  ;; simulation every run kept to it over a rule said only in the session
+  ;; (RFC-040 "The Beads block's git default")
+  (testing "unstated while only bd's block names a profile"
+    (is (nil? (init/git-profile "# Agent Instructions\n")) "no bd block: nothing to say")
+    (is (nil? (init/git-profile "- **Conservative (default)**: mine, not bd's\n")) "not in bd's block: not bd's default")
+    (is (= :unstated (init/git-profile (str "# Agent Instructions\n\n" bd-block))))
+    (is (= :stated (init/git-profile (str "# Agent Instructions\n\nThis project opts in to bd's Team-maintainer profile.\n\n" bd-block))))
+    (is (= :stated (init/git-profile (str bd-block "\nAgents here keep the conservative profile.\n"))) "after the block counts too"))
+  (let [bin (fresh-dir "bin-git-profile")
+        project (fresh-dir "git-profile")]
+    (stateful-bd bin)
+    (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
+    (init/scaffold {} {:dir project})
+    (.mkdirs (io/file project ".beads"))
+    (spit (io/file project "AGENTS.md") (str (slurp (io/file project "AGENTS.md")) "\n" bd-block))
+    (testing "the next steps say so, with prompts that write the answer, and suggest nothing of their own"
+      (let [p (init/project-status project)
+            n (init/next-text p)]
+        (is (= :unstated (:git-profile p)))
+        (is (contains? (init/next-facts p) :git-unstated))
+        (is (str/includes? (:text n) "Say whether agents here commit their own work"))
+        (is (str/includes? (:text n) "opts in to bd's Team-maintainer profile"))
+        (is (not (str/starts-with? (:prompt n) "write in AGENTS.md")))))
+    (testing "a starter issue asks the person, once"
+      (init/onboard {} {:dir project :path bin :missing []})
+      (is (str/includes? (slurp (io/file bin "bd.log")) "--title Say whether agents here commit their own work --type task --priority 2")))
+    (testing "stated outside the blocks: neither"
+      (spit (io/file project "AGENTS.md")
+            (str "# Agent Instructions\n\nThis project keeps bd's Conservative profile.\n\n" bd-block))
+      (let [p (init/project-status project)]
+        (is (= :stated (:git-profile p)))
+        (is (not (str/includes? (:text (init/next-text p)) "Say whether agents here commit")))))))
+
 (deftest byj-init-says-what-to-do-next
   ;; byj-gly.337.4: the model-free entry point ends as /init does
   (let [project (fresh-dir "byj-init-next")

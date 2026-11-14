@@ -4,7 +4,7 @@
 ;;
 ;; init$onboard files the epic, then each issue whose :when facts all hold
 ;; (init/next-facts: :git :no-git :code :no-code :draft-pending :uncommitted
-;; :beads), as a child of it, with every issue labelled :label — a project
+;; :beads :git-unstated), as a child of it, with every issue labelled :label — a project
 ;; that has any issue with that label, closed or not, gets nothing more, so a
 ;; second /init files nothing. :after names issues of this file that must be
 ;; done first (bd dep add). :tool is filed once for each tool init$check finds
@@ -27,6 +27,12 @@
    :title "Write this project's own rules in AGENTS.md"
    :type "task" :priority 3
    :description "AGENTS.md is the instruction file brainyard, Claude Code and Codex read on every turn. The marked blocks (<!-- BEGIN … -->) belong to /init and bd and are rewritten by them; anything outside them is yours. Add what an agent should know here: how to build and test, conventions, what not to touch."}
+
+  {:id :git-profile
+   :when #{:git-unstated}
+   :title "Say whether agents here commit their own work"
+   :type "task" :priority 2
+   :description "bd's block in AGENTS.md (Agent Context Profiles) lets an agent commit, close beads and push only when asked — its Conservative profile — unless the project says otherwise. Agents keep to it over a rule said only in a session, so a project whose agents should commit their bead's work and close the bead says so in AGENTS.md, outside the marked blocks, which bd rewrites. Agent working on this issue: ask the person which they want — the Team-maintainer profile (an agent commits its work and closes its bead without being asked; say whether it may push) or the Conservative one — write their answer in AGENTS.md outside the marked blocks, naming the profile, then close this issue."}
 
   {:id :goal
    :title "Say what this project is for, and what you want to do in it first"

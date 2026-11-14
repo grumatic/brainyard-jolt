@@ -136,6 +136,31 @@
     (when (and b e)
       (if (str/includes? (subs t b e) placeholder-mark) :placeholder :drafted))))
 
+(declare remove-beads-blocks)
+
+(def ^:private bd-default-profile
+  ;; the words bd's AGENTS.md block sets its git default with: agents commit
+  ;; only when asked (bd 1.3, "Agent Context Profiles")
+  "**Conservative (default)**")
+
+(def ^:private profile-names
+  ;; a profile of bd's block, named by the project outside it
+  #"(?i)\b(team-maintainer|conservative|minimal)\b")
+
+(defn git-profile
+  "Whether AGENTS.md text `agents-md` says how its agents treat git (byj-aww):
+  `:unstated` when bd's block sets its conservative default (agents commit
+  only when asked) and nothing outside bd's blocks names a profile of it;
+  `:stated` when something outside does; nil when bd's block sets no default
+  this knows. In simulation every run kept the default over a rule the person
+  stated in the session, and none did once AGENTS.md named the profile
+  (RFC-040 \"The Beads block's git default\")."
+  [agents-md]
+  (let [t (str agents-md)]
+    (when (and (str/includes? t bd-default-profile)
+               (not (str/includes? (remove-beads-blocks t) bd-default-profile)))
+      (if (re-find profile-names (remove-beads-blocks t)) :stated :unstated))))
+
 (def ^:private init-paths
   ;; what /init writes in a project, for saying which of it is uncommitted
   ["AGENTS.md" "CLAUDE.md" ".gitignore" ".claude/skills"])
@@ -146,7 +171,8 @@
   bd's own word on its Claude Code and Codex setup, when bd and `.beads/` are
   there; `:skills` the project's own (its `.brainyard`, `.claude` and
   `.agents` skills roots); `:build-files` those of `build-files` it has;
-  `:project-section` where AGENTS.md's drafted section stands; `:uncommitted`
+  `:project-section` where AGENTS.md's drafted section stands; `:git-profile`
+  whether AGENTS.md says how its agents treat git (`git-profile`); `:uncommitted`
   what of /init's files git has not committed (byj-gly.315.8, .10)."
   [dir & [{:keys [bd codex?]}]]
   (let [d (io/file dir)
@@ -172,6 +198,7 @@
      :gitignored? (ignores-brainyard? (slurp-if (io/file d ".gitignore")))
      :build-files (vec (filter #(.isFile (io/file d %)) build-files))
      :project-section (project-section (slurp-if (io/file d "AGENTS.md")))
+     :git-profile (git-profile (slurp-if (io/file d "AGENTS.md")))
      :uncommitted (let [r (fx/sh {:dir (str d) :out :string :err :string}
                                  "sh" "-c" (str "git status --porcelain -- " (str/join " " init-paths) " 2>/dev/null"))]
                     (vec (remove str/blank? (map #(str/trim (str %)) (str/split-lines (str (:out r)))))))}))
@@ -604,7 +631,8 @@
       (and code? (= :placeholder (:project-section p))) (conj :draft-pending)
       (seq (:uncommitted p)) (conj :uncommitted)
       (:beads? p) (conj :beads)
-      (:onboarding? p) (conj :onboarding))))
+      (:onboarding? p) (conj :onboarding)
+      (= :unstated (:git-profile p)) (conj :git-unstated))))
 
 (defn- uncommitted-files [p]
   ;; `git status --porcelain` lines: the path after the status

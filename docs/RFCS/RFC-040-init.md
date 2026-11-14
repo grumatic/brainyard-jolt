@@ -267,11 +267,13 @@ suggested next prompt.
   `:prompts`, an optional `:suggest`, and `:when`, the facts that must all
   hold. The facts (`next-facts`) come from `project-status` after /init's
   writes: `:git`/`:no-git`, `:code`/`:no-code` (build files, as the plan's
-  draft decision reads them), `:draft-pending`, `:uncommitted`, `:beads`.
+  draft decision reads them), `:draft-pending`, `:uncommitted`, `:beads`,
+  `:git-unstated` ("The Beads block's git default").
 - **Shipped steps:** commit /init's files; /init again when there is code
   under a placeholder section; what to build, for an empty project; questions
-  and tasks, for one with code; beads' `bd ready` / `work on <id>`; `/help`
-  and `/init check`.
+  and tasks, for one with code; beads' `bd ready` / `work on <id>`; whether
+  agents here commit their own work, while bd's block leaves it unstated;
+  `/help` and `/init check`.
 - **Mechanism:** `init$next` renders the matching entries as a single-spaced
   list after the check, and returns the first `:suggest` as `:prompt`. The
   tree writes it to `:next-user-prompt`, which the turn already exports. No
@@ -308,7 +310,8 @@ files a "Get started with brainyard" epic of what to do first.
   do first, told to brainyard in the session the person is already in (an
   agent working on it asks them, writes it down as the project's goal, and
   never sends them to start a session); and, in a project with no code yet,
-  run /init again once there is code — after the goal.
+  run /init again once there is code — after the goal; and, while bd's block
+  leaves it unstated, whether agents here commit their own work.
 - **Decision:** `init/plan`'s `onboard`: true when beads is set up now for
   the first time or the person asks for a guide; false for "without guide",
   a check, or no beads.
@@ -319,6 +322,46 @@ files a "Get started with brainyard" epic of what to do first.
 - **Next steps:** `init$next` adds the fact `:onboarding` when open starter
   issues exist (`onboarding-open?`), and the entry it shows suggests
   `run bd ready and show me the starter issues` as the next prompt.
+
+### The Beads block's git default (`byj-aww`, decided 2026-11-14)
+
+`bd setup` writes a block into AGENTS.md whose "Agent Context Profiles"
+default to Conservative: an agent commits, closes beads and pushes only
+when asked, unless the repository opts in to Team-maintainer. /init ran it
+and said nothing, while its own starter issues ask for commits.
+
+**Measured** (RFC-072 "Measured in a simulation", `byj-93l`; haiku, the
+plans in `dev/sim/extensions/`): the person stated in the session that a
+bead's work ends committed with the bead closed.
+
+| AGENTS.md | runs citing the conservative default | stages with every bead's work committed and closed, nothing attached |
+|---|---|---|
+| bd's block only (`rules*.edn`, 10 runs) | 10 of 10 | committed 11/20, closed 11/20, by run, not by stage |
+| the rules written outside the blocks, Team-maintainer named (`rules-written*.edn`, 10 runs) | 0 of 10 | closed 18/20 |
+
+An answer check that refused an uncommitted turn 38 times did not move the
+first row: the model answered that AGENTS.md did not let it commit.
+
+**Decided:** the choice is the person's, and /init says it is theirs to make.
+It does not edit bd's block, which bd rewrites, nor write the person's text
+outside the blocks, which is never /init's to write (the invariant on
+AGENTS.md), nor ask mid-/init a question the person cannot weigh yet.
+
+- **Fact:** `git-profile` reads AGENTS.md: `:unstated` when bd's block holds
+  its conservative default and nothing outside bd's blocks names a profile
+  (Team-maintainer, Conservative, Minimal); `:stated` when something does;
+  nil when bd's block sets no default it knows. `project-status` carries it
+  as `:git-profile`, and `next-facts` adds `:git-unstated`.
+- **Next step** (`init/next-steps.edn` `:git-profile`): says what the
+  default does and that agents keep to it over a rule said in a session, with
+  two prompts that write either answer outside the blocks. It suggests
+  nothing, so the input line keeps what comes first.
+- **Starter issue** (`init/onboarding.edn` `:git-profile`, priority 2): an
+  agent working on it asks the person which profile, and whether an agent may
+  push, writes the answer outside the blocks naming the profile, and closes
+  it.
+- **Reproduced by** `jolt sim:byj` on `rules-baseline.edn` and
+  `rules-written-baseline.edn`, a few runs each.
 
 ### Onboarding checked live (`byj-gly.337.5`, 2026-10-12)
 
@@ -512,7 +555,7 @@ again on that project, `byj init` added the link
 - `brainyard.init`: `commands`, which are `init$check`, `init$scaffold`,
   `init$beads`, `init$survey`, `init$install`, `init$next` and
   `init$onboard`; and `next-steps`, `next-facts`, `next-text`, `next-step`,
-  `onboarding`, `onboard`, `onboarding-open?`.
+  `onboarding`, `onboard`, `onboarding-open?`, `git-profile`.
 - Event `:session/suggestion` `{:next-user-prompt}`: a suggestion from a
   call the person made between turns.
 - Also in `brainyard.init`: `check`, `tool-status`, `project-status`,
@@ -563,6 +606,7 @@ All of them are planned. Nothing enforces them until their beads are built.
 | /init's answer ends with what to do next, the entries of `init/next-steps.edn` whose facts all hold, in order: an empty repository just set up is told to commit /init's files (named) and what to build; code under a placeholder section, /init again; beads, `bd ready`. The first suggestion is the turn's `:next-user-prompt`; a check-only /init gets the steps too. When /init drafted the project section, the draft's three examples for this project replace the generic ones, the first suggested. | `init-test/next-steps-follow-what-the-project-has`, `init-test/init-sets-up-a-project-and-reports-what-it-did` |
 | On the setup that brings beads in, /init files the starter epic and its issues from `init/onboarding.edn`, each labelled, children of the epic, the draft issue after the first task in a project with no code, one issue per missing optional tool; a project with any issue of the label gets none, nor one without `.beads/`. The next steps then point at them and suggest `bd ready`. The tree runs `init$onboard` when the plan says `onboard`, and says what it did first. | `init-test/starter-issues-are-filed-once`, `init-test/the-loop-files-starter-issues-when-the-plan-says` |
 | A person's call of an agent (a typed `:agent$…`) hands its suggestion to the session, which offers it in the input line; a model's call of an agent is never given one in its tool result — in a turn a command became (`/init`), the subagent's suggestion is offered at the turn's end instead. | `session-test/init-is-a-turn-that-drives-agent-init`, `agents-test/delegation-runs-a-child-turn`, `tui-test/the-models-next-question-is-offered-in-the-input` |
+| bd's git default is the person's to state: `git-profile` says `:unstated` only when bd's block holds its conservative default and nothing outside bd's blocks names a profile; the next steps then say so with prompts that write either answer and suggest nothing, and the starter issues ask the person once; named outside the blocks, neither appears. | `init-test/the-git-default-bds-block-sets-is-the-persons-to-state` |
 | `byj init` ends with the next steps, `--check` too; the AGENTS.md template's brainyard block says where a newcomer starts. | `init-test/byj-init-says-what-to-do-next` |
 | `byj init` has a help page. | nothing enforces it: `cli-help-test/every-dispatched-subcommand-has-help` covers only subcommands with subcommands of their own |
 
@@ -580,10 +624,6 @@ All of them are planned. Nothing enforces them until their beads are built.
 
 ## Known gaps
 
-- `bd setup`'s Beads block keeps a conservative git default (no commits
-  unless asked) that `/init` neither names nor asks the person about; in
-  simulation every run followed it over the rules the person stated
-  (RFC-072 "Measured in a simulation") (`byj-aww`).
 - A rule the person states for the project in a session is not offered for
   AGENTS.md's own section, where later turns read it first (`byj-gby`).
 

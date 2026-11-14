@@ -14,6 +14,9 @@
 ;;   :uncommitted  /init's files not committed; {files} in :command names them
 ;;   :beads        .beads/ is there
 ;;   :onboarding   open starter issues (init$onboard, init/onboarding.edn)
+;;   :git-unstated bd's block in AGENTS.md sets its conservative git default
+;;                 and nothing outside it says which this project keeps
+;;                 (init/git-profile, byj-aww)
 ;;
 ;; :examples? — the entry's prompts are the draft's own for this project when
 ;; /init drafted AGENTS.md (init/agents-md's examples), the first of them its
@@ -30,6 +33,12 @@
   :when #{:onboarding}
   :text "Start with the starter issues /init filed in beads: \"bd ready\" lists them, \"work on <id>\" does one."
   :suggest "run bd ready and show me the starter issues"}
+
+ {:id :git-profile
+  :when #{:git-unstated}
+  :text "Say whether agents here commit their own work: bd's block in AGENTS.md lets them commit only when asked, and they keep to it over a rule said only in a session. Write the answer outside the marked blocks, for example:"
+  :prompts ["write in AGENTS.md, outside the marked blocks, that this project opts in to bd's Team-maintainer profile: an agent commits its bead's work and closes the bead without being asked, and never pushes"
+            "write in AGENTS.md, outside the marked blocks, that this project keeps bd's Conservative profile: agents commit only when asked"]}
 
  {:id :draft
   :when #{:draft-pending}

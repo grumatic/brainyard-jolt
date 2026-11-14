@@ -558,8 +558,8 @@ That check is `docs/examples/loops/work-tree.edn`, an example a project
 attaches with `byj loops attach :react/ext-answer-check` and accepts at
 `/proposals`; it is the tree these plans attach as `ext/work.edn`
 (`sim-test/the-work-tree-example-is-the-tree-the-simulations-measured`).
-Two findings about `/init` rather than slots are RFC-040's gaps
-(`byj-gby`, `byj-aww`).
+Two findings about `/init` rather than slots went to RFC-040: its gap
+`byj-gby`, and "The Beads block's git default" (`byj-aww`).
 
 ## API
 
