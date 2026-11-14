@@ -166,7 +166,7 @@
    :session.share/login-ended {:level :trace :doc "byj-share's login, started by share$login, ended (RFC-043, byj-gly.362.5); {:task-id :ok :why} — :why its last lines. The session says it to the person."}
    :session.share/ended {:level :trace :doc "The share sidecar ended on its own, not stopped (RFC-043, byj-gly.362.4); {:task-id :exit :why} — :why its last lines, what it said on the way out. The session says it to the person."}
    :session.member/spent {:level :trace :doc "Another session answered this one and its spend is now this session's (RFC-031); {:session-id :usage :cost}."}
-   :session.skill/judged {:level :trace :doc "A self-improvement judge ran (RFC-017); {:kind :distillation|:refinement :outcome :staged|:not-reusable|:below-threshold|:invalid-name|:empty-skill-md|:no-score|:no-revision|:empty-revised-md|:error :name :score :turns :trigger :cost}; a distillation's :trigger is :cadence, :repeated-procedure, :long-procedure or :session-end."}
+   :session.skill/judged {:level :trace :doc "A self-improvement judge ran (RFC-017); {:kind :distillation|:refinement :outcome :staged|:not-reusable|:below-threshold|:invalid-name|:builtin-name|:empty-skill-md|:no-score|:no-revision|:empty-revised-md|:error :name :score :turns :trigger :cost}; a distillation's :trigger is :cadence, :repeated-procedure, :long-procedure or :session-end."}
 
    ;; --- subagents and tasks (RFC-018, RFC-019) ----------------------------------
    :agent.subagent/dispatch {:level :trace :doc "A child turn is starting; {:agent :id :depth :chain :question}. Every event of the child turn itself carries :subagent-id and :subagent."}

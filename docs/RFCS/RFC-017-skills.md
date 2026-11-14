@@ -2,7 +2,8 @@
 
 **Status:** loading implemented (`byj-gly.15`), `dispatch: agent` implemented
 (`byj-gly.43`), writing and self-improvement (distillation, refinement, staged
-proposals) implemented (`byj-gly.246`).
+proposals) implemented (`byj-gly.246`), built-in skills shipped in the
+binary implemented (`byj-kuk`).
 
 ## Purpose
 
@@ -65,6 +66,7 @@ the body. A directory without `SKILL.md` is skipped rather than reported.
 | `~/.brainyard/skills` | brainyard | user |
 | `~/.claude/skills` | claude | user |
 | `~/.agents/skills` | agents | user |
+| `resources/brainyard/skills` (embedded in the binary) | builtin | builtin |
 
 brainyard's backend order, and its reason for reading the other two at all: a
 skill written for another harness is still a procedure. brainyard applies that
@@ -84,6 +86,53 @@ takes `skill$<backend>$<scope>$<name>` rather than overwriting the first.
 
 Skills are re-read on every call, so editing one takes effect on the next turn
 without a reload.
+
+### Built-in skills: shipped in the binary (`byj-kuk`)
+
+byj ships procedures of its own, as it ships its agent roster (RFC-018
+`builtin-agents`); brainyard ships none (divergence `builtin-skills`). They
+are the last root, always — after `:skill-roots` too, as the built-in roster
+follows `:agent-roots` — so a project or user skill of the same name shadows
+one, which stays reachable as `skill$builtin$<name>` and is named under
+`skills$find`'s `:also-in` as `builtin`. `:builtin-skills? false` drops them.
+
+```
+resources/brainyard/skills/index.edn          ["skill-authoring" …]
+resources/brainyard/skills/<name>/SKILL.md
+resources/brainyard/skills/<name>/resources/… (only the files the index names)
+```
+
+- **An index**, because a built binary cannot list a resource directory (as
+  `agents/index.edn` and `tools/index.edn`). An entry is the skill's name, or
+  `{:name n :resources ["file" …]}`. An entry whose SKILL.md is missing is
+  skipped, as a directory without one is.
+- **Typed and scoped `builtin`**: `skills$list` and `skills$read` take
+  `:type builtin` and `:scope builtin`. Its `:path` is
+  `builtin:brainyard/skills/<name>/SKILL.md` — a resource, never a path on
+  disk a tool could open.
+- **Resources come with the call.** A skill on disk names its `resources/`
+  files and the model reads them; an embedded one cannot be read with
+  `read-file`, so calling a built-in skill returns the files its index entry
+  names under `:resources`, file name to text, read through `io/resource`.
+  They are meant to be small.
+- **No scripts.** An embedded file is not on disk for bash to run. The other
+  way, writing a skill's scripts to a cache directory before bash runs them,
+  costs a cache to keep in step with the binary, an executable written
+  outside the project, and a staleness rule, for a need no built-in skill
+  has yet. A built-in skill whose procedure needs a script names a command
+  that is on the machine, or is not a built-in skill. The index has no
+  `:scripts` key, and `skills-test/the-shipped-built-in-skills-load-and-carry-no-scripts`
+  fails on one.
+- **Read-only.** See "Writing a skill": no write reaches one. A person who
+  wants a built-in skill changed copies its SKILL.md into the project's
+  `.brainyard/skills/<name>/`, where it shadows the shipped one.
+
+The tests pass `:builtin-skills? false` wherever they count what is listed
+(the fixture configs of `skills-test` and `self-improve-test`), as
+`agents-test` passes `:builtin-agents? false`, rather than the runner turning
+them off for every test: the shipped skills are what every session lists, and
+the suite's sessions list them too — `contract/agent/agents.json` counts the
+tools each agent is given, the built-in skills among them.
 
 ### Progressive disclosure — the point
 
@@ -198,6 +247,15 @@ by default, `~/.brainyard/skills` with `scope user`. The other harnesses' roots
 are read, never written. An extra's name is reduced to its own file name, so it
 cannot land outside its skill.
 
+**A built-in skill is never written.** `update` and `remove` of a name that is
+only a built-in skill, `type builtin` and `scope builtin` are refused with what
+to do instead: copy the SKILL.md into `<project>/.brainyard/skills/<name>/`
+by hand. `create` refuses a built-in skill's name as well: a skill of the
+model's own would shadow a shipped one silently, and shadowing one is a
+person's choice. Once the copy is there it is the project's, to update and
+remove like any other. With `:builtin-skills? false` there is nothing to
+refuse.
+
 The registry is refreshed before the result returns (`refresh!`, brainyard's
 `reload-skills!`), so the skill is callable in the turn that wrote it, and
 precedence is worked out again. `skills$reload` does the same for a `SKILL.md`
@@ -278,14 +336,16 @@ nothing after it would wait for it.
   never sent. Each verdict's `:trigger` says what brought it on: `:cadence`,
   `:repeated-procedure`, `:long-procedure` or `:session-end`. A draft is
   staged when the judge says it is reusable, scores it at least
-  `:skill-distill-threshold` (0.7), names it `^[a-z][a-z0-9-]*$`, and writes
-  it.
+  `:skill-distill-threshold` (0.7), names it `^[a-z][a-z0-9-]*$` — and not
+  after a built-in skill, whose name `skills$write` would refuse at accept
+  (`:builtin-name`) — and writes it.
 - **Refinement** (`:enable-skill-refinement`) revises an EXISTING skill. It
   judges a `skill$` call that itself failed, and every skill loaded by a turn
   that did not succeed; a cancelled turn is not a failure.
   `session/refine-skill` is asked whether the SKILL.md was at fault, as
   opposed to the environment, the caller, or a one-off. Only a brainyard
-  skill is judged (divergence `refinement-judges-only-writable-skills`).
+  skill is judged (divergence `refinement-judges-only-writable-skills`) — a
+  built-in skill never is.
 
 The two predictors are brainyard's `SkillDistillationBatch` and
 `SkillRefinement`, word for word. Its single-turn `SkillDistillation` is not
@@ -329,14 +389,17 @@ the model (RFC-021): a gate the proposer can open is no gate.
 ## API
 
 `brainyard.skills`: `roots`, `parse-frontmatter`, `parse-skill`,
-`list-skills`, `resolve-names`, `find-skills`, `describe`, `listing-text`,
+`builtin-index`, `builtin-skills` (the shipped skills, from an index
+resource), `builtin-on?`, `list-skills`, `resolve-names`, `find-skills`, `describe`, `listing-text`,
 `skill-agent-instruction`, `skill-tool`, `skills-and-tools`, `commands`;
 writing: `sanitize-skill-name`, `skills-dir`, `create-skill!`, `update-skill!`,
-`remove-skill!`, `refresh!`, `write!`, `authoring-commands`.
+`remove-skill!`, `builtin-skill` (the built-in skill a write refuses),
+`refresh!`, `write!`, `authoring-commands`.
 
 `brainyard.self-improve`: `worth-scoring?`, `succeeded?`, `turn-steps`,
 `trajectory-text`, `candidate`, `window-text`, `existing-skills-text`,
-`distill-outcome`, `refine-outcome`, `valid-name?`, `refine-triggers`,
+`distill-outcome` (with the built-in skills' names, `builtin-skill-names`),
+`refine-outcome`, `valid-name?`, `refine-triggers`,
 `failure-evidence`, `proposals-dir`, `write-proposal!`, `read-proposal`,
 `procedure-shape`, `auto-signal`, `list-proposals`, `accept-proposal!`, `reject-proposal!`.
 `brainyard.proposals` (the gate every kind shares): `kinds`, `list-all`, `resolve-id`,
@@ -349,7 +412,7 @@ The session leaves are `brainyard.session`'s: `:session/note-skill-candidate`,
 skill can start a child turn (RFC-018).
 
 Config (RFC-013): `:skills?` (default true), `:skill-roots` (default: the six
-above), `:max-listed-skills` (40), `:skill-authoring?` (true); the `:skills`
+disk roots above), `:builtin-skills?` (true), `:max-listed-skills` (40), `:skill-authoring?` (true); the `:skills`
 family, brainyard's keys and defaults: `:enable-skill-distillation` (false),
 `:skill-distill-judge-window` (12),
 `:skill-distill-threshold` (0.7), `:enable-skill-refinement` (false).
@@ -364,6 +427,9 @@ family, brainyard's keys and defaults: `:enable-skill-distillation` (false),
 | Frontmatter, a bare heading, and unterminated frontmatter all parse; nothing is required. | `skills-test/parsing-a-skill-md` |
 | brainyard's own SKILL.md loads with its description and body byte for byte. | `skills-test/brainyards-own-skill-file-loads-unchanged` |
 | A directory without SKILL.md is skipped; a duplicate name keeps the local id and the other stays reachable. | `skills-test/roots-and-precedence` |
+| Every skill the index names loads from resources, typed and scoped builtin, with no path on disk and no scripts; an entry may name resources, and one without a SKILL.md is skipped. | `skills-test/the-shipped-built-in-skills-load-and-carry-no-scripts` |
+| A built-in skill is listed after every root and found by `skills$list`, `skills$find` and `skill$<name>`, byte for byte; a project skill of its name shadows it, `skill$builtin$<name>` still being the built-in one; `:builtin-skills? false` hides it; its resources come with the call. | `skills-test/a-built-in-skill-is-listed-last-and-a-project-one-shadows-it` |
+| No write reaches a built-in skill: create, update and remove refuse it and say how a person changes it, a distillation named after one is not staged, and refinement never judges one; a person's copy in the project is the project's to change. | `skills-test/a-built-in-skill-is-read-only` |
 | The user roots are under `brainyard.skills-home` when it is set, never `$HOME`; the suite sets it to an empty directory. | `skills-test/the-user-roots-follow-the-skills-home` |
 | A project's `.claude/skills` and `.agents/skills` are read, below its own `.brainyard/skills`, and two scopes of one backend never collide into one id. | `skills-test/a-project-may-keep-skills-where-its-other-harnesses-do` |
 | Search ranks names over descriptions, drops short tokens, and returns empty rather than weak matches. | `skills-test/finding-a-skill` |

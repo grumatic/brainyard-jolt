@@ -21,9 +21,12 @@
     (.mkdirs d)
     (.getCanonicalPath d)))
 
-(defn- config-for [dir & {:as more}]
+(defn- config-for
+  "This fixture's skills only: none from resources (byj-kuk)."
+  [dir & {:as more}]
   (merge {:working-dir dir :project-dir dir
-          :skill-roots [(str dir "/.brainyard/skills")]}
+          :skill-roots [(str dir "/.brainyard/skills")]
+          :builtin-skills? false}
          more))
 
 (defn- call [tool-name & [err?]]

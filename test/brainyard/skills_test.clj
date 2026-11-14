@@ -4,12 +4,14 @@
 (ns brainyard.skills-test
   "Skills (RFC-017): parsing SKILL.md, the roots and their precedence, ranked
   search, and the progressive disclosure the whole design rests on."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
             [brainyard.discovery :as discovery]
             [brainyard.json]
+            [brainyard.self-improve :as self-improve]
             [brainyard.skills :as skills]
             [brainyard.tools :as tools]))
 
@@ -21,10 +23,12 @@
 
 (defn- only
   "Config that sees this fixture's skills and nothing this machine happens to
-  have under ~/.claude or ~/.agents."
+  have under ~/.claude or ~/.agents, and no skills from resources unless asked
+  (`:builtin-skills? true`)."
   [dir & {:as more}]
   (merge {:working-dir dir :project-dir dir
-          :skill-roots [(str dir "/.brainyard/skills")]}
+          :skill-roots [(str dir "/.brainyard/skills")]
+          :builtin-skills? false}
          more))
 
 (defn- skill! [dir name text]
@@ -99,7 +103,7 @@
       (spit f "---\nname: from-home\ndescription: A skill in the given home.\n---\n# From home\n"))
     (try
       (System/setProperty "brainyard.skills-home" (.getCanonicalPath (io/file home)))
-      (let [c {:working-dir proj :project-dir proj}
+      (let [c {:working-dir proj :project-dir proj :builtin-skills? false}
             user (filter #(= :user (:scope %)) (skills/roots c))]
         (is (seq user))
         (is (every? #(str/starts-with? (.getCanonicalPath (:dir %)) (.getCanonicalPath (io/file home))) user)
@@ -452,3 +456,107 @@
     (is (empty? (names "release dates")) "one word of two is not enough")
     (is (empty? (names "test")) "a word starts a word: \"test\" is not in \"latest\"")
     (is (= #{"versions"} (names "versions")) "a name still matches as before")))
+
+;; --- built-in skills (byj-kuk) ------------------------------------------------
+
+(def ^:private shipped
+  "The shipped skill these tests stand on; any entry of the index would do."
+  "skill-authoring")
+
+(deftest the-shipped-built-in-skills-load-and-carry-no-scripts
+  (let [index (clojure.edn/read-string (slurp (io/resource skills/builtin-index)))
+        names (map #(if (map? %) (:name %) %) index)
+        loaded (skills/builtin-skills)]
+    (is (some #{shipped} names))
+    (is (= names (map :name loaded)) "every entry has a SKILL.md, in the index's order")
+    (doseq [s loaded]
+      (is (not (str/blank? (:description s))) (str (:name s) " says what it is for"))
+      (is (= [:builtin :builtin "builtin"] [(:backend s) (:scope s) (:source s)]))
+      (is (str/starts-with? (:path s) "builtin:brainyard/skills/") "never a path on disk"))
+    (is (not-any? #(and (map? %) (contains? % :scripts)) index)
+        "no scripts: an embedded file is not on disk for bash to run (RFC-017)")
+    (doseq [e index :when (map? e) r (:resources e)]
+      (is (io/resource (str "brainyard/skills/" (:name e) "/resources/" r)) (str r " is shipped")))
+    (testing "an index entry may name resources; one whose SKILL.md is missing is skipped"
+      (let [[s & more] (skills/builtin-skills "fixtures/builtin-skills/index.edn")]
+        (is (nil? more))
+        (is (= "with-notes" (:name s)))
+        (is (= ["fixtures/builtin-skills/with-notes/resources/notes.md"] (:resources s)))))))
+
+(deftest a-built-in-skill-is-listed-last-and-a-project-one-shadows-it
+  (let [dir (fresh-dir "builtin")
+        _ (skill! dir "lint-markdown" with-frontmatter)
+        ctx (agent/make-ctx {:config (only dir :builtin-skills? true)})
+        reg (:tools ctx)
+        call (fn [n args] (tools/call-tool (get @reg n) args ctx))
+        id (str "skill$" shipped)
+        text (slurp (io/resource (str "brainyard/skills/" shipped "/SKILL.md")))]
+    (testing "it is listed after every root, typed and scoped builtin"
+      (is (= ["lint-markdown" shipped] (map :name (skills/list-skills (only dir :builtin-skills? true)))))
+      (let [e (first (filter #(= shipped (:name %)) (:result (call "skills$list" {}))))]
+        (is (= {:name shipped :type "builtin" :scope "builtin" :id id}
+               (select-keys e [:name :type :scope :id]))))
+      (is (= [shipped] (map :name (:result (call "skills$list" {:type "builtin"})))))
+      (is (= [shipped] (map :name (:result (call "skills$list" {:scope "builtin"}))))))
+    (testing "skills$find and skills$read find it, and its id calls it"
+      (is (= id (:id (first (:result (call "skills$find" {:query "skill authoring"}))))))
+      (is (= text (:content (call "skills$read" {:skill-name shipped}))))
+      (let [r (call id {})]
+        (is (true? (:loaded r)))
+        (is (= "builtin" (:type r)))
+        (is (= text (:content r)) "byte for byte, read from resources")))
+    (testing "the prompt names it in one line"
+      (is (str/includes? (:session-context (:zones ctx)) (str "`" id "`"))))
+    (testing "a project skill of the same name shadows it, and it stays reachable"
+      (skill! dir shipped "---\nname: skill-authoring\ndescription: The project's own way.\n---\n# Ours\n")
+      (let [c (only dir :builtin-skills? true)
+            {:keys [tools]} (skills/skills-and-tools c)
+            by-id (into {} (map (juxt :name identity)) tools)]
+        (is (str/includes? (:content ((:fn (by-id id)) {} ctx)) "The project's own way."))
+        (is (= text (:content ((:fn (by-id (str "skill$builtin$" shipped))) {} ctx)))
+            "skill$builtin$<name> is the built-in one, not the most local of its name")
+        (let [[hit] (filter #(= shipped (:name %))
+                            (:result (tools/call-tool (first (filter #(= "skills$find" (:name %)) (skills/commands c)))
+                                                      {:query "skill authoring"} ctx)))]
+          (is (= ["builtin"] (:also-in hit)) "one hit per name, the shipped one named under :also-in"))))
+    (testing ":builtin-skills? false hides it"
+      (is (= ["lint-markdown" shipped] (map :name (skills/list-skills (only dir)))))
+      (.delete (io/file dir ".brainyard" "skills" shipped "SKILL.md"))
+      (is (= ["lint-markdown"] (map :name (skills/list-skills (only dir)))))
+      (is (not (contains? @(:tools (agent/make-ctx {:config (only dir)})) id))))
+    (testing "a skill's resources come with the call, read through io/resource"
+      (let [orig skills/builtin-skills]
+        (with-redefs [skills/builtin-skills (fn ([] (orig "fixtures/builtin-skills/index.edn")) ([i] (orig i)))]
+          (let [c (only dir :builtin-skills? true)
+                t (first (filter #(= "skill$with-notes" (:name %)) (:tools (skills/skills-and-tools c))))]
+            (is (= {"notes.md" "The notes the fixture skill hands over.\n"} (:resources ((:fn t) {} ctx))))))))))
+
+(deftest a-built-in-skill-is-read-only
+  (let [dir (fresh-dir "builtin-write")
+        c (only dir :builtin-skills? true)
+        reg (atom {})
+        write (fn [args] (skills/write! c reg nil args))]
+    (testing "create, update and remove refuse it, and say how a person changes it"
+      (doseq [[op args] [["create" {:content "---\nname: x\n---\n# x\n"}] ["update" {:content "x"}] ["remove" {}]]
+              :let [e (:error (write (merge {:op op :skill-name shipped} args)))]]
+        (is (str/includes? e "built-in skill") op)
+        (is (str/includes? e (str ".brainyard/skills/" shipped "/SKILL.md")) op))
+      (is (not (.exists (io/file dir ".brainyard" "skills" shipped))) "nothing was written")
+      (is (str/includes? (:error (write {:op "update" :skill-name shipped :type "builtin"})) "read-only"))
+      (is (str/includes? (:error (write {:op "remove" :skill-name shipped :scope "builtin"})) "built-in skill")))
+    (testing "with the built-in skills off there is nothing to refuse"
+      (is (= "skill$skill-authoring"
+             (:id (skills/write! (only dir) (atom {}) nil
+                                 {:op "create" :skill-name shipped :content "---\nname: skill-authoring\n---\n# Ours\n"}))))
+      (testing "and the copy, once there, is the project's to update and remove"
+        (is (string? (:updated (write {:op "update" :skill-name shipped :content "# Ours, again\n"}))))
+        (is (= shipped (:deleted (write {:op "remove" :skill-name shipped}))))
+        (is (= [:builtin] (map :backend (skills/list-skills c))) "the shipped one is back")))
+    (testing "a draft named after one is never staged, and refinement never judges one"
+      (is (= :builtin-name (self-improve/distill-outcome 0.7 {:reusable true :score 0.9 :proposed-name shipped
+                                                               :skill-md "# x"}
+                                                         (self-improve/builtin-skill-names c))))
+      (is (= #{} (self-improve/builtin-skill-names (only dir))))
+      (is (empty? (self-improve/refine-triggers
+                   c {:terminated-by :error
+                      :trajectory-iterations [{:tool-results [{:tool-name (str "skill$" shipped) :tool-error? true}]}]}))))))

@@ -199,6 +199,8 @@
    :skill-line-chars {:family :tools :type "integer" :default 80 :doc "How much of a skill's description its one line in the prompt carries, when its title is only its name — the first sentence, clipped (byj-gly.336)."}
    :skills? {:type "boolean" :default true :family :tools
              :doc "Load SKILL.md procedures from .brainyard/skills, ~/.claude/skills and friends (RFC-017)."}
+   :builtin-skills? {:type "boolean" :default true :family :tools
+                     :doc "Include the skills shipped in resources, last in precedence: a project or user skill of the same name shadows one (RFC-017)."}
    :skill-authoring? {:type "boolean" :default true :family :tools
                       :doc "Offer skills$write and skills$reload (RFC-017)."}
    ;; self-improvement (RFC-017): brainyard's keys and defaults, off until asked for

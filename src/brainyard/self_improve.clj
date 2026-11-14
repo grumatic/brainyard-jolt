@@ -157,17 +157,30 @@
         (string? x) (try (Double/parseDouble (str/trim x)) (catch Throwable _ nil))
         :else nil))
 
+(defn builtin-skill-names
+  "The names of the built-in skills a session lists — none when
+  `:builtin-skills?` is off."
+  [config]
+  (set (when (skills/builtin-on? config) (map :name (skills/builtin-skills)))))
+
 (defn distill-outcome
   "brainyard's `stage-proposal!` decision, as a value: what a distiller's
-  verdict comes to at `threshold`. Only `:staged` writes anything."
-  [threshold {:keys [reusable score proposed-name skill-md]}]
-  (let [score (score-of score)]
-    (cond (nil? score) :no-score
-          (not (true? reusable)) :not-reusable
-          (< score threshold) :below-threshold
-          (not (valid-name? proposed-name)) :invalid-name
-          (str/blank? (str skill-md)) :empty-skill-md
-          :else :staged)))
+  verdict comes to at `threshold`. Only `:staged` writes anything.
+
+  `builtin-names`, the built-in skills' names, makes a draft named after one
+  `:builtin-name`: accepting it would create a skill that shadows a shipped
+  one, which `skills$write` refuses (RFC-017) — staging it would only fail
+  later."
+  ([threshold verdict] (distill-outcome threshold verdict #{}))
+  ([threshold {:keys [reusable score proposed-name skill-md]} builtin-names]
+   (let [score (score-of score)]
+     (cond (nil? score) :no-score
+           (not (true? reusable)) :not-reusable
+           (< score threshold) :below-threshold
+           (not (valid-name? proposed-name)) :invalid-name
+           (contains? (set builtin-names) proposed-name) :builtin-name
+           (str/blank? (str skill-md)) :empty-skill-md
+           :else :staged))))
 
 (defn refine-outcome
   "brainyard's `stage-refinement!` decision, as a value."

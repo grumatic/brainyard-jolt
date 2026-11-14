@@ -16,6 +16,7 @@
     ~/.brainyard/skills               :brainyard :user
     ~/.claude/skills                  :claude
     ~/.agents/skills                  :agents
+    resources/brainyard/skills        :builtin   (shipped in the binary)
 
   A name defined twice keeps the most local as `skill$<name>`; the others stay
   reachable as `skill$<backend>$<name>` rather than disappearing.
@@ -27,7 +28,8 @@
   brainyard's, which the registry refreshes after so a skill written in a turn
   is callable in it. What an agent learns becomes a skill through
   `brainyard.self-improve`, staged for a person to accept."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.agents :as agents]
             [brainyard.effect :as fx]))
@@ -64,7 +66,9 @@
            vec))))
 
 (defn- backend-label [{:keys [backend scope]}]
-  (str (name backend) (when scope (str "/" (name scope)))))
+  (if (= :builtin backend)
+    "builtin"
+    (str (name backend) (when scope (str "/" (name scope))))))
 
 ;; --- parsing ----------------------------------------------------------------------
 
@@ -119,16 +123,62 @@
                :source (backend-label root))
         (catch Throwable _ nil)))))
 
-(defn list-skills
-  "Every skill under every root, most local first. Re-read each call: a skill
-  edited between turns takes effect without a reload, as in brainyard."
+(def builtin-index
+  "The index of the skills shipped in resources. An index, because a built
+  binary cannot list a resource directory (as `agents/index.edn` and
+  `tools/index.edn` are)."
+  "brainyard/skills/index.edn")
+
+(defn builtin-skills
+  "The skills shipped in resources, in the index's order — this port's own
+  root, last in precedence (divergence `builtin-skills`), as `agents`'s
+  `builtin-agents` is for the roster. An index entry is a skill's name, or
+  `{:name n :resources [\"file\" …]}` naming the files under its
+  `resources/` that calling it hands over too, read through `io/resource`.
+  A built-in skill carries no scripts: an embedded file is not on disk for
+  bash to run (RFC-017). An entry whose SKILL.md is missing or unreadable is
+  skipped, as a directory without one is."
+  ([] (builtin-skills builtin-index))
+  ([index-resource]
+   (when-let [index (io/resource index-resource)]
+     (let [base (subs index-resource 0 (inc (str/last-index-of index-resource "/")))]
+       (vec (for [entry (edn/read-string (slurp index))
+                  :let [{n :name rs :resources} (if (map? entry) entry {:name entry})
+                        res (str base n "/SKILL.md")
+                        url (when (string? n) (io/resource res))
+                        s (when url (try (parse-skill n (slurp url)) (catch Throwable _ nil)))]
+                  :when s]
+              (cond-> (assoc s :path (str "builtin:" res) :backend :builtin :scope :builtin
+                             :source "builtin")
+                (seq rs) (assoc :resources (vec (for [r rs] (str base n "/resources/" r)))))))))))
+
+(defn builtin-on?
+  "Whether the built-in skills are listed: `:builtin-skills?`, default true."
   [config]
-  (vec (for [root (roots config)
-             d (sort-by #(.getName %) (.listFiles (:dir root)))
-             :when (.isDirectory d)
-             :let [s (read-dir root d)]
-             :when s]
-         s)))
+  (:builtin-skills? config true))
+
+(defn list-skills
+  "Every skill under every root, most local first, then the built-in ones.
+  Re-read each call: a skill edited between turns takes effect without a
+  reload, as in brainyard."
+  [config]
+  (vec (concat
+        (for [root (roots config)
+              d (sort-by #(.getName %) (.listFiles (:dir root)))
+              :when (.isDirectory d)
+              :let [s (read-dir root d)]
+              :when s]
+          s)
+        (when (builtin-on? config) (builtin-skills)))))
+
+(defn- builtin-resources
+  "A built-in skill's resources, file name to text, from what its index
+  entry names; one that is not there is left out."
+  [{:keys [resources]}]
+  (into {} (for [r resources
+                 :let [url (io/resource r)]
+                 :when url]
+             [(subs r (inc (str/last-index-of r "/"))) (slurp url)])))
 
 (defn resolve-names
   "Give each skill its tool id. The most local wins `skill$<name>`; a shadowed
@@ -281,14 +331,20 @@
    :input-schema [:map [:question {:optional true} [:string {:desc "What you intend to use the skill for. Optional, except for a skill that runs itself in an agent — then it is the task."}]]]
    :output-schema [:or {:desc ":content is the whole SKILL.md to follow; a skill that runs in an agent returns its :answer instead"}
              [:map [:skill :string] [:type :string] [:path :string] [:content :string]
-              [:loaded :boolean] [:note {:optional true} :string]]
+              [:loaded :boolean] [:note {:optional true} :string]
+              [:resources {:optional true} [:map-of :string :string]]]
              [:map [:skill :string] [:type :string] [:answer [:maybe :string]]
               [:iterations [:maybe :int]] [:usage :any] [:dispatched :boolean]]
              [:map [:error :string] [:skill {:optional true} :string]]]
    :effects #{:fs/read}
    :fn (fn [{:keys [question]} ctx]
-         ;; re-read, so an edited skill takes effect without a reload
-         (let [fresh (first (filter #(= (:name skill) (:name %)) (list-skills config)))]
+         ;; re-read, so an edited skill takes effect without a reload — this
+         ;; skill, not the most local of its name: skill$builtin$x is the
+         ;; built-in x even when a project x shadows it
+         (let [fresh (first (filter #(and (= (:name skill) (:name %))
+                                          (= (:backend skill) (:backend %))
+                                          (= (:scope skill) (:scope %)))
+                                    (list-skills config)))]
            (cond
              (not fresh) {:error (str "skill not found: " name)}
 
@@ -302,6 +358,7 @@
                       :path (:path fresh)
                       :content (:content fresh)
                       :loaded true}
+               (seq (:resources fresh)) (assoc :resources (builtin-resources fresh))
                (= "agent" (:dispatch fresh))
                (assoc :note (str "this skill declares `dispatch: agent`, but subagents are off"
                                  " — follow the procedure yourself"))))))})
@@ -327,7 +384,8 @@
 
 (defn- of-type
   "brainyard's :type and :scope filters: `brainyard`, `claude` or `agents`,
-  and `project` or `user`; either left out is all of them."
+  and `project` or `user`; either left out is all of them. A built-in skill
+  is `builtin` for both."
   [skills type scope]
   (cond->> skills
     (not (str/blank? (str type))) (filter #(= (str/lower-case (str/trim (str type))) (name (:backend %))))
@@ -344,12 +402,12 @@
 
 (def ^:private skill-entry
   [[:name :string] [:title :string] [:description :string]
-   [:type [:enum "brainyard" "claude" "agents"]] [:scope [:maybe :string]] [:id :string]
+   [:type [:enum "brainyard" "claude" "agents" "builtin"]] [:scope [:maybe :string]] [:id :string]
    [:shadowed-by {:optional true} :string]
    [:tags {:optional true} [:vector :string]]])
 
 (def ^:private type-param
-  [:type {:optional true} [:string {:desc "brainyard | claude | agents (omit for all)"}]])
+  [:type {:optional true} [:string {:desc "brainyard | claude | agents | builtin (omit for all)"}]])
 
 (defn commands
   "brainyard's read subset: list, find and read, in brainyard's shapes
@@ -357,9 +415,9 @@
   ported."
   [config]
   [{:name "skills$list" :kind :command
-    :description "List skills across types, most local first. Optional :type (brainyard|claude|agents) and :scope (project|user)."
+    :description "List skills across types, most local first, the built-in ones last. Optional :type (brainyard|claude|agents|builtin) and :scope (project|user|builtin)."
     :input-schema [:map type-param
-                        [:scope {:optional true} [:string {:desc "project | user (omit for both)"}]]]
+                        [:scope {:optional true} [:string {:desc "project | user | builtin (omit for all)"}]]]
     :output-schema [:map {:desc "most local first; a shadowed skill names the one that shadows it"}
               [:result [:vector (into [:map] (conj skill-entry [:path :string]))]]
               [:count :int]]
@@ -393,10 +451,10 @@
     :description "Read a skill's SKILL.md + metadata without committing to it. To use a skill, call it by name instead — that is what loads it."
     :input-schema [:map [:skill-name [:string {:desc "skill name"}]]
                         type-param
-                        [:scope {:optional true} [:string {:desc "project | user"}]]]
+                        [:scope {:optional true} [:string {:desc "project | user | builtin"}]]]
     :output-schema [:or [:map [:name :string] [:title :string] [:description :string]
                    [:content :string] [:path :string]
-                   [:type [:enum "brainyard" "claude" "agents"]] [:scope [:maybe :string]] [:size :int]]
+                   [:type [:enum "brainyard" "claude" "agents" "builtin"]] [:scope [:maybe :string]] [:size :int]]
               [:map [:error :string]]]
     :effects #{:fs/read}
     :fn (fn [{:keys [skill-name type scope]} _]
@@ -462,11 +520,28 @@
 
 (defn- now [] (str (java.time.Instant/now)))
 
+(defn builtin-skill
+  "The built-in skill named `skill-name`, when the built-in ones are on."
+  [config skill-name]
+  (when (builtin-on? config)
+    (first (filter #(= skill-name (:name %)) (builtin-skills)))))
+
+(defn- builtin-refusal
+  "Why a write refuses a built-in skill, and the one way to change it: a
+  person copies it into the project, where it shadows the shipped one."
+  [config op n]
+  {:error (str op "-skill refuses `" n "`: it is a built-in skill, shipped with byj, and read-only."
+               " To change it, copy its SKILL.md to "
+               (.getPath (io/file (skills-dir config :project) n "SKILL.md"))
+               " by hand, where it shadows the built-in one.")})
+
 (defn- not-brainyard [op type]
   (when-let [t (coerce type)]
     (when (not= :brainyard t)
       {:error (str op "-skill only supports :brainyard type (got " (name t) ")."
-                   " A skill of another harness is read here, never written.")})))
+                   (if (= :builtin t)
+                     " A built-in skill is shipped with byj and read-only."
+                     " A skill of another harness is read here, never written."))})))
 
 (defn- find-own
   "The brainyard skill named `skill-name`: in `scope`, or the project's before
@@ -490,6 +565,11 @@
           (str/blank? (str content)) {:error "content is required"}
           (nil? n) {:error "Invalid skill name"}
           (not (#{:project :user} scope)) {:error (str "scope must be project or user (got " (name scope) ")")}
+          ;; a same-named skill of the model's own would shadow a shipped
+          ;; one silently; shadowing it is a person's choice (RFC-017)
+          (and (builtin-skill config n)
+               (not (some-> (skills-dir config scope) (io/file n "SKILL.md") .exists)))
+          (builtin-refusal config "create" n)
           :else
           (let [root (skills-dir config scope)
                 dir (some-> root (io/file n))]
@@ -512,11 +592,13 @@
     (or (not-brainyard "update" type)
         (if (nil? n)
           {:error "skill-name is required"}
-          (if-let [[s dir] (find-own config n (coerce scope))]
+          (if-let [[s dir] (when (not= :builtin (coerce scope)) (find-own config n (coerce scope)))]
             (do (when (some? content) (spit (io/file dir "SKILL.md") content))
                 (write-extras! dir scripts resources)
                 (written n (slurp (io/file dir "SKILL.md")) s dir {:updated (now)}))
-            {:error (str "Brainyard skill not found: " n)})))))
+            (if (builtin-skill config n)
+              (builtin-refusal config "update" n)
+              {:error (str "Brainyard skill not found: " n)}))))))
 
 (defn remove-skill!
   "brainyard's `brainyard-remove`: delete a brainyard skill's directory. Only
@@ -526,13 +608,15 @@
     (or (not-brainyard "remove" type)
         (if (nil? n)
           {:error "skill-name is required"}
-          (if-let [[s dir] (find-own config n (coerce scope))]
+          (if-let [[s dir] (when (not= :builtin (coerce scope)) (find-own config n (coerce scope)))]
             (let [root (.getCanonicalPath (skills-dir config s))]
               (if (= root (.getCanonicalPath (.getParentFile (io/file (.getCanonicalPath dir)))))
                 (do (doseq [f (reverse (file-seq dir))] (.delete f))
                     {:deleted n :type "brainyard" :scope (name s)})
                 {:error (str "refusing to delete " (.getPath dir) ": not a skill directory")}))
-            {:error (str "Brainyard skill not found: " n)})))))
+            (if (builtin-skill config n)
+              (builtin-refusal config "remove" n)
+              {:error (str "Brainyard skill not found: " n)}))))))
 
 (defn refresh!
   "brainyard's `reload-skills!`: register every skill as it is on disk now in

@@ -192,6 +192,9 @@
  {:id "project-scope-harness-skills"
   :brainyard "agent/common/skills.clj roots (~/.claude/skills and ~/.agents/skills, user scope only)"
   :test "brainyard.skills-test/a-project-may-keep-skills-where-its-other-harnesses-do"}
+ {:id "builtin-skills"
+  :brainyard "agent/common/skills.clj backend-rank (disk roots only: brainyard project/user, claude, agents; no bundled skills)"
+  :test "brainyard.skills-test/a-built-in-skill-is-listed-last-and-a-project-one-shadows-it"}
  {:id "bash-command-gate"
   :brainyard "agent/task/commands.clj validate-bash-paths (paths only, task$run only); no command allow or deny list"
   :test "brainyard.permission-test/an-allow-list-refuses-what-it-cannot-read"}

@@ -643,6 +643,18 @@ are now read, project scope before user scope, brainyard before claude before
 agents. The cost is that a project's skills written for another agent are listed
 for this one as well, at one line each.
 
+<!-- divergence: builtin-skills -->
+**byj ships skills of its own.** brainyard reads skills only from disk — its
+backends are `brainyard` (project and user), `claude` and `agents`
+(`backend-rank` in `agent/common/skills.clj`) — and ships none, so any
+procedure a person or the model needs is installed by hand. byj embeds a
+seventh root in the binary, `resources/brainyard/skills/` behind an
+`index.edn`, as it embeds its agent roster: typed and scoped `builtin`, last
+in precedence so a project or user skill of the same name shadows one,
+read-only, without scripts, and dropped by `:builtin-skills? false`
+(RFC-017 "Built-in skills"). The cost is a line in every prompt per shipped
+skill.
+
 <!-- divergence: bash-command-gate -->
 **A command line is gated by what it runs.** brainyard checks a bash command's
 absolute paths, and only for `task$run`'s bash job (`validate-bash-paths`); it

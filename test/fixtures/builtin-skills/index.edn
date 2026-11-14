@@ -1,0 +1,3 @@
+;; A built-in skills index for brainyard.skills-test: one skill with a
+;; resource, and one entry whose SKILL.md is missing, which is skipped.
+[{:name "with-notes" :resources ["notes.md"]} "missing-one"]

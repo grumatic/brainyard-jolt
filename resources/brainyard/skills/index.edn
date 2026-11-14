@@ -1,0 +1,8 @@
+;; The skills shipped in the binary, in listing order. An index, because a
+;; built binary cannot list a resource directory (as agents/index.edn is).
+;; An entry is a skill's name — resources/brainyard/skills/<name>/SKILL.md —
+;; or {:name "<name>" :resources ["file" …]} naming files under its
+;; resources/ that calling it hands over too. No scripts: an embedded file is
+;; not on disk for bash to run (RFC-017).
+;; A project shadows one by name: .brainyard/skills/<name>/ replaces it.
+["skill-authoring"]

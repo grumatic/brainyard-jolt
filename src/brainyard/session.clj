@@ -2866,7 +2866,8 @@
                                             :existing-skills (self-improve/existing-skills-text config)
                                             :project-context ""))
           threshold (double (:skill-distill-threshold config 0.7))]
-      (stage! ctx (self-improve/distill-outcome threshold outputs)
+      (stage! ctx (self-improve/distill-outcome threshold outputs
+                                                (self-improve/builtin-skill-names config))
               {:name (:proposed-name outputs) :kind :distillation
                :score (:score outputs) :rationale (str (:rationale outputs))
                :skill-md (:skill-md outputs) :session (:session-id config)
