@@ -27,7 +27,13 @@
 
   `:loop FILE` runs the project on a loop of the person's choosing rather than
   the bundled one (RFC-071 \"Promotion\", byj-ng7.18), and the report says
-  which loop every run ran."
+  which loop every run ran.
+
+  A plan's `:attachments`, `{slot-id [name …]}`, attaches the trees in
+  `<plan>/ext/<name>.edn` to the ReAct loop's slots before the first stage,
+  as a person's accept would (RFC-072), and the report names them. A plan's
+  `:notice-markers` are words to count in the notices each stage's turns
+  were shown — what an attachment said, `ANSWER REFUSED` for a refusal."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
@@ -295,6 +301,34 @@
 (defn- loop-label [{:keys [name from hash file]}]
   (str name ", " (clojure.core/name from) " " hash (when file (str " (" file ")"))))
 
+(defn plan-attachments
+  "The plan's `:attachments` as `[{:slot :name :tree :file}]`, each read from
+  `<plan>/ext/<name>.edn` and checked where it would sit in a project at
+  `dir` (`loop-proposals/attachment-problems`); thrown otherwise, before
+  anything is made."
+  [plan dir]
+  (vec (for [[slot names] (:attachments plan)
+             n names
+             :let [f (io/file (:plan-dir plan) "ext" (str n ".edn"))
+                   _ (when-not (.isFile f) (throw (ex-info (str "no attachment file " f) {:file (str f)})))
+                   tree (edn/read-string (slurp f))
+                   ps (loop-proposals/attachment-problems {:project-dir (str dir) :working-dir (str dir)} slot n tree nil)]]
+         (if (seq ps)
+           (throw (ex-info (str f " cannot be attached to " slot ": "
+                                (str/join "; " (map #(str (pr-str (:node %)) " " (:problem %)) ps)))
+                           {:file (str f) :problems ps}))
+           {:slot slot :name n :tree tree :file (.getCanonicalPath f)}))))
+
+(defn install-attachments!
+  "Attach each of `as` (`plan-attachments`) in project `dir`, in order, as a
+  person's accept does (`project-loops/write-attachment!`), so the project's
+  history says it. `[{:slot :name :hash}]`."
+  [dir as]
+  (vec (for [{:keys [slot name tree]} as]
+         (let [contract (get (project-loops/slots ((requiring-resolve 'brainyard.agent/load-tree) "react" (str dir))) slot)]
+           (select-keys (project-loops/write-attachment! (str dir) slot name tree {:contract contract})
+                        [:slot :name :hash])))))
+
 ;; --- what a stage cost -------------------------------------------------------------------
 
 (defn- failed-call?
@@ -333,6 +367,15 @@
   counting by when each started missed it (byj-gly.319)."
   [before after]
   (double (reduce + 0.0 (for [[sid usd] after] (max 0.0 (- usd (get before sid 0.0)))))))
+
+(defn notice-counts
+  "How many iterations of `records` were shown a notice holding each of
+  `markers`: `{marker n}`."
+  [records markers]
+  (into {} (for [mk markers]
+             [mk (count (for [r records it (:iterations r)
+                              :when (str/includes? (str (:notices it)) mk)]
+                          it))])))
 
 (defn stage-metrics
   "What `records` say a stage did: turns, iterations, calls, failed calls (the
@@ -695,8 +738,9 @@
         ;; records: the trajectory holds only brainyard's own calls (byj-gly.315.5)
         delegated (delegated-cost (or spent-before {}) (delegation-costs dir))
         metrics (let [m (stage-metrics records)]
-                  (assoc m :brainyard-cost-usd (:cost-usd m) :claude-code-cost-usd delegated
-                           :cost-usd (+ (:cost-usd m) delegated)))
+                  (cond-> (assoc m :brainyard-cost-usd (:cost-usd m) :claude-code-cost-usd delegated
+                                 :cost-usd (+ (:cost-usd m) delegated))
+                    (seq (:notice-markers plan)) (assoc :notices (notice-counts records (:notice-markers plan)))))
         result {:id (:id stage) :verdict (verdict checks) :turns turns :checks checks
                 :prompts @asked :metrics metrics
                 :seconds (quot (- (System/currentTimeMillis) t0) 1000)}
@@ -728,6 +772,10 @@
     (str "# Simulation: " (:id plan) "\n\n"
          "- Project: `" dir "`\n- Model: " provider (when model (str "/" model)) "\n- Started: " started "\n"
          (when-let [l (:loop report)] (str "- Loop: " (loop-label l) "\n"))
+         (when (seq (:attachments report))
+           (str "- Attached: " (str/join ", " (for [{:keys [slot name hash]} (:attachments report)]
+                                                (str name " → " slot " (" hash ")")))
+                "\n"))
          "\n"
          "| Stage | Verdict | Time | Turns | Calls | Failed calls | Prompts | Cost | Findings |\n|---|---|---|---|---|---|---|---|---|\n"
          (str/join (for [s stages
@@ -742,6 +790,8 @@
          (str/join (for [s stages]
                      (str "\n## " (name (:id s)) " — " (name (:verdict s)) "\n\n"
                           (str/join (for [c (:checks s)] (str "- " (if (:pass? c) "✓" "✗") " " (:name c) ": " (:detail c) "\n")))
+                          (when-let [ns (m s :notices)]
+                            (str "- notices shown: " (str/join ", " (for [[mk n] ns] (str "\"" mk "\" " n))) "\n"))
                           (str/join (for [a (:attempts s)]
                                       (format "- an earlier attempt: %s, %d s, $%.2f — in this stage's time and cost\n"
                                               (name (:verdict a)) (or (:seconds a) 0) (double (or (get-in a [:metrics :cost-usd]) 0)))))
@@ -818,6 +868,7 @@
         ;; checked before the project is made, against the project it will
         ;; run in, so a loop byj would not run leaves nothing behind
         cand (when-let [f (:loop opts)] (loop-candidate f target))
+        attach (when-not prior (plan-attachments plan target))
         dir (if prior
               (:dir prior)
               (cond-> (prepare-project! target)
@@ -825,6 +876,7 @@
                 ;; which model Claude Code runs on, say (byj-gly.320)
                 (:project-config plan) (doto (write-project-config! (:project-config plan)))
                 cand (doto (install-loop! cand))))
+        attached (if prior (:attachments prior) (when (seq attach) (install-attachments! dir attach)))
         sess (str "sim-" (str/replace (.getName (io/file dir)) #"[^A-Za-z0-9-]" "-"))
         session-opts {:brainyard-dir (or (:brainyard-dir opts) (System/getProperty "user.dir"))
                       :dir dir :provider provider :model model
@@ -836,6 +888,7 @@
                       :started (or (:started prior) (str (java.time.Instant/now)))
                       :tmux (str (str/join " " *tmux*) " attach -t " sess)}
                prior (assoc :continued (str (java.time.Instant/now)))
+               (seq attached) (assoc :attachments attached)
                true (assoc :loop (if prior
                                    (:loop prior)
                                    (loop-in-force dir (or (:name cand) "react") (:file cand)))))

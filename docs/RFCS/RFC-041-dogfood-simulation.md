@@ -138,6 +138,15 @@ check).
   began with. Every report says which loop ran — `:loop {:name :from :hash
   :file?}`, `:from` `:bundled` or `:project` — and a comparison of two runs
   on different loops names both.
+- **A plan can fill the ReAct loop's slots** (RFC-072): its `:attachments`,
+  `{slot-id [name …]}`, attach the trees in `<plan>/ext/<name>.edn` before
+  the first stage, as a person's accept would (`project-loops/write-attachment!`),
+  each checked first where it would sit (`loop-proposals/attachment-problems`),
+  so one that would not be staged leaves nothing behind. The report names
+  them (`:attachments [{:slot :name :hash}]`). A plan's `:notice-markers`
+  are words counted per stage in the notices its turns were shown
+  (`:notices {marker n}`): what an attachment said, and `ANSWER REFUSED`
+  for a refusal. `dev/sim/extensions/plan.edn` is the playground built so.
 - **A failed call** is one the trajectory marks failed (`:error?`), or whose
   result reads as one: a gate's block, which prints as `{:hook-blocked …}`,
   was not counted before `byj-ng7.18`, so a run since can show more failed
@@ -536,6 +545,7 @@ exercises it.
 | The last run a run is compared with is one of the same plan, not of a plan whose id begins the same. A failed stage passed on re-check keeps its first attempt's turns, cost and time. | `sim-test/the-last-run-is-one-of-the-same-plan`, `sim-test/a-stopped-run-is-continued` |
 | What a stage's command leaves running is recorded when its turns end and stopped by the session's end: nothing outlives the session. | `sim-test/what-a-stage-starts-does-not-outlive-its-session` |
 | A run stopped at a failed stage is continued: the passed stages kept, the failed one re-checked (passing without a turn when its checks pass now), the report marked continued; a directory with no run is refused. | `sim-test/a-stopped-run-is-continued` |
+| A plan's attachments are checked, attached before the first stage, and their notices counted per stage. | `sim-test/a-plans-attachments-are-checked-installed-and-their-notices-counted` |
 | A run on a chosen loop runs it: the loop made the project's own as an accept makes one, the report and its markdown naming the loop of every run. A loop byj would not run is refused before the project is made, and `--loop` with `--continue`. Two runs on different loops say so in their comparison, and a regression fails `compare`. | `sim-test/a-run-on-a-chosen-loop-runs-it-and-says-so`, `sim-test/a-loop-byj-would-not-run-is-refused-before-the-project-is-made`, `sim-test/two-runs-on-different-loops-say-so-and-a-regression-fails-the-comparison` |
 | A plan is played stage by stage. Each stage's checks decide its verdict, and `{{plan}}` reaches the plan's scripts. A permission prompt is answered by the plan and recorded. Each stage resumes the one session. A line past 1024 characters is taken. The report and each stage's screen are written and kept out of the project's git. A project that is not empty is refused. | `sim-test/a-plan-is-played-stage-by-stage-and-reported` |
 

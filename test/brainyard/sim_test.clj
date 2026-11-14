@@ -347,3 +347,19 @@
               (is (= (:dir bundled) (get-in chosen [:comparison :against])))
               (is (= [:bundled :project] (map :from (get-in chosen [:comparison :loops]))))))
           (finally (fx/sh {:out :string :err :string} "tmux" "-L" label "kill-server")))))))
+
+(deftest a-plans-attachments-are-checked-installed-and-their-notices-counted
+  ;; RFC-072: dev/sim/extensions/plan.edn fills the ReAct loop's two slots
+  (let [plan (sim/load-plan "dev/sim/extensions/plan.edn")
+        dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "sim-attach-" (random-uuid))) .mkdirs))]
+    (is (= [[:react/ext-after-tools "lint"] [:react/ext-answer-check "tests"]]
+           (map (juxt :slot :name) (sim/plan-attachments plan dir))))
+    (is (= [:react/ext-after-tools :react/ext-answer-check]
+           (map :slot (sim/install-attachments! dir (sim/plan-attachments plan dir)))))
+    (is (= {:react/ext-after-tools ["lint"] :react/ext-answer-check ["tests"]}
+           ((requiring-resolve 'brainyard.project-loops/attached) dir)))
+    (is (thrown-with-msg? Exception #"cannot be attached to :react/nowhere"
+                          (sim/plan-attachments (assoc plan :attachments {:react/nowhere ["lint"]}) dir))))
+  (is (= {"LINT" 2 "ANSWER REFUSED" 1}
+         (sim/notice-counts [{:iterations [{:notices "LINT: x"} {:notices "ANSWER REFUSED: y\n\nLINT: z"} {}]}]
+                            ["LINT" "ANSWER REFUSED"]))))

@@ -1,0 +1,14 @@
+;; Attached to :react/ext-after-tools (RFC-072): after a batch of tool calls
+;; that could have written a file, every JavaScript file the work tree has
+;; changed is parsed with node --check, and what does not parse is told to the
+;; model in the next iteration's notices. Nothing is said when all parse. A
+;; batch that wrote nothing skips it, and so does a project with no git.
+[:fallback {:id :lint/after-a-write}
+ [:sequence {:id :lint/check}
+  [:condition {:id :lint/wrote? :fn :mem/match? :key :tool-calls
+               :pattern "\"(write-file|update-file|bash)\""}]
+  [:action {:id :lint/seed :fn :mem/set
+            :set {:lint/command "out=$(for f in $(git ls-files -m -o --exclude-standard -- '*.js' '*.cjs' '*.mjs' 2>/dev/null | grep -v node_modules); do node --check \"$f\" 2>&1 | head -6; done); if [ -n \"$out\" ]; then printf 'LINT (node --check, run after your tools): a JavaScript file you changed does not parse:\\n%s\\n' \"$out\"; fi"}}]
+  [:action {:id :lint/run :fn :tool/run :tool "bash" :in {:command :lint/command}
+            :out {:ext/notices :output}}]]
+ [:sequence {:id :lint/nothing-written}]]

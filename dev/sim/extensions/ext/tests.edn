@@ -1,0 +1,11 @@
+;; Attached to :react/ext-answer-check (RFC-072): before an answer is final,
+;; the project's own tests run when it has them (a package.json naming a test
+;; script). When they fail the answer is refused, and the reason the model is
+;; given is their last lines. A project with no tests yet answers as it would.
+;; It refuses at most :max-answer-checks times in a turn.
+[:sequence {:id :tests/answer-check}
+ [:action {:id :tests/seed :fn :mem/set
+           :set {:tests/command "if [ -f package.json ] && grep -q '\"test\"' package.json; then out=$(npm test 2>&1); s=$?; if [ $s -ne 0 ]; then printf 'TESTS (npm test, run before your answer is final): it fails, exit %s. Make it pass, then answer again. Its last lines:\\n%s\\n' \"$s\" \"$(printf '%s' \"$out\" | tail -30)\"; exit 1; fi; fi"}}]
+ [:action {:id :tests/run :fn :tool/run :tool "bash" :in {:command :tests/command}
+           :out {:ext/critique :output :tests/status :status}}]
+ [:condition {:id :tests/passed? :fn :mem/match? :key :tests/status :pattern "^completed$"}]]

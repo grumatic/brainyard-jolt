@@ -1,0 +1,61 @@
+;; The mini-playground (dev/sim/playground/plan.edn), its stages and checks
+;; unchanged, built by a project that has filled the ReAct loop's two slots
+;; (RFC-072) — what a project's own additions to the bundled loop do to the
+;; same work:
+;;
+;;   ext/lint.edn  → :react/ext-after-tools  every JavaScript file changed is
+;;                   parsed after a batch that could write; what does not
+;;                   parse is the next iteration's notice
+;;   ext/tests.edn → :react/ext-answer-check the project's npm test runs
+;;                   before an answer is final; failing, the answer is
+;;                   refused with its last lines
+;;
+;; Attached before the first stage as a person's accept would. The report
+;; names them, and counts per stage the notices each said (:notice-markers).
+;; Compare with the playground plan run on the same byj:
+;;
+;;   jolt sim:byj dev/sim/extensions/plan.edn
+;;   jolt sim:byj dev/sim/playground/plan.edn
+;;   jolt sim:byj compare PLAYGROUND-RUN EXTENSIONS-RUN
+{:id "extensions"
+ :projects-dir "~/Projects/byj-sim"
+ :provider "claude-code" :model "sonnet"
+ :permission-mode :auto
+ :timeout-s 1800
+ :cap-usd 10.0
+ :attachments {:react/ext-after-tools ["lint"]
+               :react/ext-answer-check ["tests"]}
+ :notice-markers ["LINT (node --check" "ANSWER REFUSED: TESTS"]
+ ;; the attachments' own commands are the project's, as its person set them
+ :answers [{:match "pkill" :answer "n"}
+           {:match "node --check" :answer "y"}
+           {:match "npm test" :answer "y"}]
+ :default-answer "n"
+ :stages
+ [{:id :init
+   :lines ["/init"
+           "This project is a mini-playground: a small web workspace with a Terminal section first. Stack: Node 20+, a plain node:http server with ws and node-pty, a static page using xterm.js, tests with node --test. Conventions: npm start runs the server on the port in PORT (default 3000), npm test runs the tests. File each of these as a bead, in order, each depending on the one before: (1) server shell: a page with a sidebar of sections Terminal, Files, Editor and Chat, GET /api/health answering {\"ok\":true}, and 404 for unknown paths; (2) a terminal over a WebSocket at /term spawning $SHELL in the project dir, with JSON frames {\"t\":\"i\",\"d\":text} from the client and {\"t\":\"o\",\"d\":text} from the server, the shell killed when the socket closes; (3) a {\"t\":\"r\",\"cols\":n,\"rows\":n} frame resizes the shell, and a client connecting to /term?id=<id> with an id used before is replayed that terminal's recent output; (4) the Terminal section in the page: xterm.js loaded from the server, the fit addon, and a status badge element with a data-status attribute (connecting, open, reconnecting, closed); (5) a file tree and a text editor: GET /api/files?path= lists a directory, GET /api/file?path= answers a file's text and PUT /api/file?path= writes the request body, the file's text as it is, and any path outside the project dir is answered 400. Don't start building yet."]
+   :checks [{:type :file :name "agents-md" :path "AGENTS.md" :contains "BRAINYARD:project"}
+            {:type :command :name "five-beads" :run "test $(bd list 2>/dev/null | grep -c '^○') -ge 5"}]}
+  {:id :server
+   :lines ["Work on the next ready bead (bd ready): build it, make its tests pass, commit, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "health" :run "node {{plan}}/../playground/checks/checks.cjs health" :timeout-s 60}]}
+  {:id :term
+   :lines ["Work on the next ready bead (bd ready): build it, make its tests pass, commit, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "term" :run "node {{plan}}/../playground/checks/checks.cjs term" :timeout-s 60}]}
+  {:id :resize
+   :lines ["Work on the next ready bead (bd ready): build it, make its tests pass, commit, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "resize" :run "node {{plan}}/../playground/checks/checks.cjs resize" :timeout-s 60}]}
+  {:id :ui
+   :lines ["Work on the next ready bead (bd ready): build it, make its tests pass, commit, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "ui" :run "node {{plan}}/../playground/checks/checks.cjs ui" :timeout-s 60}]}
+  {:id :files
+   :lines ["Work on the next ready bead (bd ready): build it, make its tests pass, commit, and close the bead."]
+   :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "files" :run "node {{plan}}/../playground/checks/checks.cjs files" :timeout-s 60}
+            {:type :command :name "lint-ran" :run "grep -q 'node --check' .brainyard/sessions/*/trajectory.edn"}
+            {:type :command :name "tests-ran" :run "grep -q 'run before your answer is final' .brainyard/sessions/*/trajectory.edn"}]}]}
