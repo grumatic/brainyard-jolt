@@ -474,6 +474,18 @@
     (is (some? ((requiring-resolve 'brainyard.predictor/load-predictor) "user/refine-question"
                 [(str (io/file dir ".brainyard" "predictors"))])))))
 
+(deftest the-work-tree-example-is-the-tree-the-simulations-measured
+  ;; docs/examples/loops/work-tree.edn (byj-93l) is dev/sim/extensions/ext/
+  ;; work.edn, comments aside, and attaches where its header says
+  (is (= (edn/read-string (slurp "dev/sim/extensions/ext/work.edn"))
+         (edn/read-string (slurp "docs/examples/loops/work-tree.edn"))))
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "sim-example-" (random-uuid))) .mkdirs))
+        ext (doto (io/file dir "ext" "work-tree.edn") io/make-parents (spit (slurp "docs/examples/loops/work-tree.edn")))]
+    (is (str/includes? (slurp ext) "byj loops attach :react/ext-answer-check docs/examples/loops/work-tree.edn"))
+    (is (= 1 (count (sim/plan-attachments {:plan-dir dir
+                                           :attachments {:react/ext-answer-check ["work-tree"]}}
+                                          dir))))))
+
 (deftest the-written-rules-plans-are-the-rules-plans-with-the-rules-in-agents-md
   ;; dev/sim/extensions/rules-written*.edn (byj-93l): rules*.edn's stages,
   ;; the project starting with an AGENTS.md that states the rules and opts in

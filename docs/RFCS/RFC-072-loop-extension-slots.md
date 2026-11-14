@@ -544,7 +544,7 @@ measure nothing finer than that.
     uncommitted; the model then committed them.
   - The plans' `agents-md` check failed in both arms: with an AGENTS.md
     already holding a project section, `/init` drafts no
-    `BRAINYARD:project` block.
+    `BRAINYARD:project` block. It now looks for brainyard's own block.
 
 What an attachment can add is what the model does not do on its own. Here
 that was not the rules the person wrote down, which the model kept, nor
@@ -553,6 +553,13 @@ it was the end state of the work tree checked mechanically every turn,
 catching what the model overlooked (installed dependencies left untracked)
 and the run in five that slipped, for about a quarter more cost and half
 again the time.
+
+That check is `docs/examples/loops/work-tree.edn`, an example a project
+attaches with `byj loops attach :react/ext-answer-check` and accepts at
+`/proposals`; it is the tree these plans attach as `ext/work.edn`
+(`sim-test/the-work-tree-example-is-the-tree-the-simulations-measured`).
+Two findings about `/init` rather than slots are RFC-040's gaps
+(`byj-gby`, `byj-aww`).
 
 ## API
 

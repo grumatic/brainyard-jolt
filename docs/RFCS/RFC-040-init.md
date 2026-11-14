@@ -580,5 +580,12 @@ All of them are planned. Nothing enforces them until their beads are built.
 
 ## Known gaps
 
-None open. Not built, by decision: built-in skills shipped in the binary
+- `bd setup`'s Beads block keeps a conservative git default (no commits
+  unless asked) that `/init` neither names nor asks the person about; in
+  simulation every run followed it over the rules the person stated
+  (RFC-072 "Measured in a simulation") (`byj-aww`).
+- A rule the person states for the project in a session is not offered for
+  AGENTS.md's own section, where later turns read it first (`byj-gby`).
+
+Not built, by decision: built-in skills shipped in the binary
 (`byj-gly.309.8`; "Not in scope").
