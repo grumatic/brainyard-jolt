@@ -406,6 +406,45 @@
                        [_ f] (re-seq #"(\.brainyard/profile\.edn)(?:$|[\s\"';|&>)])" (str seg))]
                    f))))
 
+(def ^:private removing
+  ;; the commands that take a directory away whole, or move it
+  #"^(?:sudo )?(?:rm|rmdir|mv|unlink|trash)(?:\s|$)")
+
+(defn- holds-guarded
+  "What of a project's loop and profile directory `d` holds: `:profile` when
+  its `profile.edn` is there, `:loop` when a loop file or `ext/` is in its
+  `loops/` (or in `d`, when `d` is that `loops/`), else nil."
+  [d]
+  (let [loops? (fn [l] (and (.isDirectory l)
+                            (or (.exists (io/file l "ext"))
+                                (some #(str/ends-with? (.getName %) ".edn") (.listFiles l)))))]
+    (cond
+      (.isFile (io/file d "profile.edn")) :profile
+      (or (loops? (io/file d "loops"))
+          (and (= "loops" (.getName (io/file d))) (loops? (io/file d)))) :loop)))
+
+(defn removed-guarded-dirs
+  "The directories a shell `command` removes or moves whole — `.brainyard`,
+  `.brainyard/loops`, or everything in one (`.brainyard/*`) — that hold a
+  project's loop or profile, as `[word what]`, `what` being `:profile` or
+  `:loop`. The tripwires on the files name neither the directory nor the
+  glob, and `rm -rf .brainyard` took the loop, its attachments and the
+  profile at once (byj-cst). A word is read against `working-dir`; a
+  directory that holds neither is nobody's to guard."
+  [command working-dir]
+  (vec (distinct (for [seg (command-segments command)
+                       :let [t (segment-text seg)]
+                       :when (re-find removing t)
+                       w (rest (str/split t #"\s+"))
+                       :let [w (str/replace w #"^[\"']|[\"']$" "")]
+                       :when (and (not (str/starts-with? w "-"))
+                                  (re-find #"(?:^|/)\.brainyard(?:/loops)?/?(?:\*)?$" w))
+                       :let [p (str/replace w #"/?\*?$" "")
+                             d (if (.isAbsolute (io/file p)) (io/file p) (io/file (str working-dir) p))
+                             what (holds-guarded d)]
+                       :when what]
+                   [w what]))))
+
 (def ^:private profile-hint
   (str "The project's profile is the person's (RFC-073): /init drafts it and the person confirms it."
        " Say what should change, and the person changes it."))
@@ -775,6 +814,11 @@
          (loop-refusal "bash-command-gate" f "it names a project's loop, which a person makes live, not a tool"))
        (when-let [f (first (mapcat named-profile-files commands))]
          (profile-refusal "bash-command-gate" f "it names the project's profile, which the person confirms, not a tool"))
+       ;; and the directory holding either, taken away whole (byj-cst)
+       (when-let [[w what] (first (mapcat #(removed-guarded-dirs % (config ctx :working-dir ".")) commands))]
+         (if (= :profile what)
+           (profile-refusal "bash-command-gate" w "it removes or moves the directory holding the project's profile, which the person confirms, not a tool")
+           (loop-refusal "bash-command-gate" w "it removes or moves the directory holding a project's loop, which a person makes live, not a tool")))
        ;; what the project's profile governs — a commit, a push, a bead
        ;; filed or closed — as its axis says, before the rest of the gate:
        ;; an :ask is the person's even where the mode would not ask (byj-71w.5)

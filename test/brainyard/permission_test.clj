@@ -494,6 +494,35 @@
       (is (seq (permission/named-profile-files "git checkout -- .brainyard/profile.edn")) "checkout rewrites it")
       (is (seq (permission/named-profile-files "git add x && cp y .brainyard/profile.edn")) "each segment on its own"))))
 
+(deftest the-directory-holding-a-loop-or-the-profile-is-not-taken-away-whole
+  ;; byj-cst: `rm -rf .brainyard` named no guarded file, and took the
+  ;; project's loop, its attachments and its profile at once
+  (let [dir (.getAbsolutePath (io/file (fresh-dir "guarded-dirs")))
+        by (io/file dir ".brainyard")
+        c (fn [mode] (ctx {:working-dir dir :project-dir dir :allowed-dirs [dir] :permission-mode mode}
+                          :permission-fn (fn [_] {:allowed true})))
+        error #(str (:error (call (c %1) "bash" {:command %2})))]
+    (.mkdirs (io/file by "sessions"))
+    (testing "a .brainyard holding neither is anybody's to remove"
+      (is (empty? (permission/removed-guarded-dirs "rm -rf .brainyard" dir))))
+    (.mkdirs (io/file by "loops"))
+    (spit (io/file by "loops" "react.edn") "{}")
+    (testing "holding a loop, it is refused as a loop, in every mode"
+      (doseq [mode [:auto-approve :auto :ask-each-time :deny-by-default]
+              cmd ["rm -rf .brainyard" "rm -rf ./.brainyard/" "mv .brainyard /tmp/x" "rm -rf .brainyard/loops"
+                   "rm -rf .brainyard/*" (str "cd /tmp && rm -rf " dir "/.brainyard") "rm -rf '.brainyard'"]]
+        (is (str/includes? (error mode cmd) "Tool call refused (loop)") (str cmd ", " mode)))
+      (is (.isFile (io/file by "loops" "react.edn")) "and the loop is there"))
+    (spit (io/file by "profile.edn") "{:profile/version 1}")
+    (testing "holding the profile, it is refused as the profile's"
+      (is (str/includes? (error :auto-approve "rm -rf .brainyard") "Tool call refused (profile)"))
+      (is (= [[".brainyard" :profile]] (permission/removed-guarded-dirs "ls x; rm -r .brainyard" dir))))
+    (testing "what is under it, reading it, and another directory are not refused for it"
+      (is (empty? (permission/removed-guarded-dirs "rm -rf .brainyard/sessions" dir)))
+      (is (empty? (permission/removed-guarded-dirs "ls -la .brainyard && du -sh .brainyard" dir)))
+      (is (empty? (permission/removed-guarded-dirs "rm -rf .brainyard-old build" dir)))
+      (is (not (str/includes? (error :auto-approve "rm -rf .brainyard/sessions") "refused (loop)"))))))
+
 (deftest path-gate
   (let [dir (fresh-dir "paths")
         outside (.getAbsolutePath (io/file (fresh-dir "outside")))

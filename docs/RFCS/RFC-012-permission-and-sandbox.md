@@ -341,6 +341,17 @@ step (`byj-71w.7`).
 `permission-test/a-projects-profile-is-written-by-no-tool`,
 `tool-hook-test/another-agent-writes-no-project-profile`.
 
+**Nor is the directory holding either taken away whole** (`byj-cst`): a
+line whose `rm`, `rmdir`, `mv`, `unlink` or `trash` names `.brainyard`,
+`.brainyard/loops` or everything in one (`.brainyard/*`), relative or
+absolute, names no guarded file, yet took the loop, its attachments and
+the profile at once. The command gate refuses it as the profile's or the
+loop's when the directory holds them (`permission/removed-guarded-dirs`),
+and lets it be when it holds neither; what is under it in a directory of
+its own (`.brainyard/sessions`) is not guarded. The path gate has no such
+edge: no tool that takes a path removes or moves a directory.
+`permission-test/the-directory-holding-a-loop-or-the-profile-is-not-taken-away-whole`.
+
 **An accepted attachment's call is not classified as every command is**
 (RFC-072 "An attachment's call and the classifier", `byj-6xh`): in `:auto`
 the classifier weighs a call against the turn's request, and an
@@ -706,6 +717,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | `--sandbox-allow-write` expands `~`, resolves relatives and dedupes. | `permission-test/sandbox-allow-writes` |
 | A write to a project's loop — `.brainyard/loops/<name>.edn`, its `history.edn`, the directory, and anything under `ext/` (RFC-072) — is refused for every tool in every mode, `flow$patch` included; a shell line naming one is refused as a tripwire; Claude Code's and Codex's through byj's hook alike (RFC-071) | `permission-test/a-projects-loop-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-loop` |
 | A write to a project's profile, `.brainyard/profile.edn`, is refused for every tool in every mode, and a shell line naming it as a tripwire; Claude Code's and Codex's through byj's hook alike (RFC-073) | `permission-test/a-projects-profile-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-profile` |
+| A shell line removing or moving `.brainyard`, `.brainyard/loops` or all in one, while it holds a loop or the profile, is refused in every mode | `permission-test/the-directory-holding-a-loop-or-the-profile-is-not-taken-away-whole` |
 | What a project's profile governs (RFC-073 `:gates`) is held as its axis says: `:never` refused unasked, `:ask` asked of the person in every mode and never the classifier, refused headless and in `:deny-by-default`, `:act` left to the rest of the gate; through byj's hook Claude Code asks and Codex is refused | `permission-test/the-gate-follows-the-projects-profile`, `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
 | A line a project's profile lets the agent run on its own — only `:act` axes' commands and their `:with` companions, no redirection but `2>&1` — is not put to the `:auto` classifier; the rest of the gate holds it | `permission-test/a-line-the-profile-lets-run-is-not-classified` |
 | A call made inside an accepted attachment (`:attached-to` on its ctx, RFC-072) is not put to the `:auto` classifier's every-command catch-all; the rest of the gate holds it | `permission-test/an-attachments-call-is-not-classified` |

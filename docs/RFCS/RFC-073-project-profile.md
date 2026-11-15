@@ -125,7 +125,9 @@ but a tracked file stays tracked, and its changes show in `git status`.
 through byj's hook: the path gate refuses a write to it and the command
 gate a line naming it, first of all and in every mode, as for a project's
 loop (RFC-071, RFC-072; `permission/profile-file`,
-`permission/named-profile-files`). Reading it is not refused. An agent that could write its profile
+`permission/named-profile-files`), and a line removing or moving the
+directory that holds it whole, `rm -rf .brainyard` (RFC-012,
+`permission/removed-guarded-dirs`, `byj-cst`). Reading it is not refused. An agent that could write its profile
 could raise its own autonomy. It changes only through `/init`, on the
 person's yes ("Confirmed once at /init").
 
