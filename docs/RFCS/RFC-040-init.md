@@ -363,6 +363,31 @@ AGENTS.md), nor ask mid-/init a question the person cannot weigh yet.
 - **Reproduced by** `jolt sim:byj` on `rules-baseline.edn` and
   `rules-written-baseline.edn`, a few runs each.
 
+### Rules said in a session (`byj-gby`, closed 2026-11-15)
+
+The gap was wider than the git default: a rule the person states in a
+session is not written where later turns read it first. The obvious fix,
+measured and not kept, was a sentence at the end of `instructions.edn`'s
+`:project :intro`, telling the model to write a standing rule into
+AGENTS.md, outside the marked blocks, before acting on it, and to say so.
+
+**Measured** on `rules-baseline.edn`, 3 runs on claude-code/haiku with the
+sentence in every call (`events.log`), against the 5 earlier runs without it:
+
+| | without (5 runs) | with the sentence (3 runs) |
+|---|---|---|
+| the rules written into AGENTS.md | 0 of 5 | 0 of 3 |
+| rules copied into each bead's description instead | not counted | 2 of 3 |
+| stages committed / bead closed (server, term) | 3/5, 3/5 | 1/3, 1/3 |
+| the CHANGELOG line, decision 0001, JSON errors (server, term) | 5/5 | 3/3 |
+| screens citing bd's Conservative profile | 5 of 5 | 3 of 3 |
+
+**Decided:** nothing more in the prompt. The rules said in a session that
+nothing in AGENTS.md contradicts were kept without it, in every run. The
+one rule that was not is the one bd's block contradicts. A line the turn
+carries does not outweigh the project's instructions, and that conflict is
+"The Beads block's git default" above, which /init now puts to the person.
+
 ### Onboarding checked live (`byj-gly.337.5`, 2026-10-12)
 
 `dev/sim/onboarding/plan.edn` (RFC-041) plays a person new to brainyard on
@@ -624,8 +649,7 @@ All of them are planned. Nothing enforces them until their beads are built.
 
 ## Known gaps
 
-- A rule the person states for the project in a session is not offered for
-  AGENTS.md's own section, where later turns read it first (`byj-gby`).
+None open.
 
 Not built, by decision: built-in skills shipped in the binary
 (`byj-gly.309.8`; "Not in scope").
