@@ -328,6 +328,15 @@ asked — a tripwire, as for a login. byj's hook gives Claude Code and Codex the
 answer. `permission-test/a-projects-loop-is-written-by-no-tool`,
 `tool-hook-test/another-agent-writes-no-project-loop`.
 
+**A project's profile is guarded as its loop is** (RFC-073, `byj-71w.2`):
+`.brainyard/profile.edn` says how far an agent goes on its own, and an
+agent that wrote it could raise that. The path gate refuses a write to it
+(`permission/profile-file`) and the command gate a line naming it
+(`permission/named-profile-files`), first of all and in every mode; byj's
+hook gives Claude Code and Codex the same answer. Reading it is not refused.
+`permission-test/a-projects-profile-is-written-by-no-tool`,
+`tool-hook-test/another-agent-writes-no-project-profile`.
+
 **The default list is wider than the project**, and that has a consequence
 worth stating: a run whose working directory is itself under `/tmp` or the
 system temp directory has a gate that allows everything under them — which is
@@ -668,6 +677,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | The argv is `sandbox-exec -p <profile>`, or `-f` with brainyard's `-D` parameters. | `permission-test/sandbox-argv` |
 | `--sandbox-allow-write` expands `~`, resolves relatives and dedupes. | `permission-test/sandbox-allow-writes` |
 | A write to a project's loop — `.brainyard/loops/<name>.edn`, its `history.edn`, the directory, and anything under `ext/` (RFC-072) — is refused for every tool in every mode, `flow$patch` included; a shell line naming one is refused as a tripwire; Claude Code's and Codex's through byj's hook alike (RFC-071) | `permission-test/a-projects-loop-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-loop` |
+| A write to a project's profile, `.brainyard/profile.edn`, is refused for every tool in every mode, and a shell line naming it as a tripwire; Claude Code's and Codex's through byj's hook alike (RFC-073) | `permission-test/a-projects-profile-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-profile` |
 | `/allow-path DIR` adds DIR for the session only, once, never to `config.edn`, and is refused over the session channel; every gate — the command gate's paths too — reads the session's directories beside `:allowed-dirs`. | `session-test/allow-path-is-the-persons-and-the-sessions`, `permission-test/a-directory-allowed-for-the-session-is-reached` |
 
 ## Known gaps

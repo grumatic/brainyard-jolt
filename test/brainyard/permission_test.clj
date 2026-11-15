@@ -457,6 +457,35 @@
       (is (some? (permission/loop-file dir (.getPath (project-loops/attach-file dir)))))
       (is (nil? (permission/loop-file dir (.getPath (io/file loops "extra" "x.edn")))) "ext/, not a name that starts so"))))
 
+;; byj-71w.2: how far an agent goes on its own is the project's profile, and
+;; an agent that could write it could raise its own autonomy (RFC-073)
+(deftest a-projects-profile-is-written-by-no-tool
+  (let [dir (.getAbsolutePath (io/file (fresh-dir "profile")))
+        f (io/file dir ".brainyard" "profile.edn")
+        _ (io/make-parents f)
+        _ (spit f "{:profile/version 1}")
+        c (fn [mode] (ctx {:working-dir dir :project-dir dir :allowed-dirs [dir] :permission-mode mode}
+                          :permission-fn (fn [_] {:allowed true})))
+        refused? #(str/includes? (str (:error %)) "Tool call refused (profile)")]
+    (doseq [mode [:auto-approve :auto :ask-each-time :deny-by-default]]
+      (is (refused? (call (c mode) "write-file" {:path (.getPath f) :content "{}"})) (str "write-file, " mode))
+      (is (refused? (call (c mode) "update-file" {:path ".brainyard/profile.edn" :old "1" :new "2"}))
+          (str "update-file, by a relative path, " mode))
+      (is (refused? (call (c mode) "bash" {:command "sed -i '' s/conservative/autopilot/ .brainyard/profile.edn"}))
+          (str "a shell naming it, " mode)))
+    (is (= "{:profile/version 1}" (slurp f)) "and the file is as it was")
+    (is (str/includes? (str (:error (call (c :auto-approve) "write-file" {:path (.getPath f) :content "{}"})))
+                       "RFC-073")
+        "the refusal says whose it is")
+    (testing "reading it, and files beside it, are not refused for it"
+      (is (= "{:profile/version 1}" (:content (call (c :auto-approve) "read-file" {:path (.getPath f)}))))
+      (is (not (refused? (call (c :auto-approve) "write-file" {:path ".brainyard/profile.edn.draft" :content "{}"}))))
+      (is (not (refused? (call (c :auto-approve) "write-file" {:path "profile.edn" :content "{}"})))))
+    (is (some? (permission/profile-file dir (.getPath f))))
+    (is (nil? (permission/profile-file nil (.getPath f))) "no project, no profile")
+    (is (= [".brainyard/profile.edn"] (permission/named-profile-files (str "echo x > " dir "/.brainyard/profile.edn"))) "absolute")
+    (is (empty? (permission/named-profile-files "cat .brainyard/profile.edn.draft")))))
+
 (deftest path-gate
   (let [dir (fresh-dir "paths")
         outside (.getAbsolutePath (io/file (fresh-dir "outside")))

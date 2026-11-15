@@ -1,8 +1,9 @@
 # RFC-073 — Project profile: what a project is for, and how far an agent goes on its own
 
 **Status:** proposed 2026-11-15; its three open choices decided the same
-day as recommended ("Decided", `byj-71w.1`). Nothing is built. Epic
-`byj-71w`.
+day as recommended ("Decided", `byj-71w.1`). Built: the profile as data,
+its presets, and the tripwire that keeps every tool from writing it
+(`byj-71w.2`). Epic `byj-71w`.
 
 ## Purpose
 
@@ -111,10 +112,14 @@ data (RFC-001). A profile names one and overrides what it wants.
 ### Where it is kept, and who changes it
 
 `.brainyard/profile.edn` is committed, so every clone and every agent has
-the same one; `/init`'s `.gitignore` line for `.brainyard/` excepts it.
+the same one. `/init` adds it with `git add -f`: `.gitignore` ignores
+`.brainyard/`, and git cannot except a file inside a directory it ignores,
+but a tracked file stays tracked, and its changes show in `git status`.
 **No tool writes it**, in any mode, and neither do Claude Code nor Codex
-through byj's hook: the tripwire that keeps a project's loop
-(RFC-071, RFC-072) covers it too. An agent that could write its profile
+through byj's hook: the path gate refuses a write to it and the command
+gate a line naming it, first of all and in every mode, as for a project's
+loop (RFC-071, RFC-072; `permission/profile-file`,
+`permission/named-profile-files`). Reading it is not refused. An agent that could write its profile
 could raise its own autonomy. It changes only through `/init` or a
 proposal the person accepts at `/proposals`.
 
@@ -197,7 +202,11 @@ questions the profile names and nowhere else.
 |---|---|
 | `.brainyard/profile.edn` | the profile; committed; written by no tool |
 | `resources/brainyard/profile/presets.edn` | the presets |
-| `profile/read` | the project's profile, its preset merged and floors applied; nil without one |
+| `profile/presets` | `presets.edn`: the axes, levels, ceilings, presets and the default preset (built) |
+| `profile/read-profile` | the project's profile resolved, with `:file`; nil without one (built) |
+| `profile/resolve-profile` | a profile's preset merged under it, its ceilings applied, and `:problems`; a profile that does not match the schema keeps its goal, scope and done criteria to show, its autonomy the default preset's whole, and no stop limits (built) |
+| `profile/level` | the level a profile sets an axis to (built) |
+| `profile/profile-schema` | the malli form a profile is checked against, closed (built) |
 | `profile/render` | the AGENTS.md block for a profile |
 | `profile/gate-rules` | the permission rules a profile's axes make |
 | predictor `init/profile` | the draft `/init` proposes |
@@ -207,8 +216,10 @@ questions the profile names and nowhere else.
 
 | Invariant | Enforced by |
 |---|---|
-| No tool writes `.brainyard/profile.edn`, in any mode, nor Claude Code or Codex through byj's hook | nothing yet (`byj-71w.2`) |
-| `:decision/scope` and `:git/push` are never `:act` | nothing yet (`byj-71w.2`) |
+| No tool writes `.brainyard/profile.edn`, in any mode, nor Claude Code or Codex through byj's hook | `permission-test/a-projects-profile-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-profile` |
+| `:decision/scope` and `:git/push` are never `:act` | `profile-test/no-profile-raises-an-axis-above-its-ceiling` |
+| A profile that does not match grants only the default preset | `profile-test/a-profile-that-does-not-match-grants-only-the-default` |
+| Every preset sets every axis, and the presets are the three decided | `profile-test/the-presets-are-data-and-name-every-axis` |
 | The AGENTS.md block is the data's rendering, or `/init check` says it is not | nothing yet (`byj-71w.3`) |
 | An axis at `:ask` asks in every permission mode | nothing yet (`byj-71w.5`) |
 | `:issue/work` and `:decision/scope` are held by words and the drive loop, not by a gate | nothing enforces it, by design |
@@ -237,4 +248,6 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- Nothing is built (`byj-71w.2`–`byj-71w.6`), nor measured (`byj-71w.7`).
+- Not built: the AGENTS.md block (`byj-71w.3`), `/init`'s draft and
+  confirmation (`byj-71w.4`), the gate's rules (`byj-71w.5`), `/drive`
+  (`byj-71w.6`); nor measured (`byj-71w.7`).

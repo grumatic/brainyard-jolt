@@ -94,6 +94,18 @@
                        "project's loop"))
     (is (nil? (:decision (decide {:tool_name "Read" :tool_input {:file_path ".brainyard/loops/react.edn"}}))) "read, it is not")))
 
+(deftest another-agent-writes-no-project-profile
+  ;; byj-71w.2: Claude Code and Codex are held to the profile as byj's tools are
+  (let [project (fresh-dir "profile")
+        config {:project-dir project :working-dir project :permission-mode :auto-approve}
+        decide #(hook/decide config (merge {:cwd project :session_id "s"} %))]
+    (is (= :deny (:decision (decide {:tool_name "Write" :tool_input {:file_path ".brainyard/profile.edn" :content "{}"}}))))
+    (is (= :deny (:decision (decide {:tool_name "apply_patch" :turn_id "t" :model "m"
+                                     :tool_input {:command "*** Begin Patch\n*** Update File: .brainyard/profile.edn\n*** End Patch"}}))))
+    (is (str/includes? (:reason (decide {:tool_name "Bash" :tool_input {:command "echo '{}' > .brainyard/profile.edn"}}))
+                       "project's profile"))
+    (is (nil? (:decision (decide {:tool_name "Read" :tool_input {:file_path ".brainyard/profile.edn"}}))) "read, it is not")))
+
 (deftest a-codex-patch-is-every-file-it-names
   (is (= ["a.clj" "b.clj" "c.md" "d.txt"]
          (hook/patch-paths "*** Begin Patch\n*** Update File: a.clj\n*** Move to: b.clj\n*** Add File: c.md \n*** Delete File: d.txt\n*** End Patch"))

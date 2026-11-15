@@ -1,0 +1,32 @@
+;; The project profile's axes, levels, ceilings and presets (RFC-073
+;; "The profile", "Presets", byj-71w.2). brainyard.profile reads this file
+;; and knows none of it: which axes there are, what each preset allows and
+;; which axes no profile may raise are all here.
+;;
+;; :levels are ordered from least to most an agent does on its own: :never
+;; refuses, :ask proposes and waits for the person, :act does it and says so
+;; at handoff. An axis above its :ceilings entry is held at the ceiling, and
+;; the profile's problems say so (decided in byj-71w.1: scope decisions and
+;; push are always the person's to make).
+{:levels [:never :ask :act]
+
+ :axes [{:id :issue/create   :covers "filing beads for work inside the scope, and for what the work turned up"}
+        {:id :issue/work     :covers "choosing a ready bead and working on it without being told which"}
+        {:id :git/commit     :covers "committing a bead's work"}
+        {:id :issue/close    :covers "closing a bead whose work is done and checked"}
+        {:id :decision/local :covers "a decision that changes no scope, stack or goal, recorded in docs/decisions/"}
+        {:id :decision/scope :covers "anything that changes the goal, the scope, the stack, or the done criteria"}
+        {:id :git/push       :covers "publishing: git push, bd dolt push"}]
+
+ :ceilings {:decision/scope :ask
+            :git/push       :ask}
+
+ :default-preset :conservative
+
+ :presets
+ {:conservative {:autonomy {:issue/create :ask :issue/work :ask :git/commit :ask :issue/close :ask
+                            :decision/local :ask :decision/scope :ask :git/push :ask}}
+  :collaborator {:autonomy {:issue/create :act :issue/work :act :git/commit :act :issue/close :act
+                            :decision/local :ask :decision/scope :ask :git/push :ask}}
+  :autopilot    {:autonomy {:issue/create :act :issue/work :act :git/commit :act :issue/close :act
+                            :decision/local :act :decision/scope :ask :git/push :ask}}}}

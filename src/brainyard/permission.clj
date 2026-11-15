@@ -368,6 +368,33 @@
   (vec (distinct (map second (re-seq #"(\.brainyard/loops/(?:ext(?:/[^\s\"';|&>)]*)?|[\w-]+\.edn))(?:$|[\s\"';|&>)])"
                                      (str command))))))
 
+(defn profile-file
+  "The project's profile a write to `path` would change, or nil:
+  `<project-dir>/.brainyard/profile.edn` (RFC-073). Like a loop, it is the
+  person's: how far an agent goes on its own is not the agent's to raise.
+  `profile/profile-file` says where it is; this namespace does not require
+  that one, as it does not require `project-loops`."
+  [project-dir path]
+  (when (and project-dir (not (str/blank? (str project-dir))) path)
+    (let [f (canonical (io/file (str project-dir) ".brainyard" "profile.edn"))]
+      (when (= f (canonical path)) f))))
+
+(defn named-profile-files
+  "The project profile a shell `command` names, `.brainyard/profile.edn`, as
+  written in it, relative or absolute. A tripwire, as a loop's is (RFC-073)."
+  [command]
+  (vec (distinct (map second (re-seq #"(\.brainyard/profile\.edn)(?:$|[\s\"';|&>)])" (str command))))))
+
+(def ^:private profile-hint
+  (str "The project's profile is the person's (RFC-073): /init drafts it and the person confirms it."
+       " Say what should change, and the person changes it."))
+
+(defn- profile-refusal [by display reason]
+  (deny-replace {:by by :display display :reason reason
+                 :reason-prefix "Profile write refused"
+                 :error-prefix "Tool call refused (profile)"
+                 :hint profile-hint}))
+
 (def ^:private loop-hint
   (str "A loop is the project's when a person makes it so (RFC-071): write the candidate to"
        " another file and try it with --loop; a person accepts it, or puts it there by hand."))
@@ -396,9 +423,14 @@
    (when (contains? (effects-of ctx tool-name) :fs/write)
      (let [tool (some-> (:tools ctx) deref (get tool-name))
            working-dir (config ctx :working-dir ".")]
-       (when-let [p (first (keep #(loop-file (config ctx :project-dir working-dir) %)
-                                 (call-paths tool args working-dir)))]
-         (loop-refusal "path-permission-gate" p "it is the project's loop, which a person makes live, not a tool"))))
+       (let [project-dir (config ctx :project-dir working-dir)
+             paths (call-paths tool args working-dir)]
+         (or (when-let [p (first (keep #(loop-file project-dir %) paths))]
+               (loop-refusal "path-permission-gate" p "it is the project's loop, which a person makes live, not a tool"))
+             ;; and its profile: how far an agent goes on its own, which an
+             ;; agent that could write it could raise (RFC-073, byj-71w.2)
+             (when-let [p (first (keep #(profile-file project-dir %) paths))]
+               (profile-refusal "path-permission-gate" p "it is the project's profile, which the person confirms, not a tool"))))))
    ;; a person's logins and keys, refused in every mode: what a shared
    ;; agent's caller, or a file it reads, could ask it to fetch (byj-1wv.115.40)
    (let [tool (some-> (:tools ctx) deref (get tool-name))
@@ -623,6 +655,8 @@
        ;; anything asks, so a person is not asked about what is refused (byj-ng7.12)
        (when-let [f (first (mapcat named-loop-files commands))]
          (loop-refusal "bash-command-gate" f "it names a project's loop, which a person makes live, not a tool"))
+       (when-let [f (first (mapcat named-profile-files commands))]
+         (profile-refusal "bash-command-gate" f "it names the project's profile, which the person confirms, not a tool"))
        ;; a command that could destroy or change things — asked about, so in
        ;; :auto classified, inside the allowed directories too (byj-gly.285.4)
        (when-let [[seg glob] (or (first (keep #(asked-command cfg %) commands))
