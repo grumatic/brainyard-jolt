@@ -1,8 +1,8 @@
 # RFC-073 — Project profile: what a project is for, and how far an agent goes on its own
 
-**Status:** proposed 2026-11-15. Nothing is built. Epic `byj-71w`; three
-choices are the person's before building starts ("Open questions",
-`byj-71w.1`).
+**Status:** proposed 2026-11-15; its three open choices decided the same
+day as recommended ("Decided", `byj-71w.1`). Nothing is built. Epic
+`byj-71w`.
 
 ## Purpose
 
@@ -86,7 +86,7 @@ Each **axis** of `:autonomy` is `:act` (do it, and say so at handoff),
 | `:issue/close` | closing a bead whose work is done and checked |
 | `:decision/local` | a decision that changes no scope, stack or goal, recorded in `docs/decisions/` |
 | `:decision/scope` | anything that changes the goal, the scope, the stack, or the done criteria |
-| `:git/push` | publishing; never above `:ask` (see "Open questions") |
+| `:git/push` | publishing; never above `:ask` ("Decided") |
 
 Two axes have a **floor** no preset or override goes under:
 `:decision/scope` and `:git/push` are `:ask` at most. Installing a tool and
@@ -222,17 +222,18 @@ tallies (`dev/brainyard/dev/sim_tally.clj`), and spend. A preset earns its
 place if it reaches the same checks with fewer interventions at a cost the
 table states.
 
-## Open questions
+## Decided (`byj-71w.1`, 2026-11-15)
 
-The person's to answer before building (`byj-71w.1`):
+The three choices the draft left to the person, decided as recommended:
 
-1. **The source.** A committed `.brainyard/profile.edn` that AGENTS.md
-   shows (recommended: a tool cannot write it, and the kernel reads data,
-   not prose), or AGENTS.md's block alone (one file, but any agent can edit
-   it).
-2. **The presets**, their names and their table above.
-3. **Push.** Whether any preset lets an agent push. Recommended: never; at
-   most `:ask`.
+1. **The source is a committed `.brainyard/profile.edn`**, which AGENTS.md
+   shows. A tool cannot write it and the kernel reads data, not prose; an
+   AGENTS.md block alone would be one file, but one any agent can edit, and
+   the measurements above say an agent keeps to what that file says.
+2. **The presets are `:conservative`, `:collaborator` and `:autopilot`**, as
+   the table in "Presets" sets them.
+3. **No preset lets an agent push.** `:git/push` is `:ask` at most, a floor
+   as `:decision/scope` is.
 
 ## Known gaps
 
