@@ -142,6 +142,20 @@
       (is (str/includes? t "left uncommitted only when the person said no"))
       (is (not (str/includes? t "uncommitted work is expected"))))))
 
+;; byj-3py: a conservative run ended with node_modules/ untracked, and the
+;; judge called the beads done
+(deftest installed-dependencies-are-said-as-such
+  (let [{:keys [dir cfg]} (setup "deps" {:preset :collaborator :goal-epic "t-1"})
+        head (str/trim (:out (fx/sh {:dir dir :out :string :err :string} "git" "rev-parse" "HEAD")))]
+    (.mkdirs (io/file dir "node_modules" "ws"))
+    (spit (io/file dir "node_modules" "ws" "index.js") "x")
+    (spit (io/file dir "server.js") "x\n")
+    (let [c (drive/check-bead cfg {:bead "t-2" :head head})]
+      (is (= ["node_modules"] (:dependencies c)))
+      (is (str/includes? (:text c) "Installed dependencies, uncommitted: node_modules — a project lists these in .gitignore")))
+    (spit (io/file dir ".gitignore") "node_modules/\n")
+    (is (empty? (:dependencies (drive/check-bead cfg {:bead "t-2" :head head}))) "listed in .gitignore: nothing to say")))
+
 (deftest settling-a-bead-as-the-profile-says
   (testing "collaborator: done closes it, on its own"
     (let [{:keys [bin cfg]} (setup "settle" {:preset :collaborator :goal-epic "t-1"})

@@ -319,6 +319,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | A line made only of `:act` axes' commands and their companions, with no redirection, is not put to the `:auto` classifier; anything else in it, and every other check of the gate, still applies | `permission-test/a-line-the-profile-lets-run-is-not-classified` |
 | Through byj's hook, Claude Code asks what the profile asks about, and Codex is refused it | `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
 | `/drive` works only under a profile and beads, only the goal epic's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
+| `drive$check` names installed dependencies among the uncommitted, and stops naming them once `.gitignore` does | `drive-test/installed-dependencies-are-said-as-such` |
 | A bead is closed by `/drive` only as `:issue/close` says, and a retry, a question or a stop is a line of the run's log | `drive-test/settling-a-bead-as-the-profile-says` |
 | The drive loop works each ready bead in a turn of its own until nothing is ready, and its answer says each outcome and why it stopped | `drive-test/drive-works-the-goals-beads-until-nothing-is-ready`, `drive-test/the-drive-loop-is-sound` |
 | `:issue/work` and `:decision/scope` are held by words and the drive loop, not by a gate | nothing enforces it, by design |
@@ -385,7 +386,12 @@ What it says:
   one more conservative run: all four beads committed and closed, each
   with the person's yes, 12 prompts in `/drive` (the work picked 4, commits
   5, closes 3), every check but `rule-committed`, which an untracked
-  `node_modules/` failed — no `.gitignore` named it (byj-3py).
+  `node_modules/` failed — no `.gitignore` named it. `drive$check` now
+  names installed dependencies among the uncommitted (`words.edn`
+  `:dependency-dirs`, as `work-tree.edn` does) and drive/judge has the turn
+  list them in `.gitignore` (`byj-3py`); one more conservative run passed
+  every stage, `node_modules/` in `.gitignore`, four beads committed and
+  closed, 13 prompts in `/drive`, $0.30.
 - **The classifier still met an `:act` line.** It cannot see the profile
   and was unsure of a commit autopilot's profile lets the agent make; such
   a line is no longer classified (`byj-yvx`, below). Confirmed in one
@@ -410,5 +416,4 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- `/drive` leaves installed dependencies untracked when `.gitignore` does not name them (byj-3py).
 - The presets measured once each on the final code; a few runs each are owed (`byj-8ap`).

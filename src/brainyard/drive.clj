@@ -122,8 +122,9 @@
   "What a bead's turn left (`drive$check`): the work tree's uncommitted
   files (beads', brainyard's and Claude Code's state aside), the commits
   since the step began and whether one names the bead, the bead's status,
-  and what the profile expects of a finished bead. Reads only. `{:text
-  :clean? :committed? :status}`."
+  installed dependencies among the uncommitted (`words.edn`
+  `:dependency-dirs`), and what the profile expects of a finished bead.
+  Reads only. `{:text :clean? :committed? :status :dependencies}`."
   [config args]
   (let [dir (dir-of config args)
         w (words)
@@ -136,7 +137,13 @@
         committed? (boolean (and (not (str/blank? log)) (str/includes? log bead)))
         bd (bd-path config args)
         status (some-> (first (json-out (run dir bd "show" bead "--json"))) :status)
-        expect (get-in w [:expect :git/commit (or (profile/level p :git/commit) :ask)])]
+        expect (get-in w [:expect :git/commit (or (profile/level p :git/commit) :ask)])
+        ;; a porcelain line's path, past its status and any rename's arrow
+        path-of #(-> (subs % (min 3 (count %))) (str/split #" -> ") last str/trim (str/replace #"/$" ""))
+        deps (vec (for [l dirty
+                        :let [f (path-of l)]
+                        :when (some #{(last (str/split f #"/"))} (:dependency-dirs w))]
+                    f))]
     {:clean? (empty? dirty)
      :committed? committed?
      :status (str status)
@@ -144,7 +151,9 @@
                 "Uncommitted: " (if (seq dirty) (str/join ", " (map #(subs % (min 3 (count %))) dirty)) "nothing") "\n"
                 "Commits since the step began: " (if (str/blank? log) "none" (str/replace log #"\n+" "; "))
                 (when-not committed? (str "\nNo commit since the step began names " bead "."))
-                "\nExpected: " expect)}))
+                (when (seq deps) (str "\n" (fill (:dependencies w) {:paths (str/join ", " deps)})))
+                "\nExpected: " expect)
+     :dependencies deps}))
 
 (defn settle
   "Act on drive/judge's word on a bead (`drive$settle`): `done` closes the
@@ -234,7 +243,7 @@
      {:name "drive$check" :kind :command
       :description "What a bead's turn left: uncommitted files, the commits since the step began, the bead's status, and what the profile expects. Reads only."
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :bead "the bead") (any-arg :head "HEAD when the step began")]
-      :output-schema [:map [:text :string] [:clean? :any] [:committed? :any] [:status :any]]
+      :output-schema [:map [:text :string] [:clean? :any] [:committed? :any] [:status :any] [:dependencies {:optional true} :any]]
       :effects #{:fs/read :process}
       :fn (fn [args _] (check-bead config args))}
      {:name "drive$settle" :kind :command
