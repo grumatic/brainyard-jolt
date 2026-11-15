@@ -496,7 +496,7 @@ session's trajectory, so the agent page can rebuild the tree, byj-gly.298.1),
 | A dispatch runs at its tier's model, reports the choice even when the table is empty, and never forwards the tier to the child. | `agents-test/a-dispatch-runs-at-its-tier` |
 | `:enable-subagent-calls false` registers no `agent$*` tool and puts no roster in the prompt. | `agents-test/the-kill-switch` |
 | The roster costs one line per agent in the prompt, whatever the instructions weigh. | `agents-test/the-prompt-cost-is-bounded` |
-| The shipped roster is explore, plan, edit, claude and init — no bead-keeper. This repository's own `beads` is a project agent under `.brainyard/agents/`, with its instruction beside it, holding its shell to `bd` and refusing to invent a tracker. | `agents-test/the-shipped-roster`, `agents-test/this-repositorys-bead-keeper` |
+| The shipped roster is explore, plan, edit, claude, codex, init and drive — no bead-keeper. This repository's own `beads` is a project agent under `.brainyard/agents/`, with its instruction beside it, holding its shell to `bd` and refusing to invent a tracker. | `agents-test/the-shipped-roster`, `agents-test/this-repositorys-bead-keeper` |
 | Cancelling the parent turn cancels the child's LLM call. | `cancellation-test/a-cancelled-turn-stops-its-subagent` |
 | A dispatch returns a handle; asking it again runs the same instance, which sees its own previous turns and nobody else's. | `agents-test/an-instance-stays-alive-and-remembers` |
 | The hint claims the lifetime the run actually has: a session's instance outlives the turn, a one-shot `ask`'s does not, and a child inherits the registry it was handed. | `agents-test/a-hint-does-not-promise-what-the-run-cannot-keep` |
@@ -536,6 +536,9 @@ session's trajectory, so the agent page can rebuild the tree, byj-gly.298.1),
   added in `byj-gly.41`, which is the roster block working as designed).
   `claude` (RFC-039) and `init` (RFC-040) are loops of their own, whose
   `claude$*` and `init$*` commands are registered only for their turns.
+  `codex` (RFC-049) is one too, and so is `drive` (RFC-073), whose loop
+  runs each bead as a ReAct turn with every tool but itself, and whose
+  `drive$*` commands are its own.
   **`beads` is not shipped** (`byj-gly.316`). The bead-keeper was a
   port-only addition — brainyard has no such agent — and served this
   repository's workflow: every project's prompt carried its line, and its

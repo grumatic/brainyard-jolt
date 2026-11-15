@@ -29,6 +29,11 @@
   :text "Commit what /init wrote, so every clone and every agent reads the same instructions:"
   :command "git add -- {files} && git commit -m \"Set up brainyard\""}
 
+ {:id :drive
+  :when #{:profile :beads}
+  :text "Start the work toward the profile's goal: /drive works through its epic's beads one at a time, as the profile allows, and stops where it says to ask you (RFC-073)."
+  :suggest "/drive"}
+
  {:id :starter
   :when #{:onboarding}
   :text "Start with the starter issues /init filed in beads: \"bd ready\" lists them, \"work on <id>\" does one."

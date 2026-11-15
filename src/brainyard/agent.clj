@@ -48,6 +48,7 @@
             [brainyard.claude-agent :as claude-agent]
             [brainyard.codex-agent :as codex-agent]
             [brainyard.schedule :as schedule]
+            [brainyard.drive :as drive]
             [brainyard.init :as init]
             [brainyard.instructions :as instructions]
             [brainyard.skills :as skills]
@@ -1567,6 +1568,9 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
         ;; preparing a project (RFC-040): agent$init's config turns them on
         init-cmds (when (:init-tools? config) (init/commands config))
         _ (swap! reg into (map (juxt :name identity)) init-cmds)
+        ;; working a project's goal under its profile (RFC-073): agent$drive's config turns them on
+        drive-cmds (when (:drive-tools? config) (drive/commands config))
+        _ (swap! reg into (map (juxt :name identity)) drive-cmds)
         ;; MCP servers connected by the caller (RFC-024). Their tools arrive in
         ;; `:tools` like any other; this is the discovery command beside them.
         mcp-cmds (mcp/commands config mcp-clients)

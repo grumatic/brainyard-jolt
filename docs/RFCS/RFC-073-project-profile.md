@@ -7,7 +7,8 @@ its presets, and the tripwire that keeps every tool from writing it
 held to it by `/init check` and `/doctor` (`byj-71w.3`); the permission
 gate holding commits, pushes, beads filed and closed, and decision records
 to it (`byj-71w.5`); `/init` drafting it from the person's words and writing
-it on their yes (`byj-71w.4`). Epic `byj-71w`.
+it on their yes (`byj-71w.4`); `/drive` working through the goal's beads
+under it (`byj-71w.6`). Epic `byj-71w`.
 
 ## Purpose
 
@@ -220,22 +221,45 @@ errs toward holding: `git -C x log --grep commit y` matches
 
 ### The drive loop
 
-`/drive` — a bundled workflow (RFC-022) and a command — works under the
-goal's epic until something stops it:
+`/drive` (`commands/drive.edn`) stands for `agent$drive`, whose loop is
+`brainyard/loops/drive.edn` (`byj-71w.6`). It repeats a step, at most
+`:drive-max-steps` (20) times, until one says to stop:
 
-1. Pick the next ready bead under `:goal-epic` (`bd ready`, priority
-   order). With `:issue/work :ask`, propose it and wait.
-2. Claim it, and work it in a ReAct turn whose question is the bead.
-3. Verify: the profile's `:done` commands that apply, and the work tree
-   check (RFC-072's example), attached when `:git/commit` is `:act`.
-4. Commit and close as the axes say; file what the work turned up as the
-   `:issue/create` axis says.
-5. Go on, or stop on: a question the profile says to ask; `:stop` limits
-   (failures in a row, spend, beads filed this run); nothing ready.
+1. **`drive$next`** stops the run when the project has no profile or no
+   beads, when a `:stop` limit is reached — failures in a row, the run's
+   spend, beads filed since it began (`bd list --created-after`) — or when
+   nothing is ready under `:goal-epic` (`bd ready --parent`). Otherwise it
+   takes the first ready bead that is not an epic; with `:issue/work :ask`
+   the person is asked first, through the turn's permission channel, as
+   `init$install` asks, and a no stops the run. It claims the bead and
+   writes the brief (`resources/brainyard/drive/words.edn`). A bead the
+   last step left unfinished is worked again, with what it lacked.
+2. **The bead's turn** is the bundled ReAct loop, `:include`d in a `:scope`
+   of its own and asked the brief, with every tool the session has but
+   `agent$drive` (the agent's `:deny-tools`), under the same permission gate
+   and the profile's holds. Its instruction (`prompts/agents/drive.md`)
+   says to keep to AGENTS.md's profile, ask where it says to, and not start
+   another bead. The turn commits and closes as the profile lets it, as
+   any agent here does; `/drive` itself never commits.
+3. **`drive$check`** reads what the turn left: the uncommitted files (beads',
+   brainyard's and Claude Code's state aside), the commits since the step
+   began and whether one names the bead, the bead's status, and what the
+   profile expects of a finished bead (`words.edn` `:expect`).
+4. **The predictor `drive/judge`** reads the brief, the answer and the
+   check, and says `done`, `retry`, `ask` (with the question) or `stop`.
+   The done criteria are prose; the turn runs the checks the project's
+   instructions name, and the judge reads what it says it ran.
+5. **`drive$settle`** acts on it: `done` closes the bead as `:issue/close`
+   says — on its own at `:act`, after the person's yes at `:ask`, never at
+   `:never` — and clears the failures; `retry` counts one and works the
+   bead again next; `ask` and `stop` end the run with the question or why.
+   It reports the turn's spend as a tool's (`:usage-cost-usd`), so the
+   run's usage counts every bead's turn.
 
-It ends with a handoff: what was done, committed and closed, what is open,
-and the one question that stopped it, if any. The person steps in at the
-questions the profile names and nowhere else.
+**`drive$report`** answers with a line per step, why the run stopped, and
+what is still open under the epic. The person steps in at the questions
+the profile names and nowhere else. With a profile and beads, `/init`'s
+next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 
 ## API (proposed)
 
@@ -259,7 +283,10 @@ questions the profile names and nowhere else.
 | predictor `init/profile` | the draft `/init` shows: goal, in, out, done, preset, autonomy, epic, issues (built) |
 | `init$profile`, `init/write-profile` | the draft shown to the person and, on a yes, written with its epic and issues (built) |
 | `init/draft-profile` | a draft as `profile.edn` holds it: blanks left out, unknown presets and axis levels dropped (built) |
-| `/drive`, workflow `drive` | the drive loop |
+| `/drive`, `agent$drive`, `brainyard/loops/drive.edn` | the drive loop (built) |
+| `drive$next`, `drive$check`, `drive$settle`, `drive$report` (`brainyard.drive`) | its mechanism, registered by `:drive-tools?`, which `agent$drive`'s config sets (built) |
+| predictor `drive/judge`; `resources/brainyard/drive/words.edn` | the judgement of a bead's turn; every word the loop puts together (built) |
+| config `:drive-max-steps` (20), `:bd-path` | a run's step cap; where bd is looked up (built) |
 
 ## Invariants (proposed)
 
@@ -275,6 +302,9 @@ questions the profile names and nowhere else.
 | The block names every axis once under its level, and names bd's profile, so bd's default no longer stands | `profile-test/agents-md-shows-the-profile-rendered-from-the-data`, `init-test/init-writes-the-profiles-block-and-the-check-holds-it-to-the-data` |
 | An axis at `:ask` asks the person in every mode, `:auto-approve` included, never the classifier; refused headless and in `:deny-by-default`; `:never` refuses unasked; `:act` holds nothing | `permission-test/the-gate-follows-the-projects-profile` |
 | Through byj's hook, Claude Code asks what the profile asks about, and Codex is refused it | `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
+| `/drive` works only under a profile and beads, only the goal epic's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
+| A bead is closed by `/drive` only as `:issue/close` says, and a retry, a question or a stop is a line of the run's log | `drive-test/settling-a-bead-as-the-profile-says` |
+| The drive loop works each ready bead in a turn of its own until nothing is ready, and its answer says each outcome and why it stopped | `drive-test/drive-works-the-goals-beads-until-nothing-is-ready`, `drive-test/the-drive-loop-is-sound` |
 | `:issue/work` and `:decision/scope` are held by words and the drive loop, not by a gate | nothing enforces it, by design |
 
 ## Measuring it
@@ -301,4 +331,4 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- Not built: `/drive` (`byj-71w.6`); nor measured (`byj-71w.7`).
+- Not measured (`byj-71w.7`).

@@ -124,7 +124,7 @@
         (is (= "builtin" (:dropped (first shadowed))))))
     (testing "the built-in roster loads on its own — see the-shipped-roster for what is in it"
       (let [{:keys [agents problems]} (agents/load-agents {:working-dir "/nonexistent" :project-dir "/nonexistent"})]
-        (is (= ["claude" "codex" "edit" "explore" "init" "plan"] (map :name agents)))
+        (is (= ["claude" "codex" "drive" "edit" "explore" "init" "plan"] (map :name agents)))
         (is (empty? problems))))))
 
 ;; --- an agent is a tool -----------------------------------------------------------
@@ -742,7 +742,7 @@
   (let [{:keys [agents problems]} (agents/load-agents {:working-dir "/nonexistent" :project-dir "/nonexistent"})
         by-name (into {} (map (juxt :name identity)) agents)]
     (is (empty? problems))
-    (is (= #{"explore" "plan" "edit" "claude" "codex" "init"} (set (keys by-name)))
+    (is (= #{"explore" "plan" "edit" "claude" "codex" "init" "drive"} (set (keys by-name)))
         "no bead-keeper: it is this repository's own agent, not every project's (byj-gly.316); nor Share's, which byj-share setup installs (RFC-070 D4)")
 
     (testing "agent$init is its own loop, and its commands are all it calls (RFC-040)"
@@ -750,6 +750,13 @@
         (is (= "brainyard/loops/init.edn" (:loop a)))
         (is (= ["init$*"] (:tools a)))
         (is (true? (:init-tools? (:config a))))))
+
+    (testing "agent$drive is its own loop, with every tool but itself for each bead's turn (RFC-073)"
+      (let [a (by-name "drive")]
+        (is (= "brainyard/loops/drive.edn" (:loop a)))
+        (is (nil? (:tools a)))
+        (is (= ["agent$drive"] (:deny-tools a)))
+        (is (true? (:drive-tools? (:config a))))))
 
     (testing "agent$codex is its own loop, and its commands are all it calls (RFC-049, byj-gly.430.6)"
       (let [a (by-name "codex")]

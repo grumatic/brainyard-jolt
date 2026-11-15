@@ -340,6 +340,12 @@
                                  :doc "How many characters of the person's own instruction files a prompt carries: a budget of their own, so a project's never pushes them out."}
    :project-instructions-max-chars {:type "integer" :default 32768 :family :context
                                     :doc "How many characters of the project's instruction files (:project-instruction-paths) a prompt carries, across all of them, in order — Codex's 32 KiB. A file past what is left is cut at its last heading before the limit, with where the rest is (RFC-040)."}
+   :drive-tools? {:type "boolean" :default false :family :agents
+                  :doc "Register the drive$* commands, which /drive's loop works a project's goal with (RFC-073). agent$drive's own config turns them on for its turn; off elsewhere."}
+   :bd-path {:type "string" :default nil :family :agents
+             :doc "The PATH /drive looks bd up on; the process's PATH when unset. A test points it at a stand-in."}
+   :drive-max-steps {:type "integer" :default 20 :family :agents
+                     :doc "How many steps — a bead's turn, or a retry of one — one /drive run takes at most, whatever the profile's own limits (RFC-073)."}
    :init-tools? {:type "boolean" :default false :family :agents
                  :doc "Register the init$* commands, which check and prepare a project for brainyard (RFC-040). agent$init's own config turns them on for its turn; off elsewhere."}
    :claude-home {:type "string" :default nil :family :agents

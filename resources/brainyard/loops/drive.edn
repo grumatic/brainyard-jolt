@@ -1,0 +1,54 @@
+;; agent$drive's loop (RFC-073 "The drive loop", byj-71w.6): work through
+;; the project's goal one bead at a time, as far as its profile allows, and
+;; stop where it says to ask.
+;;
+;;   the next bead, or why to stop      → drive$next (mechanism: the profile's
+;;                                         limits, bd ready under the goal's
+;;                                         epic, the person asked when the
+;;                                         profile says so, the bead claimed)
+;;   the bead's work                    → a ReAct turn (loops/react.edn) in a
+;;                                         scope of its own, asked the brief
+;;   what the turn left                 → drive$check (reads only)
+;;   whether it is done                 → a predictor (drive/judge)
+;;   closing it, a retry, or stopping   → drive$settle, as the profile says
+;;   the answer                         → drive$report
+;;   the order                          → this file
+;;
+;; Each bead's turn starts from a fresh memory; what it spent comes back out
+;; and drive$settle reports it as a tool's spend, so the run's usage — what
+;; drive$next holds to the profile's :usd — counts every turn.
+;;
+;; Check it before changing it: `byj flow check brainyard/loops/drive.edn`.
+[:sequence {:id :drive/turn}
+ [:action {:id :drive/start :fn :react/init}]
+ [:action {:id :drive/seed :fn :mem/set
+           :set {:stop false :stopped "" :log "" :failures 0 :retry "" :retry-note "" :since ""
+                 :bead "" :title "" :brief "" :head "" :work "" :work-usage {} :check "" :bead-status ""
+                 :status "" :question "" :summary ""}}]
+ [:repeat {:id :drive/steps :max-n :config/drive-max-steps :until :mem/true? :key :stop}
+  [:sequence {:id :drive/step}
+   [:action {:id :drive/next :fn :tool/run :tool "drive$next"
+             :in {:failures :failures :usage :usage :since :since :retry :retry :retry-note :retry-note}
+             :out {:stop :stop :stopped :stopped :bead :bead :title :title :brief :brief :head :head :since :since}}]
+   [:fallback {:id :drive/step-guard}
+    ;; nothing to work on, or a limit reached: succeed, and :until ends the run
+    [:condition {:id :drive/stopped? :fn :mem/true? :key :stop}]
+    [:sequence {:id :drive/work}
+     [:scope {:id :drive/bead-turn
+              :in {:question :brief}
+              :out {:work :answer :work-usage :usage}}
+      [:include {:tree "brainyard/loops/react.edn"}]]
+     [:action {:id :drive/check :fn :tool/run :tool "drive$check"
+               :in {:bead :bead :head :head}
+               :out {:check :text :bead-status :status}}]
+     [:action {:id :drive/judge :fn :predictor/run :predictor "drive/judge"
+               :in {:brief :brief :answer :work :check :check}
+               :out {:status :status :question :question :summary :summary}}]
+     [:action {:id :drive/settle :fn :tool/run :tool "drive$settle"
+               :in {:bead :bead :title :title :status :status :question :question :summary :summary
+                    :bead-status :bead-status :failures :failures :log :log :work-usage :work-usage}
+               :out {:failures :failures :retry :retry :retry-note :retry-note :stop :stop :stopped :stopped :log :log}}]]]]]
+ [:action {:id :drive/report :fn :tool/run :tool "drive$report"
+           :in {:log :log :stopped :stopped} :out {:answer :text}}]
+ [:action {:id :drive/stamp :fn :react/stamp-answer}]
+ [:action {:id :drive/store :fn :react/store-trajectory}]]

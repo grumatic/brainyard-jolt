@@ -1,0 +1,22 @@
+;; agent$drive (RFC-073 "The drive loop", byj-71w.6): /drive. Works through
+;; the project's goal one bead at a time — the next ready bead under the
+;; profile's epic, worked in a ReAct turn of its own, checked, judged, and
+;; closed as the profile says — and stops where the profile says to ask.
+;;
+;; Its loop is brainyard/loops/drive.edn. Each bead's turn is the bundled
+;; ReAct loop with every tool the session has, so the work is done as any
+;; turn's is, under the same permission gate and the profile's holds on it
+;; (RFC-012); the drive$* commands are what its :config turns on.
+{:description
+ "Works through this project's goal under its profile (.brainyard/profile.edn, which /init writes on the person's yes): picks the next ready bead under the goal's epic, works it in a turn of its own, checks the work tree and the bead, closes it as the profile allows, and goes on — asking the person only where the profile says to, and stopping at the profile's limits, on a question, or when nothing is ready. Ends with each bead's outcome and what is still open. Takes minutes to hours."
+
+ :instruction-resource "brainyard/prompts/agents/drive.md"
+
+ :loop "brainyard/loops/drive.edn"
+
+ ;; every tool the session has, for the bead's work; but not itself
+ :deny-tools ["agent$drive"]
+
+ :tier :standard
+
+ :config {:drive-tools? true}}

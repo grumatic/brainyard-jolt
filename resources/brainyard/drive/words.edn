@@ -1,0 +1,25 @@
+;; The words /drive puts together (RFC-073 "The drive loop", byj-71w.6):
+;; the brief each bead's turn is asked, and what drive$check and the report
+;; say. brainyard.drive fills {name} from the bead and the profile; what a
+;; model reads is here, not in src/.
+{:brief "Work on bead {id}: {title}\n\n{description}\n\nThis is one step of /drive, toward this project's goal{goal}. Do this bead's work and check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what you ask the person first: keep to it. Where it says to ask, or the work needs a decision it does not let you make, stop and put the question in your answer. End by saying what you did, how you checked it, and anything left."
+
+ :retry "Bead {id} ({title}) is not finished: {why}\n\nFinish it: do what is missing, check it, and keep to AGENTS.md's profile as before. End by saying what you did and how you checked it."
+
+ :ask-work "/drive: work on {id} ({title}) next?"
+ :ask-close "/drive: close {id} ({title}) — {summary}?"
+
+ ;; what the profile expects of a finished bead, for drive/judge
+ :expect {:git/commit {:act "the profile has an agent commit its own work: a finished bead leaves its work committed, the work tree clean"
+                       :ask "the profile has the person decide each commit: uncommitted work is expected unless they said yes"
+                       :never "the profile has no agent commit: uncommitted work is expected"}}
+
+ :stops {:no-profile "This project has no profile: /init drafts one when you tell it what the project is for."
+         :no-bd "bd is not installed, or beads is not set up here: /drive works through beads."
+         :nothing-ready "Nothing is ready{under}: every bead toward the goal is done, blocked or claimed."
+         :work-never "The profile has no agent pick its own work (:issue/work :never)."
+         :work-declined "You did not want {id} worked on next."
+         :failures "{n} attempts in a row did not finish a bead: the profile's limit."
+         :usd "${n} spent: the profile's limit."
+         :issues "{n} beads filed in this run: the profile's limit."
+         :steps "The run's step limit ({n}) was reached."}}

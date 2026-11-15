@@ -280,7 +280,9 @@ that does not compile, a `:call` outside the command's `:tools`, or `:args`
 that is not a map is a problem of the file.
 brainyard calls its init-agent directly (divergence
 `slash-commands-become-turns`). `/<tool>` keeps brainyard's wording and
-`/loop` its template. Seven are bundled besides `/share` (below): `/init` (RFC-040); `/claude`
+`/loop` its template. Eight are bundled besides `/share` (below): `/init` (RFC-040); `/drive`
+(`commands/drive.edn`, RFC-073) — `agent$drive` works through the project's goal under its profile,
+one bead a turn, and the session's agent ends with its report; `/claude`
 (`commands/claude.edn`, byj-gly.361) — `/claude WORDS` has the session's
 agent brief `agent$claude`, judge each answer with its own tools, and send
 what is missing to the same instance with `agent-registry$ask`, so one Claude
