@@ -439,6 +439,29 @@
                  :when g]
              {:axis axis :level lvl :segment t :glob g}))))
 
+(defn profile-lets-line?
+  "Does `profile` let the agent run command `line` on its own (byj-yvx)?
+  True when one of its segments is governed by an axis at `:act` — a commit
+  under collaborator — and every segment is either that or a companion one
+  of those axes names in `presets.edn`'s `:gates` `:with` (the `git add`
+  before the commit), with no redirection but `2>&1`. Such a line is not put to the `:auto` classifier,
+  which cannot see the profile: in RFC-073's simulations it was unsure of a
+  commit the profile allowed, and asked the person."
+  [profile spec line]
+  (when profile
+    (let [segs (map segment-text (command-segments line))
+          acting (for [[axis g] (:gates spec)
+                       :when (= :act (profile/level profile axis))]
+                   g)
+          governs? (fn [t] (some #(first-match (:commands %) t) acting))
+          companion? (fn [t] (some #(first-match (:with %) t) acting))]
+      (boolean (and (seq segs)
+                    ;; a redirection writes somewhere: such a line is the
+                    ;; classifier's, as any other (2>&1 joins two outputs)
+                    (not (str/includes? (str/replace (str line) "2>&1" "") ">"))
+                    (some governs? segs)
+                    (every? #(or (governs? %) (companion? %)) segs))))))
+
 (defn profile-path-rule
   "Where `profile` holds a write to `path` in `project-dir`: the governed
   axis whose path glob matches the path relative to the project, for an
@@ -765,8 +788,13 @@
        ;; :auto classified, inside the allowed directories too (byj-gly.285.4)
        (when-let [[seg glob] (or (first (keep #(asked-command cfg %) commands))
                                  ;; in :auto with a live model, every command
-                                 ;; goes to the classifier (byj-gly.285.3)
-                                 (when (classify-every-command? ctx)
+                                 ;; goes to the classifier (byj-gly.285.3) —
+                                 ;; but a line the project's profile lets the
+                                 ;; agent run on its own (byj-yvx)
+                                 (when (and (classify-every-command? ctx)
+                                            (not (when-let [pr (project-profile ctx)]
+                                                   (let [spec (profile/presets)]
+                                                     (every? #(profile-lets-line? pr spec %) commands)))))
                                    [(str/trim (str (first commands))) nil]))]
          (let [refuse (fn [reason]
                         (deny-replace {:by "bash-command-gate" :display seg :reason reason

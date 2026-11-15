@@ -31,11 +31,21 @@
  ;; person can be asked, :act leaves the line to the rest of the gate. An
  ;; axis with no entry — :issue/work, :decision/scope — has no command to
  ;; hold, and is kept by AGENTS.md's block and /drive alone.
- :gates {:git/commit     {:commands ["git commit" "git commit *" "git -C * commit" "git -C * commit *" "git -c * commit *"]}
+ ;;
+ ;; :with names what rides along with an axis's command in one line — the
+ ;; staging before a commit, a look at the result after — and asks nothing of
+ ;; its own: a line made only of commands of axes at :act and their :with is
+ ;; one the profile lets the agent run, so the :auto classifier, which cannot
+ ;; see the profile, is not asked about it (byj-yvx). The rest of the gate
+ ;; still applies to it.
+ :gates {:git/commit     {:commands ["git commit" "git commit *" "git -C * commit" "git -C * commit *" "git -c * commit *"]
+                          :with ["git add *" "git -C * add *" "git status" "git status *" "git log *" "git diff *"
+                                 "git show *" "git rev-parse *" "echo *" "tail *" "head *"]}
          :git/push       {:commands ["git push" "git push *" "git -C * push" "git -C * push *" "git -c * push *"
                                      "bd dolt push" "bd dolt push *" "bd sync" "bd sync *"]}
          :issue/create   {:commands ["bd create *" "bd q *" "bd new *"]}
-         :issue/close    {:commands ["bd close *" "bd done *"]}
+         :issue/close    {:commands ["bd close *" "bd done *"]
+                          :with ["bd show *" "bd list *" "bd ready" "bd ready *" "echo *" "tail *" "head *"]}
          :decision/local {:paths ["docs/decisions/*"]}}
 
  :presets

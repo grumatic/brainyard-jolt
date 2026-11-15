@@ -348,7 +348,11 @@ tripwires and before `:bash-ask-commands`, the path gate after its loop and
 profile tripwires. An axis at `:never` refuses unasked; at `:ask` the person
 is asked in every mode, `:auto-approve` included, and never the classifier
 (`ask-person`), refused headless and in `:deny-by-default`; at `:act` the
-rest of the gate decides. A yes at a hold is told to the model as a
+rest of the gate decides — but for the `:auto` classifier, which is not asked
+about a line made only of `:act` axes' commands and their companions
+(`:gates` `:with`), with no redirection but `2>&1`: it cannot see the
+profile, and asked the person about commits the profile allows (`byj-yvx`,
+`permission/profile-lets-line?`). A yes at a hold is told to the model as a
 notice, so a turn does not take the person's yes for none.
 `permission-test/the-gate-follows-the-projects-profile`,
 `tool-hook-test/another-agent-is-held-to-the-projects-profile`.
@@ -695,6 +699,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | A write to a project's loop — `.brainyard/loops/<name>.edn`, its `history.edn`, the directory, and anything under `ext/` (RFC-072) — is refused for every tool in every mode, `flow$patch` included; a shell line naming one is refused as a tripwire; Claude Code's and Codex's through byj's hook alike (RFC-071) | `permission-test/a-projects-loop-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-loop` |
 | A write to a project's profile, `.brainyard/profile.edn`, is refused for every tool in every mode, and a shell line naming it as a tripwire; Claude Code's and Codex's through byj's hook alike (RFC-073) | `permission-test/a-projects-profile-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-profile` |
 | What a project's profile governs (RFC-073 `:gates`) is held as its axis says: `:never` refused unasked, `:ask` asked of the person in every mode and never the classifier, refused headless and in `:deny-by-default`, `:act` left to the rest of the gate; through byj's hook Claude Code asks and Codex is refused | `permission-test/the-gate-follows-the-projects-profile`, `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
+| A line a project's profile lets the agent run on its own — only `:act` axes' commands and their `:with` companions, no redirection but `2>&1` — is not put to the `:auto` classifier; the rest of the gate holds it | `permission-test/a-line-the-profile-lets-run-is-not-classified` |
 | `/allow-path DIR` adds DIR for the session only, once, never to `config.edn`, and is refused over the session channel; every gate — the command gate's paths too — reads the session's directories beside `:allowed-dirs`. | `session-test/allow-path-is-the-persons-and-the-sessions`, `permission-test/a-directory-allowed-for-the-session-is-reached` |
 
 ## Known gaps

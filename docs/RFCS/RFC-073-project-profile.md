@@ -212,8 +212,16 @@ reaches the next call.
   Where nobody can be asked (headless) or the mode is `:deny-by-default`, it
   refuses. Through the hook, Claude Code asks; Codex, whose hook cannot ask,
   is refused, as for any ask of byj's gates (RFC-049).
-- `:act` leaves the line to the rest of the gate, which may still ask
-  (`byj-6xh` asks whether it should).
+- `:act` leaves the line to the rest of the gate, but for the `:auto`
+  classifier: a line made only of commands of axes at `:act` and the
+  companions those axes name (`:gates` `:with` — the `git add` before a
+  commit, the `tail` after it), with no redirection but `2>&1`, is not
+  classified (`permission/profile-lets-line?`, `byj-yvx`). The classifier
+  cannot see the profile; in round 5 it was unsure of a commit autopilot's
+  profile allows and asked the person. The deny list,
+  `:bash-ask-commands`, the tripwires and the paths outside the allowed
+  directories still hold such a line, and a line with anything else in it
+  is classified whole.
 
 `:issue/work` and `:decision/scope` have no command to hold; they are kept
 by the block and the drive loop alone, and the invariants say so. A glob
@@ -280,6 +288,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | `init/profile-status` | a project's profile and its block's state, in `project-status` as `:profile`, a line of the check (built) |
 | `presets.edn` `:gates` | what each axis governs: command globs and path globs (built) |
 | `permission/project-profile` | the project's profile as the gate reads it, at every call (built) |
+| `permission/profile-lets-line?`; `presets.edn` `:gates` `:with` | whether a line is one the profile lets the agent run on its own, so not classified; each axis's companions (built) |
 | `permission/profile-command-rule`, `permission/profile-path-rule` | where a profile holds a command line or a write: `{:axis :level …}` for an axis not at `:act` (built) |
 | predictor `init/profile` | the draft `/init` shows: goal, in, out, done, preset, autonomy, epic, issues (built) |
 | `init$profile`, `init/write-profile` | the draft shown to the person and, on a yes, written with its epic and issues (built) |
@@ -307,6 +316,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | The AGENTS.md block is the data's rendering, or `/init check` says it is not, and `/init` writes it again | `profile-test/the-block-is-checked-against-the-data-never-read-for-it`, `init-test/init-writes-the-profiles-block-and-the-check-holds-it-to-the-data` |
 | The block names every axis once under its level, and names bd's profile, so bd's default no longer stands | `profile-test/agents-md-shows-the-profile-rendered-from-the-data`, `init-test/init-writes-the-profiles-block-and-the-check-holds-it-to-the-data` |
 | An axis at `:ask` asks the person in every mode, `:auto-approve` included, never the classifier; refused headless and in `:deny-by-default`; `:never` refuses unasked; `:act` holds nothing | `permission-test/the-gate-follows-the-projects-profile` |
+| A line made only of `:act` axes' commands and their companions, with no redirection, is not put to the `:auto` classifier; anything else in it, and every other check of the gate, still applies | `permission-test/a-line-the-profile-lets-run-is-not-classified` |
 | Through byj's hook, Claude Code asks what the profile asks about, and Codex is refused it | `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
 | `/drive` works only under a profile and beads, only the goal epic's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
 | A bead is closed by `/drive` only as `:issue/close` says, and a retry, a question or a stop is a line of the run's log | `drive-test/settling-a-bead-as-the-profile-says` |
@@ -369,9 +379,13 @@ What it says:
   `git commit` and the person was asked; the next three ended done with
   their work uncommitted, which words.edn's `:expect` for `:git/commit :ask`
   accepts, and were closed after the person's yes (`byj-ctw`).
-- **The classifier still meets an `:act` line.** It cannot see the profile
-  and was unsure of a commit autopilot's profile lets the agent make
-  (`byj-6xh`).
+- **The classifier still met an `:act` line.** It cannot see the profile
+  and was unsure of a commit autopilot's profile lets the agent make; such
+  a line is no longer classified (`byj-yvx`, below). Confirmed in one
+  more autopilot run on that code: every stage passed, four beads
+  committed and closed, and `/drive` asked the person nothing; the one
+  commit line the classifier still saw began with a `cd`, which no axis
+  names as a companion, so it was classified whole, and allowed.
 - One run per preset is a first measure, not a rate (`byj-8ap`).
 
 ## Decided (`byj-71w.1`, 2026-11-15)
@@ -391,4 +405,3 @@ The three choices the draft left to the person, decided as recommended:
 
 - Under conservative, `/drive`'s bead turns leave their work uncommitted after the first bead (`byj-ctw`).
 - The presets measured once each on the final code; a few runs each are owed (`byj-8ap`).
-- The auto-mode classifier still meets a line a profile axis at `:act` governs (`byj-6xh`).

@@ -12,6 +12,7 @@
             [brainyard.json :as json]
             [brainyard.config :as config]
             [brainyard.permission :as permission]
+            [brainyard.profile]
             [brainyard.project-loops :as project-loops]
             [brainyard.sandbox :as sandbox]
             [brainyard.tools :as tools]))
@@ -835,3 +836,39 @@
     (testing "no profile: nothing held"
       (.delete f)
       (is (= [false 0] (held? :auto-approve "git commit -m x && git push"))))))
+
+;; byj-yvx: a commit the profile lets the agent make was put to the person by
+;; the classifier, which cannot see the profile (RFC-073 "Measured")
+(deftest a-line-the-profile-lets-run-is-not-classified
+  (let [dir (.getAbsolutePath (io/file (fresh-dir "profile-classifier")))
+        f (io/file dir ".brainyard" "profile.edn")
+        _ (io/make-parents f)
+        profile! #(spit f (pr-str {:profile/version 1 :preset %}))
+        seen (atom [])
+        c (fn [] (assoc (agent/make-ctx {:config {:working-dir dir :project-dir dir :allowed-dirs [dir]}})
+                        :lm {:provider :claude-code :model "sonnet"}
+                        :auto-classify (fn [req _] (swap! seen conj (:display req)) {:verdict :block :reason "unsure"})))
+        spec (brainyard.profile/presets)
+        lets? #(permission/profile-lets-line? (brainyard.profile/resolve-profile {:profile/version 1 :preset %1}) spec %2)]
+    (testing "which lines a profile lets run"
+      (is (lets? :collaborator "git add src test CHANGELOG.md && git commit -m 'Server shell (p-1)' 2>&1 | tail -3"))
+      (is (lets? :collaborator "git commit -m x && bd close p-1 --reason done && bd ready"))
+      (is (not (lets? :collaborator "git add . && git commit -m x && npm test")) "npm test is no commit's companion")
+      (is (not (lets? :collaborator "git status && git log --oneline")) "a companion alone governs nothing")
+      (is (not (lets? :collaborator "git commit -m x && echo done > /tmp/flag")) "a redirection writes")
+      (is (not (lets? :collaborator "git push")) "push is :ask in every preset")
+      (is (not (lets? :conservative "git add a && git commit -m x")) "conservative asks for the commit itself"))
+    (testing "the classifier is not asked about it; what else the gate holds still holds"
+      (profile! :collaborator)
+      (is (not (str/includes? (str (call (c) "bash" {:command "git add a.txt && git commit -m x"})) "blocked by auto mode")))
+      (is (empty? @seen))
+      (is (str/includes? (str (call (c) "bash" {:command "git commit -m x && npm publish"})) "blocked by auto mode")
+          "a line with anything else is classified whole")
+      (is (= ["git commit -m x && npm publish"] @seen))
+      (is (str/includes? (str (call (c) "bash" {:command "git commit -m x && rm -rf /etc"})) "refused")
+          "paths outside the allowed directories are still the gate's"))
+    (testing "no profile: classified as before"
+      (.delete f)
+      (reset! seen [])
+      (call (c) "bash" {:command "git add a && git commit -m x"})
+      (is (= 1 (count @seen))))))
