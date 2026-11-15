@@ -388,6 +388,9 @@
  {:id "a-line-break-escaped-twice-is-decoded"
   :brainyard "clj-llm core/predict.clj (lift-flattened-collection, then coercion) takes a string output as the JSON decodes it; nothing repairs doubly escaped line breaks"
   :test "brainyard.agent-test/a-line-break-escaped-twice-is-a-line-break"}
+ {:id "fields-written-in-tags-are-lifted-out"
+  :brainyard "clj-llm core/predict.clj (lift-flattened-collection, then coercion) takes each output as the JSON decodes it and a missing one as its default; nothing reads fields written in tags inside another"
+  :test "brainyard.agent-test/fields-written-in-tags-inside-another-are-lifted-out"}
  {:id "a-reply-outside-its-schema-is-repaired"
   :brainyard "clj-llm core/predict.clj + chain_of_thought.clj: validate-output, then mulog/warn ::output-validation-failed and the reply is used"
   :test "brainyard.agent-test/a-reply-is-held-to-its-schema"}

@@ -224,7 +224,12 @@ model exactly that, as it does for a reply that is not JSON at all
 `a-reply-outside-its-schema-is-repaired`). A string whose line breaks the model escaped twice — no
 real line break, and a literal `\n\n` or three `\n` — has them decoded
 (`signature/escaped-twice`, byj-gly.194, divergence
-`a-line-break-escaped-twice-is-decoded`; `agent-test/a-line-break-escaped-twice-is-a-line-break`). Blank content throws `:kind :empty`; unparseable throws
+`a-line-break-escaped-twice-is-decoded`; `agent-test/a-line-break-escaped-twice-is-a-line-break`). Fields
+the reply left out but wrote in tags of their own inside a string field
+that it closed with its own tag — `"in": "…</in>\n<preset>autopilot</preset>"`
+— are lifted out to the top level (`signature/lift-tagged-fields`, byj-8ap,
+divergence `fields-written-in-tags-are-lifted-out`;
+`agent-test/fields-written-in-tags-inside-another-are-lifted-out`). Blank content throws `:kind :empty`; unparseable throws
 `:kind :malformed` — the ReAct loop's repair distinguishes these from a failed
 call (RFC-003).
 

@@ -399,7 +399,43 @@ What it says:
   committed and closed, and `/drive` asked the person nothing; the one
   commit line the classifier still saw began with a `cd`, which no axis
   names as a companion, so it was classified whole, and allowed.
-- One run per preset is a first measure, not a rate (`byj-8ap`).
+- One run per preset is a first measure, not a rate; three more each
+  follow.
+
+### Three runs each (`byj-8ap`, 2026-11-15)
+
+The same three plans on the code above (9a11b7a), three rounds of one run
+per preset, one at a time; $2.16 in all.
+
+| Preset | runs passing every stage | asked during `/drive`, per run | checks failed | spend per run |
+|---|---|---|---|---|
+| collaborator | 3 of 3 | 0, 0, 1 | none | $0.24–0.25 |
+| autopilot | 2 of 3 | 1, 1, — | the third run's every `/drive` check | $0.26, $0.30, $0.10 |
+| conservative | 2 of 3 | 13, 13, 10 | `term`, in the third run | $0.27, $0.29, $0.20 |
+
+Every run asked once at `/init`, the profile. In the eight whose `/drive`
+worked the goal, all four beads were committed and closed and AGENTS.md's
+CHANGELOG rule held (three or four lines each). Conservative's prompts are
+what it says: each bead's start, each commit, each close. The rest:
+
+- **Autopilot asked once, for `npm install`**, in two runs — no axis names
+  installing a dependency, so the classifier weighs it. Collaborator's one
+  was a `pkill` of a server the turn had started, which the script refused.
+- **Autopilot's third run wrote a profile with no preset, epic or
+  issues.** haiku's JSON for `init/profile` closed `in` with `</in>` and
+  wrote every later field inside that string in tags of its own
+  (`<preset>autopilot</preset>`, …); the JSON parsed, the missing fields
+  were taken as empty, the profile fell back to the default preset, and
+  with no epic `/drive` worked `/init`'s onboarding beads instead. A reply
+  that does so now has those fields lifted out (`signature/lift-tagged-fields`,
+  RFC-005; `agent-test/fields-written-in-tags-inside-another-are-lifted-out`):
+  the recorded reply reads as `autopilot`, its epic and four issues. That
+  `/init` wrote a draft without a preset or an epic at all is `byj-kti`.
+- **Conservative's third run failed `term` on its own code**: the turn
+  spawned `$SHELL -i` over pipes rather than node-pty, which the person's
+  line named, so the check's `echo …\r` was never a line; its own tests
+  sent `\n` and passed. A miss of the model's, which no check of byj's
+  sees.
 
 ## Decided (`byj-71w.1`, 2026-11-15)
 
@@ -416,4 +452,4 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- The presets measured once each on the final code; a few runs each are owed (`byj-8ap`).
+- `/init` writes a profile whose draft has no preset or epic, on the person's yes, rather than drafting again (`byj-kti`).

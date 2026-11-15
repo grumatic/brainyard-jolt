@@ -337,6 +337,39 @@
     (cond-> out
       (sequential? (:tool-calls out)) (update :tool-calls #(mapv call-keys %)))))
 
+(defn lift-tagged-fields
+  "A reply that closed one string field with a tag of its name and wrote the
+  fields after it inside the same string, each in tags of its own —
+  `\"in\": \"…400</in>\\n<out>Auth</out>\\n<preset>autopilot</preset>…\"`,
+  the JSON object ending there — with those fields lifted out to the top
+  level. haiku, through `claude -p`, answered /init's profile draft so: the
+  JSON parsed, every field after `in` was left out and taken as empty, and
+  the profile was written without its preset, epic or issues (byj-8ap). Only
+  a field the reply left out is lifted, from a string that holds its own
+  field's closing tag; anything else is left as it came."
+  [signature parsed]
+  (let [ks (map #(first (field %)) (cot-outputs signature))]
+    (reduce
+     (fn [out k]
+       (let [v (get out k)
+             close (str "</" (name k) ">")
+             at (when (string? v) (str/index-of v close))]
+         (if-not at
+           out
+           (let [rest-text (subs v (+ at (count close)))
+                 lifted (into {}
+                              (keep (fn [k2]
+                                      (when (nil? (get out k2))
+                                        (when-let [[_ x] (re-find (re-pattern (str "<" (name k2) ">([\\s\\S]*?)</" (name k2) ">"))
+                                                                  rest-text)]
+                                          [k2 (str/trim x)]))))
+                              ks)]
+             (if (empty? lifted)
+               out
+               (merge (assoc out k (str/trimr (subs v 0 at))) lifted))))))
+     parsed
+     ks)))
+
 (defn output-schema
   "The malli schema a reply is held to: every output field, reasoning first
   for a chain-of-thought signature."
@@ -352,7 +385,7 @@
   (let [calls? (some #(= :tool-calls (first %)) (:outputs signature))
         ;; only a signature with tool calls: another may have a :name output
         ;; of its own
-        parsed (cond-> parsed calls? lift-flattened-tool-call)
+        parsed (cond-> (lift-tagged-fields signature parsed) calls? lift-flattened-tool-call)
         out (into {}
                   (for [f (cot-outputs signature)
                         :let [[k _ form] (field f)

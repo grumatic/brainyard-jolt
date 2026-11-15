@@ -1398,6 +1398,17 @@ string field with no real line break and a literal `\n\n`, or three `\n`, has
 its `\n`, `\t` and `\"` decoded. One escaped `\n` mentioned in passing, or any
 field with real line breaks, is left as it came.
 
+<!-- divergence: fields-written-in-tags-are-lifted-out -->
+**Output fields a reply wrote in tags inside another string field are lifted
+out.** brainyard takes each output as the JSON decodes it, and a field left
+out as its default. haiku, through `claude -p`, closed one string field with
+a tag of its name and wrote the fields after it inside that string, each in
+tags of its own (`"in": "…</in>\n<preset>autopilot</preset>…"`), so the
+fields after it came out empty and /init wrote a profile with no preset,
+epic or issues (byj-8ap). Here a field the reply left out is taken from such
+a string, but only from one that holds its own field's closing tag; a field
+the reply gave is never overwritten.
+
 <!-- divergence: a-reply-outside-its-schema-is-repaired -->
 **A predictor reply that does not match its output schema is sent back.**
 brainyard fills defaults, coerces, validates the reply against its malli output
