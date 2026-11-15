@@ -118,9 +118,10 @@ data (RFC-001). A profile names one and overrides what it wants.
 ### Where it is kept, and who changes it
 
 `.brainyard/profile.edn` is committed, so every clone and every agent has
-the same one. `/init` adds it with `git add -f`: `.gitignore` ignores
-`.brainyard/`, and git cannot except a file inside a directory it ignores,
-but a tracked file stays tracked, and its changes show in `git status`.
+the same one. `/init`'s `.gitignore` ignores what is in `.brainyard/` but
+for it (`.brainyard/*`, `!.brainyard/profile.edn`; RFC-040, `byj-9ng`), and
+`/init` adds it to git, with `-f` for a `.gitignore` an earlier `/init`
+wrote, which ignored the directory whole.
 **No tool writes it**, in any mode, and neither do Claude Code nor Codex
 through byj's hook: the path gate refuses a write to it and the command
 gate a line naming it, first of all and in every mode, as for a project's

@@ -104,10 +104,24 @@
   [text]
   (boolean (re-find #"(?m)^\s*@\.?/?AGENTS\.md\s*$" (str text))))
 
-(defn ignores-brainyard?
-  "Does `text`, a .gitignore, ignore the `.brainyard/` directory?"
+(defn ignores-brainyard
+  "How `text`, a .gitignore, ignores `.brainyard/`: `:current` when what is in
+  it is ignored but for the project's profile (`.brainyard/*`, then
+  `!.brainyard/profile.edn`), as /init writes it; `:whole` when the
+  directory is ignored whole, which keeps git from adding the profile
+  (byj-9ng); nil when it is not ignored."
   [text]
-  (boolean (re-find #"(?m)^\s*/?\.brainyard/?\s*$" (str text))))
+  (let [t (str text)]
+    (cond
+      (re-find #"(?m)^\s*/?\.brainyard/?\s*$" t) :whole
+      (and (re-find #"(?m)^\s*/?\.brainyard/\*\s*$" t)
+           (re-find #"(?m)^\s*!/?\.brainyard/profile\.edn\s*$" t)) :current
+      (re-find #"(?m)^\s*/?\.brainyard/\*\s*$" t) :whole)))
+
+(defn ignores-brainyard?
+  "Does `text`, a .gitignore, ignore `.brainyard/` as /init writes it?"
+  [text]
+  (= :current (ignores-brainyard text)))
 
 (defn- bd-check
   "What `bd setup <recipe> --check` says in `dir`: `{:ok? :said}`."
@@ -181,7 +195,7 @@
 
 (defn project-status
   "What project `dir` has for brainyard: `{:dir :git? :agents-md? :claude-md?
-  :claude-imports? :beads? :bd-setup :skills :gitignored?}`. `:bd-setup` is
+  :claude-imports? :beads? :bd-setup :skills :gitignored? :gitignore}`. `:bd-setup` is
   bd's own word on its Claude Code and Codex setup, when bd and `.beads/` are
   there; `:skills` the project's own (its `.brainyard`, `.claude` and
   `.agents` skills roots); `:build-files` those of `build-files` it has;
@@ -212,6 +226,7 @@
                         :when (.isFile (io/file s "SKILL.md"))]
                     (str (.getName (.getParentFile ^java.io.File (:dir root))) "/" (.getName ^java.io.File s))))
      :gitignored? (ignores-brainyard? (slurp-if (io/file d ".gitignore")))
+     :gitignore (ignores-brainyard (slurp-if (io/file d ".gitignore")))
      :build-files (vec (filter #(.isFile (io/file d %)) build-files))
      :project-section (project-section (slurp-if (io/file d "AGENTS.md")))
      :git-profile (git-profile (slurp-if (io/file d "AGENTS.md")))
@@ -261,7 +276,11 @@
                               (when-let [s (:bd-setup p)]
                                 (str/join "" (for [[k v] (sort-by key s)]
                                                (str "; bd setup " (name k) ": " (if (:ok? v) "ok" (str "needs attention — " (:said v))))))))
-                         (str (mark (:gitignored? p)) " .brainyard/ in .gitignore")
+                         (str (mark (:gitignored? p))
+                              (case (:gitignore p)
+                                :current " .brainyard/ in .gitignore, but for its profile.edn"
+                                :whole " .brainyard/ in .gitignore, whole: git cannot add its profile.edn; /init writes .brainyard/* and !.brainyard/profile.edn"
+                                " .brainyard/ in .gitignore"))
                          (str "code: " (if (seq (:build-files p)) (str/join ", " (:build-files p)) "no build files yet"))
                          (str "AGENTS.md's project section: "
                               (case (:project-section p)
@@ -357,7 +376,7 @@
 
 (defn- planned
   "What one manifest entry would make of `current` (nil: no such file)."
-  [{:keys [kind text line lines header]} current notes & [profile-block]]
+  [{:keys [kind text line lines header replaces]} current notes & [profile-block]]
   (case kind
     :block (let [with-notes #(if (str/blank? (str notes)) %
                                  (set-block % project-block (notes-block notes) (begin-marker "BRAINYARD")))
@@ -376,12 +395,24 @@
     :import (cond (nil? current) text
                   (has-line? current line) current
                   :else (str (str/trimr current) "\n\n" line "\n"))
-    :lines (let [missing (remove #(has-line? current %) lines)]
-             (if (empty? missing)
-               current
-               (str (when-not (str/blank? (str current)) (str (str/trimr current) "\n\n"))
-                    (when header (str header "\n"))
-                    (str/join "\n" missing) "\n")))))
+    :lines (let [;; a line an earlier /init wrote, as it writes it now (byj-9ng)
+                 current (when current
+                           (reduce (fn [t [old new]]
+                                     (->> (str/split t #"\n" -1)
+                                          (map #(if (has-line? % old) new %))
+                                          (str/join "\n")))
+                                   current replaces))
+                 missing (remove #(has-line? current %) lines)
+                 ls (str/split (str current) #"\n" -1)
+                 at (when current (first (keep-indexed (fn [i l] (when (has-line? l (first lines)) i)) ls)))]
+             (cond
+               (empty? missing) current
+               ;; after the entry's first line, where the file has it: a
+               ;; `!` exception means nothing before the line it excepts from
+               at (str/join "\n" (concat (take (inc at) ls) missing (drop (inc at) ls)))
+               :else (str (when-not (str/blank? (str current)) (str (str/trimr current) "\n\n"))
+                          (when header (str header "\n"))
+                          (str/join "\n" missing) "\n")))))
 
 (defn skill-links
   "The links Claude Code needs to see the project's `.agents/skills`: one
@@ -450,7 +481,8 @@
 
 (defn scaffold
   "Write the starting files into project `dir` (`init$scaffold`): AGENTS.md,
-  CLAUDE.md importing it, `.brainyard/` in .gitignore — each created when
+  CLAUDE.md importing it, `.brainyard/` in .gitignore but for its profile —
+  each created when
   absent; when present, only brainyard's marked blocks, the import line or the
   missing lines are written, after a snapshot. A second run writes nothing.
   `dry-run` plans and writes nothing. `{:writes :snapshot? :text}`."
@@ -720,8 +752,9 @@
 
 (defn write-profile
   "Show the drafted profile to the person and write it on their yes
-  (`init$profile`): `.brainyard/profile.edn` (added to git with `-f`, since
-  .gitignore ignores `.brainyard/`), AGENTS.md's profile block, and — with
+  (`init$profile`): `.brainyard/profile.edn` (added to git with `-f`, for a
+  .gitignore an earlier /init wrote, which ignores `.brainyard/` whole),
+  AGENTS.md's profile block, and — with
   beads — the epic toward the goal and its first issues, each after the one
   before, the epic named as the profile's `:goal-epic`. Asked every time,
   in every mode, as installing is; headless nothing is written and the draft
@@ -949,7 +982,7 @@
     :effects #{:fs/read :process}
     :fn (fn [args _] (check config args))}
    {:name "init$scaffold" :kind :command
-    :description "Write a project's starting files: AGENTS.md, a CLAUDE.md that imports it, .brainyard/ in .gitignore. Creates what is absent; in what exists, writes only brainyard's marked blocks, the import line or the missing lines, after a snapshot — never the person's text. A second run writes nothing."
+    :description "Write a project's starting files: AGENTS.md, a CLAUDE.md that imports it, .brainyard/ in .gitignore but for its profile. Creates what is absent; in what exists, writes only brainyard's marked blocks, the import line or the missing lines, after a snapshot — never the person's text. A second run writes nothing."
     :input-schema [:map
                    [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
                    [:dry-run {:optional true} [:any {:desc "true: say what would be written, write nothing"}]]

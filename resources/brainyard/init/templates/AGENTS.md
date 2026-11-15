@@ -18,7 +18,8 @@ block to edit it freely.
 ## Working here with brainyard
 
 - `.brainyard/` holds brainyard's state for this project — sessions, logs,
-  delegated work, and `config.edn` for project settings. It is git-ignored.
+  delegated work, and `config.edn` for project settings. It is git-ignored,
+  but for `profile.edn`, the project's profile, which is committed.
 - Run shell commands non-interactively: an agent cannot answer a y/n prompt.
   `cp -f`, `mv -f`, `rm -f`, `apt-get -y`, `HOMEBREW_NO_AUTO_UPDATE=1` for
   brew, `ssh -o BatchMode=yes`.

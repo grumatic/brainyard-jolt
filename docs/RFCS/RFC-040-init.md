@@ -129,7 +129,9 @@ another program's, which says itself how it is installed and signed in
 - whether `.beads/` exists;
 - what `bd setup claude --check` and `bd setup codex --check` say;
 - which skills are found (`skills/roots`);
-- whether `.gitignore` lists `.brainyard/`.
+- how `.gitignore` lists `.brainyard/`: as `/init` writes it, ignored but
+  for the profile (`:current`), ignored whole (`:whole`), or not at all
+  (`ignores-brainyard`).
 
 It also reports, for the plan to decide from (found by the simulation,
 RFC-041):
@@ -170,7 +172,15 @@ nothing.
     blocks are left as they are.
 - **CLAUDE.md:** written as `@AGENTS.md` when it is absent. When it exists,
   the import is added if it is missing.
-- **`.gitignore`:** `.brainyard/` is added if it is not there.
+- **`.gitignore`:** `.brainyard/*` and, after it, `!.brainyard/profile.edn`
+  are added if they are not there: brainyard's state is this machine's, but
+  for the project's profile, which is committed (RFC-073). An earlier
+  `/init`'s `.brainyard/`, which ignores the directory whole, becomes
+  `.brainyard/*`, since git cannot except a file inside a directory ignored
+  whole, and `/init`'s own next step, `git add -- .brainyard/profile.edn …`,
+  was refused (`byj-9ng`). A project's loops stay ignored: RFC-071 makes one
+  live only on a person's acceptance, which a commit pulled into another
+  clone would pass by. `init-test/the-gitignore-keeps-brainyard-s-state-but-not-the-profile`.
 - **Skills for Claude Code** (`byj-gly.309.9`): each skill under
   `.agents/skills` that has nothing of its name under `.claude/skills` gets a
   relative link there (`../../.agents/skills/<name>`), as this repository
@@ -599,7 +609,7 @@ again on that project, `byj init` added the link
   call the person made between turns.
 - Also in `brainyard.init`: `check`, `tool-status`, `project-status`, `profile-status`,
   `report-text`, `on-path`, `version-of`, `platform`, `requirements`,
-  `imports-agents-md?`, `ignores-brainyard?`, `templates`, `marked-blocks`,
+  `imports-agents-md?`, `ignores-brainyard`, `ignores-brainyard?`, `templates`, `marked-blocks`,
   `set-block`, `project-block`, `skill-links`, `plan-writes`, `apply-writes!`, `scaffold`,
   `beads`, `remove-beads-blocks`, `survey`, `survey-files`, `install`.
 - `brainyard.instructions`: `files`, `user-files`, `section`, `shown-text`, `cut`,
@@ -630,7 +640,7 @@ All of them are planned. Nothing enforces them until their beads are built.
 | A tool is found on PATH by a scan, its version read with its own flag; a missing one carries the install hints for the platform; every requirement names its command, need, purpose and a macOS hint. | `init-test/a-tool-is-found-with-its-version-or-said-how-to-install` |
 | A tool whose entry says how to ask (`:signed-in`) is said signed in or not; an optional one missing is never a failure; none of byj's requirements names a program built on byj (`byj-ahf.7`). | `init-test/a-tool-that-says-how-to-ask-is-checked-signed-in` |
 | A dry run writes nothing; a new project gets every file; a second run writes nothing and takes no snapshot. | `init-test/a-second-run-changes-nothing` |
-| The person's text in AGENTS.md and CLAUDE.md, and bd's blocks, are never changed. Only brainyard's blocks, the import line and missing `.gitignore` lines are written, after a snapshot. An edit inside brainyard's block is rewritten, and one outside it stays. The project's section is replaced, never added twice. | `init-test/only-the-brainyard-block-is-written` |
+| The person's text in AGENTS.md and CLAUDE.md, and bd's blocks, are never changed. Only brainyard's blocks, the import line and missing `.gitignore` lines are written, after a snapshot; the one `.gitignore` line changed is an earlier `/init`'s `.brainyard/`. An edit inside brainyard's block is rewritten, and one outside it stays. The project's section is replaced, never added twice. | `init-test/only-the-brainyard-block-is-written` |
 | Each skill under `.agents/skills` without an entry of its name under `.claude/skills` is linked there; a real one is left; a second run links nothing. bd's skill is linked once bd has written it. | `init-test/skills-are-linked-for-claude-code`, `init-test/beads-is-set-up-by-bd` |
 | bd's files come from bd: init only without `.beads/`, a setup only where bd's check asks for it, and a second run only checks. bd's block in a CLAUDE.md that imports AGENTS.md is removed, and bd's commit is reported. With no bd, nothing runs. | `init-test/beads-is-set-up-by-bd` |
 | Nothing is installed without a yes from the person, every time; headless runs and a no only give the command; only a package manager that asks nothing is run; a tool already installed, an unknown one, or one only the person can install is only described. | `init-test/installing-asks` |

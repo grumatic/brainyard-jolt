@@ -7,8 +7,15 @@
 ;;             added or replaced; the person's text is never touched.
 ;;   :import — absent: the template. Present: the import line added when the
 ;;             file does not import already.
-;;   :lines  — each line added when the file lacks it.
+;;   :lines  — each line added when the file lacks it: after the entry's first
+;;             line where the file has that one, else at the end under the
+;;             header. `:replaces` turns a line an earlier /init wrote into the
+;;             line it writes now.
 [{:path "AGENTS.md" :kind :block :template "AGENTS.md"}
  {:path "CLAUDE.md" :kind :import :template "CLAUDE.md" :line "@AGENTS.md"}
- {:path ".gitignore" :kind :lines :header "# brainyard's per-project state (sessions, logs, config)"
-  :lines [".brainyard/"]}]
+ ;; .brainyard/ is this machine's, but for the project's profile, which is
+ ;; committed (RFC-073). git cannot except a file inside a directory ignored
+ ;; whole, so an earlier ".brainyard/" becomes ".brainyard/*" (byj-9ng)
+ {:path ".gitignore" :kind :lines :header "# brainyard's per-project state (sessions, logs, config), but for its profile"
+  :lines [".brainyard/*" "!.brainyard/profile.edn"]
+  :replaces {".brainyard/" ".brainyard/*"}}]
