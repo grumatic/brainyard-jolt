@@ -341,6 +341,14 @@ step (`byj-71w.7`).
 `permission-test/a-projects-profile-is-written-by-no-tool`,
 `tool-hook-test/another-agent-writes-no-project-profile`.
 
+**An accepted attachment's call is not classified as every command is**
+(RFC-072 "An attachment's call and the classifier", `byj-6xh`): in `:auto`
+the classifier weighs a call against the turn's request, and an
+attachment's check is no answer to it; measured, its only doubts of one
+were that the person had not asked for it. A call whose ctx carries
+`:attached-to` skips the every-command catch-all and nothing else.
+`permission-test/an-attachments-call-is-not-classified`.
+
 **And the profile holds what it governs** (`byj-71w.5`): a commit, a push,
 a bead filed or closed, and a write under `docs/decisions/`, as
 `presets.edn`'s `:gates` name them. The command gate checks them after its
@@ -700,6 +708,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | A write to a project's profile, `.brainyard/profile.edn`, is refused for every tool in every mode, and a shell line naming it as a tripwire; Claude Code's and Codex's through byj's hook alike (RFC-073) | `permission-test/a-projects-profile-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-profile` |
 | What a project's profile governs (RFC-073 `:gates`) is held as its axis says: `:never` refused unasked, `:ask` asked of the person in every mode and never the classifier, refused headless and in `:deny-by-default`, `:act` left to the rest of the gate; through byj's hook Claude Code asks and Codex is refused | `permission-test/the-gate-follows-the-projects-profile`, `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
 | A line a project's profile lets the agent run on its own — only `:act` axes' commands and their `:with` companions, no redirection but `2>&1` — is not put to the `:auto` classifier; the rest of the gate holds it | `permission-test/a-line-the-profile-lets-run-is-not-classified` |
+| A call made inside an accepted attachment (`:attached-to` on its ctx, RFC-072) is not put to the `:auto` classifier's every-command catch-all; the rest of the gate holds it | `permission-test/an-attachments-call-is-not-classified` |
 | `/allow-path DIR` adds DIR for the session only, once, never to `config.edn`, and is refused over the session channel; every gate — the command gate's paths too — reads the session's directories beside `:allowed-dirs`. | `session-test/allow-path-is-the-persons-and-the-sessions`, `permission-test/a-directory-allowed-for-the-session-is-reached` |
 
 ## Known gaps

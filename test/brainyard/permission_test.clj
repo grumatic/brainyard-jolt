@@ -872,3 +872,28 @@
       (reset! seen [])
       (call (c) "bash" {:command "git add a && git commit -m x"})
       (is (= 1 (count @seen))))))
+
+;; byj-6xh: an accepted attachment's call is the project's check, run every
+;; turn; measured, the classifier doubted one only because the person had not
+;; asked for it in that turn
+(deftest an-attachments-call-is-not-classified
+  (let [dir (.getAbsolutePath (io/file (fresh-dir "attachment-classifier")))
+        seen (atom [])
+        c (fn [& {:as extra}]
+            (merge (assoc (agent/make-ctx {:config {:working-dir dir :project-dir dir :allowed-dirs [dir]
+                                                    :bash-ask-commands ["npm publish*"]}})
+                          :lm {:provider :claude-code :model "sonnet"}
+                          :auto-classify (fn [req _] (swap! seen conj (:display req)) {:verdict :block :reason "not asked for"}))
+                   extra))]
+    (is (str/includes? (str (call (c) "bash" {:command "npm test"})) "blocked by auto mode") "the model's own call: classified")
+    (reset! seen [])
+    (is (not (str/includes? (str (call (c :attached-to :react/ext-answer-check) "bash" {:command "npm test"})) "blocked"))
+        "the same command from an attachment: not")
+    (is (empty? @seen))
+    (testing "what else the gate holds still holds an attachment's call"
+      (is (str/includes? (str (call (c :attached-to :react/ext-answer-check) "bash" {:command "npm publish"})) "blocked by auto mode")
+          ":bash-ask-commands still asks — through the classifier, then the person")
+      (is (str/includes? (str (call (c :attached-to :react/ext-answer-check) "bash" {:command "cat ~/.ssh/id_rsa"})) "refused")
+          "a login's tripwire")
+      (is (str/includes? (str (call (c :attached-to :react/ext-answer-check) "bash" {:command "echo x > .brainyard/loops/react.edn"})) "refused")
+          "the loop's tripwire"))))

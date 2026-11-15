@@ -115,6 +115,45 @@ A new compiled leaf stays a code change. So an extension adds behaviour as
 data, and `src/` keeps only the mechanism: `expand`, the gate and the
 proposal kind (RFC-001).
 
+### An attachment's call and the classifier (`byj-6xh`, decided 2026-11-15)
+
+A tree is no way around the permission stack (RFC-071): an attachment's
+`:tool/run` meets every gate a model's call meets. One part of it judges the
+wrong thing, though. In `:auto` with a live model every command goes to the
+classifier (RFC-012), which weighs a call against what the person asked
+this turn — and an attachment's call is no answer to the turn's request:
+it is the project's check, run every turn, in a tree the person saw and
+accepted at `/proposals`.
+
+**Measured** across the 18 simulation runs that attached `ext/work.edn` and
+`ext/tests.edn` ("Measured in a simulation", below; `jolt -A:dev -m
+brainyard.dev.classifier-tally 'export START=|package.json \] && grep'
+~/Projects/byj-sim/*`):
+
+| verdicts on an attachment's command | count |
+|---|---|
+| allow | 158, and 63 more from the session's cache |
+| unsure, put to the person mid-turn | 6 (2.6%) |
+
+All six were the tests attachment's `npm test`, in turns where the person
+had asked only to set up or to file beads, and each reason was that the
+person had not asked for it. That is the classifier's question for a
+model's own calls; for a check the project accepted it has no bearing. The
+164 fresh judgements were 164 model calls.
+
+**Decided:** a call made inside an attached tree — its ctx carries the
+slot it runs in, `:attached-to`, set by the slot's scope — is not put to
+the classifier's every-command catch-all. Everything else of the gate
+holds it: the deny list, `:bash-ask-commands` (asked as for any call,
+through the classifier, then the person), the loop, profile and login
+tripwires, and the paths outside the allowed directories. A project that
+wants an attachment's command asked lists it in `:bash-ask-commands`. Not
+chosen: trusting an attachment's literal commands, since an attachment
+builds its command at run time (`work.edn` joins the turn's start into
+it), and a separate allow-list, a second place to keep in step with the
+tree the person accepted. A project's own whole loop (RFC-071) is not an
+attachment, and its calls are classified as before.
+
 ### Writes go to keys of the slot's own
 
 `:scope :out` copies an inner key over the outer one. A slot that let an
@@ -605,6 +644,8 @@ The rows naming a bead are proposed and enforced by nothing yet.
 | An attachment at the turn's start that fails costs the turn nothing. | `agent-test/an-attachment-at-the-turns-start-that-fails-costs-the-turn-nothing` |
 | The answer check is on every path that accepts an answer, before the stamp, and stops refusing at `:max-answer-checks`. | `agent-test/the-answer-check-sits-before-every-stamp`, `agent-test/a-projects-answer-check-refuses-on-every-path-that-accepts` |
 | What is attached after the tools is heard in the next iteration, and its failure costs the turn nothing. | `agent-test/an-attachment-after-the-tools-is-heard-next-iteration`, `agent-test/an-attachment-after-the-tools-that-fails-costs-the-turn-nothing` |
+
+| A call made inside an attached tree is not put to the `:auto` classifier's every-command catch-all; every other check of the gate holds it. | `permission-test/an-attachments-call-is-not-classified` |
 
 ## Known gaps
 

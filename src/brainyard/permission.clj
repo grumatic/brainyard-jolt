@@ -792,6 +792,13 @@
                                  ;; but a line the project's profile lets the
                                  ;; agent run on its own (byj-yvx)
                                  (when (and (classify-every-command? ctx)
+                                            ;; nor a call an accepted attachment
+                                            ;; makes (RFC-072, byj-6xh): the project's
+                                            ;; check, run every turn, not the model's
+                                            ;; answer to the request — measured, the
+                                            ;; classifier's only doubts of one were
+                                            ;; that the person had not asked for it
+                                            (not (:attached-to ctx))
                                             (not (when-let [pr (project-profile ctx)]
                                                    (let [spec (profile/presets)]
                                                      (every? #(profile-lets-line? pr spec %) commands)))))
