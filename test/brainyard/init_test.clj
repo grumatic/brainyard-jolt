@@ -672,6 +672,49 @@
     (is (str/includes? (slurp (io/file project "AGENTS.md")) "<!-- BEGIN BRAINYARD:profile -->"))
     (is (str/includes? (:answer r) "✓ profile: collaborator") "and the check after says so")))
 
+(deftest a-draft-missing-its-preset-or-epic-is-drafted-again-and-said
+  ;; byj-8ap, byj-kti: haiku's draft once came back with no preset, epic or
+  ;; issues, and was written so on the person's yes
+  (testing "the loop drafts once more when the draft has no preset, epic or issues"
+    (let [project (fresh-dir "agent-init-redraft")
+          drafts (atom [{:reasoning "r" :goal "A small web workspace." :in "server shell"}
+                        {:reasoning "r" :goal "A small web workspace." :in "server shell" :done "npm test passes"
+                         :preset "autopilot" :epic "Mini playground" :issues "server shell — a page"}])
+          steps (atom [])
+          r (agent/ask "/init A small web workspace; decide the small things."
+                       {:lm {:provider :mock :format :mock
+                             :responses (fn [messages]
+                                          (let [sys (str (:content (first messages)))]
+                                            (json/write-str
+                                             (cond
+                                               (str/includes? sys "You prepare a project directory for brainyard")
+                                               {:reasoning "r" :install "" :prefix "" :onboard false
+                                                :scaffold true :beads false :draft false :profile true}
+                                               (str/includes? sys "Draft this project's profile")
+                                               (let [d (first @drafts)] (swap! drafts #(if (next %) (rest %) %)) d)
+                                               :else {:reasoning "r" :answer "?"}))))}
+                        :tree (agent/load-tree "brainyard/loops/init.edn")
+                        :on-event (fn [e d] (when (= e :agent.tree/step-start) (swap! steps conj (:name d))))
+                        :permission-fn (fn [_] {:allowed true})
+                        :config {:project-dir project :working-dir project :init-tools? true}})]
+      (is (= ["init$check" "init/plan" "init$scaffold" "init/profile" "init/profile" "init$profile" "init$check" "init$next"] @steps))
+      (is (str/includes? (:answer r) "The profile, as you confirmed it: .brainyard/profile.edn (autopilot)"))))
+  (testing "what is still missing, the person is told before their yes"
+    (let [bin (fresh-dir "bin-profile-missing")
+          project (fresh-dir "profile-missing")
+          asked (atom nil)]
+      (stateful-bd bin)
+      (init/scaffold {} {:dir project})
+      (.mkdirs (io/file project ".beads"))
+      (let [r (init/write-profile {} {:permission-fn (fn [req] (reset! asked (:display req)) {:allowed true})}
+                                  {:dir project :path bin :goal "A small web workspace." :in "server shell"})]
+        (is (str/includes? @asked "The draft has no preset: the default, conservative, stands; no epic: no goal epic or issues are filed, and /drive has nothing to work on. To change that, say no and run /init again saying it."))
+        (is (str/includes? (:text r) "The draft had no preset")))
+      (is (= [] (init/draft-missing {:preset "collaborator" :epic "E" :issues "a — b"} true)))
+      (is (= ["no first issues: the epic is filed with none under it"]
+             (init/draft-missing {:preset "collaborator" :epic "E" :issues ""} true)))
+      (is (= [] (init/draft-missing {:preset "autopilot"} false)) "no beads: no epic to file"))))
+
 (deftest byj-init-says-what-to-do-next
   ;; byj-gly.337.4: the model-free entry point ends as /init does
   (let [project (fresh-dir "byj-init-next")

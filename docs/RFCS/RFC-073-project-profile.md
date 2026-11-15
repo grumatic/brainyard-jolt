@@ -166,7 +166,12 @@ drafts none. After the check, scaffold and beads, `agent$init` then runs a
 predictor, `init/profile`: from the person's words and `init$survey` (when
 the draft ran) it drafts the goal, scope, done criteria, a preset, any axis
 the person set apart from it, the goal's epic and its first issues, in
-order (`byj-71w.4`).
+order (`byj-71w.4`). A draft with no preset it knows, no epic or no
+first issues is a reply that slipped, not what the person said: the tree
+drafts once more (`:init/draft-whole?`), and what is still missing then
+`init$profile`'s question says — the default preset standing, no epic or
+issues filed — so a yes is to what will be written (`init/draft-missing`,
+`byj-kti`).
 
 `init$profile` shows the draft to the person through the turn's permission
 channel, as `init$install` asks (RFC-040): the block as AGENTS.md would show
@@ -310,6 +315,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | A git command that records or reads the profile as it is passes the tripwire; a write does not; the person's yes at a hold is told to the model | `permission-test/a-projects-profile-is-written-by-no-tool`, `permission-test/the-gate-follows-the-projects-profile` |
 | The profile is written only on the person's yes, with the epic and issues they were shown; a no or nobody to ask writes and files nothing | `init-test/init-writes-the-profile-only-on-the-persons-yes` |
 | `/init` drafts a profile when the person says what the project is for, and its answer and check say what was written | `init-test/the-init-loop-drafts-the-profile-when-the-person-says-what-the-project-is-for` |
+| A draft with no preset, epic or first issues is drafted once more, and what it still lacks is said in the question before the person's yes | `init-test/a-draft-missing-its-preset-or-epic-is-drafted-again-and-said` |
 | `:decision/scope` and `:git/push` are never `:act` | `profile-test/no-profile-raises-an-axis-above-its-ceiling` |
 | A profile that does not match grants only the default preset | `profile-test/a-profile-that-does-not-match-grants-only-the-default` |
 | Every preset sets every axis, and the presets are the three decided | `profile-test/the-presets-are-data-and-name-every-axis` |
@@ -429,8 +435,10 @@ what it says: each bead's start, each commit, each close. The rest:
   with no epic `/drive` worked `/init`'s onboarding beads instead. A reply
   that does so now has those fields lifted out (`signature/lift-tagged-fields`,
   RFC-005; `agent-test/fields-written-in-tags-inside-another-are-lifted-out`):
-  the recorded reply reads as `autopilot`, its epic and four issues. That
-  `/init` wrote a draft without a preset or an epic at all is `byj-kti`.
+  the recorded reply reads as `autopilot`, its epic and four issues. A
+  draft that still lacks a preset, an epic or its issues is drafted once
+  more, and what it lacks then is said before the person's yes (`byj-kti`,
+  "Confirmed once at /init").
 - **Conservative's third run failed `term` on its own code**: the turn
   spawned `$SHELL -i` over pipes rather than node-pty, which the person's
   line named, so the check's `echo …\r` was never a line; its own tests
@@ -452,4 +460,4 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- `/init` writes a profile whose draft has no preset or epic, on the person's yes, rather than drafting again (`byj-kti`).
+None open.

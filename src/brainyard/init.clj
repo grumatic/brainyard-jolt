@@ -690,15 +690,33 @@
       (seq (draft-lines done)) (assoc :done (draft-lines done))
       (seq auto) (assoc :autonomy auto))))
 
+(defn draft-missing
+  "What a profile draft left out that the person would not mean to: no
+  preset it knows (the default's stands), no epic, or no first issues (none
+  filed, and /drive has nothing to work). The loop drafts once more when any
+  is missing (loops/init.edn `:init/draft-whole?`); what is missing still
+  is said in the question, so a yes is to what will be written (byj-kti)."
+  [{:keys [preset epic issues]} beads?]
+  (cond-> []
+    (not (contains? (:presets (profile/presets)) (keyword (str/lower-case (str/trim (str preset))))))
+    (conj (str "no preset: the default, " (name (:default-preset (profile/presets))) ", stands"))
+    (and beads? (str/blank? (str epic)))
+    (conj "no epic: no goal epic or issues are filed, and /drive has nothing to work on")
+    (and beads? (not (str/blank? (str epic))) (empty? (draft-lines issues)))
+    (conj "no first issues: the epic is filed with none under it")))
+
 (defn- profile-question
   "What the person is asked: the block the profile would put in AGENTS.md,
-  and the epic and issues it would file."
-  [block epic issues]
+  the epic and issues it would file, and what the draft left out."
+  [block epic issues missing]
   (str "write this project's profile (.brainyard/profile.edn) and show it in AGENTS.md:\n\n" block
        (when-not (str/blank? (str epic))
          (str "\n\nand file the epic \"" epic "\""
               (when (seq issues)
-                (str " with its first issues, in order:\n" (str/join "\n" (map #(str "- " (:title %)) issues))))))))
+                (str " with its first issues, in order:\n" (str/join "\n" (map #(str "- " (:title %)) issues))))))
+       (when (seq missing)
+         (str "\n\nThe draft has " (str/join "; " missing)
+              ". To change that, say no and run /init again saying it."))))
 
 (defn write-profile
   "Show the drafted profile to the person and write it on their yes
@@ -723,9 +741,10 @@
         block (profile/render resolved)
         bd (on-path "bd" (or path (System/getenv "PATH")))
         beads? (and bd (.isDirectory (io/file dir ".beads")))
-        filing? (and beads? (not (str/blank? epic)))]
+        filing? (and beads? (not (str/blank? epic)))
+        missing (draft-missing args beads?)]
     (if-let [no (ask-person ctx {:type :tool-use :action :call :tool "init$profile" :pattern "init$profile"
-                                 :display (profile-question block (when filing? epic) issues)
+                                 :display (profile-question block (when filing? epic) issues missing)
                                  :args (select-keys args [:goal :preset :epic]) :effects #{:fs/write :process}})]
       {:written? false
        :text (str "The profile was not written (" no "). The draft:\n\n" block
@@ -764,6 +783,7 @@
                       (str "\nIts goal's epic, filed in beads: " epic-id " " epic
                            (str/join "" (map (fn [id i] (str "\n  " id " " (:title i))) ids issues))))
                     (when (and filing? (not epic-id)) "\nbd could not file the goal's epic.")
+                    (when (seq missing) (str "\nThe draft had " (str/join "; " missing) "."))
                     (when (seq problems) (str "\nHeld back: " (str/join "; " problems))))}))))
 
 ;; --- what to do next (byj-gly.337.1) --------------------------------------------------------

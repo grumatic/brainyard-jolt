@@ -61,6 +61,17 @@
    [:action {:id :init/profile-draft :fn :predictor/run :predictor "init/profile"
              :in {:request :question :typed :typed :survey :survey}
              :out {:goal :goal :in :in :out :out :done :done :preset :preset :autonomy :autonomy :epic :epic :issues :issues}}]
+   ;; a draft with no preset, epic or first issues is a reply that slipped,
+   ;; not what the person said (byj-8ap): drafted once more before they see
+   ;; it, and what is still missing then, the question says (byj-kti)
+   [:fallback {:id :init/draft-whole?}
+    [:sequence {:id :init/draft-has-all}
+     [:condition {:id :init/draft-preset? :fn :mem/match? :key :preset :pattern "[Cc]onservative|[Cc]ollaborator|[Aa]utopilot"}]
+     [:condition {:id :init/draft-epic? :fn :mem/match? :key :epic :pattern "\\S"}]
+     [:condition {:id :init/draft-issues? :fn :mem/match? :key :issues :pattern "\\S"}]]
+    [:action {:id :init/profile-redraft :fn :predictor/run :predictor "init/profile"
+              :in {:request :question :typed :typed :survey :survey}
+              :out {:goal :goal :in :in :out :out :done :done :preset :preset :autonomy :autonomy :epic :epic :issues :issues}}]]
    [:action {:id :init/profile-write :fn :tool/run :tool "init$profile" :on-error :success
              :in {:goal :goal :in :in :out :out :done :done :preset :preset :autonomy :autonomy :epic :epic :issues :issues}
              :out {:profiled :text}}]]]
