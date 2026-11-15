@@ -515,6 +515,10 @@
                            (set (filter #(str/starts-with? % "rule-") (map :name (:checks s))))))
                 (rest (:stages ext))))
     (fx/sh {:dir dir} "git" "init" "-q")
+    ;; an identity of its own: CI's runner has none, and the commit failed
+    ;; there, leaving the files staged
+    (doseq [kv [["user.name" "t"] ["user.email" "t@x.invalid"] ["commit.gpgSign" "false"]]]
+      (apply fx/sh {:dir dir} "git" "config" kv))
     (sim/write-project-files! dir ext)
     (is (= "" (str/trim (:out (fx/sh {:dir dir :out :string :err :string} "git" "status" "--porcelain")))))
     (is (str/includes? (:out (fx/sh {:dir dir :out :string :err :string} "git" "ls-files"))
