@@ -23,6 +23,7 @@
             [brainyard.config :as config]
             [brainyard.effect :as fx]
             [brainyard.events :as events]
+            [brainyard.profile :as profile]
             [brainyard.toolbox :as toolbox]))
 
 ;; --- matching ---------------------------------------------------------------------
@@ -145,16 +146,32 @@
   [{:keys [type action display]}]
   (str (when (and (= :file-access type) action) (str (name action) " ")) display))
 
+(defn- ask-person
+  "Hand `request` to the person through `:permission-fn`, refusing with
+  `refuse` (fn [reason]) when they deny it or there is no fn (`headless`:
+  headless is fail-closed). A request handed to the person is said as
+  `:permission/asked {:id :tool :summary}`, and its answer as
+  `:permission/decided {:id :tool :decision}` — read only, for a watcher on
+  the session channel (RFC-043): nothing answers a prompt from there."
+  [ctx request refuse headless]
+  (if-let [pfn (:permission-fn ctx)]
+    (let [id (str "perm-" (swap! ask-counter inc))
+          tool (some-> (or (:tool request) (some-> (:action request) name)) str)
+          _ (events/emit! ctx :permission/asked {:id id :tool tool :summary (ask-summary request)})
+          resp (try (pfn request)
+                    (catch Throwable e
+                      {:denied true :reason (str "permission prompt error: " (ex-message e))}))]
+      (events/emit! ctx :permission/decided {:id id :tool tool :decision (if (:allowed resp) :allow :deny)})
+      (when-not (:allowed resp)
+        (refuse (or (:reason resp) "denied by user"))))
+    (refuse headless)))
+
 (defn- ask
   "What a gate does where it would ask the person about `request`. In `:auto`,
   the classifier decides first: allow lets the call run, block refuses it with
   the classifier's reason and how a person lets such a call through, unsure
-  asks as before — or refuses, with `:auto-mode-on-unsure :deny`. Then
-  `:permission-fn`, refusing with `refuse` (fn [reason]) when it denies or there
-  is none (`headless`: headless is fail-closed). A request handed to the person
-  is said as `:permission/asked {:id :tool :summary}`, and its answer as
-  `:permission/decided {:id :tool :decision}` — read only, for a watcher on
-  the session channel (RFC-043): nothing answers a prompt from there."
+  asks as before — or refuses, with `:auto-mode-on-unsure :deny`. Then the
+  person (`ask-person`)."
   [ctx request refuse headless]
   (let [{:keys [verdict reason]} (classify ctx request)]
     (cond
@@ -162,18 +179,7 @@
       (= :block verdict) (refuse (str "blocked by auto mode: " reason ". " classifier-hint))
       (and (= :unsure verdict) (= :deny (config ctx :auto-mode-on-unsure :ask)))
       (refuse (str "the auto-mode classifier was unsure (" reason ") and :auto-mode-on-unsure is :deny"))
-      :else
-      (if-let [pfn (:permission-fn ctx)]
-        (let [id (str "perm-" (swap! ask-counter inc))
-              tool (some-> (or (:tool request) (some-> (:action request) name)) str)
-              _ (events/emit! ctx :permission/asked {:id id :tool tool :summary (ask-summary request)})
-              resp (try (pfn request)
-                        (catch Throwable e
-                          {:denied true :reason (str "permission prompt error: " (ex-message e))}))]
-          (events/emit! ctx :permission/decided {:id id :tool tool :decision (if (:allowed resp) :allow :deny)})
-          (when-not (:allowed resp)
-            (refuse (or (:reason resp) "denied by user"))))
-        (refuse headless)))))
+      :else (ask-person ctx request refuse headless))))
 
 (defn- refuse-approval [display reason]
   (deny-replace {:by "tool-permission-gate" :display display :reason reason
@@ -395,6 +401,68 @@
                  :error-prefix "Tool call refused (profile)"
                  :hint profile-hint}))
 
+(declare command-segments segment-text)
+
+(defn project-profile
+  "The project's profile (RFC-073), resolved, or nil when it has none: read
+  at every call that might meet it, so a change the person makes reaches the
+  next call."
+  [ctx]
+  (profile/read-profile (config ctx :project-dir (config ctx :working-dir nil))))
+
+(defn profile-command-rule
+  "Where `profile` holds command `line` (RFC-073, byj-71w.5): the first
+  segment whose words a governed axis's command glob matches, for an axis
+  not at `:act`, as `{:axis :level :segment :glob}`; nil when none does. The
+  globs are `presets.edn`'s `:gates`, read as `:bash-ask-commands` are."
+  [profile spec line]
+  (when profile
+    (first (for [seg (command-segments line)
+                 :let [t (segment-text seg)]
+                 [axis {:keys [commands]}] (:gates spec)
+                 :let [lvl (profile/level profile axis)]
+                 :when (and lvl (not= :act lvl) (seq commands))
+                 :let [g (first-match commands t)]
+                 :when g]
+             {:axis axis :level lvl :segment t :glob g}))))
+
+(defn profile-path-rule
+  "Where `profile` holds a write to `path` in `project-dir`: the governed
+  axis whose path glob matches the path relative to the project, for an
+  axis not at `:act`, as `{:axis :level :path :glob}`; nil when none does."
+  [profile spec project-dir path]
+  (when (and profile project-dir path)
+    (let [root (canonical project-dir)
+          p (canonical path)]
+      (when (str/starts-with? p (str root "/"))
+        (let [rel (subs p (inc (count root)))]
+          (first (for [[axis {:keys [paths]}] (:gates spec)
+                       :let [lvl (profile/level profile axis)]
+                       :when (and lvl (not= :act lvl) (seq paths))
+                       :let [g (first-match paths rel)]
+                       :when g]
+                   {:axis axis :level lvl :path rel :glob g})))))))
+
+(defn- profile-hold
+  "What the gate does where the project's profile holds a call (`rule`):
+  `:never` refuses; `:ask` asks the person — in every mode, `:auto-approve`
+  included, and never the auto-mode classifier, since the profile says the
+  person decides — and refuses where nobody can be asked or the mode is
+  `:deny-by-default`."
+  [ctx by {:keys [axis level]} display request]
+  (let [refuse (fn [reason]
+                 (deny-replace {:by by :display display :reason reason
+                                :reason-prefix "Refused by the project's profile"
+                                :error-prefix "Tool call refused (profile)"
+                                :hint (str "The project's profile (.brainyard/profile.edn, RFC-073) sets "
+                                           axis " to " level "; the person changes it, not a tool.")}))]
+    (case level
+      :never (refuse (str axis " is :never in the project's profile"))
+      (if (= :deny-by-default (resolve-mode (mode ctx)))
+        (refuse (str axis " asks the person first in the project's profile, and the mode is :deny-by-default"))
+        (ask-person ctx (assoc request :profile/axis axis) refuse
+                    (str axis " asks the person first in the project's profile, and there is no interactive permission channel (headless)"))))))
+
 (def ^:private loop-hint
   (str "A loop is the project's when a person makes it so (RFC-071): write the candidate to"
        " another file and try it with --loop; a person accepts it, or puts it there by hand."))
@@ -430,7 +498,14 @@
              ;; and its profile: how far an agent goes on its own, which an
              ;; agent that could write it could raise (RFC-073, byj-71w.2)
              (when-let [p (first (keep #(profile-file project-dir %) paths))]
-               (profile-refusal "path-permission-gate" p "it is the project's profile, which the person confirms, not a tool"))))))
+               (profile-refusal "path-permission-gate" p "it is the project's profile, which the person confirms, not a tool"))
+             ;; a write the profile governs — a decision record — as its
+             ;; axis says (RFC-073, byj-71w.5)
+             (when-let [pr (when (seq paths) (project-profile ctx))]
+               (let [spec (profile/presets)]
+                 (when-let [{:keys [path] :as rule} (first (keep #(profile-path-rule pr spec project-dir %) paths))]
+                   (profile-hold ctx "path-permission-gate" rule path
+                                 {:type :file-access :action :write :tool tool-name :path path :display path}))))))))
    ;; a person's logins and keys, refused in every mode: what a shared
    ;; agent's caller, or a file it reads, could ask it to fetch (byj-1wv.115.40)
    (let [tool (some-> (:tools ctx) deref (get tool-name))
@@ -657,6 +732,15 @@
          (loop-refusal "bash-command-gate" f "it names a project's loop, which a person makes live, not a tool"))
        (when-let [f (first (mapcat named-profile-files commands))]
          (profile-refusal "bash-command-gate" f "it names the project's profile, which the person confirms, not a tool"))
+       ;; what the project's profile governs — a commit, a push, a bead
+       ;; filed or closed — as its axis says, before the rest of the gate:
+       ;; an :ask is the person's even where the mode would not ask (byj-71w.5)
+       (when-let [pr (project-profile ctx)]
+         (let [spec (profile/presets)]
+           (when-let [{:keys [segment glob] :as rule} (first (keep #(profile-command-rule pr spec %) commands))]
+             (profile-hold ctx "bash-command-gate" rule segment
+                           {:type :command :action :run :tool tool-name :display segment :pattern glob
+                            :command (first commands)}))))
        ;; a command that could destroy or change things — asked about, so in
        ;; :auto classified, inside the allowed directories too (byj-gly.285.4)
        (when-let [[seg glob] (or (first (keep #(asked-command cfg %) commands))

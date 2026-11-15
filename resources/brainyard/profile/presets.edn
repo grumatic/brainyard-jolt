@@ -23,6 +23,21 @@
 
  :default-preset :conservative
 
+ ;; What the permission gate holds each axis to (RFC-073 "What the kernel
+ ;; holds it to", byj-71w.5): the command lines it governs, as
+ ;; :bash-ask-commands globs read them (a segment's words, `*` any run of
+ ;; characters), and the paths under the project a write to which it
+ ;; governs. :never refuses, :ask asks the person in every mode where a
+ ;; person can be asked, :act leaves the line to the rest of the gate. An
+ ;; axis with no entry — :issue/work, :decision/scope — has no command to
+ ;; hold, and is kept by AGENTS.md's block and /drive alone.
+ :gates {:git/commit     {:commands ["git commit" "git commit *" "git -C * commit" "git -C * commit *" "git -c * commit *"]}
+         :git/push       {:commands ["git push" "git push *" "git -C * push" "git -C * push *" "git -c * push *"
+                                     "bd dolt push" "bd dolt push *" "bd sync" "bd sync *"]}
+         :issue/create   {:commands ["bd create *" "bd q *" "bd new *"]}
+         :issue/close    {:commands ["bd close *" "bd done *"]}
+         :decision/local {:paths ["docs/decisions/*"]}}
+
  :presets
  {:conservative {:autonomy {:issue/create :ask :issue/work :ask :git/commit :ask :issue/close :ask
                             :decision/local :ask :decision/scope :ask :git/push :ask}}

@@ -4,7 +4,9 @@
 day as recommended ("Decided", `byj-71w.1`). Built: the profile as data,
 its presets, and the tripwire that keeps every tool from writing it
 (`byj-71w.2`); AGENTS.md's block rendered from it, written by `/init` and
-held to it by `/init check` and `/doctor` (`byj-71w.3`). Epic `byj-71w`.
+held to it by `/init check` and `/doctor` (`byj-71w.3`); the permission
+gate holding commits, pushes, beads filed and closed, and decision records
+to it (`byj-71w.5`). Epic `byj-71w`.
 
 ## Purpose
 
@@ -165,22 +167,38 @@ today. A project with a profile no longer gets the `:goal` and
 
 ### What the kernel holds it to
 
-The axes that a command shows become rules beside `:permission-mode`, for
-byj's tools and, through byj's hook, Claude Code's and Codex's:
+The axes that a command shows are held by the permission gate, for byj's
+tools and, through byj's hook, Claude Code's and Codex's (`byj-71w.5`). What
+each governs is data, `presets.edn`'s `:gates`: command globs read as
+`:bash-ask-commands` are (a segment's words), and path globs read against
+the path relative to the project.
 
-| Axis | The lines it governs |
+| Axis | What it governs |
 |---|---|
-| `:git/commit` | `git commit` |
-| `:git/push` | `git push`, `bd dolt push` |
-| `:issue/create` | `bd create` |
-| `:issue/close` | `bd close` |
-| `:decision/local` | a write that adds a file under the decisions directory |
+| `:git/commit` | `git commit`, `git -C … commit`, `git -c … commit` |
+| `:git/push` | `git push` (and with `-C`, `-c`), `bd dolt push`, `bd sync` |
+| `:issue/create` | `bd create`, `bd q`, `bd new` |
+| `:issue/close` | `bd close`, `bd done` |
+| `:decision/local` | a write under `docs/decisions/` |
 
-`:ask` asks in every mode, `:auto-approve` included; `:never` refuses;
-`:act` leaves the line to the mode in force, which may still ask
-(`byj-6xh` asks whether it should). `:issue/work` and `:decision/scope`
-have no command to hold; they are kept by the block and the drive loop
-alone, and the invariants say so.
+The command gate checks them after its tripwires and before
+`:bash-ask-commands`; the path gate after the loop and profile tripwires.
+The profile is read at every call that might meet it, so the person's change
+reaches the next call.
+
+- `:never` refuses, in every mode, without asking.
+- `:ask` asks the person, in every mode, `:auto-approve` included, and
+  never the auto-mode classifier: the profile says the person decides.
+  Where nobody can be asked (headless) or the mode is `:deny-by-default`, it
+  refuses. Through the hook, Claude Code asks; Codex, whose hook cannot ask,
+  is refused, as for any ask of byj's gates (RFC-049).
+- `:act` leaves the line to the rest of the gate, which may still ask
+  (`byj-6xh` asks whether it should).
+
+`:issue/work` and `:decision/scope` have no command to hold; they are kept
+by the block and the drive loop alone, and the invariants say so. A glob
+errs toward holding: `git -C x log --grep commit y` matches
+`git -C * commit *`, and is asked about.
 
 ### The drive loop
 
@@ -217,7 +235,9 @@ questions the profile names and nowhere else.
 | `profile/bd-profile` | the bd profile a profile amounts to: `:team-maintainer` when `:git/commit` is `:act`, else `:conservative` (built) |
 | `profile/shown-block`, `profile/block-words`, `profile/block-name` | the block AGENTS.md holds; `block.edn`; `BRAINYARD:profile` (built) |
 | `init/profile-status` | a project's profile and its block's state, in `project-status` as `:profile`, a line of the check (built) |
-| `profile/gate-rules` | the permission rules a profile's axes make |
+| `presets.edn` `:gates` | what each axis governs: command globs and path globs (built) |
+| `permission/project-profile` | the project's profile as the gate reads it, at every call (built) |
+| `permission/profile-command-rule`, `permission/profile-path-rule` | where a profile holds a command line or a write: `{:axis :level …}` for an axis not at `:act` (built) |
 | predictor `init/profile` | the draft `/init` proposes |
 | `/drive`, workflow `drive` | the drive loop |
 
@@ -231,7 +251,8 @@ questions the profile names and nowhere else.
 | Every preset sets every axis, and the presets are the three decided | `profile-test/the-presets-are-data-and-name-every-axis` |
 | The AGENTS.md block is the data's rendering, or `/init check` says it is not, and `/init` writes it again | `profile-test/the-block-is-checked-against-the-data-never-read-for-it`, `init-test/init-writes-the-profiles-block-and-the-check-holds-it-to-the-data` |
 | The block names every axis once under its level, and names bd's profile, so bd's default no longer stands | `profile-test/agents-md-shows-the-profile-rendered-from-the-data`, `init-test/init-writes-the-profiles-block-and-the-check-holds-it-to-the-data` |
-| An axis at `:ask` asks in every permission mode | nothing yet (`byj-71w.5`) |
+| An axis at `:ask` asks the person in every mode, `:auto-approve` included, never the classifier; refused headless and in `:deny-by-default`; `:never` refuses unasked; `:act` holds nothing | `permission-test/the-gate-follows-the-projects-profile` |
+| Through byj's hook, Claude Code asks what the profile asks about, and Codex is refused it | `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
 | `:issue/work` and `:decision/scope` are held by words and the drive loop, not by a gate | nothing enforces it, by design |
 
 ## Measuring it
@@ -258,5 +279,5 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- Not built: `/init`'s draft and confirmation (`byj-71w.4`), the gate's rules (`byj-71w.5`), `/drive`
+- Not built: `/init`'s draft and confirmation (`byj-71w.4`), `/drive`
   (`byj-71w.6`); nor measured (`byj-71w.7`).

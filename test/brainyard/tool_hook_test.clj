@@ -106,6 +106,19 @@
                        "project's profile"))
     (is (nil? (:decision (decide {:tool_name "Read" :tool_input {:file_path ".brainyard/profile.edn"}}))) "read, it is not")))
 
+(deftest another-agent-is-held-to-the-projects-profile
+  ;; byj-71w.5: what the profile asks about, Claude Code asks the person; Codex,
+  ;; whose hook cannot ask, is refused
+  (let [project (fresh-dir "profile-gate")
+        f (io/file project ".brainyard" "profile.edn")
+        _ (io/make-parents f)
+        _ (spit f (pr-str {:profile/version 1 :preset :collaborator}))
+        config {:project-dir project :working-dir project :permission-mode :auto-approve}
+        decide #(hook/decide config (merge {:cwd project :session_id "s"} %))]
+    (is (= :ask (:decision (decide {:tool_name "Bash" :tool_input {:command "git push origin main"}}))))
+    (is (= :deny (:decision (hook/for-agent :codex (decide {:tool_name "Bash" :tool_input {:command "git push"}})))))
+    (is (nil? (:decision (decide {:tool_name "Bash" :tool_input {:command "git commit -m x"}}))) "a commit is the agent's here")))
+
 (deftest a-codex-patch-is-every-file-it-names
   (is (= ["a.clj" "b.clj" "c.md" "d.txt"]
          (hook/patch-paths "*** Begin Patch\n*** Update File: a.clj\n*** Move to: b.clj\n*** Add File: c.md \n*** Delete File: d.txt\n*** End Patch"))

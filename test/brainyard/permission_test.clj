@@ -774,3 +774,52 @@
       (is (= [] (permission/command-paths "echo hi > /etc/nothing-here-at-all"))))
     (testing "and a path inside them is fine"
       (is (str/includes? (:output (call c "bash" {:command (str "ls " dir)})) "")))))
+
+;; byj-71w.5: the profile's axes hold what a command shows — a commit, a
+;; push, a bead filed or closed, a decision written — in every mode
+(deftest the-gate-follows-the-projects-profile
+  (let [dir (.getAbsolutePath (io/file (fresh-dir "profile-gate")))
+        f (io/file dir ".brainyard" "profile.edn")
+        _ (io/make-parents f)
+        profile! #(spit f (pr-str (merge {:profile/version 1} %)))
+        asked (atom [])
+        c (fn [mode & [answer]]
+            (ctx {:working-dir dir :project-dir dir :allowed-dirs [dir] :permission-mode mode}
+                 :permission-fn (fn [req] (swap! asked conj req) (or answer {:allowed true}))))
+        refused? #(str/includes? (str (:error %)) "Tool call refused (profile)")
+        held? (fn [mode cmd] (reset! asked [])
+                (let [r (call (c mode {:denied true :reason "no"}) "bash" {:command cmd})]
+                  [(refused? r) (count @asked)]))]
+    (testing "conservative: a commit, a push, a bead filed or closed ask the person, :auto-approve too"
+      (profile! {:preset :conservative})
+      (doseq [mode [:auto-approve :auto :ask-each-time]
+              cmd ["git commit -m x" "git -C . push origin main" "bd create --title x" "bd close a-1 --reason done"
+                   "echo ok && git commit -qm y"]]
+        (is (= [true 1] (held? mode cmd)) (str mode ": " cmd)))
+      (is (= :git/commit (:profile/axis (do (held? :auto-approve "git commit -m x") (first @asked)))))
+      (reset! asked [])
+      (is (not (refused? (call (c :auto-approve) "bash" {:command "git commit -m x"}))) "a yes lets it run")
+      (is (= [false 0] (held? :auto-approve "git status && bd ready")) "what no axis governs is not held")
+      (is (refused? (call (c :deny-by-default) "bash" {:command "git commit -m x"})) ":deny-by-default refuses")
+      (is (refused? (call (ctx {:working-dir dir :project-dir dir :allowed-dirs [dir] :permission-mode :auto-approve})
+                          "bash" {:command "git commit -m x"}))
+          "nobody to ask: refused"))
+    (testing "collaborator: commits and beads are the agent's; push still asks"
+      (profile! {:preset :collaborator})
+      (is (= [false 0] (held? :auto-approve "git commit -m x && bd close a-1 --reason done && bd create --title y")))
+      (is (= [true 1] (held? :auto-approve "git push"))))
+    (testing ":never refuses without asking"
+      (profile! {:preset :collaborator :autonomy {:git/push :never}})
+      (is (= [true 0] (held? :ask-each-time "bd dolt push"))))
+    (testing "a decision record is a write the profile governs"
+      (profile! {:preset :collaborator})
+      (reset! asked [])
+      (is (refused? (call (c :auto-approve {:denied true}) "write-file" {:path "docs/decisions/0003-x.md" :content "x"})))
+      (is (= :decision/local (:profile/axis (first @asked))))
+      (is (not (refused? (call (c :auto-approve {:denied true}) "write-file" {:path "docs/notes.md" :content "x"}))))
+      (profile! {:preset :autopilot})
+      (is (not (refused? (call (c :auto-approve {:denied true}) "write-file" {:path "docs/decisions/0004-y.md" :content "x"})))
+          "autopilot decides locally on its own"))
+    (testing "no profile: nothing held"
+      (.delete f)
+      (is (= [false 0] (held? :auto-approve "git commit -m x && git push"))))))
