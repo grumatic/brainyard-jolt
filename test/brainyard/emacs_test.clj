@@ -385,7 +385,11 @@
                 tool (fn [n] (:fn (first (filter #(= n (:name %)) tools))))
                 el (io/file dir "k.el")
                 txt (io/file dir "k.txt")]
-            (spit el "(defun k-one () 1)\n(defun k-two () (k-one))\n")
+            ;; every .el here carries the lexical-binding cookie, on its first
+            ;; line's end so the lines asked about stay where they are: Emacs 31
+            ;; warns of a file without one in *Warnings*, which byj-explain-error
+            ;; rightly reads before *Messages* (byj-kho)
+            (spit el "(defun k-one () 1) ; -*- lexical-binding: t -*-\n(defun k-two () (k-one))\n")
             (spit txt "plain\n")
             (emacs/call! cfg "eval" {:code (str "(with-current-buffer (find-file-noselect " (terminal/string-literal (str el)) ") (eval-buffer))")} {:home home})
             (let [r ((tool "emacs$xref") {:file "k.el" :identifier "k-one" :line 2} nil)]
@@ -402,7 +406,7 @@
                   pel (io/file proj "p.el")]
               (.mkdirs proj)
               (fx/sh {:out :string :err :string :dir (str proj)} "git" "init" "-q" ".")
-              (spit pel "(defun p-one () 1)\n(defun p-two () (p-one))\n")
+              (spit pel "(defun p-one () 1) ; -*- lexical-binding: t -*-\n(defun p-two () (p-one))\n")
               (let [r ((tool "emacs$xref") {:file (str pel) :identifier "p-one" :references true} nil)]
                 (is (= "references" (:kind r)))
                 (is (= [[1 8] [2 18]] (map (juxt :line :column) (:places r))) "both uses, by a search of the project, columns from 1")
@@ -431,7 +435,7 @@
           (let [tool (fn [n] (:fn (first (filter #(= n (:name %)) (emacs/commands cfg {:home home})))))
                 d (io/file dir "d.el")
                 describe (tool "emacs$describe")]
-            (spit d "(defun d-one () 1)\n")
+            (spit d "(defun d-one () 1) ; -*- lexical-binding: t -*-\n")
             (emacs/call! cfg "eval" {:code (str "(with-current-buffer (find-file-noselect " (terminal/string-literal (str d)) ") (abbrev-mode 1))")} {:home home})
             (let [r (describe {:file "d.el" :key "C-M-x"} nil)]
               (is (= "emacs-lisp-mode" (:mode r)) "the buffer's modes answer")
@@ -564,7 +568,7 @@
                            "esac\n"))
             (fx/sh {:out :string :err :string} "chmod" "+x" (.getPath bin))
             (io/make-parents other)
-            (spit other "(defun other-f () 1)\n")
+            (spit other "(defun other-f () 1) ; -*- lexical-binding: t -*-\n")
             (el (str "(setq byj-program " (terminal/string-literal (str bin)) ")"))
             (testing "hello: the session that calls is the one asked"
               (emacs/register! (assoc cfg :session-id "s-hello") {:home home})

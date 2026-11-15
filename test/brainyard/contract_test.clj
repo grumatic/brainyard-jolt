@@ -22,6 +22,7 @@
   the words of a prompt sent to the model `<prompt>`: their shape is the
   contract, their wording byj's to change. `BYJ_CONTRACT_RECORD=1` writes the
   files again; review the diff, which is the contract changing."
+  (:refer-clojure :exclude [record?])
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
