@@ -6,7 +6,8 @@ its presets, and the tripwire that keeps every tool from writing it
 (`byj-71w.2`); AGENTS.md's block rendered from it, written by `/init` and
 held to it by `/init check` and `/doctor` (`byj-71w.3`); the permission
 gate holding commits, pushes, beads filed and closed, and decision records
-to it (`byj-71w.5`). Epic `byj-71w`.
+to it (`byj-71w.5`); `/init` drafting it from the person's words and writing
+it on their yes (`byj-71w.4`). Epic `byj-71w`.
 
 ## Purpose
 
@@ -123,8 +124,8 @@ through byj's hook: the path gate refuses a write to it and the command
 gate a line naming it, first of all and in every mode, as for a project's
 loop (RFC-071, RFC-072; `permission/profile-file`,
 `permission/named-profile-files`). Reading it is not refused. An agent that could write its profile
-could raise its own autonomy. It changes only through `/init` or a
-proposal the person accepts at `/proposals`.
+could raise its own autonomy. It changes only through `/init`, on the
+person's yes ("Confirmed once at /init").
 
 ### Where agents read it
 
@@ -156,14 +157,31 @@ so, and `/init` leaves it for the person.
 
 ### Confirmed once at /init
 
-After the check, scaffold and beads, `agent$init` runs a predictor
-`init/profile`. It drafts the goal, scope, done criteria, a preset and the
-goal's epic from the person's words and `init$survey`. The draft is shown
-as one proposal: the block as it would read, and the preset's table. The
-person's yes writes `profile.edn`, the block, and the epic with its first
-beads; an edit redrafts; a no leaves the project without a profile, as
-today. A project with a profile no longer gets the `:goal` and
-`:git-profile` starter issues or the `:git-profile` next step.
+`init/plan` chooses `profile` when the person's words to `/init` say what
+the project is for or what to build, its scope, how to tell it is done, or
+how much agents should do on their own, or ask for a profile; a bare `/init`
+drafts none. After the check, scaffold and beads, `agent$init` then runs a
+predictor, `init/profile`: from the person's words and `init$survey` (when
+the draft ran) it drafts the goal, scope, done criteria, a preset, any axis
+the person set apart from it, the goal's epic and its first issues, in
+order (`byj-71w.4`).
+
+`init$profile` shows the draft to the person through the turn's permission
+channel, as `init$install` asks (RFC-040): the block as AGENTS.md would show
+it, and the epic and issues it would file. It asks every time, in every
+mode; headless, it writes nothing and shows the draft. On a yes it files the
+epic and its issues with bd, each after the one before, names the epic as
+`:goal-epic`, writes `profile.edn`, adds it to git with `-f`, and writes
+AGENTS.md's block. On a no it writes nothing and shows the draft; to change
+it, the person runs `/init` again saying what should differ. `init$profile`
+is the one writer of the profile, and it writes only what the person said
+yes to; no model turn of `agent$init` calls a tool (its loop is the tree),
+and the tripwire keeps every other tool from the file.
+
+With a profile, the starter issues leave out asking what the project is for
+(`:goal`, `:when #{:no-profile}`), and since the block names bd's profile,
+`git-profile` reads `:stated` and the `:git-profile` issue and next step do
+not appear.
 
 ### What the kernel holds it to
 
@@ -238,7 +256,9 @@ questions the profile names and nowhere else.
 | `presets.edn` `:gates` | what each axis governs: command globs and path globs (built) |
 | `permission/project-profile` | the project's profile as the gate reads it, at every call (built) |
 | `permission/profile-command-rule`, `permission/profile-path-rule` | where a profile holds a command line or a write: `{:axis :level …}` for an axis not at `:act` (built) |
-| predictor `init/profile` | the draft `/init` proposes |
+| predictor `init/profile` | the draft `/init` shows: goal, in, out, done, preset, autonomy, epic, issues (built) |
+| `init$profile`, `init/write-profile` | the draft shown to the person and, on a yes, written with its epic and issues (built) |
+| `init/draft-profile` | a draft as `profile.edn` holds it: blanks left out, unknown presets and axis levels dropped (built) |
 | `/drive`, workflow `drive` | the drive loop |
 
 ## Invariants (proposed)
@@ -246,6 +266,8 @@ questions the profile names and nowhere else.
 | Invariant | Enforced by |
 |---|---|
 | No tool writes `.brainyard/profile.edn`, in any mode, nor Claude Code or Codex through byj's hook | `permission-test/a-projects-profile-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-profile` |
+| The profile is written only on the person's yes, with the epic and issues they were shown; a no or nobody to ask writes and files nothing | `init-test/init-writes-the-profile-only-on-the-persons-yes` |
+| `/init` drafts a profile when the person says what the project is for, and its answer and check say what was written | `init-test/the-init-loop-drafts-the-profile-when-the-person-says-what-the-project-is-for` |
 | `:decision/scope` and `:git/push` are never `:act` | `profile-test/no-profile-raises-an-axis-above-its-ceiling` |
 | A profile that does not match grants only the default preset | `profile-test/a-profile-that-does-not-match-grants-only-the-default` |
 | Every preset sets every axis, and the presets are the three decided | `profile-test/the-presets-are-data-and-name-every-axis` |
@@ -279,5 +301,4 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- Not built: `/init`'s draft and confirmation (`byj-71w.4`), `/drive`
-  (`byj-71w.6`); nor measured (`byj-71w.7`).
+- Not built: `/drive` (`byj-71w.6`); nor measured (`byj-71w.7`).

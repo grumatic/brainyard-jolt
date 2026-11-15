@@ -4,7 +4,8 @@
 (ns brainyard.init-test
   "/init (RFC-040): the check of a machine and a project, on stand-in tools on
   a PATH of the test's own and projects of the test's own."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
@@ -336,18 +337,23 @@
        (cond
          (str/includes? sys "You prepare a project directory for brainyard")
          (do (swap! seen conj :plan) (merge {:reasoning "r" :install "" :prefix "" :onboard false} plan))
+         (str/includes? sys "Draft this project's profile")
+         (do (swap! seen conj :profile) {:reasoning "r" :goal "A small web workspace." :in "- server shell\n- terminal"
+                                           :out "" :done "npm test passes" :preset "collaborator" :autonomy ""
+                                           :epic "Mini playground" :issues "1. server shell\n2. terminal"})
          (str/includes? sys "Write the section of AGENTS.md")
          (do (swap! seen conj :draft) {:reasoning "r" :notes "## This project\n\nA demo. Test with `make test`."
                                          :examples "run make test and fix what fails\nexplain the Makefile\nadd a lint target"})
          :else {:reasoning "r" :answer "?"})))))
 
-(defn- run-init [project question plan seen]
+(defn- run-init [project question plan seen & [permission-fn]]
   (let [steps (atom [])]
     [(agent/ask question
-                {:lm {:provider :mock :format :mock :responses (init-mock plan seen)}
-                 :tree (agent/load-tree "brainyard/loops/init.edn")
-                 :on-event (fn [e d] (when (= e :agent.tree/step-start) (swap! steps conj (:name d))))
-                 :config {:project-dir project :working-dir project :init-tools? true}})
+                (cond-> {:lm {:provider :mock :format :mock :responses (init-mock plan seen)}
+                         :tree (agent/load-tree "brainyard/loops/init.edn")
+                         :on-event (fn [e d] (when (= e :agent.tree/step-start) (swap! steps conj (:name d))))
+                         :config {:project-dir project :working-dir project :init-tools? true}}
+                  permission-fn (assoc :permission-fn permission-fn)))
      @steps]))
 
 (deftest init-sets-up-a-project-and-reports-what-it-did
@@ -596,6 +602,73 @@
     (testing "a profile with problems is said with them"
       (spit f (pr-str {:profile/version 1 :autonomy {:git/push :act}}))
       (is (some #(str/includes? % "above its ceiling") (:problems (status)))))))
+
+(deftest a-drafted-profile-is-what-the-draft-says-and-no-more
+  ;; byj-71w.4
+  (is (= {:profile/version 1 :preset :collaborator :goal "g" :scope {:in ["a" "b"]} :done ["npm test passes"]
+          :autonomy {:decision/local :act}}
+         (init/draft-profile {:goal " g " :in "- a\n2. b\n" :out "" :done "npm test passes" :preset "Collaborator"
+                              :autonomy "decision/local act\ngit/push sometimes\nwings act"})))
+  (is (= {:profile/version 1} (init/draft-profile {:preset "maximal"})) "a preset it does not know: the default's"))
+
+(deftest init-writes-the-profile-only-on-the-persons-yes
+  ;; byj-71w.4: drafted, shown, and written with its epic only on a yes
+  (let [bin (fresh-dir "bin-profile")
+        project (fresh-dir "profile-yes")
+        f (io/file project ".brainyard" "profile.edn")
+        asked (atom nil)
+        draft {:dir project :path bin :goal "A small web workspace." :in "server shell" :done "npm test passes"
+               :preset "collaborator" :epic "Mini playground" :issues "server shell\nterminal"}
+        ctx (fn [answer] {:permission-fn (fn [req] (reset! asked req) answer)})]
+    (stateful-bd bin)
+    (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
+    (init/scaffold {} {:dir project})
+    (.mkdirs (io/file project ".beads"))
+    (testing "a no, or nobody to ask: nothing written, the draft shown"
+      (let [r (init/write-profile {} (ctx {:denied true :reason "not yet"}) draft)]
+        (is (false? (:written? r)))
+        (is (str/includes? (:text r) "not yet"))
+        (is (str/includes? (:text r) "Preset: collaborator.")))
+      (is (str/includes? (:display @asked) "Goal: A small web workspace.") "the person sees the block")
+      (is (str/includes? (:display @asked) "and file the epic \"Mini playground\" with its first issues, in order:\n- server shell\n- terminal"))
+      (is (false? (:written? (init/write-profile {} {} draft))))
+      (is (not (.exists f)))
+      (is (not (.exists (io/file bin "bd.log"))) "nor any bead filed"))
+    (testing "a yes: the profile, its block, the epic and its issues in order"
+      (let [r (init/write-profile {} (ctx {:allowed true}) draft)
+            calls (str/split-lines (slurp (io/file bin "bd.log")))
+            p (init/project-status project)]
+        (is (:written? r))
+        (is (= "t-1" (:goal-epic (edn/read-string (slurp f)))) "the epic is the goal's")
+        (is (= :collaborator (get-in p [:profile :preset])))
+        (is (= :current (get-in p [:profile :block])) "AGENTS.md shows it")
+        (is (some #(str/starts-with? % "create --silent --title Mini playground --type epic") calls))
+        (is (some #(str/starts-with? % "create --silent --title terminal --type task --priority 1 --parent t-1") calls))
+        (is (some #(= "dep add t-3 t-2" %) calls) "each after the one before")
+        (is (str/includes? (:text r) "t-1 Mini playground\n  t-2 server shell\n  t-3 terminal"))
+        (is (str/includes? (:out (fx/sh {:dir project :out :string :err :string} "git" "status" "--porcelain"))
+                           "A  .brainyard/profile.edn")
+            "added to git though .gitignore ignores .brainyard/")
+        (is (contains? (init/next-facts p) :profile))))
+    (testing "with a profile, the starter issues do not ask what the project is for"
+      (spit (io/file bin "issues") "")
+      (spit (io/file bin "bd.log") "")
+      (init/onboard {} {:dir project :path bin :missing []})
+      (let [log (slurp (io/file bin "bd.log"))]
+        (is (str/includes? log "Get started with brainyard"))
+        (is (not (str/includes? log "Say what this project is for")))))))
+
+(deftest the-init-loop-drafts-the-profile-when-the-person-says-what-the-project-is-for
+  (let [project (fresh-dir "agent-init-profile")
+        seen (atom [])
+        [r steps] (run-init project "/init A small web workspace; commit as you go."
+                            {:scaffold true :beads false :draft false :profile true} seen
+                            (fn [_] {:allowed true}))]
+    (is (= ["init$check" "init/plan" "init$scaffold" "init/profile" "init$profile" "init$check" "init$next"] steps))
+    (is (= [:plan :profile] @seen))
+    (is (str/includes? (:answer r) "The profile, as you confirmed it: .brainyard/profile.edn (collaborator)"))
+    (is (str/includes? (slurp (io/file project "AGENTS.md")) "<!-- BEGIN BRAINYARD:profile -->"))
+    (is (str/includes? (:answer r) "✓ profile: collaborator") "and the check after says so")))
 
 (deftest byj-init-says-what-to-do-next
   ;; byj-gly.337.4: the model-free entry point ends as /init does

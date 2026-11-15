@@ -16,6 +16,7 @@
   brainyard's `env-detect` `executables.clj` (`detect-executables`)."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.pprint :as pp]
             [clojure.string :as str]
             [brainyard.effect :as fx]
             [brainyard.json :as json]
@@ -652,6 +653,115 @@
              (str "Installing:\n" (str/join "\n" (map #(str "  " (nth % 2)) lines)))
              "")}))
 
+;; --- the project's profile: drafted, shown, written on a yes (RFC-073, byj-71w.4) -----------
+
+(defn- draft-lines
+  "A predictor's one-a-line output as a vector, each line without the bullet
+  or numbering a model may add anyway."
+  [s]
+  (->> (str/split-lines (str s))
+       (map #(-> % str/trim (str/replace #"^(?:[-*•]|\d+[.)])\s*" "") str/trim))
+       (remove str/blank?)
+       vec))
+
+(defn draft-profile
+  "The profile `init/profile`'s draft describes, as `.brainyard/profile.edn`
+  holds it: what the draft left blank is left out, a preset it does not know
+  is left to the default, and of its autonomy lines only `axis level` pairs
+  of known axes and levels are kept. Not yet resolved."
+  [{:keys [goal in out done preset autonomy]}]
+  (let [spec (profile/presets)
+        axes (set (map :id (:axes spec)))
+        levels (set (:levels spec))
+        preset (keyword (str/lower-case (str/trim (str preset))))
+        auto (into {} (for [l (draft-lines autonomy)
+                            :let [[a lvl] (str/split (str/replace l #"[:=]" " ") #"\s+")
+                                  a (some-> a not-empty keyword)
+                                  lvl (some-> lvl not-empty str/lower-case keyword)]
+                            :when (and (axes a) (levels lvl))]
+                        [a lvl]))
+        scope (cond-> {}
+                (seq (draft-lines in)) (assoc :in (draft-lines in))
+                (seq (draft-lines out)) (assoc :out (draft-lines out)))]
+    (cond-> {:profile/version 1}
+      (contains? (:presets spec) preset) (assoc :preset preset)
+      (not (str/blank? (str goal))) (assoc :goal (str/trim (str goal)))
+      (seq scope) (assoc :scope scope)
+      (seq (draft-lines done)) (assoc :done (draft-lines done))
+      (seq auto) (assoc :autonomy auto))))
+
+(defn- profile-question
+  "What the person is asked: the block the profile would put in AGENTS.md,
+  and the epic and issues it would file."
+  [block epic issues]
+  (str "write this project's profile (.brainyard/profile.edn) and show it in AGENTS.md:\n\n" block
+       (when-not (str/blank? (str epic))
+         (str "\n\nand file the epic \"" epic "\""
+              (when (seq issues)
+                (str " with its first issues, in order:\n" (str/join "\n" (map #(str "- " %) issues))))))))
+
+(defn write-profile
+  "Show the drafted profile to the person and write it on their yes
+  (`init$profile`): `.brainyard/profile.edn` (added to git with `-f`, since
+  .gitignore ignores `.brainyard/`), AGENTS.md's profile block, and — with
+  beads — the epic toward the goal and its first issues, each after the one
+  before, the epic named as the profile's `:goal-epic`. Asked every time,
+  in every mode, as installing is; headless nothing is written and the draft
+  is shown. The only writer of the profile there is: the profile's tripwire
+  keeps every tool from it, and this one writes only what the person said
+  yes to. `{:text :written?}`."
+  [config ctx & [{:keys [dir epic issues path] :as args}]]
+  (let [dir (or (not-empty (str dir)) (:project-dir config) (:working-dir config) ".")
+        data (draft-profile args)
+        issues (vec (take 8 (draft-lines issues)))
+        epic (str/trim (str epic))
+        resolved (profile/resolve-profile data)
+        problems (:problems resolved)
+        block (profile/render resolved)
+        bd (on-path "bd" (or path (System/getenv "PATH")))
+        beads? (and bd (.isDirectory (io/file dir ".beads")))
+        filing? (and beads? (not (str/blank? epic)))]
+    (if-let [no (ask-person ctx {:type :tool-use :action :call :tool "init$profile" :pattern "init$profile"
+                                 :display (profile-question block (when filing? epic) issues)
+                                 :args (select-keys args [:goal :preset :epic]) :effects #{:fs/write :process}})]
+      {:written? false
+       :text (str "The profile was not written (" no "). The draft:\n\n" block
+                  "\n\nTo change it, run /init again saying what should differ.")}
+      (let [create (fn [& xs]
+                     (let [r (apply bd! bd dir "create" "--silent" xs)]
+                       (when (:ok? r) (last (remove str/blank? (map str/trim (str/split-lines (:out r))))))))
+            epic-id (when filing?
+                      (create "--title" epic "--type" "epic" "--priority" "1"
+                              "--description" (str "The goal of this project's profile (.brainyard/profile.edn): "
+                                                   (or (:goal data) epic))))
+            ids (when epic-id
+                  (reduce (fn [acc t]
+                            (if-let [id (create "--title" t "--type" "task" "--priority" "1" "--parent" epic-id
+                                                "--description" (str "Toward the goal of " epic-id "."))]
+                              (do (when-let [prev (peek acc)] (bd! bd dir "dep" "add" id prev))
+                                  (conj acc id))
+                              acc))
+                          [] issues))
+            data (cond-> data epic-id (assoc :goal-epic epic-id))
+            f (profile/profile-file dir)
+            agents (io/file dir "AGENTS.md")]
+        (io/make-parents f)
+        (spit f (with-out-str (pp/pprint data)))
+        (when (.exists (io/file dir ".git"))
+          (fx/sh {:dir (str dir) :out :string :err :string} "git" "add" "-f" "--" ".brainyard/profile.edn"))
+        (when (.isFile agents)
+          (spit agents (set-block (slurp agents) profile/block-name (profile/render (profile/read-profile dir))
+                                  (begin-marker "BRAINYARD"))))
+        {:written? true
+         :text (str "The profile, as you confirmed it: .brainyard/profile.edn (" (name (:preset resolved)) ")"
+                    (when (.isFile agents) ", shown in AGENTS.md")
+                    "; added to git, to commit with /init's other files."
+                    (when epic-id
+                      (str "\nIts goal's epic, filed in beads: " epic-id " " epic
+                           (str/join "" (map (fn [id t] (str "\n  " id " " t)) ids issues))))
+                    (when (and filing? (not epic-id)) "\nbd could not file the goal's epic.")
+                    (when (seq problems) (str "\nHeld back: " (str/join "; " problems))))}))))
+
 ;; --- what to do next (byj-gly.337.1) --------------------------------------------------------
 
 (def next-steps
@@ -667,7 +777,8 @@
       (seq (:uncommitted p)) (conj :uncommitted)
       (:beads? p) (conj :beads)
       (:onboarding? p) (conj :onboarding)
-      (= :unstated (:git-profile p)) (conj :git-unstated))))
+      (= :unstated (:git-profile p)) (conj :git-unstated)
+      true (conj (if (get-in p [:profile :preset]) :profile :no-profile)))))
 
 (defn- uncommitted-files [p]
   ;; `git status --porcelain` lines: the path after the status
@@ -850,6 +961,21 @@
     :output-schema [:map [:text :string] [:filed {:optional true} :any] [:skipped {:optional true} :string]]
     :effects #{:fs/write :process}
     :fn (fn [args _] (onboard config args))}
+   {:name "init$profile" :kind :command
+    :description "Show the person this project's drafted profile — what it is for, its scope, when it is done, how far an agent goes on its own — and, on their yes, write .brainyard/profile.edn, show it in AGENTS.md, and file the goal's epic with its first issues. Asks every time; headless, writes nothing."
+    :input-schema [:map
+                   [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
+                   [:goal {:optional true} [:string {:desc "what the project is for"}]]
+                   [:in {:optional true} [:string {:desc "in scope, one a line"}]]
+                   [:out {:optional true} [:string {:desc "out of scope, one a line"}]]
+                   [:done {:optional true} [:string {:desc "done criteria, one a line"}]]
+                   [:preset {:optional true} [:string {:desc "conservative, collaborator or autopilot"}]]
+                   [:autonomy {:optional true} [:string {:desc "axis levels apart from the preset, \"axis level\" one a line"}]]
+                   [:epic {:optional true} [:string {:desc "the goal's epic title"}]]
+                   [:issues {:optional true} [:string {:desc "the first issues, in order, one a line"}]]]
+    :output-schema [:map [:text :string] [:written? :any]]
+    :effects #{:fs/write :process}
+    :fn (fn [args ctx] (write-profile config ctx args))}
    {:name "init$install" :kind :command
     :description "Install tools brainyard relies on, by name (codex, tmux, gh, …): each only after the person says yes, with a package manager that asks nothing (brew, npm); any other install is given for the person to run. Headless, only lists the commands."
     :input-schema [:map [:tools [:any {:desc "the tools to install, by name: a list, or names separated by commas or spaces"}]]]

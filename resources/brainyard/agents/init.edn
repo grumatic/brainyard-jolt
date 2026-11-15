@@ -10,7 +10,7 @@
 ;; brainyard's /init authors .brainyard/BRAINYARD.md instead (init-agent):
 ;; divergence `init-sets-up-the-project`.
 {:description
- "Prepares this project for brainyard: checks the tools brainyard relies on (git, bd, tmux, claude, gh, codex) and says how to install the missing ones; writes AGENTS.md and a CLAUDE.md that imports it, keeping any text already there; sets up beads with bd; drafts the project's section of AGENTS.md from the repository. Say \"check\" to only report. Installs a tool only when asked to, and only after the person says yes."
+ "Prepares this project for brainyard: checks the tools brainyard relies on (git, bd, tmux, claude, gh, codex) and says how to install the missing ones; writes AGENTS.md and a CLAUDE.md that imports it, keeping any text already there; sets up beads with bd; drafts the project's section of AGENTS.md from the repository; when the person says what the project is for, drafts its profile (goal, scope, done criteria, how far agents go on their own) and writes it only on their yes. Say \"check\" to only report. Installs a tool only when asked to, and only after the person says yes."
 
  :instruction-resource "brainyard/prompts/agents/init.md"
 

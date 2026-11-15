@@ -5,6 +5,8 @@
 ;;   what to do, from the person's words → a predictor (init/plan)
 ;;   the project's own AGENTS.md section → init$survey, then init/agents-md
 ;;   writing, beads, installing          → init$scaffold, init$beads, init$install
+;;   the project's profile              → init/profile, then init$profile, which
+;;                                         asks the person and writes it on a yes
 ;;   starter issues, what to do next     → init$onboard, init$next
 ;;   the order                           → this file
 ;;
@@ -19,12 +21,14 @@
  [:action {:id :init/start :fn :react/init}]
  [:action {:id :init/seed :fn :mem/set
            :set {:scaffold false :beads false :draft false :install "" :prefix ""
-                 :onboard false
+                 :onboard false :profile false :profiled ""
+                 :goal "" :in "" :out "" :done "" :preset "" :autonomy "" :epic "" :issues ""
                  :survey "" :notes "" :examples "" :wrote "" :beads-done "" :onboarded "" :installed "" :after "" :next ""}}]
  [:action {:id :init/check :fn :tool/run :tool "init$check" :out {:report :text}}]
  [:action {:id :init/plan :fn :predictor/run :predictor "init/plan"
            :in {:request :question :report :report}
-           :out {:scaffold :scaffold :beads :beads :draft :draft :onboard :onboard :install :install :prefix :prefix}}]
+           :out {:scaffold :scaffold :beads :beads :draft :draft :onboard :onboard :install :install :prefix :prefix
+                 :profile :profile}}]
 
  [:fallback {:id :init/draft?}
   [:condition {:id :init/no-draft? :fn :mem/match? :key :draft :pattern "^false$"}]
@@ -44,6 +48,20 @@
   [:action {:id :init/beads :fn :tool/run :tool "init$beads" :on-error :success
             :in {:prefix :prefix} :out {:beads-done :text}}]]
 
+ ;; the project's profile (RFC-073): drafted from the person's words, shown
+ ;; to them, written only on their yes — after beads, so its epic and first
+ ;; issues can be filed, and before the starter issues, which then leave out
+ ;; asking what the project is for
+ [:fallback {:id :init/profile?}
+  [:condition {:id :init/no-profile? :fn :mem/match? :key :profile :pattern "^false$"}]
+  [:sequence {:id :init/profile}
+   [:action {:id :init/profile-draft :fn :predictor/run :predictor "init/profile"
+             :in {:request :question :survey :survey}
+             :out {:goal :goal :in :in :out :out :done :done :preset :preset :autonomy :autonomy :epic :epic :issues :issues}}]
+   [:action {:id :init/profile-write :fn :tool/run :tool "init$profile" :on-error :success
+             :in {:goal :goal :in :in :out :out :done :done :preset :preset :autonomy :autonomy :epic :epic :issues :issues}
+             :out {:profiled :text}}]]]
+
  ;; starter issues, once beads is there, so `bd ready` has a first step
  [:fallback {:id :init/onboard?}
   [:condition {:id :init/no-onboard? :fn :mem/match? :key :onboard :pattern "^false$"}]
@@ -61,6 +79,6 @@
  [:action {:id :init/next :fn :tool/run :tool "init$next" :on-error :success
            :in {:examples :examples} :out {:next :text :next-user-prompt :prompt}}]
  [:action {:id :init/report :fn :mem/join
-           :in {:a :wrote :b :beads-done :c :onboarded :d :installed :e :after :f :next} :out {:answer :joined}}]
+           :in {:a :wrote :b :beads-done :c :profiled :d :onboarded :e :installed :f :after :g :next} :out {:answer :joined}}]
  [:action {:id :init/stamp :fn :react/stamp-answer}]
  [:action {:id :init/store :fn :react/store-trajectory}]]

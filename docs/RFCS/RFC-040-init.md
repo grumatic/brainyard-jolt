@@ -229,7 +229,8 @@ import, keeps bd's block. With no bd, nothing runs and the result says so.
 1. `init$check`.
 2. Predictor `init/plan` chooses from the report and the person's words
    (`/init`, `/init check`, `/init without beads`, …). The choices are:
-   check only, set up beads, write the files, draft AGENTS.md.
+   check only, set up beads, write the files, draft AGENTS.md, file starter
+   issues, draft the profile, install.
 3. `init$scaffold`.
 4. `init$beads`, after the scaffold (above).
 5. Predictor `init/agents-md`, when the person asked for it or AGENTS.md is
@@ -240,8 +241,14 @@ import, keeps bd's block. With no bd, nothing runs and the result says so.
    the survey shows. The draft goes in its own block (`BRAINYARD:project`),
    so a later run can update it and the person's own text is never touched.
    It runs before the scaffold, which writes it.
-6. `init$install`, when the person named tools to install.
-7. The report: what was written, what bd did and what was installed, then
+6. Predictor `init/profile`, then `init$profile`, when the plan chose
+   `profile`: the person's words drafted into the project's profile, shown
+   to them, and written with its epic only on their yes (RFC-073
+   "Confirmed once at /init", `byj-71w.4`). After beads, so the epic can be
+   filed; before the starter issues, which then leave out asking what the
+   project is for.
+7. `init$install`, when the person named tools to install.
+8. The report: what was written, what bd did, the profile, and what was installed, then
    `init$check` again. A request that only checks gets the check alone.
 
 Each `init$*` step after the plan is `:on-error :success`, so one that fails
@@ -274,7 +281,8 @@ suggested next prompt.
   hold. The facts (`next-facts`) come from `project-status` after /init's
   writes: `:git`/`:no-git`, `:code`/`:no-code` (build files, as the plan's
   draft decision reads them), `:draft-pending`, `:uncommitted`, `:beads`,
-  `:git-unstated` ("The Beads block's git default").
+  `:git-unstated` ("The Beads block's git default"), `:profile`/`:no-profile`
+  (whether the project has a profile, RFC-073).
 - **Shipped steps:** commit /init's files; /init again when there is code
   under a placeholder section; what to build, for an empty project; questions
   and tasks, for one with code; beads' `bd ready` / `work on <id>`; whether
