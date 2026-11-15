@@ -19,6 +19,7 @@
             [clojure.string :as str]
             [brainyard.effect :as fx]
             [brainyard.json :as json]
+            [brainyard.profile :as profile]
             [brainyard.skills :as skills]))
 
 ;; --- the machine ---------------------------------------------------------------------------
@@ -163,7 +164,19 @@
 
 (def ^:private init-paths
   ;; what /init writes in a project, for saying which of it is uncommitted
-  ["AGENTS.md" "CLAUDE.md" ".gitignore" ".claude/skills"])
+  ["AGENTS.md" "CLAUDE.md" ".gitignore" ".claude/skills" ".brainyard/profile.edn"])
+
+(defn profile-status
+  "Where project `dir`'s profile stands (RFC-073): nil without one or a
+  block of one, else `{:preset :problems :block}`, `:block` being
+  `profile/block-state` of AGENTS.md."
+  [dir]
+  (let [p (profile/read-profile dir)
+        state (profile/block-state p (slurp-if (io/file dir "AGENTS.md")))]
+    (when state
+      (cond-> {:block state}
+        p (assoc :preset (:preset p))
+        (seq (:problems p)) (assoc :problems (:problems p))))))
 
 (defn project-status
   "What project `dir` has for brainyard: `{:dir :git? :agents-md? :claude-md?
@@ -172,7 +185,9 @@
   there; `:skills` the project's own (its `.brainyard`, `.claude` and
   `.agents` skills roots); `:build-files` those of `build-files` it has;
   `:project-section` where AGENTS.md's drafted section stands; `:git-profile`
-  whether AGENTS.md says how its agents treat git (`git-profile`); `:uncommitted`
+  whether AGENTS.md says how its agents treat git (`git-profile`); `:profile`
+  the project's profile and whether AGENTS.md shows it (`profile-status`,
+  RFC-073); `:uncommitted`
   what of /init's files git has not committed (byj-gly.315.8, .10)."
   [dir & [{:keys [bd codex?]}]]
   (let [d (io/file dir)
@@ -199,6 +214,7 @@
      :build-files (vec (filter #(.isFile (io/file d %)) build-files))
      :project-section (project-section (slurp-if (io/file d "AGENTS.md")))
      :git-profile (git-profile (slurp-if (io/file d "AGENTS.md")))
+     :profile (profile-status d)
      :uncommitted (let [r (fx/sh {:dir (str d) :out :string :err :string}
                                  "sh" "-c" (str "git status --porcelain -- " (str/join " " init-paths) " 2>/dev/null"))]
                     (vec (remove str/blank? (map #(str/trim (str %)) (str/split-lines (str (:out r)))))))}))
@@ -255,6 +271,16 @@
                                                "not drafted yet — /init drafts it from the code"
                                                "not drafted yet — /init drafts it once the project has code")
                                 "none"))
+                         (when-let [{:keys [preset problems block]} (:profile p)]
+                           (str (mark (and (= :current block) (empty? problems))) " profile"
+                                (when preset (str ": " (name preset) " (.brainyard/profile.edn)"))
+                                (case block
+                                  :current "; AGENTS.md shows it"
+                                  :stale " — AGENTS.md's profile block differs from it; /init writes it again"
+                                  :missing " — AGENTS.md does not show it; /init writes its block"
+                                  :orphan " — AGENTS.md shows a profile block, and there is no .brainyard/profile.edn"
+                                  "")
+                                (when (seq problems) (str " — " (str/join "; " problems)))))
                          (when (seq (:uncommitted p))
                            (str "left uncommitted: " (str/join ", " (map #(str/replace % #"^\S+\s+" "") (:uncommitted p)))))
                          (str "skills: " (if (seq (:skills p)) (str/join ", " (:skills p)) "none in the project"))]))))))
@@ -330,16 +356,22 @@
 
 (defn- planned
   "What one manifest entry would make of `current` (nil: no such file)."
-  [{:keys [kind text line lines header]} current notes]
+  [{:keys [kind text line lines header]} current notes & [profile-block]]
   (case kind
     :block (let [with-notes #(if (str/blank? (str notes)) %
-                                 (set-block % project-block (notes-block notes) (begin-marker "BRAINYARD")))]
-             (with-notes (if (nil? current)
+                                 (set-block % project-block (notes-block notes) (begin-marker "BRAINYARD")))
+                 ;; the profile's block, rendered from the data whenever
+                 ;; there is a profile: never read back (RFC-073)
+                 with-profile #(if profile-block
+                                 (set-block % profile/block-name profile-block (begin-marker "BRAINYARD"))
+                                 %)]
+             (with-profile
+              (with-notes (if (nil? current)
                            text
                            ;; the project's block only ever from a draft: the
                            ;; template's placeholder never goes over one
                            (reduce (fn [t [n b]] (set-block t n b)) current
-                                   (remove #(= project-block (first %)) (marked-blocks text))))))
+                                   (remove #(= project-block (first %)) (marked-blocks text)))))))
     :import (cond (nil? current) text
                   (has-line? current line) current
                   :else (str (str/trimr current) "\n\n" line "\n"))
@@ -376,15 +408,18 @@
   "What /init would write in project `dir`: one `{:path :action :before :after}`
   per manifest entry, `:action` `:create`, `:update` or `:unchanged`. Writes
   nothing. `notes`, agent$init's draft of the project's section of AGENTS.md,
-  goes in its own block (`project-block`)."
+  goes in its own block (`project-block`); the project's profile, when it
+  has one, in another, rendered from `.brainyard/profile.edn` (RFC-073)."
   [dir & [{:keys [notes]}]]
-  (into (vec (for [e @templates
-             :let [f (io/file dir (:path e))
-                   current (slurp-if f)
-                   after (planned e current (when (= "AGENTS.md" (:path e)) notes))]]
-         {:path (:path e) :kind (:kind e) :before current :after after
-          :action (cond (nil? current) :create (= current after) :unchanged :else :update)}))
-        (skill-links dir)))
+  (let [pb (some-> (profile/read-profile dir) profile/render)]
+    (into (vec (for [e @templates
+                     :let [f (io/file dir (:path e))
+                           current (slurp-if f)
+                           agents? (= "AGENTS.md" (:path e))
+                           after (planned e current (when agents? notes) (when agents? pb))]]
+                 {:path (:path e) :kind (:kind e) :before current :after after
+                  :action (cond (nil? current) :create (= current after) :unchanged :else :update)}))
+          (skill-links dir))))
 
 (defn apply-writes!
   "Make the writes `plan` lists in `dir`: each file changed is first copied to

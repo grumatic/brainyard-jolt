@@ -81,3 +81,38 @@
         (is (= :conservative (:preset p)))
         (is (str/starts-with? (first (:problems p)) "it is not EDN"))
         (is (= 1 (count (:problems p))) "and not that an empty profile lacks a version")))))
+
+;; byj-71w.3: AGENTS.md shows the profile, rendered from the data
+(deftest agents-md-shows-the-profile-rendered-from-the-data
+  (let [p (profile/resolve-profile {:profile/version 1 :preset :collaborator :goal "A workspace."
+                                    :goal-epic "mp-1" :scope {:in ["server"] :out ["auth"]}
+                                    :done ["npm test passes"] :stop {:failures 3 :usd 5.0}})
+        b (profile/render p)]
+    (is (str/starts-with? b "<!-- BEGIN BRAINYARD:profile -->\n"))
+    (is (str/ends-with? b "\n<!-- END BRAINYARD:profile -->"))
+    (is (= b (profile/render p)) "the same profile, the same block")
+    (doseq [s ["Preset: collaborator." "Goal: A workspace." "under the epic mp-1" "In scope: server."
+               "Out of scope: auth." "Done when: npm test passes." "after 3 failed attempts in a row, $5 spent"
+               "- committing a bead's work" "opts in to Team-maintainer" "It never pushes on its own"]]
+      (is (str/includes? b s) s))
+    (testing "every axis is listed once, under its level"
+      (doseq [{:keys [covers]} (:axes (profile/presets))]
+        (is (= 1 (count (re-seq (re-pattern (java.util.regex.Pattern/quote covers)) b))) covers)))
+    (testing "what the profile does not say, the block does not either"
+      (let [bare (profile/render (profile/resolve-profile {:profile/version 1}))]
+        (is (not (str/includes? bare "Goal:")))
+        (is (not (str/includes? bare "It stops")))
+        (is (str/includes? bare "keeps the Conservative profile"))
+        (is (not (str/includes? bare "**Conservative (default)**")) "not bd's own words, which say its default")))))
+
+(deftest the-block-is-checked-against-the-data-never-read-for-it
+  (let [p (profile/resolve-profile {:profile/version 1 :preset :autopilot})
+        b (profile/render p)
+        md #(str "# Agent Instructions\n\n" % "\n\nMine.\n")]
+    (is (= b (profile/shown-block (md b))))
+    (is (= :current (profile/block-state p (md b))))
+    (is (= :stale (profile/block-state p (md (str/replace b "It asks" "It may skip asking")))))
+    (is (= :stale (profile/block-state (profile/resolve-profile {:profile/version 1}) (md b))) "the data changed")
+    (is (= :missing (profile/block-state p "# Agent Instructions\n")))
+    (is (= :orphan (profile/block-state nil (md b))))
+    (is (nil? (profile/block-state nil "# Agent Instructions\n")))))

@@ -561,6 +561,42 @@
         (is (= :stated (:git-profile p)))
         (is (not (str/includes? (:text (init/next-text p)) "Say whether agents here commit")))))))
 
+(deftest init-writes-the-profiles-block-and-the-check-holds-it-to-the-data
+  ;; byj-71w.3: the block is a rendering of .brainyard/profile.edn, never
+  ;; its source; a block that differs is said, and /init writes it again
+  (let [project (fresh-dir "profile-block")
+        f (io/file project ".brainyard" "profile.edn")
+        agents #(slurp (io/file project "AGENTS.md"))
+        status #(:profile (init/project-status project))]
+    (init/scaffold {} {:dir project})
+    (is (nil? (status)) "no profile, no block: nothing to say")
+    (is (not (str/includes? (agents) "BRAINYARD:profile")))
+    (io/make-parents f)
+    (spit f (pr-str {:profile/version 1 :preset :collaborator :goal "A workspace."}))
+    (is (= {:block :missing :preset :collaborator} (status)))
+    (is (str/includes? (init/report-text {:tools [] :project (init/project-status project)})
+                       "✗ profile: collaborator (.brainyard/profile.edn) — AGENTS.md does not show it; /init writes its block"))
+    (init/scaffold {} {:dir project})
+    (is (= ["BRAINYARD:project" "BRAINYARD:profile" "BRAINYARD"] (map first (init/marked-blocks (agents)))) "after the project's own section, before brainyard's")
+    (is (= :current (:block (status))))
+    (is (str/includes? (init/report-text {:tools [] :project (init/project-status project)})
+                       "✓ profile: collaborator (.brainyard/profile.edn); AGENTS.md shows it"))
+    (is (= :stated (init/git-profile (str (agents) "\n" bd-block))) "it names bd's profile, so bd's default no longer stands")
+    (testing "an edit to the block is said, and rewritten from the data"
+      (spit (io/file project "AGENTS.md") (str/replace (agents) "It never pushes on its own" "It pushes"))
+      (is (= :stale (:block (status))))
+      (init/scaffold {} {:dir project})
+      (is (= :current (:block (status))))
+      (is (not (str/includes? (agents) "It pushes"))))
+    (testing "a change to the data is a change to the block"
+      (spit f (pr-str {:profile/version 1 :preset :conservative}))
+      (is (= :stale (:block (status))))
+      (init/scaffold {} {:dir project})
+      (is (str/includes? (agents) "keeps the Conservative profile")))
+    (testing "a profile with problems is said with them"
+      (spit f (pr-str {:profile/version 1 :autonomy {:git/push :act}}))
+      (is (some #(str/includes? % "above its ceiling") (:problems (status)))))))
+
 (deftest byj-init-says-what-to-do-next
   ;; byj-gly.337.4: the model-free entry point ends as /init does
   (let [project (fresh-dir "byj-init-next")

@@ -1,0 +1,32 @@
+;; The words of AGENTS.md's profile block (RFC-073 "Where agents read it",
+;; byj-71w.3). profile/render puts them together from a project's profile:
+;; every agent working here reads this block — byj, Claude Code and Codex —
+;; and the simulations measured that agents keep to what AGENTS.md says over
+;; what a person says in a session (RFC-040). What each axis covers is
+;; presets.edn's :covers. {name} is filled from the profile.
+{:title "## This project's profile"
+
+ :source "/init writes this block from `.brainyard/profile.edn`, which the person confirmed. No agent changes either: to change the profile, say what should change, and the person changes it."
+
+ :preset "Preset: {preset}."
+ :goal "Goal: {goal}"
+ :goal-epic "The work toward it is under the epic {goal-epic}."
+ :in "In scope: {items}."
+ :out "Out of scope: {items}."
+ :done "Done when: {items}."
+
+ :levels {:act "An agent here does these on its own, and says so when it hands off:"
+          :ask "It asks the person first, and waits, before:"
+          :never "It never does these:"}
+
+ :stop "It stops and asks the person after {limits}, whichever comes first."
+ :stop-limits {:failures "{n} failed attempts in a row"
+               :usd "${n} spent"
+               :issues-per-run "{n} beads filed in one run"}
+
+ ;; bd's block in AGENTS.md defaults to its Conservative profile; naming a
+ ;; profile outside it is what agents keep to (byj-aww)
+ :bd {:team-maintainer "bd's Agent Context Profiles: this project opts in to Team-maintainer, as far as the lists above go and no further. {push}"
+      :conservative "bd's Agent Context Profiles: this project keeps the Conservative profile — agents commit and close beads only when the person asks."}
+ :push {:ask "It never pushes on its own; it asks first."
+        :never "It never pushes."}}

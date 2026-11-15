@@ -3,7 +3,8 @@
 **Status:** proposed 2026-11-15; its three open choices decided the same
 day as recommended ("Decided", `byj-71w.1`). Built: the profile as data,
 its presets, and the tripwire that keeps every tool from writing it
-(`byj-71w.2`). Epic `byj-71w`.
+(`byj-71w.2`); AGENTS.md's block rendered from it, written by `/init` and
+held to it by `/init check` and `/doctor` (`byj-71w.3`). Epic `byj-71w`.
 
 ## Purpose
 
@@ -145,7 +146,11 @@ Codex read it too. It names bd's profile, so `init/git-profile` reads
 `:stated` and bd's conservative default no longer wins. The block is a
 rendering and never the source: a block that differs from the data's
 rendering — an agent may edit AGENTS.md — is reported by `/init check` and
-`byj doctor`, and `/init` rewrites it.
+`/doctor` (which prints the check), and `/init` rewrites it. The block goes
+after the project's own section and before brainyard's block. Its words are
+data, `resources/brainyard/profile/block.edn`; what each axis covers is
+`presets.edn`'s. A block with no profile file is `:orphan`: the check says
+so, and `/init` leaves it for the person.
 
 ### Confirmed once at /init
 
@@ -207,7 +212,11 @@ questions the profile names and nowhere else.
 | `profile/resolve-profile` | a profile's preset merged under it, its ceilings applied, and `:problems`; a profile that does not match the schema keeps its goal, scope and done criteria to show, its autonomy the default preset's whole, and no stop limits (built) |
 | `profile/level` | the level a profile sets an axis to (built) |
 | `profile/profile-schema` | the malli form a profile is checked against, closed (built) |
-| `profile/render` | the AGENTS.md block for a profile |
+| `profile/render` | the AGENTS.md block for a resolved profile, marker to marker, in `block.edn`'s words; the same profile renders the same block (built) |
+| `profile/block-state` | `:current`, `:stale`, `:missing` or `:orphan`: AGENTS.md's block against the data's rendering, never read for what it says (built) |
+| `profile/bd-profile` | the bd profile a profile amounts to: `:team-maintainer` when `:git/commit` is `:act`, else `:conservative` (built) |
+| `profile/shown-block`, `profile/block-words`, `profile/block-name` | the block AGENTS.md holds; `block.edn`; `BRAINYARD:profile` (built) |
+| `init/profile-status` | a project's profile and its block's state, in `project-status` as `:profile`, a line of the check (built) |
 | `profile/gate-rules` | the permission rules a profile's axes make |
 | predictor `init/profile` | the draft `/init` proposes |
 | `/drive`, workflow `drive` | the drive loop |
@@ -220,7 +229,8 @@ questions the profile names and nowhere else.
 | `:decision/scope` and `:git/push` are never `:act` | `profile-test/no-profile-raises-an-axis-above-its-ceiling` |
 | A profile that does not match grants only the default preset | `profile-test/a-profile-that-does-not-match-grants-only-the-default` |
 | Every preset sets every axis, and the presets are the three decided | `profile-test/the-presets-are-data-and-name-every-axis` |
-| The AGENTS.md block is the data's rendering, or `/init check` says it is not | nothing yet (`byj-71w.3`) |
+| The AGENTS.md block is the data's rendering, or `/init check` says it is not, and `/init` writes it again | `profile-test/the-block-is-checked-against-the-data-never-read-for-it`, `init-test/init-writes-the-profiles-block-and-the-check-holds-it-to-the-data` |
+| The block names every axis once under its level, and names bd's profile, so bd's default no longer stands | `profile-test/agents-md-shows-the-profile-rendered-from-the-data`, `init-test/init-writes-the-profiles-block-and-the-check-holds-it-to-the-data` |
 | An axis at `:ask` asks in every permission mode | nothing yet (`byj-71w.5`) |
 | `:issue/work` and `:decision/scope` are held by words and the drive loop, not by a gate | nothing enforces it, by design |
 
@@ -248,6 +258,5 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- Not built: the AGENTS.md block (`byj-71w.3`), `/init`'s draft and
-  confirmation (`byj-71w.4`), the gate's rules (`byj-71w.5`), `/drive`
+- Not built: `/init`'s draft and confirmation (`byj-71w.4`), the gate's rules (`byj-71w.5`), `/drive`
   (`byj-71w.6`); nor measured (`byj-71w.7`).

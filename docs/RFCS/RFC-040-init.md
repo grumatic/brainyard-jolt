@@ -182,6 +182,12 @@ nothing.
 - **The project's own section**, agent$init's draft, goes in a block of its
   own, `BRAINYARD:project`, placed before brainyard's block. A later run
   replaces it and never adds a second one.
+- **The project's profile** (RFC-073, `byj-71w.3`), when
+  `.brainyard/profile.edn` exists, goes in a block of its own,
+  `BRAINYARD:profile`, after the project's section and before brainyard's,
+  rendered from the file on every run (`profile/render`). The check says
+  whether AGENTS.md shows it (`profile-status`): a block that differs is
+  written again, never read back.
 
 The manifest names each file's kind of write: `:block`, `:import` or
 `:lines`. Only blocks whose name starts with `BRAINYARD` are brainyard's;
@@ -583,7 +589,7 @@ again on that project, `byj init` added the link
   `onboarding`, `onboard`, `onboarding-open?`, `git-profile`.
 - Event `:session/suggestion` `{:next-user-prompt}`: a suggestion from a
   call the person made between turns.
-- Also in `brainyard.init`: `check`, `tool-status`, `project-status`,
+- Also in `brainyard.init`: `check`, `tool-status`, `project-status`, `profile-status`,
   `report-text`, `on-path`, `version-of`, `platform`, `requirements`,
   `imports-agents-md?`, `ignores-brainyard?`, `templates`, `marked-blocks`,
   `set-block`, `project-block`, `skill-links`, `plan-writes`, `apply-writes!`, `scaffold`,

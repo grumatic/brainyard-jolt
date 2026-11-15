@@ -110,3 +110,90 @@
   "The level `profile` sets `axis` to, or nil when there is no profile."
   [profile axis]
   (get-in profile [:autonomy axis]))
+
+;; --- AGENTS.md's block (RFC-073 "Where agents read it", byj-71w.3) ------------------------
+
+(def block-name
+  "The marked block of AGENTS.md the profile is shown in."
+  "BRAINYARD:profile")
+
+(def block-resource "brainyard/profile/block.edn")
+
+(defn block-words
+  "The block's words, from `block.edn`."
+  []
+  (edn/read-string (slurp (io/resource block-resource))))
+
+(defn- fill [s vars]
+  (reduce-kv (fn [s k v] (str/replace s (str "{" (name k) "}") (str v))) (str s) vars))
+
+(defn- money [n]
+  (if (== n (Math/floor n)) (str (long n)) (str n)))
+
+(defn bd-profile
+  "The bd Agent Context Profile a profile amounts to: `:team-maintainer`
+  when an agent commits its bead's work on its own, else `:conservative`."
+  [profile]
+  (if (= :act (level profile :git/commit)) :team-maintainer :conservative))
+
+(defn render
+  "The AGENTS.md block that shows `profile`, a resolved one (`read-profile`),
+  from its marker line to its end marker. The same profile renders the same
+  block, so a block that differs was changed by hand (`block-state`)."
+  ([profile] (render profile (presets) (block-words)))
+  ([profile spec words]
+   (let [{:keys [goal goal-epic scope done stop preset]} profile
+         axes (:axes spec)
+         by-level (group-by #(level profile (:id %)) axes)
+         items #(str/join "; " %)
+         para (fn [& lines] (str/join "\n" (remove nil? lines)))
+         sections
+         [(:title words)
+          (:source words)
+          (fill (:preset words) {:preset (name preset)})
+          (when (or goal goal-epic)
+            (para (when goal (fill (:goal words) {:goal (str/trim goal)}))
+                  (when goal-epic (fill (:goal-epic words) {:goal-epic goal-epic}))))
+          (when (or (seq (:in scope)) (seq (:out scope)) (seq done))
+            (para (when (seq (:in scope)) (fill (:in words) {:items (items (:in scope))}))
+                  (when (seq (:out scope)) (fill (:out words) {:items (items (:out scope))}))
+                  (when (seq done) (fill (:done words) {:items (items done)}))))
+          (str/join "\n\n"
+                    (for [lvl [:act :ask :never]
+                          :let [as (get by-level lvl)]
+                          :when (seq as)]
+                      (str (get-in words [:levels lvl]) "\n"
+                           (str/join "\n" (map #(str "- " (:covers %)) as)))))
+          (when (seq stop)
+            (fill (:stop words)
+                  {:limits (str/join ", " (for [k [:failures :usd :issues-per-run]
+                                                :let [n (get stop k)]
+                                                :when n]
+                                            (fill (get-in words [:stop-limits k])
+                                                  {:n (if (= :usd k) (money n) n)})))}))
+          (fill (get-in words [:bd (bd-profile profile)])
+                {:push (get-in words [:push (level profile :git/push)] "")})]]
+     (str "<!-- BEGIN " block-name " -->\n"
+          (str/join "\n\n" (map str/trimr (remove str/blank? sections)))
+          "\n<!-- END " block-name " -->"))))
+
+(defn shown-block
+  "The profile block AGENTS.md text `agents-md` holds, marker to marker, or nil."
+  [agents-md]
+  (let [t (str agents-md)
+        b (str/index-of t (str "<!-- BEGIN " block-name " -->"))
+        end (str "<!-- END " block-name " -->")
+        e (when b (str/index-of t end b))]
+    (when (and b e) (subs t b (+ e (count end))))))
+
+(defn block-state
+  "Whether AGENTS.md text `agents-md` shows `profile` (resolved, or nil for
+  none): `:current` when its block is the profile's rendering, `:stale` when
+  it differs, `:missing` when there is a profile and no block, `:orphan` when
+  there is a block and no profile, nil when there is neither. The block is
+  never read for what the profile says: the data is."
+  [profile agents-md]
+  (let [shown (shown-block agents-md)]
+    (cond (and profile shown) (if (= shown (render profile)) :current :stale)
+          profile :missing
+          shown :orphan)))
