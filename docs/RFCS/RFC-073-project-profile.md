@@ -8,7 +8,8 @@ held to it by `/init check` and `/doctor` (`byj-71w.3`); the permission
 gate holding commits, pushes, beads filed and closed, and decision records
 to it (`byj-71w.5`); `/init` drafting it from the person's words and writing
 it on their yes (`byj-71w.4`); `/drive` working through the goal's beads
-under it (`byj-71w.6`). Epic `byj-71w`.
+under it (`byj-71w.6`); measured in simulation per preset (`byj-71w.7`).
+Epic `byj-71w`.
 
 ## Purpose
 
@@ -287,12 +288,17 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | `drive$next`, `drive$check`, `drive$settle`, `drive$report` (`brainyard.drive`) | its mechanism, registered by `:drive-tools?`, which `agent$drive`'s config sets (built) |
 | predictor `drive/judge`; `resources/brainyard/drive/words.edn` | the judgement of a bead's turn; every word the loop puts together (built) |
 | config `:drive-max-steps` (20), `:bd-path` | a run's step cap; where bd is looked up (built) |
+| `agents/person-words-for`, `:person-words` | the line the person typed, verbatim, in the memory of the agent its command stands for; read by `init/profile` as `typed` (built) |
+| agent spec `:attended?` | an agent that asks the person as it works: its call is waited on, never detached into a task (`tasks/detachable?`); agent$init and agent$drive (built) |
 
 ## Invariants (proposed)
 
 | Invariant | Enforced by |
 |---|---|
 | No tool writes `.brainyard/profile.edn`, in any mode, nor Claude Code or Codex through byj's hook | `permission-test/a-projects-profile-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-profile` |
+| The person's line reaches the agent its command stands for word for word, and only that agent | `agents-test/the-person-s-typed-line-reaches-the-agent-their-command-stands-for` |
+| An attended agent's call never detaches | `tasks-test/what-never-detaches`, `agents-test/the-shipped-roster` |
+| A git command that records or reads the profile as it is passes the tripwire; a write does not; the person's yes at a hold is told to the model | `permission-test/a-projects-profile-is-written-by-no-tool`, `permission-test/the-gate-follows-the-projects-profile` |
 | The profile is written only on the person's yes, with the epic and issues they were shown; a no or nobody to ask writes and files nothing | `init-test/init-writes-the-profile-only-on-the-persons-yes` |
 | `/init` drafts a profile when the person says what the project is for, and its answer and check say what was written | `init-test/the-init-loop-drafts-the-profile-when-the-person-says-what-the-project-is-for` |
 | `:decision/scope` and `:git/push` are never `:act` | `profile-test/no-profile-raises-an-axis-above-its-ceiling` |
@@ -316,6 +322,58 @@ tallies (`dev/brainyard/dev/sim_tally.clj`), and spend. A preset earns its
 place if it reaches the same checks with fewer interventions at a cost the
 table states.
 
+### Measured (`byj-71w.7`, 2026-11-15)
+
+`dev/sim/profile/profile-{collaborator,autopilot,conservative}.edn`: the
+mini-playground (RFC-041) set up by one `/init` line that says what the
+project is for, its four parts in order, what is out of scope, when it is
+done, and — the only difference between the plans — how far agents go on
+their own; the profile confirmed at the prompt; `/init`'s files committed as
+its first next step says; then `/drive` alone. The project starts with
+AGENTS.md's two rules (decisions in `docs/decisions/`, a CHANGELOG line per
+noticeable change). One run per preset a round, one at a time (two at once
+share port 3000), about $2 in all.
+
+Each of the first four rounds found something that kept a run from the
+goal, fixed before the next:
+
+| Round | What stopped the runs | Fixed by |
+|---|---|---|
+| 1 | Every profile came out conservative, and collaborator's first issues were `/init`'s own setup steps: the session's agent put the person's line in its own words when it called agent$init, and dropped their issues, done criteria and preset sentence | the line the person typed reaches the agent its command stands for verbatim (`agents/person-words-for`, `:person-words`), and `init/profile` reads it first |
+| 1 | Under `:ask`, a bead's turn wrote "should I commit?" in its answer instead of running `git commit`, which is what puts it to the person; drive/judge read that as `ask` and the run stopped | `prompts/agents/drive.md` and the brief: run the command, byj asks then; judge: a question about committing or closing is no reason to stop |
+| 2 | The first issues were titles alone, so the person's specs (`{"ok":true}`, the frames) never reached the work; the plan never committed `/init`'s files, so the staged profile slipped into a bead's commit and AGENTS.md left every tree dirty; conservative's turns still asked in their answers | issues drafted as "title — what it must do", the rest the bead's description; a commit stage in the plans; the block's `:ask` words say that running the command is how the person is asked |
+| 3 | The session's call to agent$drive detached into a background task after 180 s (RFC-019), its turn parked, and the commit it then asked about was refused with nobody asked | `:attended?` agents (agent$drive, agent$init) are waited on, never detached (`tasks/detachable?`) |
+| 4 | The profile's tripwire refused `git add .brainyard/profile.edn`, so `/init`'s staged profile could not be committed; conservative's turn took a commit the person allowed for one made without them, and stopped to ask | git commands that record or read the file as it is pass the tripwire (`permission/named-profile-files`); the person's yes at a profile hold is told to the model as a notice |
+
+Round 5, on the code above:
+
+| Preset | init | commit | `/drive`: beads committed and closed | asked during `/drive` | checks failed | spend, all stages |
+|---|---|---|---|---|---|---|
+| collaborator | pass | pass | 4 of 4, each in its own turn | 0 | none | $0.25 |
+| autopilot | pass | pass | 4 of 4, each in its own turn | 1 (a commit the classifier was unsure of) | none | $0.27 |
+| conservative | pass | pass | 4 of 4 closed, 1 of 4 committed | 9 (the work picked 4, closes 3, a commit, an install) | `term`, `rule-committed` | $0.21 |
+
+Every run asked once at `/init` (the profile) and kept AGENTS.md's rules:
+four CHANGELOG lines in collaborator's and autopilot's, three in
+conservative's, no decision record needed. `/drive` took 11–12 minutes.
+
+What it says:
+
+- **The profile is what the run keeps to.** With the preset reaching the
+  profile, collaborator and autopilot drove the goal to every check with
+  the person asked once (the profile), and once more for autopilot's
+  classifier; conservative asked at every step it governs, as it says.
+- **Collaborator and autopilot did not differ here**: no bead needed a
+  local decision, so autopilot's one extra freedom was never used.
+- **Conservative leaves the commits behind.** Its first bead's turn ran
+  `git commit` and the person was asked; the next three ended done with
+  their work uncommitted, which words.edn's `:expect` for `:git/commit :ask`
+  accepts, and were closed after the person's yes (`byj-ctw`).
+- **The classifier still meets an `:act` line.** It cannot see the profile
+  and was unsure of a commit autopilot's profile lets the agent make
+  (`byj-6xh`).
+- One run per preset is a first measure, not a rate (`byj-8ap`).
+
 ## Decided (`byj-71w.1`, 2026-11-15)
 
 The three choices the draft left to the person, decided as recommended:
@@ -331,4 +389,6 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- Not measured (`byj-71w.7`).
+- Under conservative, `/drive`'s bead turns leave their work uncommitted after the first bead (`byj-ctw`).
+- The presets measured once each on the final code; a few runs each are owed (`byj-8ap`).
+- The auto-mode classifier still meets a line a profile axis at `:act` governs (`byj-6xh`).

@@ -266,16 +266,21 @@
 (defn detachable?
   "brainyard's `sync?` rule, inverted. A call detaches only when the layer is
   on, it is not already inside a task, its caller is not a subagent — whose turn
-  would end before it could collect the result, orphaning the task — and it is
+  would end before it could collect the result, orphaning the task — it is
   not one of the `task$*` commands, since `task$wait` detaching itself is a
-  deadlock with extra steps."
+  deadlock with extra steps, and it is not `:attended?`: a tool that asks the
+  person as it runs (agent$drive, agent$init) would have its prompts refused
+  once the turn parked (RFC-073)."
   [ctx tool-name]
   (let [config (:config ctx)]
     (and (:tasks? config true)
          (pos? (:fast-eval-timeout-ms config 30000))
          (not *in-task?*)
          (nil? (:agent-instance-id config))
-         (not (str/starts-with? (str tool-name) "task$")))))
+         (not (str/starts-with? (str tool-name) "task$"))
+         ;; a tool that asks the person as it runs: once the turn parks, its
+         ;; prompts have nobody to answer them (RFC-073)
+         (not (some-> (:tools ctx) deref (get (str tool-name)) :attended?)))))
 
 (defn detachable
   "Run `thunk` as a Task, waiting for it in brainyard's two stages.

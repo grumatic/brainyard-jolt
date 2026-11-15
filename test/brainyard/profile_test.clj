@@ -111,7 +111,7 @@
         md #(str "# Agent Instructions\n\n" % "\n\nMine.\n")]
     (is (= b (profile/shown-block (md b))))
     (is (= :current (profile/block-state p (md b))))
-    (is (= :stale (profile/block-state p (md (str/replace b "It asks" "It may skip asking")))))
+    (is (= :stale (profile/block-state p (md (str/replace b "only with the person's yes" "on its own")))))
     (is (= :stale (profile/block-state (profile/resolve-profile {:profile/version 1}) (md b))) "the data changed")
     (is (= :missing (profile/block-state p "# Agent Instructions\n")))
     (is (= :orphan (profile/block-state nil (md b))))

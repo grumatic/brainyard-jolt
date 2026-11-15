@@ -12,7 +12,7 @@
 - ask: the answer puts a question to the person, or says the work needs a decision or permission the person must give — a scope change, a push, something the profile says to ask about. Put the question, in a sentence the person can answer, in question.
 - stop: the work cannot go on, with or without another turn: something outside the project is missing or broken, or the answer says it is blocked and asks nothing.
 
-Never call it done when the check shows the profile's expectation unmet. Summary: what happened, in one line, under twenty words."
+A question in the answer about committing, closing or filing a bead is not a reason to ask: those ask the person themselves when they run, so judge the work — done when it is done and checked and the check meets the profile's expectation. Never call it done when the check shows the profile's expectation unmet. Summary: what happened, in one line, under twenty words."
  :inputs
  [[:brief {:desc "What the turn was asked: the bead and how to work on it"} :string]
   [:answer {:desc "The turn's answer"} :string]

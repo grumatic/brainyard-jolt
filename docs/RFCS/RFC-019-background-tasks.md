@@ -104,6 +104,7 @@ A tool call is **not** detachable when:
 | it is already running inside a task | a task within a task has nobody to report to |
 | its caller is a subagent | a subagent's turn ends before it could harvest, orphaning the task (brainyard's rule) |
 | it is a `task$*` command | `task$wait` detaching itself is a deadlock with extra steps |
+| the tool is `:attended?` (agent$init, agent$drive) | it asks the person as it works, and once its caller's turn parks a prompt of its has nobody to answer it: a simulation's `/drive` had a commit refused that way (RFC-073) |
 | `:tasks? false` | the whole layer is off |
 
 Because a `task$*` call never detaches, `task$wait` holds the turn for as

@@ -756,7 +756,10 @@
         (is (= "brainyard/loops/drive.edn" (:loop a)))
         (is (nil? (:tools a)))
         (is (= ["agent$drive"] (:deny-tools a)))
-        (is (true? (:drive-tools? (:config a))))))
+        (is (true? (:drive-tools? (:config a))))
+        (is (true? (:attended? a)) "it asks the person as it works: waited on, never detached")
+        (is (true? (:attended? (by-name "init"))))
+        (is (true? (:attended? (agents/agent-tool a (fn [& _])))) "and its tool says so")))
 
     (testing "agent$codex is its own loop, and its commands are all it calls (RFC-049, byj-gly.430.6)"
       (let [a (by-name "codex")]
@@ -1147,3 +1150,21 @@
     (testing "hiding still wins"
       (is (not (agents/visible? (assoc config :visible-tools ["mcp$kits$*"] :hidden-tools ["mcp$kits$push"])
                                 "mcp$kits$push"))))))
+
+;; byj-71w.7: a simulation's /init lost what the person listed when the
+;; session's agent put it in its own words
+(deftest the-person-s-typed-line-reaches-the-agent-their-command-stands-for
+  (let [ctx #(hash-map :st-memory (atom {:command-input %}))]
+    (is (= "/init A workspace; commit as you go." (agents/person-words-for {:name "init"} (ctx "/init A workspace; commit as you go."))))
+    (is (= "/drive" (agents/person-words-for {:name "drive"} (ctx "/drive"))))
+    (is (nil? (agents/person-words-for {:name "explore"} (ctx "/init words"))) "another command's agent: not its words")
+    (is (nil? (agents/person-words-for {:name "init"} (ctx nil))) "no command typed")
+    (is (nil? (agents/person-words-for {:name "init"} (ctx "/initialize x"))) "the command word whole"))
+  (let [seen (atom nil)
+        r (agent/ask "q" {:lm {:provider :mock :format :mock :responses (fn [_] "{\"reasoning\":\"r\",\"tool-calls\":[],\"answer\":\"ok\"}")}
+                          :person-words "/init exactly this"
+                          :tree [:sequence {:id :t/x}
+                                 [:action {:id :t/init :fn :react/init}]
+                                 [:action {:id :t/join :fn :mem/join :in {:a :person-words} :out {:answer :joined}}]]
+                          :config {}})]
+    (is (= "/init exactly this" (:answer r)) "seeded into the child's memory")))

@@ -6,7 +6,7 @@
 {:id "init/profile"
  :strategy :cot
  :description "Draft a project's profile — goal, scope, done criteria, preset, first issues — from the person's words."
- :instructions "Draft this project's profile from what the person said and what the repository shows. The person will see the draft and confirm or decline it, so say only what they said or the repository plainly shows; never invent a goal, a scope item or a criterion.
+ :instructions "Draft this project's profile from what the person said — the line they typed, when there is one, word for word — and what the repository shows. The person will see the draft and confirm or decline it, so say only what they said or the repository plainly shows; never invent a goal, a scope item or a criterion.
 
 - goal: what the project is for, in one or two sentences, in the person's terms.
 - in: what is in scope — the parts or features to build — one a line, each a few words.
@@ -19,9 +19,10 @@
   Pick the one the person's words describe (\"commit as you go\", \"don't ask me about each step\" → collaborator; \"decide the details yourself\" → autopilot). Scope changes and pushes are always the person's, in every preset.
 - autonomy: only what the person explicitly set apart from the preset, one a line as \"axis level\" — the axes are issue/create, issue/work, git/commit, issue/close, decision/local, decision/scope, git/push and the levels never, ask, act. Empty otherwise.
 - epic: the title of the epic the work toward the goal goes under, a few words.
-- issues: the first issues to work on toward the goal, in the order to do them, one a line, each a title of a few words; the person's own list when they gave one, in their order. At most eight."
+- issues: the first issues to work on toward the goal, in the order to do them, one a line as \"title — what it must do\": a title of a few words, then, after a dash, everything the person said of that part, in their words and with every detail they gave — paths, formats, status codes, names. The person's own list when they gave one, in their order. At most eight."
  :inputs
- [[:request {:desc "What the person said to /init"} :string]
+ [[:request {:desc "What /init was asked, perhaps in its caller's words"} :string]
+  [:typed {:desc "The line the person typed for /init, word for word; empty when they did not type one. When it is not empty, it is what the person said: draft from it first, and from request only what it lacks."} :string]
   [:survey {:desc "What the repository shows of itself; may be empty"} :string]]
  :outputs
  [[:goal {:desc "What the project is for, one or two sentences"} :string]
@@ -31,4 +32,4 @@
   [:preset {:desc "conservative, collaborator or autopilot"} :string]
   [:autonomy {:desc "Axis levels the person set apart from the preset, \"axis level\" one a line, or empty"} :string]
   [:epic {:desc "The goal's epic title"} :string]
-  [:issues {:desc "The first issues, in order, one a line"} :string]]}
+  [:issues {:desc "The first issues, in order, one a line as \"title — what it must do\""} :string]]}

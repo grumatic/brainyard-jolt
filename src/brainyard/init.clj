@@ -698,7 +698,7 @@
        (when-not (str/blank? (str epic))
          (str "\n\nand file the epic \"" epic "\""
               (when (seq issues)
-                (str " with its first issues, in order:\n" (str/join "\n" (map #(str "- " %) issues))))))))
+                (str " with its first issues, in order:\n" (str/join "\n" (map #(str "- " (:title %)) issues))))))))
 
 (defn write-profile
   "Show the drafted profile to the person and write it on their yes
@@ -713,7 +713,10 @@
   [config ctx & [{:keys [dir epic issues path] :as args}]]
   (let [dir (or (not-empty (str dir)) (:project-dir config) (:working-dir config) ".")
         data (draft-profile args)
-        issues (vec (take 8 (draft-lines issues)))
+        ;; each "title — what it must do": the title and the bead's description
+        issues (vec (for [l (take 8 (draft-lines issues))
+                          :let [[t d] (map str/trim (str/split l #"\s+[—–-]{1,2}\s+" 2))]]
+                      {:title t :description d}))
         epic (str/trim (str epic))
         resolved (profile/resolve-profile data)
         problems (:problems resolved)
@@ -735,9 +738,10 @@
                               "--description" (str "The goal of this project's profile (.brainyard/profile.edn): "
                                                    (or (:goal data) epic))))
             ids (when epic-id
-                  (reduce (fn [acc t]
+                  (reduce (fn [acc {t :title d :description}]
                             (if-let [id (create "--title" t "--type" "task" "--priority" "1" "--parent" epic-id
-                                                "--description" (str "Toward the goal of " epic-id "."))]
+                                                "--description" (str (when-not (str/blank? d) (str d "\n\n"))
+                                                                     "Toward the goal of " epic-id "."))]
                               (do (when-let [prev (peek acc)] (bd! bd dir "dep" "add" id prev))
                                   (conj acc id))
                               acc))
@@ -758,7 +762,7 @@
                     "; added to git, to commit with /init's other files."
                     (when epic-id
                       (str "\nIts goal's epic, filed in beads: " epic-id " " epic
-                           (str/join "" (map (fn [id t] (str "\n  " id " " t)) ids issues))))
+                           (str/join "" (map (fn [id i] (str "\n  " id " " (:title i))) ids issues))))
                     (when (and filing? (not epic-id)) "\nbd could not file the goal's epic.")
                     (when (seq problems) (str "\nHeld back: " (str/join "; " problems))))}))))
 

@@ -103,6 +103,9 @@
    [:loop {:optional true}
     [:maybe [:string {:error/message "must be a path to a behavior-tree EDN, beside agent.edn"}]]]
    [:tier {:optional true} tier-schema]
+   ;; it asks the person along the way, so its call is waited on and never
+   ;; detached: a parked task's prompt has nobody to answer it (RFC-073)
+   [:attended? {:optional true} [:maybe :boolean]]
    [:min-tier {:optional true} tier-schema]
    [:max-tier {:optional true} tier-schema]])
 
@@ -393,6 +396,18 @@
      (when (pos? (or k 0))
        (not-empty (vec (take-last k (:previous-turns (some-> (:st-memory ctx) deref)))))))))
 
+(defn person-words-for
+  "The line the person typed, word for word, when the caller's turn is the
+  command named for `agent` (`/init` for agent$init, `/drive` for
+  agent$drive), else nil: for a loop that must not lose what the person said
+  to its caller's paraphrase. A simulation's `/init` lost the issues, done
+  criteria and preset the person listed when the session's agent put them
+  in its own words (RFC-073, byj-71w.7)."
+  [{:keys [name]} ctx]
+  (let [ci (str/trim (str (some-> (:st-memory ctx) deref :command-input)))]
+    (when (and (not (str/blank? ci)) (= (str "/" name) (first (str/split ci #"\s+"))))
+      ci)))
+
 (def provider-fields
   "What belongs to a PROVIDER rather than to a conversation. These are the
   keys that must not cross from a caller to a child on a different provider."
@@ -591,6 +606,7 @@
   (let [config (:config ctx)]
     {:lm (child-lm agent ctx tier-lm)
      :parent-trail (parent-trail-for agent ctx)
+     :person-words (person-words-for agent ctx)
      :config (merge (persona-config agent (dissoc config :resume :history-context))
                     {:agent-depth (inc (:agent-depth config 0))
                      :agent-chain (conj (vec (:agent-chain config)) name)
@@ -890,6 +906,11 @@
                             [:next-user-prompt {:optional true} :string]]))
              error-message-schema]
    :effects #{:agent/dispatch}
+   ;; an agent that asks the person as it works (agent$init, agent$drive) is
+   ;; waited on, never detached into a task (tasks/detachable?): once its
+   ;; caller's turn parks, a prompt of its has nobody to answer it, and a
+   ;; simulation's /drive had a commit refused that way (RFC-073)
+   :attended? (boolean (:attended? agent))
    :fn (fn [args ctx] (dispatch agent args ctx run-turn))})
 
 ;; --- the instance commands --------------------------------------------------------

@@ -539,6 +539,13 @@ session's trajectory, so the agent page can rebuild the tree, byj-gly.298.1),
   `codex` (RFC-049) is one too, and so is `drive` (RFC-073), whose loop
   runs each bead as a ReAct turn with every tool but itself, and whose
   `drive$*` commands are its own.
+- **The person's line reaches the agent their command stands for.** In a
+  turn a typed command became (`/init`, `/drive`), the dispatch of the
+  agent named for it seeds the child's memory with the line as typed,
+  `:person-words` (`agents/person-words-for`): the caller's paraphrase of it
+  had lost what the person listed (RFC-073). Any other dispatch gets nothing.
+  An agent marked `:attended?` — it asks the person as it works — is waited
+  on and never detached into a task (RFC-019).
   **`beads` is not shipped** (`byj-gly.316`). The bead-keeper was a
   port-only addition — brainyard has no such agent — and served this
   repository's workflow: every project's prompt carried its line, and its

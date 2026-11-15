@@ -385,11 +385,26 @@
     (let [f (canonical (io/file (str project-dir) ".brainyard" "profile.edn"))]
       (when (= f (canonical path)) f))))
 
+(declare command-segments segment-text)
+
+(def ^:private git-keeping
+  ;; git commands that read the profile or record it as it is, and change
+  ;; nothing of the file: committing the profile /init staged is the person's
+  ;; next step, and a simulation's was refused by the tripwire (byj-71w.7)
+  #"^git (?:-C \S+ )?(?:add|commit|diff|show|log|status|ls-files|check-ignore|blame)(?:\s|$)")
+
 (defn named-profile-files
   "The project profile a shell `command` names, `.brainyard/profile.edn`, as
-  written in it, relative or absolute. A tripwire, as a loop's is (RFC-073)."
+  written in it, relative or absolute. A tripwire, as a loop's is (RFC-073),
+  but for a segment that is a git command recording or reading the file as
+  it is (`git add`, `git commit`, `git diff`, …) with no redirection: those
+  change nothing of it."
   [command]
-  (vec (distinct (map second (re-seq #"(\.brainyard/profile\.edn)(?:$|[\s\"';|&>)])" (str command))))))
+  (vec (distinct (for [seg (command-segments command)
+                       :when (not (and (re-find git-keeping (segment-text seg))
+                                       (not (str/includes? seg ">"))))
+                       [_ f] (re-seq #"(\.brainyard/profile\.edn)(?:$|[\s\"';|&>)])" (str seg))]
+                   f))))
 
 (def ^:private profile-hint
   (str "The project's profile is the person's (RFC-073): /init drafts it and the person confirms it."
@@ -400,8 +415,6 @@
                  :reason-prefix "Profile write refused"
                  :error-prefix "Tool call refused (profile)"
                  :hint profile-hint}))
-
-(declare command-segments segment-text)
 
 (defn project-profile
   "The project's profile (RFC-073), resolved, or nil when it has none: read
@@ -460,8 +473,15 @@
       :never (refuse (str axis " is :never in the project's profile"))
       (if (= :deny-by-default (resolve-mode (mode ctx)))
         (refuse (str axis " asks the person first in the project's profile, and the mode is :deny-by-default"))
-        (ask-person ctx (assoc request :profile/axis axis) refuse
-                    (str axis " asks the person first in the project's profile, and there is no interactive permission channel (headless)"))))))
+        (let [r (ask-person ctx (assoc request :profile/axis axis) refuse
+                            (str axis " asks the person first in the project's profile, and there is no interactive permission channel (headless)"))]
+          ;; the person's yes, said to the model: a simulation's turn took
+          ;; a commit the person allowed for one made without them (byj-71w.7)
+          (when (and (nil? r) (:st-memory ctx))
+            (swap! (:st-memory ctx) update :pending-notices (fnil conj [])
+                   (str "The person said yes to `" display "`: the project's profile has " (name axis)
+                        " ask them first, and they allowed this.")))
+          r)))))
 
 (def ^:private loop-hint
   (str "A loop is the project's when a person makes it so (RFC-071): write the candidate to"

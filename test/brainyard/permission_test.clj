@@ -484,7 +484,14 @@
     (is (some? (permission/profile-file dir (.getPath f))))
     (is (nil? (permission/profile-file nil (.getPath f))) "no project, no profile")
     (is (= [".brainyard/profile.edn"] (permission/named-profile-files (str "echo x > " dir "/.brainyard/profile.edn"))) "absolute")
-    (is (empty? (permission/named-profile-files "cat .brainyard/profile.edn.draft")))))
+    (is (empty? (permission/named-profile-files "cat .brainyard/profile.edn.draft")))
+    (testing "committing it is not writing it: git that records or reads it as it is (byj-71w.7)"
+      (is (empty? (permission/named-profile-files "git add AGENTS.md .brainyard/profile.edn && git commit -m x")))
+      (is (empty? (permission/named-profile-files "git -C . diff -- .brainyard/profile.edn")))
+      (is (not (refused? (call (c :auto-approve) "bash" {:command "git status -- .brainyard/profile.edn"}))))
+      (is (seq (permission/named-profile-files "git show HEAD:.brainyard/profile.edn > .brainyard/profile.edn")) "a redirection writes it")
+      (is (seq (permission/named-profile-files "git checkout -- .brainyard/profile.edn")) "checkout rewrites it")
+      (is (seq (permission/named-profile-files "git add x && cp y .brainyard/profile.edn")) "each segment on its own"))))
 
 (deftest path-gate
   (let [dir (fresh-dir "paths")
@@ -799,6 +806,11 @@
       (is (= :git/commit (:profile/axis (do (held? :auto-approve "git commit -m x") (first @asked)))))
       (reset! asked [])
       (is (not (refused? (call (c :auto-approve) "bash" {:command "git commit -m x"}))) "a yes lets it run")
+      (let [m (atom {})
+            cx (assoc (c :auto-approve) :st-memory m)]
+        (call cx "bash" {:command "git commit -m y"})
+        (is (some #(str/includes? % "The person said yes to `git commit -m y`") (:pending-notices @m))
+            "and the model is told the yes was the person's"))
       (is (= [false 0] (held? :auto-approve "git status && bd ready")) "what no axis governs is not held")
       (is (refused? (call (c :deny-by-default) "bash" {:command "git commit -m x"})) ":deny-by-default refuses")
       (is (refused? (call (ctx {:working-dir dir :project-dir dir :allowed-dirs [dir] :permission-mode :auto-approve})

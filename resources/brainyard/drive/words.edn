@@ -2,7 +2,7 @@
 ;; the brief each bead's turn is asked, and what drive$check and the report
 ;; say. brainyard.drive fills {name} from the bead and the profile; what a
 ;; model reads is here, not in src/.
-{:brief "Work on bead {id}: {title}\n\n{description}\n\nThis is one step of /drive, toward this project's goal{goal}. Do this bead's work and check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what you ask the person first: keep to it. Where it says to ask, or the work needs a decision it does not let you make, stop and put the question in your answer. End by saying what you did, how you checked it, and anything left."
+{:brief "Work on bead {id}: {title}\n\n{description}\n\nThis is one step of /drive, toward this project's goal{goal}. Do this bead's work and check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what the person decides: keep to it. Where it says to ask before a commit, a bead filed or closed, a decision record or a push, run the command or write the file — byj asks the person then and waits for their answer. Put a question in your answer only for a change of goal, scope, stack or done criteria, or a decision the profile does not let you make. End by saying what you did, how you checked it, and anything left."
 
  :retry "Bead {id} ({title}) is not finished: {why}\n\nFinish it: do what is missing, check it, and keep to AGENTS.md's profile as before. End by saying what you did and how you checked it."
 

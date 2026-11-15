@@ -1696,10 +1696,13 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
   tree structurally — the in-flight LLM call or tool is interrupted and its
   subprocesses killed. Settles with the same map `ask` returns; takes the same
   opts."
-  [question {:keys [tree history-context parent-trail] :as opts}]
+  [question {:keys [tree history-context parent-trail person-words] :as opts}]
   (let [st-memory (atom (cond-> {:question question}
                           history-context (assoc :history-context history-context)
-                          (seq parent-trail) (assoc :parent-trail (vec parent-trail))))
+                          (seq parent-trail) (assoc :parent-trail (vec parent-trail))
+                          ;; the person's own line, for the agent their
+                          ;; command stands for (agents/person-words-for)
+                          (not (str/blank? (str person-words))) (assoc :person-words (str person-words))))
         ctx (assoc (make-ctx opts) :st-memory st-memory)
         tree (or tree (load-tree nil (:project-dir (:config ctx))))
         ctx (with-loop-hash ctx tree)]

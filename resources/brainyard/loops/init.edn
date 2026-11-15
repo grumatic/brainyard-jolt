@@ -55,8 +55,11 @@
  [:fallback {:id :init/profile?}
   [:condition {:id :init/no-profile? :fn :mem/match? :key :profile :pattern "^false$"}]
   [:sequence {:id :init/profile}
+   ;; the line the person typed for /init, word for word, when they typed
+   ;; it: the session's agent may have put it in its own words
+   [:action {:id :init/typed :fn :mem/join :in {:a :person-words} :out {:typed :joined}}]
    [:action {:id :init/profile-draft :fn :predictor/run :predictor "init/profile"
-             :in {:request :question :survey :survey}
+             :in {:request :question :typed :typed :survey :survey}
              :out {:goal :goal :in :in :out :out :done :done :preset :preset :autonomy :autonomy :epic :epic :issues :issues}}]
    [:action {:id :init/profile-write :fn :tool/run :tool "init$profile" :on-error :success
              :in {:goal :goal :in :in :out :out :done :done :preset :preset :autonomy :autonomy :epic :epic :issues :issues}

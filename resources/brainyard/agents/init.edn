@@ -19,6 +19,9 @@
  :tools ["init$*"]
  :deny-tools ["agent$*"]
 
+ ;; it asks the person as it works, so its call is waited on, never detached
+ :attended? true
+
  :tier :standard
 
  :config {:init-tools? true

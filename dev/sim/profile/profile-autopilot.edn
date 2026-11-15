@@ -1,0 +1,59 @@
+;; RFC-073's presets measured (byj-71w.7): one goal, the mini-playground,
+;; set up by /init from the person's words with the autopilot preset, its
+;; profile confirmed at the prompt, /init's files committed as its next step
+;; says, then worked by /drive alone. The three
+;; plans differ only in the preset sentence. What is counted per preset: the
+;; stage checks, the prompts the person answered (the report's prompts), the
+;; project rules kept (project/AGENTS.md), and spend.
+;;
+;;   jolt sim:byj dev/sim/profile/profile-autopilot.edn --keep-going
+;;
+;; Run one at a time: two at once share port 3000.
+{:id "profile-autopilot"
+ :projects-dir "~/Projects/byj-sim"
+ :provider "claude-code" :model "haiku"
+ :permission-mode :auto
+ :timeout-s 1800
+ :cap-usd 6.0
+ :project-config {:claude-model "haiku"}
+ :project-files {"AGENTS.md" "project/AGENTS.md"
+                 "CHANGELOG.md" "../extensions/project/CHANGELOG.md"
+                 "docs/decisions/0001-no-framework.md" "../extensions/project/decisions/0001-no-framework.md"
+                 "docs/decisions/0002-errors-are-json.md" "../extensions/project/decisions/0002-errors-are-json.md"}
+ :answers [{:match "write this project's profile" :answer "y"}
+           {:match "/drive: work on" :answer "y"}
+           {:match "/drive: close" :answer "y"}
+           {:match "git commit" :answer "y"}
+           {:match "git add" :answer "y"}
+           {:match "bd close" :answer "y"}
+           {:match "bd create" :answer "y"}
+           {:match "docs/decisions" :answer "y"}
+           {:match "git push" :answer "n"}
+           {:match "pkill" :answer "n"}
+           {:match "node --check" :answer "y"}
+           {:match "npm test" :answer "y"}
+           {:match "npm install" :answer "y"}]
+ :default-answer "n"
+ :stages
+ [{:id :init
+   :lines ["/init This project is a mini-playground: a small web workspace with a Terminal section first. Stack: Node 20+, a plain node:http server with ws and node-pty, tests with node --test. Conventions: npm start runs the server on the port in PORT (default 3000), npm test runs the tests. Its first issues, in order: (1) server shell: a page with a sidebar of sections Terminal, Files, Editor and Chat, GET /api/health answering {\"ok\":true}, and 404 for unknown paths; (2) a terminal over a WebSocket at /term spawning $SHELL in the project dir, with JSON frames {\"t\":\"i\",\"d\":text} from the client and {\"t\":\"o\",\"d\":text} from the server, the shell killed when the socket closes; (3) GET /api/health answers {\"ok\":true,\"uptime\":n,\"version\":s}: the server's uptime in whole seconds and the version in package.json; (4) a file tree and a text editor: GET /api/files?path= lists a directory, GET /api/file?path= answers a file's text and PUT /api/file?path= writes the request body, the file's text as it is, and any path outside the project dir is answered 400. Authentication and deployment are out of scope. It is done when npm test passes and each of the four works. Commit each bead's work and close the bead as you go, and make and record the small decisions yourself; ask me only about scope changes and pushes."]
+   :checks [{:type :file :name "profile" :path ".brainyard/profile.edn" :contains ":preset :autopilot"}
+            {:type :file :name "profile-block" :path "AGENTS.md" :contains "<!-- BEGIN BRAINYARD:profile -->"}
+            {:type :command :name "goal-epic" :run "grep -q ':goal-epic' .brainyard/profile.edn"}]}
+  ;; what a person does after /init: its first next step
+  {:id :commit
+   :lines ["commit the files /init wrote, as its next step says"]
+   :checks [{:type :command :name "profile-committed" :run "git ls-files --error-unmatch .brainyard/profile.edn"}
+            {:type :command :name "agents-md-committed" :run "git diff --quiet HEAD -- AGENTS.md"}]}
+  {:id :drive
+   :lines ["/drive"]
+   :timeout-s 3600
+   :checks [{:type :command :name "health2" :run "node {{plan}}/../playground/checks/checks.cjs health2" :timeout-s 60}
+            {:type :command :name "term" :run "node {{plan}}/../playground/checks/checks.cjs term" :timeout-s 60}
+            {:type :command :name "files" :run "node {{plan}}/../playground/checks/checks.cjs files" :timeout-s 60}
+            {:type :command :name "npm-test" :run "npm test" :timeout-s 300}
+            {:type :command :name "beads-closed" :run "test $(bd list --status closed --json 2>/dev/null | node -e 'let n=0;for(const b of JSON.parse(String(require(\"fs\").readFileSync(0))||\"[]\"))if(b.priority===1&&b.issue_type!==\"epic\")n++;console.log(n)') -ge 4"}
+            {:type :command :name "rule-committed" :run "test -z \"$(git status --porcelain -- . ':!.beads' ':!.brainyard' ':!.claude')\""}
+            {:type :command :name "rule-changelog" :run "test $(sed -n '/^## Unreleased/,/^## [^U]/p' CHANGELOG.md | grep -c '^- ') -ge 3"}
+            {:type :command :name "rule-errors-json" :run "node {{plan}}/../playground/checks/checks.cjs errors" :timeout-s 60}
+            {:type :command :name "rule-no-framework" :run "node -e 'const p=require(\"./package.json\");const x=Object.keys({...p.dependencies,...p.devDependencies}).filter(d=>![\"ws\",\"node-pty\"].includes(d));if(x.length){console.log(x.join(\",\"));process.exit(1)}'"}]}]}

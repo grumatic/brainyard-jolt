@@ -618,7 +618,7 @@
         f (io/file project ".brainyard" "profile.edn")
         asked (atom nil)
         draft {:dir project :path bin :goal "A small web workspace." :in "server shell" :done "npm test passes"
-               :preset "collaborator" :epic "Mini playground" :issues "server shell\nterminal"}
+               :preset "collaborator" :epic "Mini playground" :issues "server shell — a page, and GET /api/health answering ok\nterminal"}
         ctx (fn [answer] {:permission-fn (fn [req] (reset! asked req) answer)})]
     (stateful-bd bin)
     (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
@@ -645,6 +645,8 @@
         (is (some #(str/starts-with? % "create --silent --title Mini playground --type epic") calls))
         (is (some #(str/starts-with? % "create --silent --title terminal --type task --priority 1 --parent t-1") calls))
         (is (some #(= "dep add t-3 t-2" %) calls) "each after the one before")
+        (is (some #(str/includes? % "--title server shell --type task --priority 1 --parent t-1 --description a page, and GET /api/health answering ok") calls)
+            "what the person said of a part is its bead's description")
         (is (str/includes? (:text r) "t-1 Mini playground\n  t-2 server shell\n  t-3 terminal"))
         (is (str/includes? (:out (fx/sh {:dir project :out :string :err :string} "git" "status" "--porcelain"))
                            "A  .brainyard/profile.edn")

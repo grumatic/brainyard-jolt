@@ -333,7 +333,11 @@ answer. `permission-test/a-projects-loop-is-written-by-no-tool`,
 agent that wrote it could raise that. The path gate refuses a write to it
 (`permission/profile-file`) and the command gate a line naming it
 (`permission/named-profile-files`), first of all and in every mode; byj's
-hook gives Claude Code and Codex the same answer. Reading it is not refused.
+hook gives Claude Code and Codex the same answer. Reading it is not refused,
+nor is a git command that records or reads it as it is (`git add`, `git
+commit`, `git diff`, `git show`, `git log`, `git status`, with no
+redirection): committing the profile `/init` staged is the person's next
+step (`byj-71w.7`).
 `permission-test/a-projects-profile-is-written-by-no-tool`,
 `tool-hook-test/another-agent-writes-no-project-profile`.
 
@@ -344,7 +348,9 @@ tripwires and before `:bash-ask-commands`, the path gate after its loop and
 profile tripwires. An axis at `:never` refuses unasked; at `:ask` the person
 is asked in every mode, `:auto-approve` included, and never the classifier
 (`ask-person`), refused headless and in `:deny-by-default`; at `:act` the
-rest of the gate decides. `permission-test/the-gate-follows-the-projects-profile`,
+rest of the gate decides. A yes at a hold is told to the model as a
+notice, so a turn does not take the person's yes for none.
+`permission-test/the-gate-follows-the-projects-profile`,
 `tool-hook-test/another-agent-is-held-to-the-projects-profile`.
 
 **The default list is wider than the project**, and that has a consequence

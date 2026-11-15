@@ -621,9 +621,11 @@
                      "predictors")
    :config-keys (set (keys (:config ctx)))
    :zones (set (keys (:zones ctx)))
-   ;; a turn is handed its question before the tree runs (agent/ask), and its
-   ;; caller reads these back when it finishes (agent/turn-result)
-   :initial #{:question}
+   ;; a turn is handed its question before the tree runs (agent/ask) — and,
+   ;; for the agent a typed command stands for, the person's line as typed
+   ;; (agents/person-words-for, RFC-073) — and its caller reads these back
+   ;; when it finishes (agent/turn-result)
+   :initial #{:question :person-words}
    :exported #{:answer :terminated-by :goal-achieved :next-user-prompt
                :iteration-count :trajectory-iterations :usage}})
 

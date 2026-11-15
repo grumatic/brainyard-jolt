@@ -114,7 +114,14 @@
       (is (not (tasks/detachable? {:config base} "task$detail"))))
     (testing "not when the layer is off, or the deadline is zero"
       (is (not (tasks/detachable? {:config (assoc base :tasks? false)} "bash")))
-      (is (not (tasks/detachable? {:config (assoc base :fast-eval-timeout-ms 0)} "bash"))))))
+      (is (not (tasks/detachable? {:config (assoc base :fast-eval-timeout-ms 0)} "bash"))))
+    ;; RFC-073: a simulation's /drive detached after 180 s, its turn parked,
+    ;; and the commit it then asked about was refused with nobody asked
+    (testing "not an attended tool: once the turn parks, its prompts have nobody to answer them"
+      (let [ctx {:config base :tools (atom {"agent$drive" {:name "agent$drive" :attended? true}
+                                            "agent$explore" {:name "agent$explore" :attended? false}})}]
+        (is (not (tasks/detachable? ctx "agent$drive")))
+        (is (tasks/detachable? ctx "agent$explore"))))))
 
 ;; --- the commands ---------------------------------------------------------------------
 

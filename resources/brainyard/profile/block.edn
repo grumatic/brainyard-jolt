@@ -16,7 +16,7 @@
  :done "Done when: {items}."
 
  :levels {:act "An agent here does these on its own, and says so when it hands off:"
-          :ask "It asks the person first, and waits, before:"
+          :ask "It does these only with the person's yes. Where a command does it — a commit, a bead filed or closed, a decision record written, a push — it runs the command, and byj asks the person then and waits for their answer; otherwise it asks in its answer and stops:"
           :never "It never does these:"}
 
  :stop "It stops and asks the person after {limits}, whichever comes first."

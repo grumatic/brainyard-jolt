@@ -17,6 +17,9 @@
  ;; every tool the session has, for the bead's work; but not itself
  :deny-tools ["agent$drive"]
 
+ ;; it asks the person as it works, so its call is waited on, never detached
+ :attended? true
+
  :tier :standard
 
  :config {:drive-tools? true}}
