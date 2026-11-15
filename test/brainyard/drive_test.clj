@@ -131,6 +131,17 @@
       (is (:committed? c))
       (is (str/includes? (:text c) "Server shell (t-2)")))))
 
+;; byj-ctw: under conservative the judge read "uncommitted work is expected"
+;; and called three beads done with their work uncommitted
+(deftest under-conservative-a-finished-bead-is-still-committed-with-the-persons-yes
+  (let [{:keys [dir cfg]} (setup "check-ask" {:preset :conservative :goal-epic "t-1"})
+        head (str/trim (:out (fx/sh {:dir dir :out :string :err :string} "git" "rev-parse" "HEAD")))]
+    (spit (io/file dir "server.js") "x\n")
+    (let [t (:text (drive/check-bead cfg {:bead "t-2" :head head}))]
+      (is (str/includes? t "Expected: the profile has the person decide each commit: a finished bead's turn runs git commit"))
+      (is (str/includes? t "left uncommitted only when the person said no"))
+      (is (not (str/includes? t "uncommitted work is expected"))))))
+
 (deftest settling-a-bead-as-the-profile-says
   (testing "collaborator: done closes it, on its own"
     (let [{:keys [bin cfg]} (setup "settle" {:preset :collaborator :goal-epic "t-1"})

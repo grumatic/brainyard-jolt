@@ -11,7 +11,7 @@
 
  ;; what the profile expects of a finished bead, for drive/judge
  :expect {:git/commit {:act "the profile has an agent commit its own work: a finished bead leaves its work committed, the work tree clean"
-                       :ask "the profile has the person decide each commit: uncommitted work is expected unless they said yes"
+                       :ask "the profile has the person decide each commit: a finished bead's turn runs git commit for its work, and byj asks the person then; its work is left uncommitted only when the person said no to that commit"
                        :never "the profile has no agent commit: uncommitted work is expected"}}
 
  :stops {:no-profile "This project has no profile: /init drafts one when you tell it what the project is for."

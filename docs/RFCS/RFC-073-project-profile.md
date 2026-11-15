@@ -375,10 +375,17 @@ What it says:
   classifier; conservative asked at every step it governs, as it says.
 - **Collaborator and autopilot did not differ here**: no bead needed a
   local decision, so autopilot's one extra freedom was never used.
-- **Conservative leaves the commits behind.** Its first bead's turn ran
+- **Conservative left the commits behind.** Its first bead's turn ran
   `git commit` and the person was asked; the next three ended done with
   their work uncommitted, which words.edn's `:expect` for `:git/commit :ask`
-  accepts, and were closed after the person's yes (`byj-ctw`).
+  then accepted, and were closed after the person's yes. The expectation
+  now says a finished bead's turn runs `git commit` and byj asks the
+  person, its work left uncommitted only when they said no, and drive/judge
+  calls such a turn a retry with what is missing (`byj-ctw`). Confirmed in
+  one more conservative run: all four beads committed and closed, each
+  with the person's yes, 12 prompts in `/drive` (the work picked 4, commits
+  5, closes 3), every check but `rule-committed`, which an untracked
+  `node_modules/` failed — no `.gitignore` named it (byj-3py).
 - **The classifier still met an `:act` line.** It cannot see the profile
   and was unsure of a commit autopilot's profile lets the agent make; such
   a line is no longer classified (`byj-yvx`, below). Confirmed in one
@@ -403,5 +410,5 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- Under conservative, `/drive`'s bead turns leave their work uncommitted after the first bead (`byj-ctw`).
+- `/drive` leaves installed dependencies untracked when `.gitignore` does not name them (byj-3py).
 - The presets measured once each on the final code; a few runs each are owed (`byj-8ap`).

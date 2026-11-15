@@ -8,7 +8,7 @@
  :instructions "A coding agent just took one turn on a bead (an issue) as one step of working through a project's goal. Read the brief it was given, its answer, and the check of the work tree and the bead made after it. Decide what happens next:
 
 - done: the answer says the bead's work is done and checked, and the check shows nothing the profile expects is missing.
-- retry: the work is not finished, but another turn could finish it without the person — a failing test it can fix, work left uncommitted where the profile has an agent commit its own work, a part of the bead not done yet.
+- retry: the work is not finished, but another turn could finish it — a failing test it can fix, a part of the bead not done yet, or work left uncommitted where the check's expectation says it is committed and the answer does not say the person said no to the commit. Say in summary what is missing, so the next turn does it: for uncommitted work, that it runs git commit, which asks the person where the profile says to.
 - ask: the answer puts a question to the person, or says the work needs a decision or permission the person must give — a scope change, a push, something the profile says to ask about. Put the question, in a sentence the person can answer, in question.
 - stop: the work cannot go on, with or without another turn: something outside the project is missing or broken, or the answer says it is blocked and asks nothing.
 
