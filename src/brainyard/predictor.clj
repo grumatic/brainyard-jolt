@@ -36,7 +36,7 @@
     :demos         [{:inputs {…} :outputs {…} :reasoning \"…\"?}] — rendered
                    into the system message
     :max-demo-value-chars, :version, :compiled-by
-    :lm            "provider/model" — which model this predictor runs on
+    :lm            \"provider/model\" — which model this predictor runs on
     :tier          :light | :standard | :deep, resolved through the config's
                    tier table (inert until that table is configured)
 

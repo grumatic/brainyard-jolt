@@ -29,6 +29,7 @@
   4. `run!` starts only on a usable terminal — `initscr` reports failure by
      calling `exit()`.
   5. ctrl-c is a key here, not a signal: it cancels the turn, and ctrl-q quits."
+  (:refer-clojure :exclude [run!])
   (:require [clojure.edn :as edn]
             [clojure.pprint :as pprint]
             [clojure.string :as str]

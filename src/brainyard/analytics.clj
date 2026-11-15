@@ -26,6 +26,7 @@
   `:error?` per call because the tool layer knew at the time (`byj-gly.87`).
   Deriving it from result text would have been a guess dressed as a
   measurement, which is the one thing a metric must not be."
+  (:refer-clojure :exclude [iteration])
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]

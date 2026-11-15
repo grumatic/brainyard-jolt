@@ -32,7 +32,7 @@
 
   and the same with REPS=1 for sonnet.
 
-  A case may say `:matches {:k "regex"}` for a value no run can predict (a
+  A case may say `:matches {:k \"regex\"}` for a value no run can predict (a
   time). `:reach-used` is what of tier D the kept body names.
 
   The spike that established the premise is brainyard.dev.tool-lisp-spike; this
