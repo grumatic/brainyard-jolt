@@ -14,7 +14,11 @@
 ;;                                         a bead whose :drive-bead-attempts
 ;;                                         turns are spent is set aside for
 ;;                                         the person, and the run goes on
-;;   the answer                         → drive$report
+;;   the answer                         → drive$report, which first releases
+;;                                         a bead the run claimed and did not
+;;                                         settle; a run cancelled in a bead's
+;;                                         turn leaves its claim to the next
+;;                                         run's drive$next (byj-2pv)
 ;;   the order                          → this file
 ;;
 ;; Each bead's turn starts from a fresh memory; what it spent comes back out
@@ -34,8 +38,9 @@
   [:sequence {:id :drive/step}
    [:action {:id :drive/next :fn :tool/run :tool "drive$next"
              :in {:failures :failures :usage :usage :since :since :retry :retry :retry-note :retry-note
-                  :attempts :attempts :retry-progress :progress}
-             :out {:stop :stop :stopped :stopped :bead :bead :title :title :brief :brief :head :head :since :since}}]
+                  :attempts :attempts :retry-progress :progress :log :log}
+             :out {:stop :stop :stopped :stopped :bead :bead :title :title :brief :brief :head :head :since :since
+                   :log :log}}]
    [:fallback {:id :drive/step-guard}
     ;; nothing to work on, or a limit reached: succeed, and :until ends the run
     [:condition {:id :drive/stopped? :fn :mem/true? :key :stop}]
@@ -57,6 +62,6 @@
                :out {:failures :failures :retry :retry :retry-note :retry-note :attempts :attempts :progress :progress
                      :stop :stop :stopped :stopped :log :log}}]]]]]
  [:action {:id :drive/report :fn :tool/run :tool "drive$report"
-           :in {:log :log :stopped :stopped} :out {:answer :text}}]
+           :in {:log :log :stopped :stopped :since :since} :out {:answer :text}}]
  [:action {:id :drive/stamp :fn :react/stamp-answer}]
  [:action {:id :drive/store :fn :react/store-trajectory}]]

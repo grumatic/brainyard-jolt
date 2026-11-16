@@ -18,6 +18,12 @@
  :set-aside-note "/drive set this bead aside after {n} turns that did not finish it. The last was judged: {why}\n\nIt ended saying:\n\n{progress}\n\nIts claim is released and it is labelled human, which /drive passes over. To have /drive take it up again: bd label remove {id} human"
  :set-aside "set aside after {n} turns, for you (bd human list; bd label remove {id} human to drive it again)"
 
+ ;; a bead /drive claimed and never settled, released so it is ready again
+ ;; (byj-2pv): left by a run cancelled or gone in its turn, at the next
+ ;; run's start; or by this run, ended on a question, a stop or a limit
+ :released-left "released: claimed by a /drive run that ended in its turn"
+ :released-end "released: the run ended before it was finished"
+
  :ask-work "/drive: work on {id} ({title}) next?"
  :ask-close "/drive: close {id} ({title}) — {summary}?"
 

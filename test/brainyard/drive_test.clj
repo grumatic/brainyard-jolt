@@ -232,6 +232,46 @@
     (testing "one turn a bead, by config"
       (is (= "" (:retry (drive/settle (assoc cfg :drive-bead-attempts 1) {} (assoc args :bead "t-3" :attempts 0))))))))
 
+;; byj-2pv: a run cancelled in a bead's turn left it claimed, and every
+;; later /drive said nothing was ready while it was still open
+(deftest a-claim-a-run-never-settled-is-released
+  (let [{:keys [bin dir cfg]} (setup "claims" {:preset :collaborator :goal-epic "t-1"})
+        cfg (assoc cfg :session-id "s-1")
+        claims #(let [f (drive/claims-file dir)] (if (.isFile f) (read-string (slurp f)) {}))
+        first-run (drive/next-bead cfg {} {})]
+    (is (= "t-2" (:bead first-run)))
+    (is (= {:session "s-1" :run (:since first-run)} (dissoc (get (claims) "t-2") :pid)) "the claim is recorded")
+    (testing "the run is cancelled in t-2's turn: nothing settles it, and the next run in the session releases it"
+      (let [r (drive/next-bead cfg {} {:log ""})]
+        (is (some #(= "unclaim t-2" %) (calls bin)))
+        (is (= "↺ t-2 server shell — released: claimed by a /drive run that ended in its turn" (:log r)))
+        (is (= "t-2" (:bead r)) "ready again, so worked")
+        (is (= (:since r) (:run (get (claims) "t-2"))) "now this run's")))
+    (testing "a later step of the same run releases nothing"
+      (let [n (count (filter #(= "unclaim t-2" %) (calls bin)))]
+        (drive/next-bead cfg {} {:since "x" :retry "t-2"})
+        (is (= n (count (filter #(= "unclaim t-2" %) (calls bin)))))))
+    (testing "another session's claim is left while its process lives, and released once it is gone"
+      (drive/settle cfg {} {:bead "t-2" :status "done" :summary "s" :bead-status "closed"})
+      (is (nil? (get (claims) "t-2")) "settled: no longer recorded")
+      (let [other (drive/next-bead (assoc cfg :session-id "s-2") {} {})]
+        (is (= "t-3" (:bead other)))
+        (is (= "" (str (:log (drive/next-bead cfg {} {}))))
+            "this process is alive: its run may still be working t-3")
+        (spit (drive/claims-file dir) (pr-str {"t-3" {:session "s-2" :pid "999999" :run "r"}}))
+        (is (str/includes? (:log (drive/next-bead cfg {} {})) "↺ t-3 terminal — released"))))))
+
+(deftest a-run-that-ends-on-a-question-releases-its-bead
+  (let [{:keys [bin dir cfg]} (setup "claims-end" {:preset :collaborator :goal-epic "t-1"})
+        cfg (assoc cfg :session-id "s-1")
+        r (drive/next-bead cfg {} {})
+        s (drive/settle cfg {} {:bead "t-2" :title "server shell" :status "ask" :question "Which port?" :summary "needs a port"})
+        text (:text (drive/report cfg {:log (:log s) :stopped (:stopped s) :since (:since r)}))]
+    (is (some #(= "unclaim t-2" %) (calls bin)))
+    (is (str/includes? text "? t-2 server shell — needs a port\n↺ t-2 server shell — released: the run ended before it was finished"))
+    (is (not (.isFile (drive/claims-file dir))))
+    (is (= "t-2" (:bead (drive/next-bead cfg {} {}))) "the next run finds it ready")))
+
 (deftest the-drive-loop-is-sound
   (is (nil? (:problems (flow/check-tree-name "brainyard/loops/drive.edn"
                                              (flow/ctx-opts (agent/make-ctx {:config {:drive-tools? true}})))))))
@@ -256,7 +296,8 @@
     (is (some #(str/starts-with? % "close t-3") (calls bin)))
     (is (str/includes? (:answer r) "/drive under t-1:\n✓ t-2 server shell — done and checked (closed)\n✓ t-3 terminal — done and checked (closed)"))
     (is (str/includes? (:answer r) "Stopped: Nothing is ready under t-1"))
-    (is (str/includes? (:answer r) "Still open under t-1: nothing"))))
+    (is (str/includes? (:answer r) "Still open under t-1: nothing"))
+    (is (not (.isFile (drive/claims-file dir))) "every claim settled")))
 
 (deftest drive-sets-aside-a-bead-it-cannot-finish-and-goes-on
   ;; t-2's turns never finish: three turns, each brief after the first
@@ -288,4 +329,5 @@
     (is (str/includes? (:answer r) "⏸ t-2 server shell — ran out of steps; set aside after 3 turns"))
     (is (str/includes? (:answer r) "✓ t-3 terminal — done and checked (closed)"))
     (is (str/includes? (:answer r) "Stopped: Nothing is ready under t-1"))
-    (is (str/includes? (:answer r) "Still open under t-1: t-2 server shell"))))
+    (is (str/includes? (:answer r) "Still open under t-1: t-2 server shell"))
+    (is (not (.isFile (drive/claims-file dir))) "the bead set aside is no longer recorded")))

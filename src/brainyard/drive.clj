@@ -21,6 +21,7 @@
             [brainyard.effect :as fx]
             [brainyard.init :as init]
             [brainyard.json :as json]
+            [brainyard.persist :as persist]
             [brainyard.profile :as profile]))
 
 (def words-resource "brainyard/drive/words.edn")
@@ -76,6 +77,61 @@
 (defn- bd-path [config args]
   (init/on-path "bd" (or (:path args) (:bd-path config) (System/getenv "PATH"))))
 
+;; --- the claims a run holds (byj-2pv) ------------------------------------------
+
+(defn claims-file
+  "Where /drive keeps the beads it has claimed and not yet settled:
+  `<project>/.brainyard/drive/claims.edn`, bead id -> `{:session :pid :run}`.
+  A run that ends — or is cancelled, or dies — inside a bead's turn leaves
+  the bead claimed, and `bd ready` leaves a claimed bead out, so the next
+  run would pass over it; this is how that one is found and released."
+  [dir]
+  (io/file (str dir) ".brainyard" "drive" "claims.edn"))
+
+(defn- read-claims [dir]
+  (or (try (let [f (claims-file dir)]
+             (when (.isFile f) (let [m (edn/read-string (slurp f))] (when (map? m) m))))
+           (catch Throwable _ nil))
+      {}))
+
+(defn- update-claims!
+  "The claims file rewritten as `f` of it; removed when nothing is left.
+  Bookkeeping: a write that fails stops no run."
+  [dir f & args]
+  (try (let [m (apply f (read-claims dir) args)
+             file (claims-file dir)]
+         (if (empty? m)
+           (.delete file)
+           (do (io/make-parents file) (spit file (pr-str m)))))
+       (catch Throwable _ nil)))
+
+(defn- release!
+  "Each bead of `ids` released (`bd unclaim`) when it is still in progress,
+  and dropped from the claims file either way; a log line for each released.
+  bd releases only its own actor's claim, so a bead someone has taken since
+  is left to them."
+  [dir bd ids why]
+  (let [lines (reduce (fn [acc id]
+                        (let [b (first (json-out (run dir bd "show" id "--json")))]
+                          (if (= "in_progress" (str (:status b)))
+                            (let [r (run dir bd "unclaim" id)]
+                              (conj acc (str "↺ " id " " (:title b) " — " why
+                                             (when-not (:ok? r) (str " (bd said: " (:said r) ")")))))
+                            acc)))
+                      [] ids)]
+    (update-claims! dir #(apply dissoc % ids))
+    lines))
+
+(defn- run-over?
+  "Whether the run that recorded `claim` has ended, as far as can be told:
+  it was this session's — its turns run one at a time, so a new run means
+  the last one is over — or its process is gone. A claim another live
+  session holds may be its run's, still working, and is left."
+  [config claim]
+  (let [sid (not-empty (str (:session-id config)))]
+    (or (and sid (= sid (str (:session claim))))
+        (not (persist/alive? (:pid claim))))))
+
 (defn next-bead
   "The next step (`drive$next`): stop with why when the project has no
   profile, beads is not there, the profile's limits are reached — failures
@@ -84,7 +140,9 @@
   A bead the last step left unfinished (`:retry`) is worked again, with
   what was missing, what its last turn ended saying (`:retry-progress`) and
   which of its turns this is (`:attempts` before it); a bead labelled as
-  set aside for the person is passed over. Where the profile has the person choose the work
+  set aside for the person is passed over. A run's first step first
+  releases the beads an earlier run claimed and never settled — cancelled
+  or dead in a bead's turn (`run-over?`) — each a line of `:log`. Where the profile has the person choose the work
   (`:issue/work :ask`), the person is asked first. `{:stop :stopped :bead
   :title :brief :head :since}`; `:since` is when the run began, kept by the
   tree."
@@ -96,48 +154,56 @@
         limits (:stop p)
         failures (or (num-of (:failures args)) 0)
         spent (or (some-> (:usage args) :cost) 0)
+        first-step? (str/blank? (str (:since args)))
         since (or (not-empty (str (:since args)))
                   (str (java.time.Instant/ofEpochMilli (System/currentTimeMillis))))
         epic (:goal-epic p)
         retry (not-empty (str (:retry args)))
         attempts (or (num-of (:attempts args)) 0)
-        head (str/trim (:out (run dir "git" "rev-parse" "HEAD")))]
-    (cond
-      (nil? p) (stop (get-in w [:stops :no-profile]))
-      (or (nil? bd) (not (.isDirectory (io/file dir ".beads")))) (stop (get-in w [:stops :no-bd]))
-      (and (:failures limits) (>= failures (:failures limits)))
-      (stop (fill (get-in w [:stops :failures]) {:n failures}))
-      (and (:usd limits) (>= spent (:usd limits)))
-      (stop (fill (get-in w [:stops :usd]) {:n (:usd limits)}))
-      (and (:issues-per-run limits)
-           (>= (count (json-out (run dir bd "list" "--all" "--json" "--created-after" since)))
-               (:issues-per-run limits)))
-      (stop (fill (get-in w [:stops :issues]) {:n (:issues-per-run limits)}))
-      retry
-      (let [b (first (json-out (run dir bd "show" retry "--json")))]
-        {:stop false :stopped "" :bead retry :title (str (:title b)) :head head :since since
-         :brief (fill (:retry w) {:id retry :title (:title b) :why (:retry-note args)
-                                  :n (inc attempts) :max (bead-attempts config)
-                                  :progress (or (not-empty (str/trim (str (:retry-progress args)))) (:no-progress w))})})
-      :else
-      (let [ready (json-out (apply run dir bd "ready" "--json" "--limit" "20" "--exclude-label" (:set-aside-label w)
-                                   (when epic ["--parent" epic])))
-            b (first (remove #(= "epic" (:issue_type %)) ready))]
-        (cond
-          (nil? b) (stop (fill (get-in w [:stops :nothing-ready]) {:under (if epic (str " under " epic) "")}))
-          (= :never (profile/level p :issue/work)) (stop (get-in w [:stops :work-never]))
-          :else
-          (let [no (when (= :ask (profile/level p :issue/work))
-                     (ask-person ctx {:type :tool-use :action :call :tool "drive$next" :pattern "drive$next"
-                                      :display (fill (:ask-work w) {:id (:id b) :title (:title b)})
-                                      :args {:bead (:id b)}}))]
-            (if no
-              (stop (fill (get-in w [:stops :work-declined]) {:id (:id b)}))
-              (do (run dir bd "update" (:id b) "--claim")
-                  {:stop false :stopped "" :bead (:id b) :title (str (:title b)) :head head :since since
-                   :brief (fill (:brief w) {:id (:id b) :title (:title b)
-                                            :description (str/trim (str (:description b)))
-                                            :goal (if (:goal p) (str " (" (str/trim (:goal p)) ")") "")})}))))))))
+        head (str/trim (:out (run dir "git" "rev-parse" "HEAD")))
+        released (when (and first-step? bd p)
+                   (release! dir bd (for [[id c] (read-claims dir) :when (run-over? config c)] id)
+                             (:released-left w)))
+        log (str/join "\n" (remove str/blank? (cons (str (:log args)) released)))]
+    (assoc
+      (cond
+        (nil? p) (stop (get-in w [:stops :no-profile]))
+        (or (nil? bd) (not (.isDirectory (io/file dir ".beads")))) (stop (get-in w [:stops :no-bd]))
+        (and (:failures limits) (>= failures (:failures limits)))
+        (stop (fill (get-in w [:stops :failures]) {:n failures}))
+        (and (:usd limits) (>= spent (:usd limits)))
+        (stop (fill (get-in w [:stops :usd]) {:n (:usd limits)}))
+        (and (:issues-per-run limits)
+             (>= (count (json-out (run dir bd "list" "--all" "--json" "--created-after" since)))
+                 (:issues-per-run limits)))
+        (stop (fill (get-in w [:stops :issues]) {:n (:issues-per-run limits)}))
+        retry
+        (let [b (first (json-out (run dir bd "show" retry "--json")))]
+          {:stop false :stopped "" :bead retry :title (str (:title b)) :head head :since since
+           :brief (fill (:retry w) {:id retry :title (:title b) :why (:retry-note args)
+                                    :n (inc attempts) :max (bead-attempts config)
+                                    :progress (or (not-empty (str/trim (str (:retry-progress args)))) (:no-progress w))})})
+        :else
+        (let [ready (json-out (apply run dir bd "ready" "--json" "--limit" "20" "--exclude-label" (:set-aside-label w)
+                                     (when epic ["--parent" epic])))
+              b (first (remove #(= "epic" (:issue_type %)) ready))]
+          (cond
+            (nil? b) (stop (fill (get-in w [:stops :nothing-ready]) {:under (if epic (str " under " epic) "")}))
+            (= :never (profile/level p :issue/work)) (stop (get-in w [:stops :work-never]))
+            :else
+            (let [no (when (= :ask (profile/level p :issue/work))
+                       (ask-person ctx {:type :tool-use :action :call :tool "drive$next" :pattern "drive$next"
+                                        :display (fill (:ask-work w) {:id (:id b) :title (:title b)})
+                                        :args {:bead (:id b)}}))]
+              (if no
+                (stop (fill (get-in w [:stops :work-declined]) {:id (:id b)}))
+                (do (run dir bd "update" (:id b) "--claim")
+                    (update-claims! dir assoc (:id b) {:session (str (:session-id config)) :pid (persist/own-pid) :run since})
+                    {:stop false :stopped "" :bead (:id b) :title (str (:title b)) :head head :since since
+                     :brief (fill (:brief w) {:id (:id b) :title (:title b)
+                                              :description (str/trim (str (:description b)))
+                                              :goal (if (:goal p) (str " (" (str/trim (:goal p)) ")") "")})}))))))
+     :log log)))
 
 (defn check-bead
   "What a bead's turn left (`drive$check`): the work tree's uncommitted
@@ -205,6 +271,7 @@
         ;; the bead's turn spent this in a scope of its own: said as a
         ;; tool's spend, the run's usage counts it (agent/account-tool-cost!)
         cost (let [c (some-> (:work-usage args) :cost)] (when (and (number? c) (pos? c)) c))]
+    (when (#{:done} status) (update-claims! dir dissoc bead))
     (cond-> (case status
       :done
       (let [closed? (= "closed" (str/trim (str (:bead-status args))))
@@ -235,6 +302,7 @@
               failed (when bd
                        (str (said (run dir bd "unclaim" bead))
                             (said (run dir bd "label" "add" bead label))
+                            (do (update-claims! dir dissoc bead) nil)
                             (said (run dir bd "comments" "add" bead
                                        (fill (:set-aside-note w)
                                              {:id bead :n attempts :why summary
@@ -255,15 +323,24 @@
 
 (defn report
   "The run's answer (`drive$report`): each step's line, why it stopped, and
-  what is still open under the goal's epic."
+  what is still open under the goal's epic. A bead this run claimed and did
+  not settle — a question or a stop ended the run, or a limit did — is
+  released first, so the next run finds it ready (byj-2pv)."
   [config args]
   (let [dir (dir-of config args)
         p (profile/read-profile dir)
         bd (bd-path config args)
         epic (:goal-epic p)
+        since (str (:since args))
+        released (when (and bd (not (str/blank? since)))
+                   (release! dir bd (for [[id c] (read-claims dir)
+                                          :when (and (= since (:run c))
+                                                     (= (str (:session-id config)) (str (:session c))))]
+                                      id)
+                             (:released-end (words))))
         open (when (and bd epic)
                (json-out (run dir bd "list" "--parent" epic "--status" "open,in_progress,blocked" "--json")))
-        log (str/trim (str (:log args)))]
+        log (str/trim (str/join "\n" (remove str/blank? (cons (str (:log args)) released))))]
     {:text (str "/drive" (when epic (str " under " epic)) ":\n"
                 (if (str/blank? log) "no bead was worked on." log)
                 "\n\nStopped: " (let [s (str/trim (str (:stopped args)))] (if (str/blank? s) "the step limit was reached." s))
@@ -280,10 +357,11 @@
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :failures "failures in a row so far")
                      (any-arg :usage "the run's usage so far") (any-arg :since "when the run began")
                      (any-arg :retry "a bead to work again") (any-arg :retry-note "what it lacked")
-                     (any-arg :retry-progress "what its last turn ended saying") (any-arg :attempts "the turns it has had")]
-      :output-schema [:map [:stop :any] [:stopped :any] [:bead :any] [:brief :any]
+                     (any-arg :retry-progress "what its last turn ended saying") (any-arg :attempts "the turns it has had")
+                     (any-arg :log "the run's log so far")]
+      :output-schema [:map [:stop :any] [:stopped :any] [:bead :any] [:brief :any] [:log {:optional true} :any]
                       [:title {:optional true} :any] [:head {:optional true} :any] [:since {:optional true} :any]]
-      :effects #{:fs/read :process}
+      :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (next-bead config ctx args))}
      {:name "drive$check" :kind :command
       :description "What a bead's turn left: uncommitted files, the commits since the step began, the bead's status, and what the profile expects. Reads only."
@@ -301,11 +379,12 @@
       :output-schema [:map [:failures :any] [:stop :any] [:stopped :any] [:log :any]
                       [:retry :any] [:retry-note :any] [:attempts :any] [:progress :any]
                       [:usage-cost-usd {:optional true} :any]]
-      :effects #{:process}
+      :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (settle config ctx args))}
      {:name "drive$report" :kind :command
-      :description "/drive's answer: each step, why it stopped, and what is still open under the goal's epic. Reads only."
-      :input-schema [:map (any-arg :dir "the project directory") (any-arg :log "the run's log") (any-arg :stopped "why it stopped")]
+      :description "/drive's answer: each step, why it stopped, and what is still open under the goal's epic; a bead the run claimed and did not settle is released."
+      :input-schema [:map (any-arg :dir "the project directory") (any-arg :log "the run's log") (any-arg :stopped "why it stopped")
+                     (any-arg :since "when the run began")]
       :output-schema [:map [:text :string]]
-      :effects #{:fs/read :process}
+      :effects #{:fs/read :fs/write :process}
       :fn (fn [args _] (report config args))}]))
