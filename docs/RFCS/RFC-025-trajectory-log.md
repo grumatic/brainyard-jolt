@@ -266,6 +266,7 @@ hold, and neither does the default.
 | Refusing a write and redacting an export do not use the same list. | `trajectory-export-test/refusing-and-redacting-do-not-use-the-same-list` |
 | A turn with nothing after its question is not an example. | `trajectory-export-test/a-turn-with-nothing-in-it-is-not-an-example` |
 | `:turns [from to]` exports only those turns, 1-based and inclusive, counted among a session's turns (notes are not turns); a range that is not one is refused. | `trajectory-export-test/only-the-turns-asked-for-are-exported` |
+| A range names turns by the record's `:turn`, a turn's subagents with it; a record from before `:turn`, in a session that has it, is in no range and counted | `trajectory-export-test/a-range-names-turns-as-byj-turns-list-does` |
 | A record names the session's turn as `byj turns list` does, a subagent's the turn it was dispatched in; `session$analytics` names turns by it | `session-test/each-turn-records-the-sessions-turn-number`, `agents-test/a-childs-turn-names-the-session-turn-it-ran-in`, `analytics-test/rework-finds-a-question-that-came-back` |
 | **A run told to leave nothing behind leaves no record either.** | `trajectory-test/a-run-told-to-leave-nothing-behind-leaves-no-record-either`, `persist-test/persistence-can-be-switched-off` |
 
@@ -284,16 +285,23 @@ Three things the projection decides, all brainyard's:
 - **The answer is not learned twice.** It is appended as its own message only
   when no answer-channel iteration carried it, which is the v2 shape.
 - **A tool call's id is `call_<position>_<n>_<i>`**, where position is the
-  record's place in the export rather than a field of it — v3 has no `:turn`
-  (above), and reusing one would collide across sessions.
+  record's place in the export rather than a field of it: `:turn` is not
+  unique even in one session (a turn's subagents, a rewind), and would
+  collide across sessions.
 
 **A range of turns.** `:turns [from to]` (the command's `turns`) exports only
-those turns of each session, both ends included. A turn's number is its
-1-based position among the session's turn records — the ordering this file
-already has, since there is no `:turn` — so a note between two turns does not
-shift the numbers. It is what a recorded review (RFC-043, `byj-share record
---turns 12-30`) names. A range past the end keeps what there is; one with no
+those turns of each session, both ends included. A turn's number is the
+record's `:turn`, as `byj turns list` gives it (`trajectory-export/turn-numbers`,
+`byj-2jt`): a turn's subagents' records come with it, and a turn run again
+after a rewind is that number again. A session none of whose records carries
+`:turn` was written before they did, and is numbered by 1-based position
+among its turn records, as it always was; in a session that has both, a
+record from before is in no range — its position would be a number the
+session's turns also have — and the result counts it as `:unnumbered`. A
+note is never a turn. A range past the end keeps what there is; one with no
 turns in it, or that is not `[from to]` with `1 <= from <= to`, is an error.
+A program that reads `trajectory.edn` itself to take a range of it, as a
+recorded review does, numbers turns the same way.
 
 A turn with a question and nothing after it is **not** exported. The user
 message is built from the question and is therefore always present, so "has

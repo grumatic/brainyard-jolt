@@ -124,23 +124,42 @@
                      (integer? from) (integer? to) (<= 1 from to))
         (str "turns is [from to], two whole numbers from 1 with from <= to, not " (pr-str turns))))))
 
+(defn turn-numbers
+  "The turn number of each of ONE session's records, in order: the record's
+  `:turn`, the session's turn as `byj turns list` numbers it — a subagent's
+  record the turn it was dispatched in (RFC-025, byj-pzb). A session none of
+  whose records carries one was written before they did, and its records are
+  numbered by their 1-based position, as they always were; in one that does,
+  a record from before is nil, in no range — its position would be a number
+  the session's turns also have (byj-2jt). Notes are not turns."
+  [records]
+  (if (some :turn records)
+    (mapv :turn records)
+    (mapv inc (range (count records)))))
+
 (defn in-turns
-  "The records of ONE session whose turn number is in `[from to]`, inclusive.
-  A turn's number is its 1-based position among the session's turn records:
-  v3 has no `:turn` (RFC-025), position is the ordering, and notes are not
-  turns. `nil` turns keeps them all."
+  "The records of ONE session whose turn number (`turn-numbers`) is in
+  `[from to]`, inclusive: a turn's subagents' records with it. `nil` turns
+  keeps them all."
   [records turns]
   (if-let [[from to] turns]
-    (into [] (keep-indexed (fn [i r] (when (<= from (inc i) to) r))) records)
+    (into [] (keep (fn [[n r]] (when (and n (<= from n to)) r)))
+          (map vector (turn-numbers records) records))
     (vec records)))
+
+(defn- unnumbered
+  "How many of the sessions' records no range can name: those written before
+  records carried `:turn`, in a session where later ones do."
+  [config sessions]
+  (reduce + 0 (for [s sessions] (count (filter nil? (turn-numbers (trajectory/read-trajectories config s)))))))
 
 (defn export!
   "Write the sessions' turns as `fmt`. Returns `{:path :format :sessions :turns
   :examples :redacted}` or `{:error …}`.
 
   `:turns [from to]` exports only those turns of each session — inclusive,
-  1-based, counted within the session (`in-turns`); a recording of turns 12
-  to 30 (RFC-043) reads the same numbers the session showed.
+  by the numbers `byj turns list` gives them (`turn-numbers`, byj-2jt); a
+  record no range can name is counted as `:unnumbered`.
 
   A turn with nothing to learn from is dropped rather than exported empty;
   counting it would overstate the dataset."
@@ -168,8 +187,9 @@
             (try
               (.mkdirs (.getParentFile f))
               (spit f (str (str/join "\n" lines) "\n"))
-              {:path (.getPath f) :format fmt :sessions (vec sessions)
-               :turns (count records) :examples (count lines) :redacted redacted}
+              (cond-> {:path (.getPath f) :format fmt :sessions (vec sessions)
+                       :turns (count records) :examples (count lines) :redacted redacted}
+                (and turns (pos? (unnumbered config sessions))) (assoc :unnumbered (unnumbered config sessions)))
               (catch Throwable e {:error (str "could not write " (.getPath f) ": " (ex-message e))}))))))))
 
 ;; --- the command ---------------------------------------------------------------------------
@@ -187,10 +207,11 @@
       :input-schema [:map [:session-id {:optional true} [:string {:desc "One session. Omit for all of them."}]]
                           [:format {:optional true} [:string {:desc "openai-jsonl (default) or edn (the raw records)."}]]
                           [:redact {:optional true} [:boolean {:desc "Default true. Only pass false for a file that stays on this machine."}]]
-                          [:turns {:optional true} [:vector {:desc "[from to]: only these turns of each session, 1-based and inclusive. Omit for every turn."} :int]]]
+                          [:turns {:optional true} [:vector {:desc "[from to]: only these turns of each session, inclusive, numbered as byj turns list numbers them. Omit for every turn."} :int]]]
       :output-schema [:or {:desc "the file written; :turns were read, :examples written"}
                [:map [:path :string] [:format [:enum "openai-jsonl" "edn"]] [:sessions [:vector :string]]
-                     [:turns :int] [:examples :int] [:redacted :boolean]]
+                     [:turns :int] [:examples :int] [:redacted :boolean]
+                     [:unnumbered {:optional true} :int]]
                [:map [:error :string]]]
       :effects #{:fs/write :trajectory/export}
       :fn (fn [{:keys [session-id format redact turns]} ctx]

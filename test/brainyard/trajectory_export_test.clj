@@ -238,3 +238,19 @@
       (let [ctx (agent/make-ctx {:config c :tools (vec tools/builtin-tools)})
             r (tools/call-tool (get @(:tools ctx) "trajectory$export") {:turns [1 2] :format "edn"} ctx)]
         (is (= ["one" "two"] (questions r)))))))
+
+(deftest a-range-names-turns-as-byj-turns-list-does
+  ;; byj-2jt: a range counted a turn by its position among the records, so
+  ;; a turn's subagents moved every later number off the session's own
+  (let [turn (fn [q n & [agent]] (cond-> (assoc a-turn :question q :turn n) agent (assoc :agent agent)))
+        questions (fn [r] (mapv #(:question (read-string %)) (str/split-lines (slurp (:path r)))))]
+    (let [c (with-turns "export-turn-n" [(turn "one" 1) (turn "child of two" 2 "explore/a-1") (turn "two" 2)
+                                         (turn "three" 3) (turn "again after a rewind" 3)])]
+      (is (= ["child of two" "two"] (questions (ex/export! c {:sessions ["s1"] :format "edn" :turns [2 2]})))
+          "a turn and its subagents' records, by the session's number")
+      (is (= ["three" "again after a rewind"] (questions (ex/export! c {:sessions ["s1"] :format "edn" :turns [3 3]}))))
+      (is (nil? (:unnumbered (ex/export! c {:sessions ["s1"] :format "edn" :turns [1 3]})))))
+    (let [c (with-turns "export-turn-mixed" [(assoc a-turn :question "before") (turn "after" 2)])
+          r (ex/export! c {:sessions ["s1"] :format "edn" :turns [1 2]})]
+      (is (= ["after"] (questions r)) "a record from before :turn, in a session that has it, is in no range")
+      (is (= 1 (:unnumbered r)) "and is counted, not dropped unsaid"))))
