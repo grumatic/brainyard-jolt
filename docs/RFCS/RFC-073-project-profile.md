@@ -289,12 +289,17 @@ errs toward holding: `git -C x log --grep commit y` matches
 1. **`drive$next`** stops the run when the project has no profile or no
    beads, when a `:stop` limit is reached — failures in a row, the run's
    spend, beads filed since it began (`bd list --created-after`) — or when
-   nothing is ready under `:goal-epic` (`bd ready --parent`). Otherwise it
+   nothing is ready under `:goal-epic` (`bd ready --parent`), passing over
+   a bead labelled `human` (step 5). Otherwise it
    takes the first ready bead that is not an epic; with `:issue/work :ask`
    the person is asked first, through the turn's permission channel, as
    `init$install` asks, and a no stops the run. It claims the bead and
    writes the brief (`resources/brainyard/drive/words.edn`). A bead the
-   last step left unfinished is worked again, with what it lacked.
+   last step left unfinished is worked again, with what it lacked, what
+   its last turn ended saying, and which of its turns this is: each turn
+   starts from a fresh memory, and a retry told only what was missing
+   redid what the last turn had done and ran out of iterations where it
+   had (`byj-dw0`).
 2. **The bead's turn** is the bundled ReAct loop, `:include`d in a `:scope`
    of its own and asked the brief, with every tool the session has but
    `agent$drive` (the agent's `:deny-tools`), under the same permission gate
@@ -314,6 +319,14 @@ errs toward holding: `git -C x log --grep commit y` matches
    says — on its own at `:act`, after the person's yes at `:ask`, never at
    `:never` — and clears the failures; `retry` counts one and works the
    bead again next; `ask` and `stop` end the run with the question or why.
+   A bead gets at most `:drive-bead-attempts` (3) turns in a run: a `retry`
+   after its last sets it aside for the person instead — its claim
+   released (`bd unclaim`), labelled `human`, bd's own mark for a bead
+   that needs a person (`bd human list`), and a comment saying what its
+   last turn got to — and the run goes on to the next ready bead. The
+   label keeps later runs off it too, until the person removes it
+   (`byj-dw0`: with no `:stop` in a profile, one run gave two beads four
+   turns each, an hour, until the person cancelled it).
    It reports the turn's spend as a tool's (`:usage-cost-usd`), so the
    run's usage counts every bead's turn.
 
@@ -351,6 +364,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | `drive$next`, `drive$check`, `drive$settle`, `drive$report` (`brainyard.drive`) | its mechanism, registered by `:drive-tools?`, which `agent$drive`'s config sets (built) |
 | predictor `drive/judge`; `resources/brainyard/drive/words.edn` | the judgement of a bead's turn; every word the loop puts together (built) |
 | config `:drive-max-steps` (20), `:bd-path` | a run's step cap; where bd is looked up (built) |
+| config `:drive-bead-attempts` (3), `drive/bead-attempts` | the turns one bead gets in a run before it is set aside (built) |
 | `agents/person-words-for`, `:person-words` | the line the person typed, verbatim, in the memory of the agent its command stands for; read by `init/profile` as `typed` (built) |
 | agent spec `:attended?` | an agent that asks the person as it works: its call is waited on, never detached into a task (`tasks/detachable?`); agent$init and agent$drive (built) |
 
@@ -378,6 +392,8 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | `/drive` works only under a profile and beads, only the goal epic's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
 | `drive$check` names installed dependencies among the uncommitted, and stops naming them once `.gitignore` does | `drive-test/installed-dependencies-are-said-as-such` |
 | A bead is closed by `/drive` only as `:issue/close` says, and a retry, a question or a stop is a line of the run's log | `drive-test/settling-a-bead-as-the-profile-says` |
+| A retry's brief carries what the last turn ended saying and which of the bead's turns it is | `drive-test/a-retry-goes-on-from-where-the-last-turn-got-to`, `drive-test/drive-sets-aside-a-bead-it-cannot-finish-and-goes-on` |
+| A bead judged unfinished after its `:drive-bead-attempts` turns is set aside — unclaimed, labelled `human`, a comment saying how far it got — and the run goes on; a bead so labelled is not driven | `drive-test/a-bead-whose-turns-are-spent-is-set-aside-for-the-person`, `drive-test/drive-sets-aside-a-bead-it-cannot-finish-and-goes-on` |
 | The drive loop works each ready bead in a turn of its own until nothing is ready, and its answer says each outcome and why it stopped | `drive-test/drive-works-the-goals-beads-until-nothing-is-ready`, `drive-test/the-drive-loop-is-sound` |
 | `:issue/work` and `:decision/scope` are held by words and the drive loop, not by a gate | nothing enforces it, by design |
 
@@ -511,4 +527,6 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-None open.
+- A run cancelled during a bead's turn leaves the bead claimed, and the
+  next run, whose `bd ready` leaves claimed beads out, passes it over
+  (`byj-2pv`).

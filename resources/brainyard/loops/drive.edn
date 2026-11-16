@@ -10,25 +10,31 @@
 ;;                                         scope of its own, asked the brief
 ;;   what the turn left                 → drive$check (reads only)
 ;;   whether it is done                 → a predictor (drive/judge)
-;;   closing it, a retry, or stopping   → drive$settle, as the profile says
+;;   closing it, a retry, or stopping   → drive$settle, as the profile says;
+;;                                         a bead whose :drive-bead-attempts
+;;                                         turns are spent is set aside for
+;;                                         the person, and the run goes on
 ;;   the answer                         → drive$report
 ;;   the order                          → this file
 ;;
 ;; Each bead's turn starts from a fresh memory; what it spent comes back out
 ;; and drive$settle reports it as a tool's spend, so the run's usage — what
-;; drive$next holds to the profile's :usd — counts every turn.
+;; drive$next holds to the profile's :usd — counts every turn. Its answer
+;; comes back out too: a retry's brief carries it (:progress), or the next
+;; turn redoes what the last one did (byj-dw0).
 ;;
 ;; Check it before changing it: `byj flow check brainyard/loops/drive.edn`.
 [:sequence {:id :drive/turn}
  [:action {:id :drive/start :fn :react/init}]
  [:action {:id :drive/seed :fn :mem/set
-           :set {:stop false :stopped "" :log "" :failures 0 :retry "" :retry-note "" :since ""
+           :set {:stop false :stopped "" :log "" :failures 0 :retry "" :retry-note "" :since "" :attempts 0 :progress ""
                  :bead "" :title "" :brief "" :head "" :work "" :work-usage {} :check "" :bead-status ""
                  :status "" :question "" :summary ""}}]
  [:repeat {:id :drive/steps :max-n :config/drive-max-steps :until :mem/true? :key :stop}
   [:sequence {:id :drive/step}
    [:action {:id :drive/next :fn :tool/run :tool "drive$next"
-             :in {:failures :failures :usage :usage :since :since :retry :retry :retry-note :retry-note}
+             :in {:failures :failures :usage :usage :since :since :retry :retry :retry-note :retry-note
+                  :attempts :attempts :retry-progress :progress}
              :out {:stop :stop :stopped :stopped :bead :bead :title :title :brief :brief :head :head :since :since}}]
    [:fallback {:id :drive/step-guard}
     ;; nothing to work on, or a limit reached: succeed, and :until ends the run
@@ -46,8 +52,10 @@
                :out {:status :status :question :question :summary :summary}}]
      [:action {:id :drive/settle :fn :tool/run :tool "drive$settle"
                :in {:bead :bead :title :title :status :status :question :question :summary :summary
-                    :bead-status :bead-status :failures :failures :log :log :work-usage :work-usage}
-               :out {:failures :failures :retry :retry :retry-note :retry-note :stop :stop :stopped :stopped :log :log}}]]]]]
+                    :bead-status :bead-status :failures :failures :log :log :work-usage :work-usage
+                    :attempts :attempts :work :work}
+               :out {:failures :failures :retry :retry :retry-note :retry-note :attempts :attempts :progress :progress
+                     :stop :stop :stopped :stopped :log :log}}]]]]]
  [:action {:id :drive/report :fn :tool/run :tool "drive$report"
            :in {:log :log :stopped :stopped} :out {:answer :text}}]
  [:action {:id :drive/stamp :fn :react/stamp-answer}]

@@ -22,18 +22,24 @@
 
 (defn- fake-bd
   "A bd in `bin` keeping beads as files under `bin`/b/<id> (status, type,
-  title, parent, a line each): ready, update --claim, show, close and list,
-  as /drive calls them, every call logged to `bin`/bd.log."
+  title, parent, a line each; labels and comments in <id>.labels and
+  <id>.comments): ready (--parent, --exclude-label), update --claim,
+  unclaim, label add, comments add, show, close and list, as /drive calls
+  them, every call logged to `bin`/bd.log."
   [bin]
   (let [f (io/file bin "bd")]
     (spit f (str "#!/bin/bash\nd='" bin "'; echo \"$*\" >> \"$d/bd.log\"\n"
                  "field() { sed -n \"${2}p\" \"$d/b/$1\"; }\n"
                  "row() { printf '{\"id\":\"%s\",\"status\":\"%s\",\"issue_type\":\"%s\",\"title\":\"%s\",\"description\":\"\"}' \"$1\" \"$(field $1 1)\" \"$(field $1 2)\" \"$(field $1 3)\"; }\n"
                  "rows() { printf '['; sep=''; for p in $(ls \"$d/b\" | grep -v '[.]' | sort); do if eval \"$1\"; then printf '%s' \"$sep\"; row $p; sep=','; fi; done; echo ']'; }\n"
-                 "parent=''; prev=''; for a in \"$@\"; do [ \"$prev\" = --parent ] && parent=$a; prev=$a; done\n"
+                 "parent=''; skip=''; prev=''; for a in \"$@\"; do [ \"$prev\" = --parent ] && parent=$a; [ \"$prev\" = --exclude-label ] && skip=$a; prev=$a; done\n"
+                 "labelled() { [ -n \"$skip\" ] && grep -qx \"$skip\" \"$d/b/$1.labels\" 2>/dev/null; }\n"
                  "case \"$1\" in\n"
-                 "  ready) rows '[ \"$(field $p 1)\" = open ] && { [ -z \"$parent\" ] || [ \"$(field $p 4)\" = \"$parent\" ]; }';;\n"
+                 "  ready) rows '[ \"$(field $p 1)\" = open ] && ! labelled $p && { [ -z \"$parent\" ] || [ \"$(field $p 4)\" = \"$parent\" ]; }';;\n"
                  "  update) sed -i.bak '1s/.*/in_progress/' \"$d/b/$2\";;\n"
+                 "  unclaim) sed -i.bak '1s/.*/open/' \"$d/b/$2\";;\n"
+                 "  label) echo \"$4\" >> \"$d/b/$3.labels\";;\n"
+                 "  comments) printf '%s\\n' \"$4\" >> \"$d/b/$3.comments\";;\n"
                  "  close) sed -i.bak '1s/.*/closed/' \"$d/b/$2\";;\n"
                  "  show) printf '['; row $2; echo ']';;\n"
                  "  list) if [ -n \"$parent\" ]; then rows '[ \"$(field $p 4)\" = \"$parent\" ] && [ \"$(field $p 1)\" != closed ]'; else echo '[]'; fi;;\n"
@@ -87,7 +93,7 @@
       (is (str/starts-with? (:brief r) "Work on bead t-2: server shell"))
       (is (str/includes? (:brief r) "toward this project's goal (A workspace.)"))
       (is (some #(= "update t-2 --claim" %) (calls bin)))
-      (is (some #(str/includes? % "ready --json --limit 20 --parent t-1") (calls bin)) "under the goal's epic")
+      (is (some #(str/includes? % "ready --json --limit 20 --exclude-label human --parent t-1") (calls bin)) "under the goal's epic, a bead set aside passed over")
       (is (re-find #"^\d{4}-" (:since r)) "the run's start, for counting beads filed")
       (is (re-matches #"[0-9a-f]{40}" (:head r)))
       (testing "the next one, once that is claimed; then nothing ready"
@@ -111,6 +117,22 @@
           r (drive/next-bead cfg {} {:retry "t-3" :retry-note "the work is not committed"})]
       (is (= "t-3" (:bead r)))
       (is (str/starts-with? (:brief r) "Bead t-3 (terminal) is not finished: the work is not committed")))))
+
+;; byj-dw0: four turns each on two beads, every one starting over from the
+;; brief, each running out of iterations where the last had
+(deftest a-retry-goes-on-from-where-the-last-turn-got-to
+  (let [{:keys [bin cfg]} (setup "retry-progress" {:preset :collaborator :goal-epic "t-1"})
+        r (drive/next-bead cfg {} {:retry "t-3" :retry-note "the browser check is not finished" :attempts 1
+                                   :retry-progress "The reject flow is checked; cleaning up the throwaway session."})]
+    (is (str/includes? (:brief r) "This is turn 2 of the 3 /drive gives a bead."))
+    (is (str/includes? (:brief r) "The last turn ended saying:\n\nThe reject flow is checked; cleaning up the throwaway session."))
+    (is (str/includes? (:brief r) "rather than doing it again"))
+    (is (str/includes? (:brief (drive/next-bead (assoc cfg :drive-bead-attempts 5) {} {:retry "t-3" :attempts 3}))
+                       "This is turn 4 of the 5 /drive gives a bead. The last turn ended saying:\n\n(nothing)"))
+    (testing "a bead set aside for the person is passed over"
+      (spit (io/file bin "b" "t-2.labels") "human\n")
+      (is (= "t-3" (:bead (drive/next-bead cfg {} {}))))
+      (is (some #(str/includes? % "ready --json --limit 20 --exclude-label human --parent t-1") (calls bin))))))
 
 (deftest the-check-says-what-the-turn-left
   (let [{:keys [dir cfg]} (setup "check" {:preset :collaborator :goal-epic "t-1"})
@@ -176,13 +198,39 @@
       (is (str/includes? (:log r) "(left open: not yet)"))))
   (testing "retry counts a failure; ask and stop end the run"
     (let [{:keys [cfg]} (setup "settle-more" {:preset :collaborator})]
-      (is (= {:failures 2 :retry "t-2"}
-             (select-keys (drive/settle cfg {} {:bead "t-2" :status "retry" :summary "tests fail" :failures 1}) [:failures :retry])))
+      (is (= {:failures 2 :retry "t-2" :attempts 1 :progress "Two of five tests fail."}
+             (select-keys (drive/settle cfg {} {:bead "t-2" :status "retry" :summary "tests fail" :failures 1
+                                                :work "  Two of five tests fail.  "})
+                          [:failures :retry :attempts :progress])))
       (let [r (drive/settle cfg {} {:bead "t-2" :status "ask" :question "Add auth to the scope?" :summary "needs auth"})]
         (is (true? (:stop r)))
         (is (= "t-2 needs you: Add auth to the scope?" (:stopped r))))
       (is (str/includes? (:stopped (drive/settle cfg {} {:bead "t-2" :status "stop" :summary "node is missing"}))
                          "t-2 cannot go on: node is missing")))))
+
+(deftest a-bead-whose-turns-are-spent-is-set-aside-for-the-person
+  (let [{:keys [bin cfg]} (setup "set-aside" {:preset :collaborator :goal-epic "t-1"})
+        _ (drive/next-bead cfg {} {})
+        args {:bead "t-2" :title "server shell" :status "retry" :summary "the browser check ran out of steps"
+              :failures 4 :log "a" :work "Checked two of three; stopping the dev server."}]
+    (is (= 3 (drive/bead-attempts {})) "three turns unless config says otherwise")
+    (is (= "t-2" (:retry (drive/settle cfg {} (assoc args :attempts 1)))) "its second turn: another")
+    (let [r (drive/settle cfg {} (assoc args :attempts 2))]
+      (is (= "" (:retry r)) "its third: no other")
+      (is (= {:failures 5 :attempts 0 :progress "" :stop false} (select-keys r [:failures :attempts :progress :stop]))
+          "a failure still, and the run goes on")
+      (is (= (str "a\n⏸ t-2 server shell — the browser check ran out of steps; set aside after 3 turns, for you"
+                  " (bd human list; bd label remove t-2 human to drive it again)")
+             (:log r)))
+      (is (some #(= "unclaim t-2" %) (calls bin)) "its claim released, not left for the next run to pass over")
+      (is (some #(= "label add t-2 human" %) (calls bin)))
+      (let [note (slurp (io/file bin "b" "t-2.comments"))]
+        (is (str/starts-with? note "/drive set this bead aside after 3 turns that did not finish it. The last was judged: the browser check ran out of steps"))
+        (is (str/includes? note "Checked two of three; stopping the dev server."))
+        (is (str/includes? note "bd label remove t-2 human")))
+      (is (= "t-3" (:bead (drive/next-bead cfg {} {}))) "the next ready bead"))
+    (testing "one turn a bead, by config"
+      (is (= "" (:retry (drive/settle (assoc cfg :drive-bead-attempts 1) {} (assoc args :bead "t-3" :attempts 0))))))))
 
 (deftest the-drive-loop-is-sound
   (is (nil? (:problems (flow/check-tree-name "brainyard/loops/drive.edn"
@@ -209,3 +257,35 @@
     (is (str/includes? (:answer r) "/drive under t-1:\n✓ t-2 server shell — done and checked (closed)\n✓ t-3 terminal — done and checked (closed)"))
     (is (str/includes? (:answer r) "Stopped: Nothing is ready under t-1"))
     (is (str/includes? (:answer r) "Still open under t-1: nothing"))))
+
+(deftest drive-sets-aside-a-bead-it-cannot-finish-and-goes-on
+  ;; t-2's turns never finish: three turns, each brief after the first
+  ;; carrying what the last ended saying, then set aside; t-3 is worked
+  (let [{:keys [bin dir]} (setup "loop-aside" {:preset :collaborator :goal-epic "t-1"})
+        briefs (atom [])
+        r (agent/ask "Work through this project's goal."
+                     {:lm {:provider :mock :format :mock
+                           :responses (fn [messages]
+                                        (let [sys (str (:content (first messages)))
+                                              all (str/join "\n" (map (comp str :content) messages))]
+                                          (if (str/includes? sys "A coding agent just took one turn on a bead")
+                                            (json/write-str {:reasoning "r" :question ""
+                                                             :status (if (str/includes? all "t-2") "retry" "done")
+                                                             :summary (if (str/includes? all "t-2") "ran out of steps" "done and checked")})
+                                            (let [user (str (:content (second messages)))]
+                                              (swap! briefs conj user)
+                                              (json/write-str {:reasoning "r" :tool-calls []
+                                                               :answer (str "Turn " (count @briefs) " got to step " (count @briefs) ".")})))))}
+                      :tree (agent/load-tree "brainyard/loops/drive.edn")
+                      :config {:project-dir dir :working-dir dir :drive-tools? true :bd-path bin}})
+        t2 (filterv #(str/includes? % "t-2") @briefs)]
+    (is (= 3 (count t2)) "three turns on t-2, no more")
+    (is (str/includes? (nth t2 1) "This is turn 2 of the 3") )
+    (is (str/includes? (nth t2 1) "The last turn ended saying:\n\nTurn 1 got to step 1."))
+    (is (str/includes? (nth t2 2) "Turn 2 got to step 2."))
+    (is (some #(= "label add t-2 human" %) (calls bin)))
+    (is (some #(str/starts-with? % "close t-3") (calls bin)))
+    (is (str/includes? (:answer r) "⏸ t-2 server shell — ran out of steps; set aside after 3 turns"))
+    (is (str/includes? (:answer r) "✓ t-3 terminal — done and checked (closed)"))
+    (is (str/includes? (:answer r) "Stopped: Nothing is ready under t-1"))
+    (is (str/includes? (:answer r) "Still open under t-1: t-2 server shell"))))

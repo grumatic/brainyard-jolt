@@ -58,6 +58,21 @@
 
 (defn- stop [why] {:stop true :stopped why :bead "" :brief ""})
 
+(defn bead-attempts
+  "How many turns one bead gets in a run before it is set aside: config's
+  `:drive-bead-attempts`, at least 1 (byj-dw0)."
+  [config]
+  (max 1 (or (num-of (:drive-bead-attempts config)) 3)))
+
+(def progress-max-chars
+  "How much of a turn's answer a retry's brief, or a set-aside bead's
+  comment, carries."
+  1500)
+
+(defn- clip [s n]
+  (let [s (str/trim (str s))]
+    (if (> (count s) n) (str (subs s 0 n) "…") s)))
+
 (defn- bd-path [config args]
   (init/on-path "bd" (or (:path args) (:bd-path config) (System/getenv "PATH"))))
 
@@ -67,7 +82,9 @@
   in a row, spend, beads filed since the run began — or nothing is ready
   under the goal's epic; else the bead to work on, claimed, with its brief.
   A bead the last step left unfinished (`:retry`) is worked again, with
-  what was missing. Where the profile has the person choose the work
+  what was missing, what its last turn ended saying (`:retry-progress`) and
+  which of its turns this is (`:attempts` before it); a bead labelled as
+  set aside for the person is passed over. Where the profile has the person choose the work
   (`:issue/work :ask`), the person is asked first. `{:stop :stopped :bead
   :title :brief :head :since}`; `:since` is when the run began, kept by the
   tree."
@@ -83,6 +100,7 @@
                   (str (java.time.Instant/ofEpochMilli (System/currentTimeMillis))))
         epic (:goal-epic p)
         retry (not-empty (str (:retry args)))
+        attempts (or (num-of (:attempts args)) 0)
         head (str/trim (:out (run dir "git" "rev-parse" "HEAD")))]
     (cond
       (nil? p) (stop (get-in w [:stops :no-profile]))
@@ -98,9 +116,12 @@
       retry
       (let [b (first (json-out (run dir bd "show" retry "--json")))]
         {:stop false :stopped "" :bead retry :title (str (:title b)) :head head :since since
-         :brief (fill (:retry w) {:id retry :title (:title b) :why (:retry-note args)})})
+         :brief (fill (:retry w) {:id retry :title (:title b) :why (:retry-note args)
+                                  :n (inc attempts) :max (bead-attempts config)
+                                  :progress (or (not-empty (str/trim (str (:retry-progress args)))) (:no-progress w))})})
       :else
-      (let [ready (json-out (apply run dir bd "ready" "--json" "--limit" "20" (when epic ["--parent" epic])))
+      (let [ready (json-out (apply run dir bd "ready" "--json" "--limit" "20" "--exclude-label" (:set-aside-label w)
+                                   (when epic ["--parent" epic])))
             b (first (remove #(= "epic" (:issue_type %)) ready))]
         (cond
           (nil? b) (stop (fill (get-in w [:stops :nothing-ready]) {:under (if epic (str " under " epic) "")}))
@@ -159,9 +180,14 @@
   "Act on drive/judge's word on a bead (`drive$settle`): `done` closes the
   bead as the profile's `:issue/close` says — on its own at `:act`, after the
   person's yes at `:ask`, never at `:never` — and clears the failures;
-  `retry` counts a failure and has the next step work the bead again;
-  `ask` and `stop` end the run with the question or why. Every step is a
-  line of the run's log. `{:failures :retry :retry-note :stop :stopped :log}`."
+  `retry` counts a failure and has the next step work the bead again, with
+  what the turn ended saying — until the bead has had `bead-attempts`
+  turns, when it is set aside instead: its claim released, labelled for the
+  person (`words.edn` `:set-aside-label`, which `drive$next` passes over),
+  a comment saying what its turns got to, and the run goes on to the next
+  ready bead (byj-dw0); `ask` and `stop` end the run with the question or
+  why. Every step is a line of the run's log.
+  `{:failures :retry :retry-note :attempts :progress :stop :stopped :log}`."
   [config ctx args]
   (let [dir (dir-of config args)
         w (words)
@@ -171,6 +197,8 @@
         status (keyword (str/lower-case (str/trim (str (:status args)))))
         summary (str/trim (str (:summary args)))
         failures (or (num-of (:failures args)) 0)
+        attempts (inc (or (num-of (:attempts args)) 0))
+        progress (clip (:work args) progress-max-chars)
         log (str (:log args))
         line #(str log (when-not (str/blank? log) "\n") %)
         bd (bd-path config args)
@@ -190,21 +218,37 @@
                                     :args {:bead bead}})))
             r (when (and (not closed?) (nil? no) bd)
                 (run dir bd "close" bead "--reason" (str "/drive: " summary)))]
-        {:failures 0 :retry "" :retry-note "" :stop false :stopped ""
+        {:failures 0 :retry "" :retry-note "" :attempts 0 :progress "" :stop false :stopped ""
          :log (line (str "✓ " bead " " title " — " summary
                          (cond closed? " (closed in its turn)"
                                no (str " (left open: " no ")")
                                (and r (not (:ok? r))) (str " (bd close failed: " (:said r) ")")
                                :else " (closed)")))})
       :retry
-      {:failures (inc failures) :retry bead :retry-note summary :stop false :stopped ""
-       :log (line (str "↻ " bead " " title " — " summary))}
+      (if (< attempts (bead-attempts config))
+        {:failures (inc failures) :retry bead :retry-note summary :attempts attempts :progress progress
+         :stop false :stopped ""
+         :log (line (str "↻ " bead " " title " — " summary))}
+        ;; its turns are spent: set aside for the person, and on to the next
+        (let [said (fn [r] (when (and r (not (:ok? r))) (str " (" (:said r) ")")))
+              label (:set-aside-label w)
+              failed (when bd
+                       (str (said (run dir bd "unclaim" bead))
+                            (said (run dir bd "label" "add" bead label))
+                            (said (run dir bd "comments" "add" bead
+                                       (fill (:set-aside-note w)
+                                             {:id bead :n attempts :why summary
+                                              :progress (or (not-empty progress) (:no-progress w))})))))]
+          {:failures (inc failures) :retry "" :retry-note "" :attempts 0 :progress "" :stop false :stopped ""
+           :log (line (str "⏸ " bead " " title " — " summary "; "
+                           (fill (:set-aside w) {:id bead :n attempts})
+                           (when (not-empty failed) (str " — bd said:" failed))))}))
       :ask
       (let [q (str/trim (str (:question args)))]
-        {:failures failures :retry "" :retry-note "" :stop true
+        {:failures failures :retry "" :retry-note "" :attempts 0 :progress "" :stop true
          :stopped (str bead " needs you: " (if (str/blank? q) summary q))
          :log (line (str "? " bead " " title " — " summary))})
-      {:failures failures :retry "" :retry-note "" :stop true
+      {:failures failures :retry "" :retry-note "" :attempts 0 :progress "" :stop true
        :stopped (str bead " cannot go on: " summary)
        :log (line (str "✗ " bead " " title " — " summary))})
       cost (assoc :usage-cost-usd cost))))
@@ -235,7 +279,8 @@
       :description "/drive's next step: the next ready bead under the goal's epic, claimed, with its brief — or why the run stops (no profile, the profile's limits, nothing ready, the person said no)."
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :failures "failures in a row so far")
                      (any-arg :usage "the run's usage so far") (any-arg :since "when the run began")
-                     (any-arg :retry "a bead to work again") (any-arg :retry-note "what it lacked")]
+                     (any-arg :retry "a bead to work again") (any-arg :retry-note "what it lacked")
+                     (any-arg :retry-progress "what its last turn ended saying") (any-arg :attempts "the turns it has had")]
       :output-schema [:map [:stop :any] [:stopped :any] [:bead :any] [:brief :any]
                       [:title {:optional true} :any] [:head {:optional true} :any] [:since {:optional true} :any]]
       :effects #{:fs/read :process}
@@ -247,13 +292,15 @@
       :effects #{:fs/read :process}
       :fn (fn [args _] (check-bead config args))}
      {:name "drive$settle" :kind :command
-      :description "Act on the judgement of a bead's turn: close it as the profile says, count a retry, or stop the run with the question for the person."
+      :description "Act on the judgement of a bead's turn: close it as the profile says, count a retry, set aside a bead whose turns are spent, or stop the run with the question for the person."
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :bead "the bead") (any-arg :title "its title")
                      (any-arg :status "done, retry, ask or stop") (any-arg :question "for ask") (any-arg :summary "one line")
                      (any-arg :bead-status "the bead's status after the turn") (any-arg :failures "failures so far")
-                     (any-arg :log "the run's log so far") (any-arg :work-usage "what the bead's turn spent")]
+                     (any-arg :log "the run's log so far") (any-arg :work-usage "what the bead's turn spent")
+                     (any-arg :attempts "the turns the bead had before this one") (any-arg :work "the turn's answer")]
       :output-schema [:map [:failures :any] [:stop :any] [:stopped :any] [:log :any]
-                      [:retry :any] [:retry-note :any] [:usage-cost-usd {:optional true} :any]]
+                      [:retry :any] [:retry-note :any] [:attempts :any] [:progress :any]
+                      [:usage-cost-usd {:optional true} :any]]
       :effects #{:process}
       :fn (fn [args ctx] (settle config ctx args))}
      {:name "drive$report" :kind :command
