@@ -1099,7 +1099,26 @@
     (is (= 3 (count recs)) "the root's turn and each child's")
     (is (= "root" (:owner outer)) "dispatched by the session itself")
     (is (= (:agent outer) (:owner inner)) "dispatched by the outer instance")
-    (is (nil? (:owner (by-agent "react-agent"))) "the root's own turn has no owner")))
+    (is (nil? (:owner (by-agent "react-agent"))) "the root's own turn has no owner")
+    (is (every? #(nil? (:turn %)) recs) "byj ask runs no session turn, so names none")))
+
+(deftest a-childs-turn-names-the-session-turn-it-ran-in
+  ;; byj-pzb: a subagent's record names the session turn it was dispatched
+  ;; in, as byj turns list numbers it, at any depth
+  (let [seen (atom nil)
+        run-turn (fn [_question opts] (reset! seen opts) (brainyard.effect/success {:answer "done"}))]
+    (agents/dispatch {:name "code-review" :instruction "Review."} {:question "review it"}
+                     {:config {} :st-memory (atom {:turn-number 7})} run-turn {:keep? false})
+    (is (= 7 (get-in @seen [:config :session-turn])) "from the session turn's own memory")
+    (agents/dispatch {:name "code-review" :instruction "Review."} {:question "deeper"}
+                     {:config {:session-turn 7 :agent-instance-id "outer/x-1"} :st-memory (atom {})} run-turn {:keep? false})
+    (is (= 7 (get-in @seen [:config :session-turn])) "and a child's child, from its caller's")
+    (let [dir (fresh-dir "child-turn")
+          f (brainyard.trajectory/log-file {:project-dir dir :session-id "ct"})
+          ctx {:config {:project-dir dir :session-id "ct" :session-turn 7 :agent-instance-id "code-review/a-1"}
+               :st-memory (atom {:question "q" :answer "a" :terminated-by :answer-channel :trajectory-iterations []})}]
+      (agent/store-trajectory-action ctx)
+      (is (= [7] (mapv :turn (trajectory/read-trajectories {:project-dir dir} "ct")))))))
 
 (deftest a-dispatch-that-keeps-nothing-is-still-its-callers-child
   ;; byj-gly.376: a dispatch: agent skill (:keep? false) ran its child turn

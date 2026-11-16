@@ -247,6 +247,15 @@
   [config]
   (or (:agent-instance-id config) "root"))
 
+(defn session-turn
+  "The session turn a call is made in: the caller's own, when it is itself a
+  subagent, else its session's, which the session's turn scope hands the
+  ReAct loop as `:turn-number`. What a subagent's trajectory record names as
+  its `:turn` (byj-pzb); nil outside a session turn."
+  [ctx]
+  (or (get-in ctx [:config :session-turn])
+      (some-> (:st-memory ctx) deref :turn-number)))
+
 (defn resolve-id
   "brainyard's forgiving lookup: an exact id, one written with a leading colon,
   or a bare suffix when it names exactly one instance — a model that carried
@@ -709,7 +718,8 @@
                    (assoc-in [:config :agent-instance-id] id)
                    ;; who dispatched it, for its trajectory record: another
                    ;; instance, or "root" (byj-gly.298.1)
-                   (assoc-in [:config :agent-owner] (caller-id config)))]
+                   (assoc-in [:config :agent-owner] (caller-id config))
+                   (assoc-in [:config :session-turn] (session-turn ctx)))]
       (try
         (let [result (fx/run-value!! (run-turn question opts))]
           (swap! reg update id
@@ -825,7 +835,8 @@
                        (let [r (fx/run-value!! (run-turn question (-> (child-opts agent ctx tier-lm)
                                                                       (update :on-event tagged id name)
                                                                       (assoc-in [:config :agent-instance-id] id)
-                                                                      (assoc-in [:config :agent-owner] (caller-id config)))))]
+                                                                      (assoc-in [:config :agent-owner] (caller-id config))
+                                                                      (assoc-in [:config :session-turn] (session-turn ctx)))))]
                          (roll-up! (:st-memory ctx) (:usage r))
                          r))]
           ;; the id the dispatch named, so whoever is showing the child as

@@ -476,6 +476,7 @@ session's trajectory, so the agent page can rebuild the tree, byj-gly.298.1),
 |---|---|
 | A dispatch that keeps nothing (`:keep? false`, a `dispatch: agent` skill) still runs as an instance its caller owns, and leaves nothing to ask. | `agents-test/a-dispatch-that-keeps-nothing-is-still-its-callers-child` |
 | A child's turn records who dispatched it — "root", or the instance that did, at any depth — and the root's own turn records none. | `agents-test/a-childs-turn-says-who-dispatched-it` |
+| A child's turn records the session turn it was dispatched in (`:session-turn`, its record's `:turn`), at any depth. | `agents-test/a-childs-turn-names-the-session-turn-it-ran-in` |
 | **A child on another provider gets that provider's credentials, never its caller's**, and none at all rather than the wrong ones. | `agents-test/an-agent-on-another-provider-does-not-get-the-callers-key`, `agents-test/a-key-for-the-childs-provider-is-taken-from-the-runs-environment` |
 | A child that changes only its model keeps the caller's credentials, and may pin one itself. | `agents-test/an-agent-that-only-changes-model-keeps-the-callers-credentials`, `agents-test/an-agent-may-still-pin-a-credential-itself` |
 | **A child is shown nothing of the caller unless its own spec asks**; when it does, the newest `k` turns, oldest first. | `agents-test/a-child-is-shown-nothing-of-the-caller-unless-it-asks` |

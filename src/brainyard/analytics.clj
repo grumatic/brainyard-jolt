@@ -118,12 +118,19 @@
                       (+ (* (:one-shot-bonus iteration) (ratio one-shot (count records))))
                       clamp)})))
 
+(defn- turn-of
+  "A record's turn as `byj turns list` names it: `{:session :turn}`, either
+  nil when the record does not say (byj-pzb)."
+  [r]
+  {:session (:session r) :turn (:turn r)})
+
 (defn latency
   "How long turns took, and how fast the model wrote. brainyard's LT.
 
-  `:slowest` is named by POSITION, not by a turn number: a v3 record has no
-  `:turn` (RFC-025), and brainyard's own analytics reads one anyway and gets
-  nil back."
+  `:slowest` names each turn as `byj turns list` does: its session and the
+  session's turn number, which the record carries as `:turn` (byj-pzb) — nil
+  for a record written before it did. It was once its position among every
+  record read, subagents' among them, which no person could find again."
   [records {:keys [latency]}]
   (let [ms (keep :duration-ms records)]
     (when (seq ms)
@@ -135,9 +142,9 @@
          :p50-ms (pct 0.5 ms)
          :p90-ms p90
          :output-tokens-per-sec tps
-         :slowest (->> (map-indexed (fn [i r] {:at i :duration-ms (:duration-ms r)
-                                               :question (:question r)}) records)
+         :slowest (->> records
                        (filter :duration-ms)
+                       (map (fn [r] (assoc (turn-of r) :duration-ms (:duration-ms r) :question (:question r))))
                        (sort-by (comp - :duration-ms))
                        (take 3) vec)
          :score (mean (remove nil? [(scale tps 0 (:target-tps latency))
@@ -242,17 +249,21 @@
   [records {r :rework}]
   (when (> (count records) 1)
     (let [qs (mapv :question records)
+          ;; a turn named as byj turns list names it, not by its position
+          ;; among the records (byj-pzb)
           pairs (for [i (range (count qs)), j (range (inc i) (count qs))
                       :let [s (jaccard (nth qs i) (nth qs j))]
                       :when (>= s (:similar r))]
-                  {:at j :like i :similarity s
-                   :after-failure? (not (:success (nth records i)))})
+                  (let [a (turn-of (nth records i)) b (turn-of (nth records j))]
+                    (cond-> (assoc b :like (:turn a) :similarity s
+                                   :after-failure? (not (:success (nth records i))))
+                      (not= (:session a) (:session b)) (assoc :like-session (:session a)))))
           storms (->> (map-indexed vector qs)
                       (partition (:storm-run r) 1)
                       (filter (fn [win]
                                 (every? #(>= (jaccard (second (first win)) (second %)) (:storm r))
                                         (rest win))))
-                      (mapv (comp first first)))]
+                      (mapv (comp turn-of #(nth records %) first first)))]
       {:repeated (vec pairs)
        :re-asked-after-a-failure (count (filter :after-failure? pairs))
        :storms storms})))
@@ -322,7 +333,8 @@
       [:latency {:optional true}
        [:maybe [:map [:total-ms :int] [:p50-ms :int] [:p90-ms :int]
                 [:output-tokens-per-sec [:maybe :double]]
-                [:slowest [:vector [:map [:at :int] [:duration-ms :int] [:question [:maybe :string]]]]]
+                [:slowest [:vector [:map [:session [:maybe :string]] [:turn [:maybe :int]]
+                                    [:duration-ms :int] [:question [:maybe :string]]]]]
                 [:score score]]]]
       [:cache {:optional true}
        [:maybe [:map [:cached-input :int] [:written-input :int] [:fresh-input :int]
@@ -334,9 +346,11 @@
                 [:failing [:vector [:map [:tool [:maybe :string]] [:failures :int]]]]
                 [:redundant-calls :int] [:score :double]]]]
       [:rework {:optional true}
-       [:maybe [:map [:repeated [:vector [:map [:at :int] [:like :int] [:similarity :double]
-                                          [:after-failure? :boolean]]]]
-                [:re-asked-after-a-failure :int] [:storms [:vector :int]]]]]]
+       [:maybe [:map [:repeated [:vector [:map [:session [:maybe :string]] [:turn [:maybe :int]]
+                                          [:like [:maybe :int]] [:like-session {:optional true} [:maybe :string]]
+                                          [:similarity :double] [:after-failure? :boolean]]]]
+                [:re-asked-after-a-failure :int]
+                [:storms [:vector [:map [:session [:maybe :string]] [:turn [:maybe :int]]]]]]]]]
      [:map [:error-message :string]]]))
 
 (defn commands

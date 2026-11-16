@@ -1086,7 +1086,10 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                 :provider (:provider lm)
                 :usage usage
                 :started-at started-at
-                :loop-hash (:loop-hash ctx)})]
+                :loop-hash (:loop-hash ctx)
+                ;; the session's turn, as byj turns list numbers it; a
+                ;; subagent's, the one it was dispatched in (byj-pzb)
+                :turn (or (:session-turn config) (:turn-number @st-memory))})]
       (when (trajectory/append! f rec)
         (emit! ctx :agent.trajectory/stored {:path (.getPath f)
                                              :iterations (:total-iterations rec)})))))

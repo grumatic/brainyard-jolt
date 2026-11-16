@@ -250,6 +250,7 @@
    :agent-chain {:family :agents :type "vector" :default [] :doc "The agents dispatched above this turn (set by a dispatch)."}
    :agent-instruction {:family :agents :type "string" :default nil :doc "Replaces the ReAct instruction block for a subagent's turn."}
    :agent-instance-id {:family :agents :type "string" :default nil :doc "The instance this turn IS, when it is a subagent (set by a dispatch)."}
+   :session-turn {:family :agents :type "integer" :default nil :doc "The session turn a subagent was dispatched in (set by a dispatch; recorded in its trajectory as :turn, byj-pzb)."}
    :agent-owner {:family :agents :type "string" :default nil :doc "Who dispatched this subagent turn: another instance's id, or \"root\" (set by a dispatch; recorded in its trajectory, byj-gly.298.1)."}
    :visible-tools {:family :tools :type "vector" :default [] :doc "Tool-name globs a turn may see. Empty means everything."}
    :mcp-registry? {:family :tools :type "boolean" :default true

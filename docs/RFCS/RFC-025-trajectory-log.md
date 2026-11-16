@@ -84,9 +84,18 @@ read months later can be told apart from one produced on another runtime. An
 runtime was unknown to matter. Adding it needs no `:v` bump: readers take keys
 they know and a v3 record without it stays valid (`byj-gly.118`).
 
-**There is no `:turn` key**, and that is deliberate in the original: a per-agent
-turn counter restarts at 1 when a session resumes, so two records both claimed
-to be turn 1. Position in the append-only file is the ordering.
+**`:turn` is the session's turn, and optional** (divergence
+`trajectory-records-the-session-turn`, `byj-pzb`). brainyard's record has no
+`:turn`, deliberately: its per-agent counter restarted at 1 when a session
+resumed, so two records both claimed to be turn 1. byj's is the session's
+count — the number `byj turns list`, `:session.turn/start` and the session's
+snapshot give the turn, kept across a resume — handed to the ReAct loop as
+`:turn-number`; a subagent's record names the session turn it was dispatched
+in (`:session-turn`, set by the dispatch), at any depth. Absent where no
+session turn runs (`byj ask`) and in records written before. Two records of
+one session can share it: a turn's subagents, and a turn run again after a
+rewind. Position in the append-only file is still the ordering; `:turn` is
+what names a turn to a person. No `:v` bump.
 
 **A turn someone else put in the session, and a note for people** (a shared
 session, RFC-043; the port's). A turn injected over the session channel
@@ -257,6 +266,7 @@ hold, and neither does the default.
 | Refusing a write and redacting an export do not use the same list. | `trajectory-export-test/refusing-and-redacting-do-not-use-the-same-list` |
 | A turn with nothing after its question is not an example. | `trajectory-export-test/a-turn-with-nothing-in-it-is-not-an-example` |
 | `:turns [from to]` exports only those turns, 1-based and inclusive, counted among a session's turns (notes are not turns); a range that is not one is refused. | `trajectory-export-test/only-the-turns-asked-for-are-exported` |
+| A record names the session's turn as `byj turns list` does, a subagent's the turn it was dispatched in; `session$analytics` names turns by it | `session-test/each-turn-records-the-sessions-turn-number`, `agents-test/a-childs-turn-names-the-session-turn-it-ran-in`, `analytics-test/rework-finds-a-question-that-came-back` |
 | **A run told to leave nothing behind leaves no record either.** | `trajectory-test/a-run-told-to-leave-nothing-behind-leaves-no-record-either`, `persist-test/persistence-can-be-switched-off` |
 
 ## Exporting it
@@ -357,7 +367,7 @@ that disagrees edits `.brainyard/analytics.edn`.
 {:health {:score 72 :grade "B-" :from [:ice :lt :oga :tce :tur] :missing []}
  :outcome {:success-rate 0.67 :trailing-failures 0 :terminated-by {…}}
  :cost {:total-cost 0.049 :cost-per-successful-turn 0.0245 :unpriced-turns 1}
- :rework {:repeated [{:at 1 :like 0 :similarity 0.83 :after-failure? true}]}}
+ :rework {:repeated [{:session "1794…-9bcc139d" :turn 12 :like 9 :similarity 0.83 :after-failure? true}]}}
 ```
 
 Three things it declines to do:
@@ -381,8 +391,13 @@ question coming back, by Jaccard overlap, and whether the turn before it
 failed. A question re-asked after a failure is the plainest evidence the agent
 did not answer it.
 
-A slow turn is named by **position**, not by a turn number — a v3 record has no
-`:turn`, and brainyard's own analytics reads one anyway and gets nil.
+A turn it names — a slow one, one re-asked, a storm's first — is named as
+`byj turns list` names it, `{:session :turn}` from the record's `:turn`, nil
+for a record written before it had one; `:like` is the earlier turn's
+number, and `:like-session` its session when that is another. It was once
+the turn's position among every record read, subagents' and every session's
+among them, which no person could find again: in an 81-turn session the two
+differed by 12 (`byj-pzb`).
 
 ### Redaction is the point of the boundary
 

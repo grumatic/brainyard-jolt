@@ -538,6 +538,18 @@
       (testing "and nothing is reported when nothing changed"
         (is (= 1 (count (filter #(str/starts-with? % "config changed, in force") info))))))))
 
+(deftest each-turn-records-the-sessions-turn-number
+  ;; byj-pzb: session$analytics named a turn by its position among the
+  ;; records, a number no person could find; the record carries the turn
+  ;; byj turns list and :session.turn/start give it
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "turn-n-" (random-uuid))) .mkdirs))
+        {:keys [final]} (run-session ["first" "/help" "second" "third"] (answer "ok")
+                                     :config {:working-dir dir :project-dir dir :session-id "turn-n" :max-iterations 4
+                                              :persist-session? true :recap? false})
+        recs (brainyard.trajectory/read-trajectories {:project-dir dir} "turn-n")]
+    (is (= 3 (:turn-count final)) "/help is no turn")
+    (is (= [1 2 3] (mapv :turn recs)))))
+
 (deftest an-edited-permission-key-waits-for-the-next-session
   ;; config.edn sits in the working directory and a file tool can write it: a
   ;; mode or an allow-list the agent wrote must not govern the run that wrote

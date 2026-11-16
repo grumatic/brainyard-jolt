@@ -188,16 +188,22 @@
    [:cost-partial? {:optional true} :boolean]
    [:jolt {:optional true} :string]
    [:brainyard-version {:optional true} :string]
-   [:duration-ms {:optional true} :int]])
+   [:duration-ms {:optional true} :int]
+   [:turn {:optional true} :int]])
 
 (defn record
   "A turn as a trajectory record — brainyard's `build-record`.
 
-  There is no `:turn` key, and that is deliberate in the original: a per-agent
-  turn counter restarts at 1 when a session resumes, so two records claimed to
-  be turn 1. Position in the append-only file is the ordering."
+  brainyard's record has no `:turn`, and deliberately: its per-agent turn
+  counter restarted at 1 when a session resumed, so two records claimed to be
+  turn 1. byj's `:turn` is the SESSION's turn — the number `byj turns list`
+  and `:session.turn/start` give it, kept across a resume — and, for a
+  subagent's record, the session turn it was dispatched in; absent when no
+  session turn was running (`byj ask`). Position in the append-only file is
+  still the ordering; `:turn` is what names a turn to a person (divergence
+  `trajectory-records-the-session-turn`, byj-pzb)."
   [{:keys [session agent owner question asked iterations answer success terminated-by
-           model provider usage started-at ended-at injected-by command permission-mode loop-hash]}]
+           model provider usage started-at ended-at injected-by command permission-mode loop-hash turn]}]
   (let [entries (with-answer-iteration (mapv project-iteration iterations) answer)
         ended (or ended-at (System/currentTimeMillis))]
     (cond-> {:v version
@@ -208,6 +214,7 @@
              :total-iterations (count entries)
              :iterations entries}
       session (assoc :session (str session))
+      (pos-int? turn) (assoc :turn turn)
       agent (assoc :agent (str agent))
       ;; who dispatched a subagent's turn — another instance, or "root" — so a
       ;; session's children can be put back into their tree (byj-gly.298.1)

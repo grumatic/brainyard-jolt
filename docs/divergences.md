@@ -1861,3 +1861,14 @@ projects list --json` gives `created-at` and `last-opened-at` as a
 JVM's zone, which a program reading it must parse by locale and which does
 not sort. byj gives `2026-08-04T13:19:33.000-00:00`, the instant as the
 record holds it. The records on disk are the same for both (RFC-074).
+
+<!-- divergence: trajectory-records-the-session-turn -->
+**A trajectory record names the session's turn, `:turn`.** brainyard's
+`build-record` writes none, because its per-agent turn counter restarted at
+1 when a session resumed and two records claimed to be turn 1; its analytics
+reads `:turn` anyway and gets nil. byj's `:turn` is the session's count —
+what `byj turns list` and `:session.turn/start` number the turn, kept across
+a resume — and a subagent's record names the session turn it was dispatched
+in. `session$analytics` names a turn by it, `{:session :turn}`, where it
+had named one by its position among every record read, subagents' and every
+session's among them (RFC-025, `byj-pzb`).

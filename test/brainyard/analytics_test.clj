@@ -24,7 +24,7 @@
 
 (defn- turn
   "A trajectory record, with only what a test cares about."
-  [& {:keys [q ok its ms cost partial? in out cache-read cache-write tools]
+  [& {:keys [q ok its ms cost partial? in out cache-read cache-write tools n sid]
       :or {q "q" ok true its 2 ms 1000}}]
   (cond-> {:v 3 :question q :success ok :total-iterations its :duration-ms ms
            :terminated-by (if ok :answer-channel :max-iterations-exhausted)
@@ -37,7 +37,9 @@
                          [{:n 1 :channel "tool" :tools tools}]
                          [{:n 1 :channel "answer" :answer "a"}])}
     cost (assoc :cost cost)
-    partial? (assoc :cost-partial? true)))
+    partial? (assoc :cost-partial? true)
+    n (assoc :turn n)
+    sid (assoc :session sid)))
 
 ;; --- the measurements are arithmetic ------------------------------------------------
 
@@ -69,13 +71,14 @@
     (is (= 10 (:p90 i)) "the tail is what a p90 is for")
     (is (= 0.5 (:one-shot-rate i)) "two of four answered in <= 2"))
 
-  (let [l (an/latency (map #(turn :ms %) [100 200 300 5000]) @s)]
+  (let [l (an/latency (map #(turn :ms %1 :n %2 :sid "s-1") [100 200 300 5000] [7 9 12 40]) @s)]
     (is (= 5600 (:total-ms l)))
     (is (= 300 (:p50-ms l)))
     (is (= 5000 (:p90-ms l)))
     (is (pos? (:output-tokens-per-sec l)))
-    (testing "the slowest turns are named by POSITION — a v3 record has no :turn"
-      (is (= 3 (:at (first (:slowest l)))))
+    (testing "the slowest turns are named as byj turns list names them, not by position (byj-pzb)"
+      (is (= {:session "s-1" :turn 40} (select-keys (first (:slowest l)) [:session :turn])))
+      (is (nil? (:turn (first (:slowest (an/latency [(turn)] @s))))) "a record from before says no turn")
       (is (= 5000 (:duration-ms (first (:slowest l)))))))
 
   (testing "a record with no duration contributes nothing rather than a zero"
@@ -216,12 +219,13 @@
   ;; the honest half of brainyard's PQS: scoring prompt quality needs a scorer
   ;; this port does not have, but the same question returning needs none — and
   ;; it is the part that says the agent did not answer it
-  (let [r (an/rework [(turn :q "where is the retry budget enforced" :ok false)
-                      (turn :q "where is the retry budget enforced exactly" :ok true)
-                      (turn :q "something else entirely now" :ok true)]
+  (let [r (an/rework [(turn :q "where is the retry budget enforced" :ok false :n 5 :sid "s-1")
+                      (turn :q "where is the retry budget enforced exactly" :ok true :n 9 :sid "s-1")
+                      (turn :q "something else entirely now" :ok true :n 10 :sid "s-1")]
                      @s)]
     (is (= 1 (count (:repeated r))))
-    (is (= 1 (:at (first (:repeated r)))) "the second turn repeats the first")
+    (is (= {:session "s-1" :turn 9 :like 5} (select-keys (first (:repeated r)) [:session :turn :like :like-session]))
+        "turn 9 repeats turn 5, named by byj's turn numbers (byj-pzb)")
     (is (true? (:after-failure? (first (:repeated r))))
         "and the first had failed, which is why it came back"))
 

@@ -502,4 +502,7 @@
  {:id "projects-json-gives-iso-instants"
   :brainyard "projects/agent-tui-app main.clj cmd-projects-list (print-json!: a Date as its str)"
   :test "brainyard.projects-test/byj-projects-lists-adds-and-forgets"}
+ {:id "trajectory-records-the-session-turn"
+  :brainyard "agent/common/coact_agent.clj build-record (no :turn); analytics/core/trajectory.clj reads :turn and gets nil"
+  :test "brainyard.session-test/each-turn-records-the-sessions-turn-number"}
 ]
