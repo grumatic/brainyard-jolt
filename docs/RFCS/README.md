@@ -58,6 +58,7 @@ A number missing from the table is an RFC that is not byj's.
 | [071](RFC-071-loop-proposals.md) | Loop proposals | A better loop as a proposal: a candidate run by a clone of the agent on tasks rebuilt from the project's own turns, compared pairwise with the loop in force, accepted by a person, the project's loop from the next session (designed and built 2026-11-13, evaluated live once; an improver agent decided not now; `byj-ng7`) |
 | [072](RFC-072-loop-extension-slots.md) | Loop extension slots | Room a bundled loop leaves for a project: a slot expanded at load time into the trees a project attached to it, held to the slot's keys, made live as a loop proposal is (built, `byj-9sp`) |
 | [073](RFC-073-project-profile.md) | Project profile | What a project is for, its scope and when it is done, and how far an agent goes on its own — filing, working, committing and closing beads, deciding — as data the person confirms once at `/init`, shown in AGENTS.md, held by the permission gate, and followed by `/drive` (decided; built: the profile as data and its tripwire, `/init` drafting it and writing it on a yes, its AGENTS.md block, the gate holding what it governs, `/drive`; measured once per preset, `byj-71w`) |
+| [074](RFC-074-project-registry.md) | Project registry | The person's projects, one folder each in `~/.brainyard/projects`, brainyard's registry and slug byte for byte so `by` and byj keep one; registered as a session or a question starts, and `byj projects list\|path\|add\|prune\|remove` (built, `byj-k29`) |
 
 ## The reference implementation
 

@@ -66,6 +66,7 @@
             [brainyard.flow :as flow]
             [brainyard.predictor :as predictor]
             [brainyard.programs :as programs]
+            [brainyard.projects :as projects]
             [brainyard.loop-tasks :as loop-tasks]
             [brainyard.loop-eval :as loop-eval]
             [brainyard.loop-proposals :as loop-proposals]
@@ -81,7 +82,7 @@
 (defn- effects [s] (set (map keyword (globs s))))
 
 (def ^:private command-names
-  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops"})
+  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects"})
 
 (def ^:private command-aliases
   "Old names a command still answers to: `sessions` (brainyard's `by
@@ -645,6 +646,72 @@
       ("rewind" "undo-turn" "undo") (turns-back sub more json config)
       "fork" (turns-fork more json config)
       (do (err-println (str "turns: unknown subcommand " (pr-str sub) " — list, diff, rewind, undo-turn, undo, fork")) 2))))
+
+(defn- projects-json
+  "A record as JSON gives it: its instants as ISO-8601 (divergence
+  `projects-json-gives-iso-instants`)."
+  [r]
+  (into {} (map (fn [[k v]] [k (if (inst? v) (subs (pr-str v) 7 36) v)])) r))
+
+(defn- projects-command
+  "`byj projects list|path|add|prune|remove` — brainyard's `by projects`
+  (`cmd-projects-*`), over the registry both keep, `~/.brainyard/projects`
+  (RFC-074). prune and remove ask first, as brainyard's do, and `--yes`
+  answers for a script; with no terminal to answer, nothing is removed. The
+  exit code."
+  [{:keys [questions json yes working-dir]}]
+  (let [[named arg] questions
+        sub (or named "list")
+        root (projects/projects-root)
+        out (fn [x] (println (json/write-str (if (map? x) (projects-json x) (mapv projects-json x)))))
+        confirm (fn [question]
+                  (or yes
+                      (do (print (str question " [y/N] ")) (flush)
+                          (boolean (#{"y" "yes"} (some-> (read-line) str/trim str/lower-case))))))
+        never "This drops only the user-scope registry folder, never the project itself."]
+    (case sub
+      "list" (let [rows (projects/list-projects root)]
+               (cond json (out rows)
+                     (empty? rows) (println "No registered projects.")
+                     :else (doseq [l (projects/table rows)] (println l)))
+               0)
+      "path" (cond
+               (str/blank? (str arg)) (do (err-println "usage: byj projects path SLUG") 1)
+               :else (if-let [p (projects/project-path-for-slug root arg)]
+                       (do (println p) 0)
+                       (do (err-println (str "Not a registered project slug: " arg)) 1)))
+      "add" (let [raw (or arg working-dir ".")
+                  dir (io/file (or (projects/canonical-path raw) raw))]
+              (cond
+                (not (.isDirectory dir)) (do (err-println (str "Not a directory: " dir)) 1)
+                :else (if-let [rec (projects/register-project! root (str dir))]
+                        (do (if json (out rec) (println (:slug rec) (:path rec))) 0)
+                        (do (err-println (str "Could not register " dir " (is ~/.brainyard writable?)")) 1))))
+      "prune" (let [gone (filterv :missing? (projects/list-projects root))
+                    n (count gone)]
+                (cond
+                  (empty? gone) (do (if json (out []) (println "Nothing to prune — every registered project still exists.")) 0)
+                  (not (confirm (str "Remove " n " registry entr" (if (= 1 n) "y" "ies") " for missing project(s)?\n  "
+                                     (str/join "\n  " (map :path gone)) "\n" never)))
+                  (do (println "Cancelled.") 0)
+                  :else (let [pruned (projects/prune-projects! root)
+                              k (count pruned)]
+                          (if json
+                            (out pruned)
+                            (do (doseq [r pruned] (println "removed" (:slug r) (:path r)))
+                                (println (str "Pruned " k " entr" (if (= 1 k) "y" "ies") "."))))
+                          0)))
+      "remove" (let [slug (some-> arg str str/trim not-empty)
+                     rec (when slug (first (filter #(= slug (:slug %)) (projects/list-projects root))))]
+                 (cond
+                   (nil? slug) (do (err-println "usage: byj projects remove SLUG  (byj projects list names them)") 1)
+                   (nil? rec) (do (err-println (str "No such registered project: " slug)) 1)
+                   (not (confirm (str "Forget \"" (:name rec) "\" (" (:path rec) ")?\n" never)))
+                   (do (println "Cancelled.") 0)
+                   :else (if-let [removed (projects/remove-project! root slug)]
+                           (do (if json (out removed) (println "Removed:" (:slug removed) (:path removed))) 0)
+                           (do (err-println (str "Could not remove " slug " (is ~/.brainyard writable?)")) 1))))
+      (do (err-println (str "projects: unknown subcommand " (pr-str sub) " — list, path, add, prune, remove")) 2))))
 
 (defn- loops-command
   "`byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD]`: a
@@ -2137,6 +2204,10 @@
             {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})]
         (*exit* (turns-command opts config)))
 
+      ;; the person's projects, the registry by keeps too (RFC-074)
+      (= :projects command)
+      (*exit* (projects-command opts))
+
       ;; a loop measured on the project's own work (RFC-071)
       (= :loops command)
       (let [wd (or working-dir (System/getProperty "user.dir") ".")
@@ -2244,6 +2315,13 @@
             lm (launch/make-lm provider model config env)
             ;; before the sinks below capture it (`byj-gly.76`)
             config (run-config opts config command)
+            ;; the project in the person's registry, as brainyard's run-tui! and
+            ;; cmd-ask register it: a session or a question, not a flow or a
+            ;; program's evaluation, nor a loop evaluation's clone
+            ;; (:register-project? false); a failure is the registry's, never
+            ;; the run's
+            _ (when (and (#{:run :ask} command) (:register-project? config true))
+                (projects/register-project! (projects/projects-root) (:project-dir config)))
             ;; MCP servers start once per run, not once per turn (RFC-024). A
         ;; server that will not start is reported and the run goes on.
         ;; into the run's box, which /mcp starts and stops servers in while

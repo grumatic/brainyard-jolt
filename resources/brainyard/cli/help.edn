@@ -143,6 +143,23 @@
             {:name "codex-flags" :args "[--log DIR] [--socket SOCK]"
              :summary "a codex command line that carries it as a session hook, trusted for that session alone"}]}]
    :options [:log :socket :idle]}
+  {:name "projects"
+   :summary "The person's projects, one folder each under ~/.brainyard/projects — the registry by keeps too (RFC-074)"
+   :subcommands
+   [{:subs [{:name "list" :args "[--json]"
+             :summary "every registered project, the last opened first; one whose directory is gone marked (missing)"
+             :doc "A project is registered as a session (byj, byj run) or a question (byj ask) starts in it, and by byj projects add; brainyard's by registers the same way, in the same folders, so the list is both programs'. Each is ~/.brainyard/projects/SLUG/project.edn, SLUG the directory's name and 8 hex of the SHA-256 of its canonical path. A directory moved, deleted or on a volume not mounted now is listed as (missing), never dropped. --json gives [{path, slug, name, git-remote, created-at, last-opened-at, schema-version, missing?}]."}
+            {:name "path" :args "SLUG"
+             :summary "the project directory a slug stands for, read from its record; exit 1 when none"}
+            {:name "add" :args "[DIR] [--json]"
+             :summary "register a project — DIR, or the working directory — without starting a session in it"
+             :doc "Registering again keeps the project's created-at and stamps last-opened-at; a DIR that is not a directory is refused, so no typo is kept as a missing project. --json gives the record."}
+            {:name "prune" :args "[--yes] [--json]"
+             :summary "forget every project whose directory is missing; asks first"
+             :doc "Only the registry's folders are removed, never a project. A missing directory may be a volume that comes back, so nothing prunes unless asked: it names them and asks, --yes answers for a script, and with nothing to answer nothing is removed. --json gives the records removed."}
+            {:name "remove" :args "SLUG [--yes] [--json]"
+             :summary "forget one project, whether its directory is there or not; asks first"
+             :doc "Only the project's folder in the registry is removed, never the project; registering it again brings back the same slug. --json gives the record removed."}]}]}
   {:name "doctor"
    :summary "Where this machine stands: the tools, the project, Claude Code's sign-in and its subscription's use"
    :usage "byj doctor"

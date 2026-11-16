@@ -1853,3 +1853,11 @@ first, with `"saved": true` in its JSON; one that never ran a turn is left
 out, as ACP's `session/list` leaves it. `--live` is unchanged, and so is
 `session$list`, which names the sessions a session may ask.
 
+<!-- divergence: projects-json-gives-iso-instants -->
+**`byj projects --json` gives an instant as ISO-8601.** brainyard's
+`print-json!` writes a value JSON has no form for as its `str`, so `by
+projects list --json` gives `created-at` and `last-opened-at` as a
+`java.util.Date` prints itself — `Tue Aug 04 22:19:33 KST 2026`, in the
+JVM's zone, which a program reading it must parse by locale and which does
+not sort. byj gives `2026-08-04T13:19:33.000-00:00`, the instant as the
+record holds it. The records on disk are the same for both (RFC-074).

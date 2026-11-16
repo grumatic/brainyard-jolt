@@ -353,7 +353,5 @@ view of those keys, not a second source. `agent/default-config` has always been
   cannot hold a key nobody else on the machine has.
 - No feature profiles (`:minimal`, `:full`), family master switches,
   lifecycles or `requires`/`implies` closure; the port's features are flat.
-- No project registry (`core/projects.clj`): `~/.brainyard/projects/…` with
-  slugs and an index.
 - No session layer: a session has one agent and one config, re-read at each
   turn's start rather than swapped mid-turn.

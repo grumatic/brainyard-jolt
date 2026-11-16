@@ -121,6 +121,10 @@
         ;; nor the person's byj-share login, which names the relay a session
         ;; shares through (share/relay-of, byj-1wv.134): one of the run's own, empty
         _ (System/setProperty "brainyard.share-home" (.getCanonicalPath (doto (clojure.java.io/file "target/test-share-home") .mkdirs)))
+        ;; nor the person's project registry (~/.brainyard/projects, RFC-074),
+        ;; which every session and question a test starts registers in: a
+        ;; home of the run's own
+        _ (System/setProperty "brainyard.projects-home" (.getCanonicalPath (doto (clojure.java.io/file "target/test-projects-home") .mkdirs)))
         ;; nor the person's own skills (~/.claude/skills, ~/.agents/skills), which
         ;; every turn's prompt lists and a test sized to a context window then
         ;; overflowed differently on each machine (byj-gly.467): an empty home
@@ -212,7 +216,10 @@
                                                       "BY_TEST_NSES" (clojure.string/join "," nses)
                                                       ;; and every process a shard's test starts
                                                       ;; inherits it (provenance P-55)
-                                                      "BY_CHANGES_SKIP_ROOT" (repo-root))
+                                                      "BY_CHANGES_SKIP_ROOT" (repo-root)
+                                                      ;; and registers in no person's
+                                                      ;; registry (RFC-074)
+                                                      "BY_PROJECTS_HOME" (.getCanonicalPath (doto (clojure.java.io/file "target/test-projects-home") .mkdirs)))
                                           :out :string :err :string}
                                          "sh" "-c" (str "exec jolt -M:test > " log " 2>&1"))}))
                     shards))

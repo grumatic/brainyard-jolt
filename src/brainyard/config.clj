@@ -66,6 +66,8 @@
                       :doc "Save the session after every turn under .brainyard/sessions (RFC-016)."}
    :prune-sessions? {:type "boolean" :default true :family :session
                      :doc "At startup, remove session and transcript directories past the keep/TTL limits (RFC-016)."}
+   :register-project? {:type "boolean" :default true :family :session
+                       :doc "As a session or a question starts, record the project in ~/.brainyard/projects, the registry by keeps too (RFC-074); a loop evaluation's clones are not recorded."}
    ;; the session channel (RFC-031): brainyard's keys and defaults
    :ask-channel-enabled? {:type "boolean" :default true :family :session
                           :doc "Listen at <session-dir>/ask.sock (0600) so another session or a script can ask this one something; a request becomes a turn when the session is waiting for input."}

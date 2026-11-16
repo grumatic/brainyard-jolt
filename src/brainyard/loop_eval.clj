@@ -67,11 +67,12 @@
 (defn clone-config
   "The run's `config` as a clone's turn in `dir` takes it: the project and the
   working dir are the clone's, and the only allowed directory; asking a
-  person refuses; reaching beyond the machine is refused."
+  person refuses; reaching beyond the machine is refused; the clone is not
+  put in the person's project registry (RFC-074)."
   [config dir]
   (-> config
       (assoc :project-dir dir :working-dir dir :allowed-dirs [dir]
-             :persist-session? false :recap? false)
+             :persist-session? false :recap? false :register-project? false)
       (update :permission-mode #(if (= :auto-approve %) :ask-each-time %))
       (update :tool-deny-tools #(into (vec %) reach-out-tools))
       (update :bash-deny-commands #(into (vec %) reach-out-commands))

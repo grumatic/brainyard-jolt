@@ -41,6 +41,7 @@
             [brainyard.persist-test]
             [brainyard.predictor-test]
             [brainyard.programs-test]
+            [brainyard.projects-test]
             [brainyard.session-test]
             [brainyard.extension-test]
             [brainyard.sdk-test]
@@ -136,6 +137,7 @@
     brainyard.persist-test
     brainyard.predictor-test
     brainyard.programs-test
+    brainyard.projects-test
     brainyard.session-test
     brainyard.extension-test
     brainyard.sdk-test

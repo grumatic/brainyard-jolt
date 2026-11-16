@@ -499,4 +499,7 @@
  {:id "session-list-shows-saved-sessions"
   :brainyard "projects/agent-tui-app main.clj cmd-sessions-list (enriched-summaries: sessions with an :ask-socket-path only)"
   :test "brainyard.sdk-test/an-sdk-session-is-listed-by-session-list-as-saved"}
+ {:id "projects-json-gives-iso-instants"
+  :brainyard "projects/agent-tui-app main.clj cmd-projects-list (print-json!: a Date as its str)"
+  :test "brainyard.projects-test/byj-projects-lists-adds-and-forgets"}
 ]
