@@ -320,28 +320,59 @@
         :when (string? v)]
     (if (.isAbsolute (io/file v)) v (str (io/file (or working-dir ".") v)))))
 
+(defn- expand-home [d home]
+  (let [d (str d)]
+    (if (and home (or (= "~" d) (str/starts-with? d "~/"))) (str home (subs d 1)) d)))
+
 (defn denied-path
   "The `:denied-paths` entry a call's `paths` reach, or nil: a path under one,
   or a directory holding one, which a recursive read would open
   (byj-1wv.115.40). `~` is `home`."
   [denied paths home]
-  (let [expand #(if (and home (or (= "~" %) (str/starts-with? % "~/"))) (str home (subs % 1)) %)]
-    (first (for [d denied
-                 :let [full (expand (str d))]
-                 p paths
-                 :when (or (under? full p) (under? p full))]
-             d))))
+  (first (for [d denied
+               :let [full (expand-home d home)]
+               p paths
+               :when (or (under? full p) (under? p full))]
+           d)))
+
+(defn holds-only?
+  "Does `path` only hold `:denied-paths` entry `d` — a directory above it,
+  neither the entry nor anything under it? What lists such a directory's
+  names opens nothing of the entry; what reads its files recursively would
+  (byj-all)."
+  [d path home]
+  (let [full (expand-home d home)]
+    (and (under? path full) (not (under? full path)))))
+
+(declare scan-quotes)
 
 (defn home-paths
   "The paths a shell `command` names from `~`, with `~` as `home`: a bare `~`
   or one starting `~/`, at the start of a word. A `~` before anything else --
   `~0.4 ms` in a commit message, `~user`, `a~/b` -- names nothing of the
   person's home; read as a bare `~` it was the home itself, which holds every
-  :denied-paths entry, and refused the command (provenance P-52)."
+  :denied-paths entry, and refused the command (provenance P-52). Nor does a
+  bare `~` in quotes, which the shell never expands -- awk's `$9 ~ /re/`
+  was read as the home and refused a line (byj-all) -- though a `~/…` there
+  still names one, for a `sh -c '…'` expands it; nor bash's `=~` match."
   [command home]
-  (for [[_ p] (re-seq #"(?:^|[\s\"'=])(~[^\s\"'>;|&]*)" (str command))
-        :when (or (= "~" p) (str/starts-with? p "~/"))]
-    (str home (subs p 1))))
+  (let [s (str command)
+        n (count s)
+        quoted (let [qs (transient {})]
+                 (scan-quotes s (fn [i _ q] (when q (assoc! qs i q))))
+                 (persistent! qs))
+        space? #(some? (re-matches #"\s" (str %)))
+        stop? #(or (space? %) (contains? #{\" \' \> \; \| \&} %))]
+    (vec (for [i (range n)
+               :when (= \~ (.charAt s i))
+               :let [prev (when (pos? i) (.charAt s (dec i)))
+                     end (or (first (filter #(stop? (.charAt s %)) (range (inc i) n))) n)
+                     p (subs s i end)]
+               :when (or (nil? prev) (space? prev) (contains? #{\" \' \=} prev))
+               :when (or (= "~" p) (str/starts-with? p "~/"))
+               :when (or (str/starts-with? p "~/") (nil? (get quoted i)))
+               :when (not (and (= "~" p) (= \= prev) (or (< i 2) (space? (.charAt s (- i 2))))))]
+           (str home (subs p 1))))))
 
 (defn loop-file
   "The project loop a write to `path` would make live or take away, or nil:
@@ -611,14 +642,24 @@
                                  {:type :file-access :action :write :tool tool-name :path path :display path}))))))))
    ;; a person's logins and keys, refused in every mode: what a shared
    ;; agent's caller, or a file it reads, could ask it to fetch (byj-1wv.115.40)
+   ;; a tool that lists names alone (:names-only?, list-dir) may name a
+   ;; directory holding one, and opens nothing of it (byj-all)
    (let [tool (some-> (:tools ctx) deref (get tool-name))
-         paths (call-paths tool args (config ctx :working-dir "."))]
-     (when-let [d (denied-path (config ctx :denied-paths (get-in config/config-items [:denied-paths :default])) paths (System/getenv "HOME"))]
-       (deny-replace {:by "path-permission-gate" :display (first paths)
+         paths (call-paths tool args (config ctx :working-dir "."))
+         home (System/getenv "HOME")
+         denied (config ctx :denied-paths (get-in config/config-items [:denied-paths :default]))]
+     (when-let [[d p] (first (for [p paths
+                                   :let [d (denied-path denied [p] home)]
+                                   :when (and d (not (and (:names-only? tool) (holds-only? d p home))))]
+                               [d p]))]
+       (deny-replace {:by "path-permission-gate" :display p
                       :reason (str "it holds a login or a key (" d ", :denied-paths)")
                       :reason-prefix "Path refused"
                       :error-prefix "Tool call refused (path)"
-                      :hint "A person's logins and keys are read by no tool; name a narrower path that does not hold one."})))
+                      :hint (if (holds-only? d p home)
+                              (str "A person's logins and keys are read by no tool. " p " holds " d
+                                   ": list-dir may list it; search a directory under it that does not hold one.")
+                              "A person's logins and keys are read by no tool; name a narrower path that does not hold one.")})))
    (when (config ctx :path-permission? true)
     (let [tool (some-> (:tools ctx) deref (get tool-name))
           working-dir (config ctx :working-dir ".")
@@ -751,6 +792,26 @@
        (remove str/blank?)
        (drop-while #(re-matches #"[A-Za-z_][A-Za-z0-9_]*=.*" %))
        (str/join " ")))
+
+(def ^:private name-listers
+  "Programs that read what they are given as names and metadata, never what
+  is in a file under a directory: one may name a directory that holds a
+  :denied-paths entry (byj-all). `cd` is not one: a relative path after it
+  reaches the entry unseen."
+  #{"ls" "stat" "du" "tree" "find" "test" "[" "realpath" "readlink" "basename" "dirname"})
+
+(def ^:private opens-what-it-lists
+  ;; what in a line could open the files a lister names: xargs or a read loop
+  ;; fed by it, command or process substitution, find's -exec and its kin, and
+  ;; find's own writes
+  #"\bxargs\b|\$\(|`|<\(|>\(|\bparallel\b|\bread\b|\bsource\b|-exec|-ok\b|-okdir\b|-delete\b|-fprint|-fls\b")
+
+(defn lists-names-only?
+  "Does shell `segment` of `line` only list names: its program a lister, and
+  nothing in the line that could open what it lists."
+  [segment line]
+  (boolean (and (some-> (program-of segment) io/file .getName name-listers)
+                (not (re-find opens-what-it-lists (str line))))))
 
 (defn asked-command
   "The first segment of `line` a `:bash-ask-commands` glob matches, as
@@ -899,13 +960,19 @@
                   "it asks first, and there is no interactive permission channel (headless)"))))
        ;; a login or a key it names, absolute or from ~ — a tripwire, as the
        ;; deny list is: a shell reaches a file by other spellings (byj-1wv.115.40)
+       ;; a segment that only lists names (ls, find, du, …) may name a
+       ;; directory holding one; never the entry, nor what is under it (byj-all)
        (let [home (System/getenv "HOME")
-             named (concat (mapcat command-paths commands)
-                           (mapcat #(home-paths % home) commands))]
-         (when-let [d (denied-path (config ctx :denied-paths (get-in config/config-items [:denied-paths :default])) named home)]
+             denied (config ctx :denied-paths (get-in config/config-items [:denied-paths :default]))]
+         (when-let [[d p] (first (for [c commands
+                                       seg (command-segments c)
+                                       p (concat (command-paths seg) (home-paths seg home))
+                                       :let [d (denied-path denied [p] home)]
+                                       :when (and d (not (and (holds-only? d p home) (lists-names-only? seg c))))]
+                                   [d p]))]
            ;; which word reached it, so a refusal that looks wrong says why
-           (let [p (first (filter #(denied-path [d] [%] home) named))
-                 full (if (and home (str/starts-with? (str d) "~/")) (str home (subs (str d) 1)) (str d))]
+           (let [full (expand-home d home)
+                 holds? (holds-only? d p home)]
              (deny-replace {:by "bash-command-gate" :display tool-name
                             :reason (str "it names a login or a key (" d ", :denied-paths): " p
                                          (cond (= (canonical full) (canonical p)) ""
@@ -913,7 +980,11 @@
                                                :else " holds it"))
                             :reason-prefix "Command refused"
                             :error-prefix "Tool call refused (command)"
-                            :hint "A person's logins and keys are read by no tool."}))))
+                            :hint (if holds?
+                                    (str "A person's logins and keys are read by no tool. A line that only lists "
+                                         p " (ls, find without -exec, stat, du, tree), with no xargs, $(…) or read loop, may name it;"
+                                         " to search files, name a directory under it that does not hold " d ".")
+                                    "A person's logins and keys are read by no tool.")}))))
        ;; the paths it names
        (when (config ctx :path-permission? true)
          (let [working-dir (config ctx :working-dir ".")

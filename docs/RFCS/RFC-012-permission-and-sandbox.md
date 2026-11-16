@@ -307,8 +307,25 @@ command gate refuses a line naming one, absolute or from `~` — a tripwire, as
 Its refusal names the word that reached the entry and whether it is under
 it or holds it. A word of slashes alone is not a path to it, as a bare `/`
 is not: jq's `a // b` and Python's `7 // 2` were read as the root, which
-holds every entry (provenance P-64).
-`permission-test/a-login-or-a-key-is-read-by-no-tool`. A program that runs a session for
+holds every entry (provenance P-64). Nor is a bare `~` in quotes, which
+the shell does not expand — awk's `$9 ~ /re/` was read as the home — nor
+bash's `=~`; a `~/…` in quotes still is, for `sh -c '…'` expands it.
+`permission-test/a-login-or-a-key-is-read-by-no-tool`.
+
+**What lists a directory holding one opens nothing of it** (`byj-all`):
+sessions were refused for `ls -la ~/.brainyard`, `ls ~/.brainyard/share`
+and `list-dir` of `~/.brainyard`, which hold the share login. A shell
+segment whose program reads only names and metadata — `ls`, `stat`, `du`,
+`tree`, `find`, `test`, `[`, `realpath`, `readlink`, `basename`,
+`dirname` — may name such a directory, when nothing in its line could open
+what it lists: no `xargs`, `parallel`, `read` or `source`, no command or
+process substitution, no `-exec`, `-ok` or `-delete`, no `-fprint`. A path
+tool that declares `:names-only?` (`list-dir`) may too. The entry itself
+and anything under it are refused as before, and so is a search that
+opens a holder's files (`grep -r`, `rg`, the `grep` tool), whose refusal
+says what passes. `cd` lists nothing, and is no lister: a relative path
+after it reaches the entry unseen.
+`permission-test/listing-a-directory-that-holds-a-login-opens-nothing-of-it`. A program that runs a session for
 another caller narrows it with `BY_ALLOWED_DIRS` — its project and the temp
 dir alone, as an A2A gateway gives a caller's turn.
 
@@ -718,6 +735,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | The gate covers every tool declaring `:command-params`, `task$run` included, and a deny list ignores the mode. | `permission-test/the-command-gate-covers-every-tool-that-names-a-command` |
 | A path a command names is checked against `:allowed-dirs`; one that does not exist is not a violation. | `permission-test/a-command-may-not-name-a-path-it-could-not-open` |
 | A command naming a `:denied-paths` entry, or a directory holding one, is refused in every mode, saying which word reached it; a word of slashes alone (`a // b`) names no path. | `permission-test/a-login-or-a-key-is-read-by-no-tool` |
+| A segment that only lists names (`ls`, `find` without `-exec`, `stat`, `du`, …), in a line with nothing that could open what it lists, and `list-dir`, may name a directory holding an entry, never the entry or what is under it; a quoted bare `~` and bash's `=~` name no home | `permission-test/listing-a-directory-that-holds-a-login-opens-nothing-of-it` |
 | A bd-only agent's shell — this repository's bead-keeper, `.brainyard/agents/beads` — runs `bd` and nothing else. | `agents-test/the-bead-keeper-runs-bd-and-nothing-else` |
 | Deny refuses under every mode, cannot be exempted by an allow glob, and can key on an effect — including a user tool's inherited effects. | `permission-test/deny-gate` |
 | Only a pattern or effect match asks; an allow glob exempts; the modes behave; headless, a denial and a throwing prompt all refuse; deny decides before permission. | `permission-test/permission-gate` |

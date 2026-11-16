@@ -406,6 +406,44 @@
     (is (= "~/.ssh" (permission/denied-path ["~/.ssh"] (permission/home-paths "ls ~" "/h") "/h"))
         "the home itself still holds one")))
 
+;; byj-all: sessions were refused for ls -la ~/.brainyard, ls of
+;; ~/.brainyard/share and list-dir of ~/.brainyard, which hold the share
+;; login and open nothing of it; and for awk's `$9 ~ /re/`, read as the home
+(deftest listing-a-directory-that-holds-a-login-opens-nothing-of-it
+  (let [dir (fresh-dir "denied-list")
+        home (.getAbsolutePath (io/file (fresh-dir "home-list")))
+        b (.getPath (io/file home ".brainyard"))
+        cred (io/file home ".brainyard" "share" "credentials")
+        _ (io/make-parents cred)
+        _ (spit cred "{\"device_token\":\"not-a-real-token\"}")
+        c (fn [& {:as cfg}] (ctx (merge {:working-dir dir :project-dir dir :allowed-dirs [dir home] :permission-mode :auto-approve
+                                         :denied-paths [(.getPath cred)]}
+                                        cfg)))
+        bash (fn [cmd & cfg] (call (apply c cfg) "bash" {:command cmd}))
+        refused? #(str/includes? (str (:error %)) "a login or a key")]
+    (doseq [cmd [(str "ls -la " b " 2>&1 | head -50") (str "ls " b "/share") (str "find " b " -name '*.edn' -maxdepth 2")
+                 (str "du -sh " b) (str "stat " b " && echo ok") (str "/bin/ls " b "; tree -L 1 " b)]]
+      (is (not (refused? (bash cmd))) (str "lists names: " cmd)))
+    (doseq [cmd [(str "grep -rn token " b) (str "rg token " b) (str "cat " b "/share/credentials")
+                 (str "ls " b "/share/credentials") (str "find " b " -type f -exec cat {} +") (str "find " b " -type f | xargs cat")
+                 (str "find " b " -name credentials -delete") (str "ls " b " && grep -r token " b) (str "cd " b " && cat share/credentials")
+                 (str "for f in $(find " b " -type f); do cat $f; done") (str "find " b " -type f | while read f; do cat \"$f\"; done")]]
+      (is (refused? (bash cmd)) (str "opens it, or may: " cmd)))
+    (is (str/includes? (str (:error (bash (str "grep -rn token " b)))) "A line that only lists")
+        "a refused search of a holder says what passes")
+    (testing "list-dir lists names: a holder is not refused, the entry is"
+      (is (not (refused? (call (c) "list-dir" {:path b}))))
+      (is (refused? (call (c) "list-dir" {:path (.getPath cred)})))
+      (is (refused? (call (c) "grep" {:pattern "token" :path b})) "grep opens what it finds"))
+    (testing "a ~ in quotes, which the shell does not expand, names no home; a ~/… there does"
+      (is (= [] (permission/home-paths "lsof -nP | awk 'NR==1 || $9 ~ /:3[0-9][0-9][0-9]$/'" "/h")))
+      (is (= [] (permission/home-paths "echo \"~\" '~'" "/h")))
+      (is (= [] (permission/home-paths "[[ $x =~ ^a ]] && echo y" "/h")) "bash's =~ is a match")
+      (is (= ["/h/.ssh/id"] (permission/home-paths "sh -c 'cat ~/.ssh/id'" "/h")) "an inner shell expands it")
+      (is (not (refused? (bash "lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | awk 'NR==1 || $9 ~ /:3[0-9][0-9][0-9]$/'"
+                               :denied-paths ["~/.ssh"])))
+          "the line a session was refused"))))
+
 ;; byj-ng7.12: since byj-ng7.1 a tree at .brainyard/loops/<name>.edn is the
 ;; project's loop from the next session; a tool that wrote one would make a
 ;; loop live with no person accepting it (RFC-071)
