@@ -668,7 +668,8 @@
                   :else
                   (if-let [no (ask-person ctx {:type :tool-use :action :call :tool "init$install" :pattern "init$install"
                                                :display (str "install " n " with `" cmd "`")
-                                               :args {:tool n :command cmd} :effects #{:process :network}})]
+                                               :args {:tool n :command cmd} :effects #{:process :network}
+                                               :every-time? true})]
                     [n nil (str n ": not installed (" no ") — to install it: " cmd)]
                     (let [r (fx/run!! (fx/process-task {:out :string :err :string
                                                         :env (cond-> (assoc (into {} (System/getenv)) "HOMEBREW_NO_AUTO_UPDATE" "1")
@@ -758,9 +759,9 @@
   beads — the epic toward the goal and its first issues, each after the one
   before, the epic named as the profile's `:goal-epic`. Asked every time,
   in every mode, as installing is; headless nothing is written and the draft
-  is shown. The only writer of the profile there is: the profile's tripwire
-  keeps every tool from it, and this one writes only what the person said
-  yes to. `{:text :written?}`."
+  is shown. With `profile$edit` (`edit-profile`), the profile's only
+  writer: the profile's tripwire keeps every other tool from it, and each
+  writes only what the person said yes to. `{:text :written?}`."
   [config ctx & [{:keys [dir epic issues path] :as args}]]
   (let [dir (or (not-empty (str dir)) (:project-dir config) (:working-dir config) ".")
         data (draft-profile args)
@@ -778,7 +779,9 @@
         missing (draft-missing args beads?)]
     (if-let [no (ask-person ctx {:type :tool-use :action :call :tool "init$profile" :pattern "init$profile"
                                  :display (profile-question block (when filing? epic) issues missing)
-                                 :args (select-keys args [:goal :preset :epic]) :effects #{:fs/write :process}})]
+                                 :args (select-keys args [:goal :preset :epic]) :effects #{:fs/write :process}
+                                 ;; a yes to one profile is not a yes to the next (byj-8b3)
+                                 :every-time? true})]
       {:written? false
        :text (str "The profile was not written (" no "). The draft:\n\n" block
                   "\n\nTo change it, run /init again saying what should differ.")}
@@ -818,6 +821,154 @@
                     (when (and filing? (not epic-id)) "\nbd could not file the goal's epic.")
                     (when (seq missing) (str "\nThe draft had " (str/join "; " missing) "."))
                     (when (seq problems) (str "\nHeld back: " (str/join "; " problems))))}))))
+
+;; --- the profile changed on the person's word (byj-8b3) -------------------------------------
+
+(defn- given
+  "`s` trimmed, or nil when blank: a field a model leaves empty is one it
+  does not change."
+  [s]
+  (some-> s str str/trim not-empty))
+
+(defn profile-edit
+  "What `args` would make of profile `data`, as `.brainyard/profile.edn`
+  holds it: `{:data}`, or `{:refused why}`. A field given replaces the
+  profile's (`in`, `out` and `done` whole, one a line); a field left blank is
+  kept. `autonomy`'s `axis level` lines are set over the profile's own, and
+  `axis preset` drops one, so the preset's stands. A preset, axis or level
+  this byj does not know is refused, not dropped: the person would be asked
+  about a change that is not the one meant."
+  [data {:keys [goal in out done preset autonomy goal-epic]}]
+  (let [spec (profile/presets)
+        axes (set (map :id (:axes spec)))
+        levels (set (:levels spec))
+        preset-kw (some-> (given preset) str/lower-case keyword)
+        lines (for [l (draft-lines autonomy)]
+                (let [[a lvl] (str/split (str/trim (str/replace l #"[:=]" " ")) #"\s+")]
+                  [l (some-> a not-empty keyword) (some-> lvl not-empty str/lower-case keyword)]))
+        bad-axis (first (for [[l a lvl] lines
+                              :when (not (and (axes a) (or (levels lvl) (= :preset lvl))))]
+                          l))]
+    (cond
+      (and preset-kw (not (contains? (:presets spec) preset-kw)))
+      {:refused (str "no preset " (given preset) "; the presets are "
+                     (str/join ", " (map name (keys (:presets spec)))))}
+      bad-axis
+      {:refused (str "\"" bad-axis "\" is not `axis level`; the axes are "
+                     (str/join ", " (map #(subs (str (:id %)) 1) (:axes spec)))
+                     ", the levels " (str/join ", " (map name (:levels spec))) ", or preset to drop one")}
+      :else
+      {:data (cond-> data
+               (given goal) (assoc :goal (given goal))
+               (seq (draft-lines in)) (assoc-in [:scope :in] (draft-lines in))
+               (seq (draft-lines out)) (assoc-in [:scope :out] (draft-lines out))
+               (seq (draft-lines done)) (assoc :done (draft-lines done))
+               preset-kw (assoc :preset preset-kw)
+               (given goal-epic) (assoc :goal-epic (given goal-epic))
+               (seq lines) (as-> d (reduce (fn [d [_ a lvl]]
+                                             (if (= :preset lvl)
+                                               (update d :autonomy dissoc a)
+                                               (assoc-in d [:autonomy a] lvl)))
+                                           d lines)
+                             (cond-> d (empty? (:autonomy d)) (dissoc :autonomy))))})))
+
+(defn profile-changes
+  "What changes from profile `before` to `after`, both as the file holds
+  them, as lines the person reads: each field that differs, old then new,
+  and — where the preset or an axis changed — each axis whose level differs
+  once the presets are merged, saying which way it moves."
+  [before after]
+  (let [spec (profile/presets)
+        rank (zipmap (:levels spec) (range))
+        shown (fn [v] (cond (nil? v) "(none)"
+                            (sequential? v) (str/join "; " v)
+                            (keyword? v) (name v)
+                            :else (str v)))
+        field (fn [label path]
+                (let [a (get-in before path) b (get-in after path)]
+                  (when (not= a b)
+                    (str label ":\n  was: " (shown a) "\n  now: " (shown b)))))
+        ra (:autonomy (profile/resolve-profile spec before))
+        rb (:autonomy (profile/resolve-profile spec after))
+        axes (for [{:keys [id]} (:axes spec)
+                   :let [a (get ra id) b (get rb id)]
+                   :when (not= a b)]
+               (str "  " (subs (str id) 1) ": " (name a) " -> " (name b)
+                    (if (> (rank b) (rank a)) "  (more on its own)" "  (less on its own)")))]
+    (vec (concat (keep identity [(field "Goal" [:goal]) (field "In scope" [:scope :in])
+                                 (field "Out of scope" [:scope :out]) (field "Done when" [:done])
+                                 (field "The goal's epic" [:goal-epic]) (field "Preset" [:preset])])
+                 (when (seq axes) [(str "How far an agent goes on its own:\n" (str/join "\n" axes))])))))
+
+(defn edit-profile
+  "Change the project's profile as the person asked (`profile$edit`): the
+  fields given (`profile-edit`), shown to the person as what changes, and
+  written — `.brainyard/profile.edn`, added to git as /init adds it, and
+  AGENTS.md's block — only on their yes. The person's yes is asked every
+  time, in every mode, and never remembered (`:every-time?`): how far an
+  agent goes on its own is not the agent's to raise, and the tripwire keeps
+  every other tool from the file. Headless nothing is written. Creating a
+  profile is /init's: a project without one is told so. `{:text :written?}`."
+  [config ctx & [{:keys [dir] :as args}]]
+  (let [dir (or (given dir) (:project-dir config) (:working-dir config) ".")
+        f (profile/profile-file dir)
+        [before err] (when (.isFile f)
+                       (try [(edn/read-string (slurp f)) nil]
+                            (catch Throwable e [nil (or (ex-message e) (str e))])))
+        no (fn [why] {:written? false :text (str "The profile was not changed: " why ".")})]
+    (cond
+      (not (.isFile f)) (no "this project has no profile (.brainyard/profile.edn); /init drafts one with the person")
+      err (no (str "it is not EDN (" err "); the person fixes it, or /init writes it again"))
+      (not (map? before)) (no "it is not a map; the person fixes it, or /init writes it again")
+      :else
+      (let [{:keys [data refused]} (profile-edit before args)
+            problems (when data (:problems (profile/resolve-profile data)))
+            changes (when data (profile-changes before data))]
+        (cond
+          refused (no refused)
+          (seq problems) (no (str "it would not hold: " (str/join "; " problems)))
+          (empty? changes) (no "what was asked is what it says already")
+          :else
+          (let [shown (str/join "\n" changes)]
+            (if-let [why (ask-person ctx {:type :tool-use :action :call :tool "profile$edit" :pattern "profile$edit"
+                                          :display (str "change this project's profile (.brainyard/profile.edn), and AGENTS.md's block with it:\n\n" shown)
+                                          :args (into {} (keep (fn [[k v]] (when-let [v (given v)] [k v])))
+                                                      (dissoc args :dir))
+                                          :effects #{:fs/write :process}
+                                          :every-time? true})]
+              {:written? false
+               :text (str "The profile was not changed (" why "). What the person was asked:\n\n" shown)}
+              (let [agents (io/file dir "AGENTS.md")]
+                (spit f (with-out-str (pp/pprint data)))
+                (when (.exists (io/file dir ".git"))
+                  (fx/sh {:dir (str dir) :out :string :err :string} "git" "add" "-f" "--" ".brainyard/profile.edn"))
+                (when (.isFile agents)
+                  (spit agents (set-block (slurp agents) profile/block-name (profile/render (profile/read-profile dir))
+                                          (begin-marker "BRAINYARD"))))
+                {:written? true
+                 :text (str "The person said yes, and the profile is changed: .brainyard/profile.edn"
+                            (when (.isFile agents) ", and AGENTS.md's block with it")
+                            (when (.exists (io/file dir ".git")) "; added to git, not committed")
+                            ".\n\n" shown)}))))))))
+
+(defn profile-commands
+  "`profile$edit`, in every session: the person says what their profile
+  should say, and the model, not the person, writes the EDN (byj-8b3)."
+  [config]
+  [{:name "profile$edit" :kind :command
+    :description "Change this project's profile (.brainyard/profile.edn: its goal, scope, done criteria, preset, how far an agent goes on its own, the goal's epic) as the person asks you to. Pass only what changes; a field left out is kept. The person is shown each change and asked, every time; it is written, with AGENTS.md's profile block, only on their yes. Call it only for a change the person asked for — never to give yourself more room. Read the profile first with read-file. A project with no profile gets one from /init."
+    :input-schema [:map
+                   [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
+                   [:goal {:optional true} [:string {:desc "what the project is for, replacing the goal"}]]
+                   [:in {:optional true} [:string {:desc "in scope, one a line, replacing the list"}]]
+                   [:out {:optional true} [:string {:desc "out of scope, one a line, replacing the list"}]]
+                   [:done {:optional true} [:string {:desc "done criteria, one a line, replacing the list"}]]
+                   [:preset {:optional true} [:string {:desc "conservative, collaborator or autopilot"}]]
+                   [:autonomy {:optional true} [:string {:desc "\"axis level\" one a line (e.g. git/commit ask), set over the preset; \"axis preset\" drops one"}]]
+                   [:goal-epic {:optional true} [:string {:desc "the bead id of the epic the work toward the goal is under"}]]]
+    :output-schema [:map [:text :string] [:written? :any]]
+    :effects #{:fs/write :process}
+    :fn (fn [args ctx] (edit-profile config ctx args))}])
 
 ;; --- what to do next (byj-gly.337.1) --------------------------------------------------------
 

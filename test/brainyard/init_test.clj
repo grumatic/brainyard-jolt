@@ -9,6 +9,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
+            [brainyard.config :as config]
             [brainyard.effect :as fx]
             [brainyard.flow :as flow]
             [brainyard.init :as init]
@@ -690,6 +691,73 @@
       (let [log (slurp (io/file bin "bd.log"))]
         (is (str/includes? log "Get started with brainyard"))
         (is (not (str/includes? log "Say what this project is for")))))))
+
+;; byj-8b3: the person says what should change, the model writes the EDN,
+;; and nothing is written but on the person's yes, asked every time
+(deftest the-profile-changes-as-the-person-asks-only-on-their-yes
+  (let [project (fresh-dir "profile-edit")
+        f (io/file project ".brainyard" "profile.edn")
+        before {:profile/version 1 :preset :collaborator :goal "A web workspace."
+                :scope {:in ["a workspace"]} :done ["it runs"] :goal-epic "w-1"}
+        asked (atom [])
+        ctx (fn [answer] {:permission-fn (fn [req] (swap! asked conj req) answer)})
+        edit #(init/edit-profile {} %1 (assoc %2 :dir project))]
+    (testing "no profile: /init makes one, and nobody is asked"
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:goal "x"})) "/init drafts one"))
+      (is (empty? @asked)))
+    (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
+    (init/scaffold {} {:dir project})
+    (io/make-parents f)
+    (spit f (pr-str before))
+    (let [ask {:goal "Brainyard Apps: web apps on byj, the workbench first."
+               :done "the workbench runs on byj acp\nnpm run typecheck passes"
+               :goal-epic "w-9" :out "" :autonomy ""}]
+      (testing "a no, or nobody to ask: the file as it was, and the change said"
+        (let [r (edit (ctx {:denied true :reason "not yet"}) ask)]
+          (is (false? (:written? r)))
+          (is (str/includes? (:text r) "not yet")))
+        (is (false? (:written? (edit {} ask))) "headless")
+        (is (= before (edn/read-string (slurp f)))))
+      (let [{:keys [display every-time? tool]} (first @asked)]
+        (is (= "profile$edit" tool))
+        (is (true? every-time?) "asked every time, never answered from an always")
+        (is (str/includes? display "Goal:\n  was: A web workspace.\n  now: Brainyard Apps"))
+        (is (str/includes? display "The goal's epic:\n  was: w-1\n  now: w-9"))
+        (is (not (str/includes? display "In scope")) "what is not given is kept, and not shown"))
+      (testing "a yes: what was asked, the rest kept, and AGENTS.md's block with it"
+        (let [r (edit (ctx {:allowed true}) ask)
+              data (edn/read-string (slurp f))]
+          (is (:written? r))
+          (is (= (assoc before :goal (:goal ask) :goal-epic "w-9"
+                        :done ["the workbench runs on byj acp" "npm run typecheck passes"])
+                 data))
+          (is (= :current (get-in (init/project-status project) [:profile :block])))
+          (is (str/includes? (slurp (io/file project "AGENTS.md")) "under the epic w-9"))
+          (is (str/includes? (:out (fx/sh {:dir project :out :string :err :string} "git" "status" "--porcelain"))
+                             "A  .brainyard/profile.edn")))))
+    (testing "the preset and an axis: each axis that moves is said, and which way"
+      (reset! asked [])
+      (edit (ctx {:denied true}) {:preset "autopilot" :autonomy "git/commit ask"})
+      (let [d (:display (first @asked))]
+        (is (str/includes? d "Preset:\n  was: collaborator\n  now: autopilot"))
+        (is (str/includes? d "decision/local: ask -> act  (more on its own)"))
+        (is (str/includes? d "git/commit: act -> ask  (less on its own)"))))
+    (testing "what cannot be is refused before anyone is asked"
+      (reset! asked [])
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:preset "yolo"})) "no preset yolo"))
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:autonomy "git/push act"})) "ceiling")
+          "push is never the agent's, whoever asks")
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:autonomy "deploy act"})) "is not `axis level`"))
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:goal-epic "w-9"})) "what it says already"))
+      (is (empty? @asked)))
+    (testing "`axis preset` drops the profile's own level"
+      (spit f (pr-str (assoc before :autonomy {:git/commit :ask})))
+      (edit (ctx {:allowed true}) {:autonomy "git/commit preset"})
+      (is (not (contains? (edn/read-string (slurp f)) :autonomy))))))
+
+(deftest every-session-has-profile-edit
+  (is (= ["profile$edit"] (mapv :name (init/profile-commands {}))))
+  (is (true? (get-in config/config-items [:profile-tools? :default]))))
 
 (deftest the-init-loop-drafts-the-profile-when-the-person-says-what-the-project-is-for
   (let [project (fresh-dir "agent-init-profile")

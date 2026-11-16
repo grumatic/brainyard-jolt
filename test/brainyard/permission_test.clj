@@ -610,6 +610,23 @@
     (testing "without a config there is no remember option, and r is not an answer"
       (is (not (str/includes? (first @prompts) "remember"))))))
 
+(deftest a-request-asked-every-time-is-never-answered-from-before
+  ;; byj-8b3: an always given once to init$profile let a later profile
+  ;; through unasked; a profile write is asked every time
+  (let [answers (atom ["a" "a" "y" "d" "r"])
+        prompts (atom [])
+        ask (fn [p] (swap! prompts conj p) (let [[a] (swap-vals! answers #(vec (rest %)))] (first a)))
+        pfn (permission/asking-permission-fn ask {:project-dir (fresh-dir "every-time")} nil)
+        req {:display "change the profile" :pattern "profile$edit" :every-time? true}]
+    (is (= {:allowed true} (pfn (dissoc req :every-time?))) "an always, given to the same pattern")
+    (is (str/includes? (last @prompts) "[a]lways"))
+    (is (:denied (pfn req)) "asked again; and `a` is not an answer to it")
+    (is (str/ends-with? (last @prompts) "[y]es / [n]o > ") "the menu is yes or no")
+    (is (= {:allowed true} (pfn req)))
+    (is (:denied (pfn req)) "`d` is a no, and kept for nothing")
+    (is (:denied (pfn req)) "`r` too")
+    (is (= 5 (count @prompts)) "every one asked")))
+
 ;; --- a grant that outlives the session (byj-gly.83) ---------------------------------
 
 (deftest remember-writes-the-grant-and-says-where

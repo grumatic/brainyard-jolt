@@ -1571,6 +1571,9 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
         ;; working a project's goal under its profile (RFC-073): agent$drive's config turns them on
         drive-cmds (when (:drive-tools? config) (drive/commands config))
         _ (swap! reg into (map (juxt :name identity)) drive-cmds)
+        ;; changing the profile as the person asks, on their yes (RFC-073, byj-8b3)
+        profile-cmds (when (:profile-tools? config true) (init/profile-commands config))
+        _ (swap! reg into (map (juxt :name identity)) profile-cmds)
         ;; MCP servers connected by the caller (RFC-024). Their tools arrive in
         ;; `:tools` like any other; this is the discovery command beside them.
         mcp-cmds (mcp/commands config mcp-clients)
@@ -1592,7 +1595,7 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
         ;; (RFC-017): the `### Agents` section names each in one line, and an
         ;; agent's own instruction is for the agent, not for its caller
         listed (visible (concat base-tools authoring hook-cmds skill-cmds agent-cmds task-cmds schedule-cmds session-cmds team-cmds memory-cmds
-                                log-cmds config-cmds export-cmds analytics-cmds program-cmds flow-cmds todo-cmds claude-cmds codex-cmds mcp-cmds share-cmds
+                                log-cmds config-cmds export-cmds analytics-cmds program-cmds flow-cmds todo-cmds claude-cmds codex-cmds mcp-cmds share-cmds profile-cmds
                                 (sort-by :name (filter #(= :composite (:kind %)) (vals @reg)))))
         agent-roster (filterv #(agents/visible? config (agents/tool-id (:name %))) agent-roster)
         skill-list (filterv #(agents/visible? config (:id %)) skill-list)]

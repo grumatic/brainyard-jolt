@@ -350,6 +350,8 @@
                      :doc "How many steps — a bead's turn, or a retry of one — one /drive run takes at most, whatever the profile's own limits (RFC-073)."}
    :init-tools? {:type "boolean" :default false :family :agents
                  :doc "Register the init$* commands, which check and prepare a project for brainyard (RFC-040). agent$init's own config turns them on for its turn; off elsewhere."}
+   :profile-tools? {:type "boolean" :default true :family :agents
+                    :doc "Register profile$edit, which changes the project's profile (.brainyard/profile.edn) as the person asks, on their yes, asked every time (RFC-073, byj-8b3). false leaves the profile to /init and the person."}
    :claude-home {:type "string" :default nil :family :agents
                  :doc "Where Claude Code keeps its sessions; ~/.claude when unset. A test points it at a fixture."}
    :claude-handover-timeout-ms {:type "integer" :default 1800000 :family :agents

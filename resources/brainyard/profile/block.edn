@@ -6,7 +6,7 @@
 ;; presets.edn's :covers. {name} is filled from the profile.
 {:title "## This project's profile"
 
- :source "/init writes this block from `.brainyard/profile.edn`, which the person confirmed. No agent changes either: to change the profile, say what should change, and the person changes it."
+ :source "/init writes this block from `.brainyard/profile.edn`, which the person confirmed. No agent changes either on its own: when the person asks for a change, byj's profile$edit shows them the change and writes it on their yes; elsewhere, say what should change, and the person changes it."
 
  :preset "Preset: {preset}."
  :goal "Goal: {goal}"

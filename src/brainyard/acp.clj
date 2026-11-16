@@ -219,12 +219,14 @@
   the client chooses allow once, allow always, reject once or reject always;
   an always is remembered for the session by the pattern that matched, as the
   terminal remembers one. No timeout, as the terminal has none (divergence
-  `permission-prompt-cli`): the client closing its end answers it."
+  `permission-prompt-cli`): the client closing its end answers it. A
+  request asked every time (`:every-time?`, a profile write) offers allow
+  once and reject alone, and nothing is remembered of it (byj-8b3)."
   [conn sid-box effects-of]
   (let [remembered (atom {})]
-    (fn [{:keys [tool display pattern args type action path] :as req}]
+    (fn [{:keys [tool display pattern args type action path every-time?] :as req}]
       (let [key (if (= :file-access type) (str (some-> action name) " " path) (or pattern display))]
-        (or (get @remembered key)
+        (or (when-not every-time? (get @remembered key))
             (let [sid @sid-box
                   title (if (= :file-access type)
                           (str (some-> action name) " " path)
@@ -238,15 +240,18 @@
                                                         (tool-kind (effects-of tool)))
                                                 :status "pending"
                                                 :rawInput (or args {})}
-                                     :options [{:optionId "allow-once" :name "Allow once" :kind "allow_once"}
-                                               {:optionId "allow-always" :name "Always allow" :kind "allow_always"}
-                                               {:optionId "reject-once" :name "Reject" :kind "reject_once"}
-                                               {:optionId "reject-always" :name "Always reject" :kind "reject_always"}]})
+                                     :options (if every-time?
+                                                [{:optionId "allow-once" :name "Allow once" :kind "allow_once"}
+                                                 {:optionId "reject-once" :name "Reject" :kind "reject_once"}]
+                                                [{:optionId "allow-once" :name "Allow once" :kind "allow_once"}
+                                                 {:optionId "allow-always" :name "Always allow" :kind "allow_always"}
+                                                 {:optionId "reject-once" :name "Reject" :kind "reject_once"}
+                                                 {:optionId "reject-always" :name "Always reject" :kind "reject_always"}])})
                   outcome (get-in answer [:result :outcome])
                   chosen (when (= "selected" (:outcome outcome)) (:optionId outcome))
                   allow {:allowed true}
                   deny {:denied true :reason "denied by the client"}]
-              (case chosen
+              (case (if (and every-time? (not= "allow-once" chosen) (some? chosen)) "reject-once" chosen)
                 "allow-once" allow
                 "allow-always" (do (swap! remembered assoc key allow) allow)
                 "reject-always" (do (swap! remembered assoc key deny) deny)

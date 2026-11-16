@@ -4022,9 +4022,10 @@
       true)))
 
 (def ^:private gate-choices
-  "The ask channel's answers as buttons, in its own letters (RFC-012).
-  `remember` appears only when the prompt offered it, because only the channel
-  knows whether there is a config it may write."
+  "The ask channel's answers as buttons, in its own letters (RFC-012). Only
+  those the prompt's menu offers appear: `remember` only where there is a
+  config the channel may write, and neither always nor deny always for a
+  request asked every time (byj-8b3)."
   [["allow once" "y"] ["deny" "n"] ["always" "a"] ["remember" "r"] ["deny always" "d"]])
 
 (defn make
@@ -4748,12 +4749,11 @@
             (if @closed?
               "n"                                    ; no one is there to allow it
               (let [lines (remove str/blank? (str/split-lines (str prompt)))
-                    offers-remember? (str/includes? (str prompt) "[r]emember")]
+                    menu (str (last lines))]
                 (attention! c)
                 ((asking (:gate c) pending :gate)
                  {:prompt (vec (butlast lines))     ; the last line is the menu the buttons are
-                  :choices (vec (cond->> gate-choices
-                                  (not offers-remember?) (remove #(= "r" (second %)))))}))))}))
+                  :choices (filterv #(str/includes? menu (str "[" (second %) "]")) gate-choices)}))))}))
 
 (defn seams
   "What `session/run` takes from a renderer. `:permission-fn` is not here: it is

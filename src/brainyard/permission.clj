@@ -446,8 +446,11 @@
                    [w what]))))
 
 (def ^:private profile-hint
-  (str "The project's profile is the person's (RFC-073): /init drafts it and the person confirms it."
-       " Say what should change, and the person changes it."))
+  ;; the way to the change the person asked for, not only the wall: told
+  ;; only to have the person edit the EDN, a model left them to (byj-8b3)
+  (str "The project's profile is the person's (RFC-073): no tool writes it, and reading it with read-file is not refused."
+       " To change it as the person asks, call profile$edit with what changes: it shows them the change and writes it on their yes."
+       " Where there is no profile$edit, say what should change, and the person runs /init."))
 
 (defn- profile-refusal [by display reason]
   (deny-replace {:by by :display display :reason reason
@@ -530,7 +533,7 @@
                                 :reason-prefix "Refused by the project's profile"
                                 :error-prefix "Tool call refused (profile)"
                                 :hint (str "The project's profile (.brainyard/profile.edn, RFC-073) sets "
-                                           axis " to " level "; the person changes it, not a tool.")}))]
+                                           axis " to " level "; the person changes it, through profile$edit on their yes, not a tool on its own.")}))]
     (case level
       :never (refuse (str axis " is :never in the project's profile"))
       (if (= :deny-by-default (resolve-mode (mode ctx)))
@@ -936,29 +939,37 @@
   answering a prompt is the thing worth not doing.
 
   `nil` (end of input) denies. There is no timeout: the prompt blocks until it
-  is answered, and Ctrl-C cancels the turn (divergence `permission-prompt-cli`)."
+  is answered, and Ctrl-C cancels the turn (divergence `permission-prompt-cli`).
+
+  A request with `:every-time?` — a write of the project's profile, an
+  install — is asked each time and its answer kept for nothing: the menu is
+  yes or no, and any other answer is a no (byj-8b3). An always given once to
+  `init$profile` let a later profile through unasked."
   ([ask] (asking-permission-fn ask nil nil))
   ([ask config say]
    (let [remembered (atom {})
          can-remember? (boolean (and config (configbox/scope-file config :auto)))]
-     (fn [{:keys [display pattern args effects type action path] :as req}]
+     (fn [{:keys [display pattern args effects type action path every-time?] :as req}]
        (let [key (if (= :file-access type)
                    ;; remembered per parent directory, as brainyard does
                    (str action " " (or (some-> path io/file .getParent) path))
                    (or pattern display))]
-         (if-let [r (get @remembered key)]
+         (if-let [r (when-not every-time? (get @remembered key))]
            r
            (let [answer (str/trim (str (ask (str "\npermission: "
                                                  (when (= :file-access type) (str (name action) " "))
                                                  display
                                                  (when (seq args) (str " " (pr-str args)))
                                                  (when (seq effects) (str " — effects " (str/join ", " (sort effects))))
-                                                 "\n[y]es once / [n]o / [a]lways"
-                                                 (when (and can-remember? (grant-for req)) " / [r]emember (writes config)")
-                                                 " / [d]eny always > "))))
+                                                 (if every-time?
+                                                   "\n[y]es / [n]o > "
+                                                   (str "\n[y]es once / [n]o / [a]lways"
+                                                        (when (and can-remember? (grant-for req)) " / [r]emember (writes config)")
+                                                        " / [d]eny always > "))))))
                  allow {:allowed true}
                  deny {:denied true :reason "denied by user"}
-                 note (fn [msg] (when say (say msg)))]
+                 note (fn [msg] (when say (say msg)))
+                 answer (if (and every-time? (not (#{"y" "yes"} answer))) "n" answer)]
              (case answer
                ("y" "yes") allow
                ("a" "always") (do (swap! remembered assoc key allow) allow)

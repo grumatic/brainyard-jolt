@@ -227,6 +227,23 @@
                                 (updates c sessionId))))))
       (finally (acp/end! (:conn c))))))
 
+(deftest a-request-asked-every-time-offers-no-always
+  ;; byj-8b3: a profile write is asked each time; the client is not offered
+  ;; an always, and one it sends anyway is not kept
+  (let [asked (atom [])
+        pick (atom "allow-always")
+        pfn (acp/permission-fn {:state (atom {})} (atom "s1") (constantly #{:fs/write}))
+        req {:tool "profile$edit" :display "change the profile" :pattern "profile$edit" :every-time? true}]
+    (with-redefs [acp/request! (fn [_ _ params]
+                                 (swap! asked conj params)
+                                 (doto (promise) (deliver {:result {:outcome {:outcome "selected" :optionId @pick}}})))]
+      (is (:denied (pfn req)) "an always it was not offered is a no")
+      (is (= ["allow_once" "reject_once"] (mapv :kind (:options (first @asked)))))
+      (reset! pick "allow-once")
+      (is (= {:allowed true} (pfn req)))
+      (is (= {:allowed true} (pfn req)))
+      (is (= 3 (count @asked)) "every one asked"))))
+
 (deftest a-cancel-ends-the-turn-cancelled
   (let [dir (fresh-dir "cancel")
         c (client)

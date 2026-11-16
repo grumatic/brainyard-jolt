@@ -6,8 +6,9 @@
   scope and when it is done, and how far an agent goes on its own along each
   axis — filing, working, committing and closing beads, deciding, pushing.
 
-  The profile is `<project>/.brainyard/profile.edn`, committed, and written by
-  no tool: `permission/profile-file` refuses every tool's write to it in every
+  The profile is `<project>/.brainyard/profile.edn`, committed, and written
+  only on the person's yes, by `init$profile` and `profile$edit`:
+  `permission/profile-file` refuses every other tool's write to it in every
   mode, and byj's hook refuses Claude Code's and Codex's. The axes, their
   levels, the presets and the ceilings no profile goes above are data, in
   `resources/brainyard/profile/presets.edn`; this namespace merges and checks,

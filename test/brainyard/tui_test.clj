@@ -2759,6 +2759,22 @@
       (is (want @answer) (str key " answers " want))
       (.join kernel 2000))))
 
+(deftest a-gate-offers-only-the-answers-its-menu-names
+  ;; byj-8b3: a request asked every time is yes or no, with no always to press
+  (let [r (mounted {:cols 60 :rows 14})
+        permission-fn (permission/asking-permission-fn (:ask r))
+        answer (atom nil)
+        kernel (Thread. (fn [] (reset! answer (permission-fn {:display "change the profile" :pattern "profile$edit"
+                                                              :every-time? true}))))]
+    (.start kernel)
+    (is (awaited #(some? @(:gate (:cells r)))))
+    (is (= ["y" "n"] (mapv second (:choices @(:gate (:cells r))))))
+    (is (gate-painted? r))
+    (g/press! (int \y))
+    (is (awaited #(some? @answer)))
+    (is (:allowed @answer))
+    (.join kernel 2000)))
+
 (deftest a-shared-session-shows-who-watches-and-asks-before-an-injected-turn
   ;; RFC-043: the footer, a line for a note and for who joined, and the
   ;; injected turn's approval in the gate's overlay

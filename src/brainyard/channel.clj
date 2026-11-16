@@ -736,7 +736,9 @@
 ;; --- a member asks its leader --------------------------------------------------------
 
 (def ^:private forwarded-keys
-  [:type :tool :display :pattern :args :effects :action :path :paths])
+  ;; :every-time?, so the leader's gate does not answer a profile write from
+  ;; an always given before (byj-8b3)
+  [:type :tool :display :pattern :args :effects :action :path :paths :every-time?])
 
 (defn forwarding-permission-fn
   "A headless member's `:permission-fn`: each prompt goes to the session

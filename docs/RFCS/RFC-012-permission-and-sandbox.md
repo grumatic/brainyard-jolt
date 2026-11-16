@@ -420,6 +420,14 @@ pattern, end of input denies. `byj run` installs it; `byj ask` is
 headless, so `:ask-each-time` refuses there. There is no timeout — the prompt
 waits, and Ctrl-C cancels the turn (divergence `permission-prompt-cli`).
 
+A request with `:every-time? true` — a write of the project's profile
+(`init$profile`, `profile$edit`, RFC-073) or an install (`init$install`) —
+is asked each time and nothing is remembered of it: the menu is `[y]es /
+[n]o`, any other answer is a no, the TUI shows only the buttons its menu
+names, ACP offers only allow once and reject, and a team member's request
+carries the key to its leader's gate (`byj-8b3`). An `a` given once to
+`init$profile` let a later profile through unasked.
+
 ### `r` — a grant that outlives the session
 
 `r` allows, remembers for the session, **and writes the grant to
@@ -707,6 +715,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | Deny refuses under every mode, cannot be exempted by an allow glob, and can key on an effect — including a user tool's inherited effects. | `permission-test/deny-gate` |
 | Only a pattern or effect match asks; an allow glob exempts; the modes behave; headless, a denial and a throwing prompt all refuse; deny decides before permission. | `permission-test/permission-gate` |
 | The terminal prompt shows the args and effects, remembers `a`/`d` for the session, and denies on end of input. | `permission-test/the-ask-channel` |
+| A request asked every time is asked every time — yes or no, nothing remembered — at the terminal, in the TUI and over ACP. | `permission-test/a-request-asked-every-time-is-never-answered-from-before`, `tui-test/a-gate-offers-only-the-answers-its-menu-names`, `acp-test/a-request-asked-every-time-offers-no-always` |
 | **`r` persists the grant, appending, and says what it wrote**; a failed write still allows the call the person permitted. | `permission-test/remember-writes-the-grant-and-says-where`, `permission-test/a-grant-that-cannot-be-written-still-allows-the-call`, `permission-test/what-a-remember-answer-would-write` |
 | **A permission key is written by the prompt and by nothing else** — only `#{:tool-allow-tools :allowed-dirs :permission-mode}`, and no command may ask as a person. | `configbox-test/a-person-at-the-prompt-may-grant-what-the-agent-may-not`, `configbox-test/no-command-can-ask-as-a-person` |
 | A refused call is a tool result, not the end of the turn. | `permission-test/a-refused-call-does-not-end-the-turn` |

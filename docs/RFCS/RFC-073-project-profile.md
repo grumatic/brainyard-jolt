@@ -9,7 +9,8 @@ gate holding commits, pushes, beads filed and closed, and decision records
 to it (`byj-71w.5`); `/init` drafting it from the person's words and writing
 it on their yes (`byj-71w.4`); `/drive` working through the goal's beads
 under it (`byj-71w.6`); measured in simulation per preset (`byj-71w.7`).
-Epic `byj-71w`.
+Epic `byj-71w`. Changed by the model as the person asks, on their yes,
+with `profile$edit` (`byj-8b3`, "Changed as the person asks").
 
 ## Purpose
 
@@ -69,7 +70,7 @@ an agent commits on its own.
 ### The profile
 
 ```clojure
-;; .brainyard/profile.edn — committed; no tool writes it
+;; .brainyard/profile.edn — committed; written only on the person's yes
 {:profile/version 1
  :preset   :collaborator
  :goal     "A small web workspace with a Terminal section first."
@@ -129,8 +130,9 @@ loop (RFC-071, RFC-072; `permission/profile-file`,
 `permission/named-profile-files`), and a line removing or moving the
 directory that holds it whole, `rm -rf .brainyard` (RFC-012,
 `permission/removed-guarded-dirs`, `byj-cst`). Reading it is not refused. An agent that could write its profile
-could raise its own autonomy. It changes only through `/init`, on the
-person's yes ("Confirmed once at /init").
+could raise its own autonomy. It changes only on the person's yes: through
+`/init` ("Confirmed once at /init"), or through `profile$edit` when the
+person asks for a change ("Changed as the person asks").
 
 ### Where agents read it
 
@@ -184,9 +186,43 @@ epic and its issues with bd, each after the one before, names the epic as
 `:goal-epic`, writes `profile.edn`, adds it to git with `-f`, and writes
 AGENTS.md's block. On a no it writes nothing and shows the draft; to change
 it, the person runs `/init` again saying what should differ. `init$profile`
-is the one writer of the profile, and it writes only what the person said
-yes to; no model turn of `agent$init` calls a tool (its loop is the tree),
-and the tripwire keeps every other tool from the file.
+and `profile$edit` ("Changed as the person asks") are the profile's only
+writers, and each writes only what the person said yes to; no model turn of
+`agent$init` calls a tool (its loop is the tree), and the tripwire keeps
+every other tool from the file.
+
+### Changed as the person asks
+
+A person who wants the goal, the scope, the done criteria, the preset, an
+axis or the goal's epic changed says so in the session, and the model
+calls `profile$edit` with only what changes (`byj-8b3`). Before it, the
+refusal told the model to have the person change the file, and editing
+EDN by hand is more than most people can do: a session that asked for the
+project's renaming was handed a line of EDN to change itself.
+
+`profile$edit` reads the profile as the file holds it and sets each field
+given over it: the goal, the in-scope, out-of-scope and done lists whole,
+the goal's epic, the preset, and `axis level` lines over the profile's own
+levels (`axis preset` drops one). A blank field is kept, so a model's
+empty arguments change nothing. A preset, axis or level it does not know,
+a profile that would not hold — an axis above its ceiling, `:git/push
+:act` included — or a change to nothing is refused before anyone is
+asked. Otherwise the person is shown each field that changes, old then
+new, and, where the preset or an axis changed, each axis whose level moves
+once the presets are merged, and which way: `git/commit: ask -> act (more
+on its own)`. On their yes it writes the file, adds it to git as `/init`
+does, and rewrites AGENTS.md's block; on a no, or with no one to ask, it
+writes nothing. A project with no profile is told that `/init` drafts one.
+
+The yes is asked every time, in every mode, and never remembered (RFC-012
+`:every-time?`), as `init$profile`'s now is: an `a` given to `init$profile`
+once let a later `/init` write a profile the person had not seen. That
+yes is the guard: the model proposes the change the person asked for, and
+the person sees exactly what would change, including any axis that would
+let an agent do more on its own. AGENTS.md's block and the tool's
+description say to call it only for a change the person asked for. Config
+`:profile-tools?` (true) registers it; false leaves the profile to `/init`
+and the person.
 
 With a profile, the starter issues leave out asking what the project is for
 (`:goal`, `:when #{:no-profile}`), and since the block names bd's profile,
@@ -282,7 +318,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 
 | Name | What |
 |---|---|
-| `.brainyard/profile.edn` | the profile; committed; written by no tool |
+| `.brainyard/profile.edn` | the profile; committed; written only by `init$profile` and `profile$edit`, on the person's yes |
 | `resources/brainyard/profile/presets.edn` | the presets |
 | `profile/presets` | `presets.edn`: the axes, levels, ceilings, presets and the default preset (built) |
 | `profile/read-profile` | the project's profile resolved, with `:file`; nil without one (built) |
@@ -301,6 +337,8 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | predictor `init/profile` | the draft `/init` shows: goal, in, out, done, preset, autonomy, epic, issues (built) |
 | `init$profile`, `init/write-profile` | the draft shown to the person and, on a yes, written with its epic and issues (built) |
 | `init/draft-profile` | a draft as `profile.edn` holds it: blanks left out, unknown presets and axis levels dropped (built) |
+| `profile$edit`, `init/edit-profile`, `init/profile-commands`; config `:profile-tools?` (true) | the profile changed as the person asks, shown and written on their yes, asked every time (built) |
+| `init/profile-edit`, `init/profile-changes` | what the fields given make of a profile, or why not; what changes, as the person reads it (built) |
 | `/drive`, `agent$drive`, `brainyard/loops/drive.edn` | the drive loop (built) |
 | `drive$next`, `drive$check`, `drive$settle`, `drive$report` (`brainyard.drive`) | its mechanism, registered by `:drive-tools?`, which `agent$drive`'s config sets (built) |
 | predictor `drive/judge`; `resources/brainyard/drive/words.edn` | the judgement of a bead's turn; every word the loop puts together (built) |
@@ -317,6 +355,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | An attended agent's call never detaches | `tasks-test/what-never-detaches`, `agents-test/the-shipped-roster` |
 | A git command that records or reads the profile as it is passes the tripwire; a write does not; the person's yes at a hold is told to the model | `permission-test/a-projects-profile-is-written-by-no-tool`, `permission-test/the-gate-follows-the-projects-profile` |
 | The profile is written only on the person's yes, with the epic and issues they were shown; a no or nobody to ask writes and files nothing | `init-test/init-writes-the-profile-only-on-the-persons-yes` |
+| `profile$edit` changes only what was given, shows each change and every axis that moves, writes the profile and AGENTS.md's block only on the person's yes, asked every time; a no, nobody to ask, an unknown preset or axis, an axis above its ceiling or no change writes nothing | `init-test/the-profile-changes-as-the-person-asks-only-on-their-yes`, `init-test/every-session-has-profile-edit` |
 | `/init` drafts a profile when the person says what the project is for, and its answer and check say what was written | `init-test/the-init-loop-drafts-the-profile-when-the-person-says-what-the-project-is-for` |
 | A draft with no preset, epic or first issues is drafted once more, and what it still lacks is said in the question before the person's yes | `init-test/a-draft-missing-its-preset-or-epic-is-drafted-again-and-said` |
 | `:decision/scope` and `:git/push` are never `:act` | `profile-test/no-profile-raises-an-axis-above-its-ceiling` |
