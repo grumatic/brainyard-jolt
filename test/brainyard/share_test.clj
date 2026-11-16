@@ -684,6 +684,25 @@
     (is (= :ask (:verdict (permission/tool-verdict "share$record" (agent/make-ctx {:config (assoc config :permission-mode :ask-each-time)
                                                                                     :lm {:provider :mock :format :mock}})))))))
 
+(deftest sharing-this-session-recorded-starts-its-sidecar-recording
+  ;; byj-0tk: share$start's record and /share start --record were dropped
+  ;; for this session, whose sidecar then ran unrecorded
+  (let [dir (fresh-dir "share-start-record")
+        out (io/file dir "argv")
+        fake (io/file dir "byj-share")
+        _ (spit fake (str "#!/bin/sh\necho \"$@\" > '" (.getPath out) "'\nexec sleep 30\n"))
+        _ (.setExecutable fake true)
+        argv-of (fn [opts]
+                  (.delete out)
+                  (let [ctx {:config {:session-id "s-rec" :working-dir dir :project-dir dir :share-sidecar (.getPath fake)}
+                             :task-registry (tasks/registry) :share-box (atom nil)}]
+                    (share-tools/start ctx opts identity)
+                    (loop [i 0] (when (and (not (.isFile out)) (< i 300)) (Thread/sleep 10) (recur (inc i))))
+                    (try (str/trim (slurp out))
+                         (finally (share/stop! ctx)))))]
+    (is (str/ends-with? (argv-of {:record? true}) "--record") "asked: recorded")
+    (is (not (str/includes? (argv-of {}) "--record")) "not asked: not")))
+
 (deftest the-share-flag-is-read
   ;; main refuses --share on anything but a session, with a target
   ;; share/target-problem does not know, and in a piped session

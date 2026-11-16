@@ -95,7 +95,8 @@ machine.
    the sidecar is logged in to (its credentials under `share-home`), else
    none — no `--relay`, and the sidecar dials its own default: byj names no
    relay (`byj-ahf.7`). `--record` when
-   `:share-record?`. A `shr_…` target reopens that ended share: `--target
+   `:share-record?`, or when the start asks it (`/share start --record`,
+   share$start's `record`; `byj-0tk`). A `shr_…` target reopens that ended share: `--target
    link --share-id shr_…`, as `byj run -r ID --share shr_…`. `:share-sidecar`
    names the binary (`byj-share` on PATH); missing, the session says so and
    runs unshared. A piped session has no channel and refuses `--share`.
@@ -175,6 +176,7 @@ the `share$*` commands over them.
 | A session shares through `:share-relay-url` when it is set, else the relay the sidecar is logged in to, else none, the sidecar dialling its own default; byj names no relay; the suite reads a sidecar home of its own, never the person's. | `share-test/a-session-shares-through-the-relay-byj-share-is-logged-in-to` |
 | The footer, the join and leave lines, notes and the approval overlay are drawn; the footer counts the shares this process runs (this session's once) and who watches them, apart; an unanswered approval takes the overlay down; refuse has the focus, so Enter refuses, and y allows. | `tui-test/a-shared-session-shows-who-watches-and-asks-before-an-injected-turn`, `share-test/presence-is-shown-and-share-commands-reach-the-sidecar` |
 | `/share` reports presence and says pause, resume, kick and stop on the bus; the share's URL is said unasked, once, when the sidecar first has it, and again only for a new one; the start line names the relay. | `share-test/presence-is-shown-and-share-commands-reach-the-sidecar`, `share-test/the-sidecar-runs-as-the-sessions-task` |
+| This session shared with a recording asked starts its sidecar with `--record`, and without one asked, not | `share-test/sharing-this-session-recorded-starts-its-sidecar-recording` |
 | A running share's recording is turned on and off from the session — this session's through its bus, another's through `byj-share record on|off REF` — and it asks first. | `share-test/a-running-shares-recording-is-turned-on-and-off` |
 | byj shares a session by its reference with `--parent`, says its links from the ready line (or an older stderr), stops it on the same key, and stops all as it leaves; `team` is the leader and its open members; `/share` lists only live registry entries. | `share-test/a-session-is-shared-and-unshared-by-its-reference`, `share-test/the-ready-line-and-the-older-stderr-both-give-the-links`, `share-test/the-registry-lists-running-shares-only`, `share-test/share-start-team-is-the-leader-and-its-open-members` |
 | byj shares several sessions, or its team, as one group ending with it, and says each link and the group's. | `share-test/several-sessions-are-shared-as-one-group` |

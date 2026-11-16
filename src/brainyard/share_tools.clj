@@ -147,7 +147,7 @@
       refused refused
 
       (empty? refs)
-      (let [r (share/start! ctx {:target target :socket (channel/socket-path config (:session-id config))
+      (let [r (share/start! ctx {:target target :record? record? :socket (channel/socket-path config (:session-id config))
                                  :title (or (:label config) (some-> st-memory deref :conversation-title))})]
         (cond
           (:error r) (:error r)

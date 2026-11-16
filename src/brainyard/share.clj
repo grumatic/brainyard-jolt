@@ -109,8 +109,11 @@
   the session carries on unshared either way. When the sidecar ends on its
   own — not stopped: a login for another relay, a relay that refused it —
   `:session.share/ended` says so with its last lines, which the session tells
-  the person: a quiet task's ending reaches nobody else (byj-gly.362.4)."
-  [{:keys [config task-registry] :as ctx} {:keys [target socket title path]}]
+  the person: a quiet task's ending reaches nobody else (byj-gly.362.4).
+  Recorded when `:record?` asks it (`/share start --record`, share$start's
+  `record`) or `:share-record?` is on: an asked recording was dropped once,
+  and the share ran unrecorded (byj-0tk)."
+  [{:keys [config task-registry] :as ctx} {:keys [target socket title path record?]}]
   (let [binary (resolve-binary config path)]
     (cond
       (target-problem target) {:error (target-problem target)}
@@ -124,7 +127,7 @@
             relay (relay-of config (:share-home ctx))
             cmd (argv {:binary binary :socket socket :target (str/trim (str target))
                        :session-id (:session-id config) :title title :relay relay
-                       :record? (true? (:share-record? config)) :parent (persist/own-pid)})
+                       :record? (or (true? record?) (true? (:share-record? config))) :parent (persist/own-pid)})
             id (tasks/start! ctx {:name (str "share " (str/trim (str target)))
                                   :job-type job-type
                                   ;; its ending is the share ending, not a result
