@@ -471,9 +471,7 @@
     (doseq [mode [:auto-approve :auto :ask-each-time :deny-by-default]]
       (is (refused? (call (c mode) "write-file" {:path (.getPath f) :content "{}"})) (str "write-file, " mode))
       (is (refused? (call (c mode) "update-file" {:path ".brainyard/profile.edn" :old "1" :new "2"}))
-          (str "update-file, by a relative path, " mode))
-      (is (refused? (call (c mode) "bash" {:command "sed -i '' s/conservative/autopilot/ .brainyard/profile.edn"}))
-          (str "a shell naming it, " mode)))
+          (str "update-file, by a relative path, " mode)))
     (is (= "{:profile/version 1}" (slurp f)) "and the file is as it was")
     (is (str/includes? (str (:error (call (c :auto-approve) "write-file" {:path (.getPath f) :content "{}"})))
                        "RFC-073")
@@ -493,6 +491,55 @@
       (is (seq (permission/named-profile-files "git show HEAD:.brainyard/profile.edn > .brainyard/profile.edn")) "a redirection writes it")
       (is (seq (permission/named-profile-files "git checkout -- .brainyard/profile.edn")) "checkout rewrites it")
       (is (seq (permission/named-profile-files "git add x && cp y .brainyard/profile.edn")) "each segment on its own"))))
+
+;; byj-bdd: a shell line that only reads the profile passes, as read-file
+;; does; one that may change it is the person's, asked every time — every
+;; turn ends in a checkpoint, so the change is a step back away
+(deftest a-shell-line-reads-the-profile-and-asks-to-change-it
+  (let [dir (.getAbsolutePath (io/file (fresh-dir "profile-shell")))
+        f (io/file dir ".brainyard" "profile.edn")
+        _ (io/make-parents f)
+        _ (spit f "{:profile/version 1 :goal \"x\"}")
+        asked (atom [])
+        c (fn [mode answer]
+            (ctx {:working-dir dir :project-dir dir :allowed-dirs [dir] :permission-mode mode}
+                 :permission-fn (when answer (fn [req] (swap! asked conj req) answer))))
+        refused? #(str/includes? (str (:error %)) "Tool call refused (profile)")]
+    (testing "what only reads it is not counted"
+      (doseq [line ["grep -n -i -E 'aperture|scope' .brainyard/profile.edn | head -20"
+                    "cat .brainyard/profile.edn 2>/dev/null"
+                    "sed -n 1,5p .brainyard/profile.edn"
+                    "jq . < .brainyard/profile.edn 2>&1"
+                    "bd update x --claim 2>&1 | tail -2 && grep -n goal .brainyard/profile.edn"]]
+        (is (empty? (permission/named-profile-files line)) line)))
+    (testing "what may change it is"
+      (doseq [line ["sed -i '' s/conservative/autopilot/ .brainyard/profile.edn"
+                    "sed -ni p .brainyard/profile.edn"
+                    "awk -i inplace 1 .brainyard/profile.edn"
+                    "cat x > .brainyard/profile.edn"
+                    "grep x y >> .brainyard/profile.edn"
+                    "python3 edit.py .brainyard/profile.edn"]]
+        (is (seq (permission/named-profile-files line)) line)))
+    (testing "reading it runs, headless too"
+      (let [r (call (c :auto-approve nil) "bash" {:command "grep -n goal .brainyard/profile.edn"})]
+        (is (not (refused? r)))
+        (is (str/includes? (pr-str r) ":goal") (pr-str r))))
+    (testing "changing it asks the person every time, and their yes runs it"
+      (reset! asked [])
+      (let [r (call (c :auto-approve {:allowed true}) "bash"
+                    {:command "sed -i '' 's/\"x\"/\"y\"/' .brainyard/profile.edn"})]
+        (is (not (refused? r)) (pr-str r))
+        (is (= 1 (count @asked)) "asked once, though :auto-approve asks nothing else")
+        (is (true? (:every-time? (first @asked))))
+        (is (str/includes? (:display (first @asked)) "profile.edn"))
+        (is (str/includes? (slurp f) "\"y\""))))
+    (testing "their no, nobody to ask, or :deny-by-default refuses it, and the file is as it was"
+      (let [before (slurp f)
+            line {:command "sed -i '' 's/\"y\"/\"z\"/' .brainyard/profile.edn"}]
+        (is (refused? (call (c :ask-each-time {:denied true :reason "no"}) "bash" line)))
+        (is (refused? (call (c :auto-approve nil) "bash" line)) "headless")
+        (is (refused? (call (c :deny-by-default {:allowed true}) "bash" line)))
+        (is (= before (slurp f)))))))
 
 (deftest the-directory-holding-a-loop-or-the-profile-is-not-taken-away-whole
   ;; byj-cst: `rm -rf .brainyard` named no guarded file, and took the

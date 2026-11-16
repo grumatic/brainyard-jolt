@@ -393,16 +393,34 @@
   ;; next step, and a simulation's was refused by the tripwire (byj-71w.7)
   #"^git (?:-C \S+ )?(?:add|commit|diff|show|log|status|ls-files|check-ignore|blame)(?:\s|$)")
 
+(def ^:private profile-reading
+  ;; commands that read what they name and write nothing of it: a model
+  ;; reads the profile with grep or sed -n as often as with read-file, and
+  ;; was refused (byj-bdd)
+  #"^(?:cat|bat|head|tail|less|more|grep|egrep|fgrep|rg|ag|wc|jq|ls|stat|file|diff|cmp|md5|md5sum|shasum|sha1sum|sha256sum|sed|awk|gawk)(?:\s|$)")
+
+(defn- reads-profile-only?
+  "Does shell `segment` only read what it names: a reading command, or git
+  recording or reading the file as it is, with no redirection but to a
+  descriptor or /dev/null, and sed or awk not editing in place."
+  [segment]
+  (let [t (segment-text segment)]
+    (and (not (str/includes? (str/replace (str segment) #"\d*>>?\s*(?:&\d+|/dev/null)" "") ">"))
+         (or (some? (re-find git-keeping t))
+             (and (some? (re-find profile-reading t))
+                  (not (and (re-find #"^(?:sed|awk|gawk)\s" t)
+                            (some #(re-find #"^(?:-[A-Za-z]*i|--in-place|inplace$)" %) (str/split t #"\s+")))))))))
+
 (defn named-profile-files
   "The project profile a shell `command` names, `.brainyard/profile.edn`, as
-  written in it, relative or absolute. A tripwire, as a loop's is (RFC-073),
-  but for a segment that is a git command recording or reading the file as
-  it is (`git add`, `git commit`, `git diff`, …) with no redirection: those
-  change nothing of it."
+  written in it, relative or absolute, in a segment that may change it: one
+  that only reads it (grep, cat, sed -n, git diff, …, no redirection into a
+  file) is not counted. The gate asks the person, every time, about a line
+  this names (RFC-073, byj-bdd): every turn ends in a checkpoint, so a
+  change is a step back away, and the person still sees each one first."
   [command]
   (vec (distinct (for [seg (command-segments command)
-                       :when (not (and (re-find git-keeping (segment-text seg))
-                                       (not (str/includes? seg ">"))))
+                       :when (not (reads-profile-only? seg))
                        [_ f] (re-seq #"(\.brainyard/profile\.edn)(?:$|[\s\"';|&>)])" (str seg))]
                    f))))
 
@@ -448,7 +466,7 @@
 (def ^:private profile-hint
   ;; the way to the change the person asked for, not only the wall: told
   ;; only to have the person edit the EDN, a model left them to (byj-8b3)
-  (str "The project's profile is the person's (RFC-073): no tool writes it, and reading it with read-file is not refused."
+  (str "The project's profile is the person's (RFC-073): no tool writes it on its own. Reading it — read-file, or a shell line that only reads it (cat, grep, sed -n) — is not refused, and a shell line that may change it is asked of the person every time."
        " To change it as the person asks, call profile$edit with what changes: it shows them the change and writes it on their yes."
        " Where there is no profile$edit, say what should change, and the person runs /init."))
 
@@ -798,7 +816,10 @@
   [{:keys [tool-name args]} ctx _opts]
   (let [tool (some-> (:tools ctx) deref (get tool-name))
         cfg (:config ctx)
-        commands (keep #(get args %) (:command-params tool))]
+        commands (keep #(get args %) (:command-params tool))
+        ;; the line, when it may change the project's profile
+        profile-line (when (seq (mapcat named-profile-files commands))
+                       (str/trim (str (first commands))))]
     (when (seq commands)
       (or
        ;; the command itself
@@ -815,8 +836,18 @@
        ;; anything asks, so a person is not asked about what is refused (byj-ng7.12)
        (when-let [f (first (mapcat named-loop-files commands))]
          (loop-refusal "bash-command-gate" f "it names a project's loop, which a person makes live, not a tool"))
-       (when-let [f (first (mapcat named-profile-files commands))]
-         (profile-refusal "bash-command-gate" f "it names the project's profile, which the person confirms, not a tool"))
+       ;; a line that may change the project's profile: the person's, asked
+       ;; every time and never in :deny-by-default or headless; what only
+       ;; reads it passes (RFC-073, byj-bdd)
+       (when profile-line
+         (let [refuse (fn [reason] (profile-refusal "bash-command-gate" profile-line reason))]
+           (if (= :deny-by-default (resolve-mode (mode ctx)))
+             (refuse "it may change the project's profile, which the person confirms, and the mode is :deny-by-default")
+             (ask-person ctx {:type :command :action :run :tool tool-name
+                              :display (str "change the project's profile (.brainyard/profile.edn) with:\n" profile-line)
+                              :every-time? true}
+                         refuse
+                         "it may change the project's profile, which the person confirms, and there is no interactive permission channel (headless)"))))
        ;; and the directory holding either, taken away whole (byj-cst)
        (when-let [[w what] (first (mapcat #(removed-guarded-dirs % (config ctx :working-dir ".")) commands))]
          (if (= :profile what)
@@ -833,7 +864,9 @@
                             :command (first commands)}))))
        ;; a command that could destroy or change things — asked about, so in
        ;; :auto classified, inside the allowed directories too (byj-gly.285.4)
-       (when-let [[seg glob] (or (first (keep #(asked-command cfg %) commands))
+       ;; the person said yes to the whole line just above: not asked twice
+       (when-let [[seg glob] (when-not profile-line
+                              (or (first (keep #(asked-command cfg %) commands))
                                  ;; in :auto with a live model, every command
                                  ;; goes to the classifier (byj-gly.285.3) —
                                  ;; but a line the project's profile lets the
@@ -849,7 +882,7 @@
                                             (not (when-let [pr (project-profile ctx)]
                                                    (let [spec (profile/presets)]
                                                      (every? #(profile-lets-line? pr spec %) commands)))))
-                                   [(str/trim (str (first commands))) nil]))]
+                                   [(str/trim (str (first commands))) nil])))]
          (let [refuse (fn [reason]
                         (deny-replace {:by "bash-command-gate" :display seg :reason reason
                                        :reason-prefix "Command refused"

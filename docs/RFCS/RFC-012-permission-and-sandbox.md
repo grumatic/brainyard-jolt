@@ -331,14 +331,21 @@ answer. `permission-test/a-projects-loop-is-written-by-no-tool`,
 **A project's profile is guarded as its loop is** (RFC-073, `byj-71w.2`):
 `.brainyard/profile.edn` says how far an agent goes on its own, and an
 agent that wrote it could raise that. The path gate refuses a write to it
-(`permission/profile-file`) and the command gate a line naming it
-(`permission/named-profile-files`), first of all and in every mode; byj's
-hook gives Claude Code and Codex the same answer. Reading it is not refused,
-nor is a git command that records or reads it as it is (`git add`, `git
-commit`, `git diff`, `git show`, `git log`, `git status`, with no
-redirection): committing the profile `/init` staged is the person's next
-step (`byj-71w.7`).
+(`permission/profile-file`), first of all and in every mode; byj's hook
+gives Claude Code and Codex the same answer. Reading it is not refused, nor
+is a shell line that only reads it: a reading command (`cat`, `grep`, `sed
+-n`, `jq`, …, not `sed -i`) or a git command that records or reads it as it
+is (`git add`, `git commit`, `git diff`, `git show`, `git log`, `git
+status`), with no redirection but to a descriptor or `/dev/null`:
+committing the profile `/init` staged is the person's next step
+(`byj-71w.7`), and a model reads it with `grep` as often as with read-file
+(`byj-bdd`). A shell line that may change it (`permission/named-profile-files`)
+is asked of the person, `:every-time?`, before the rest of the command gate,
+which their yes then does not ask again; it is refused in
+`:deny-by-default`, headless, and from Codex, and Claude Code asks. Every
+turn ends in a checkpoint, so such a change is a step back away.
 `permission-test/a-projects-profile-is-written-by-no-tool`,
+`permission-test/a-shell-line-reads-the-profile-and-asks-to-change-it`,
 `tool-hook-test/another-agent-writes-no-project-profile`.
 
 **Nor is the directory holding either taken away whole** (`byj-cst`): a

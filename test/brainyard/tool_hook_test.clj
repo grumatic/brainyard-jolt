@@ -102,8 +102,13 @@
     (is (= :deny (:decision (decide {:tool_name "Write" :tool_input {:file_path ".brainyard/profile.edn" :content "{}"}}))))
     (is (= :deny (:decision (decide {:tool_name "apply_patch" :turn_id "t" :model "m"
                                      :tool_input {:command "*** Begin Patch\n*** Update File: .brainyard/profile.edn\n*** End Patch"}}))))
-    (is (str/includes? (:reason (decide {:tool_name "Bash" :tool_input {:command "echo '{}' > .brainyard/profile.edn"}}))
-                       "project's profile"))
+    (testing "a shell line that may change it: Claude Code asks the person, Codex, which cannot ask, is refused (byj-bdd)"
+      (let [d (decide {:tool_name "Bash" :tool_input {:command "echo '{}' > .brainyard/profile.edn"}})]
+        (is (= :ask (:decision d)))
+        (is (str/includes? (:reason d) "project's profile"))
+        (is (= :deny (:decision (hook/for-agent :codex d))))))
+    (is (nil? (:decision (decide {:tool_name "Bash" :tool_input {:command "grep -n goal .brainyard/profile.edn"}})))
+        "a shell line that only reads it, neither")
     (is (nil? (:decision (decide {:tool_name "Read" :tool_input {:file_path ".brainyard/profile.edn"}}))) "read, it is not")))
 
 (deftest another-agent-is-held-to-the-projects-profile

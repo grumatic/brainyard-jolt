@@ -123,13 +123,21 @@ the same one. `/init`'s `.gitignore` ignores what is in `.brainyard/` but
 for it (`.brainyard/*`, `!.brainyard/profile.edn`; RFC-040, `byj-9ng`), and
 `/init` adds it to git, with `-f` for a `.gitignore` an earlier `/init`
 wrote, which ignored the directory whole.
-**No tool writes it**, in any mode, and neither do Claude Code nor Codex
-through byj's hook: the path gate refuses a write to it and the command
-gate a line naming it, first of all and in every mode, as for a project's
-loop (RFC-071, RFC-072; `permission/profile-file`,
-`permission/named-profile-files`), and a line removing or moving the
-directory that holds it whole, `rm -rf .brainyard` (RFC-012,
-`permission/removed-guarded-dirs`, `byj-cst`). Reading it is not refused. An agent that could write its profile
+**No tool writes it on its own**, in any mode, and neither do Claude Code
+nor Codex through byj's hook: the path gate refuses a write to it, first of
+all and in every mode, as for a project's loop (RFC-071, RFC-072;
+`permission/profile-file`), and the command gate a line removing or moving
+the directory that holds it whole, `rm -rf .brainyard` (RFC-012,
+`permission/removed-guarded-dirs`, `byj-cst`). A shell line that may change
+the file (`permission/named-profile-files`: a redirection into it, `sed -i`,
+`cp`, a script given its name) is asked of the person **every time**
+(`:every-time?`), before anything else the gate asks, in every mode but
+`:deny-by-default`, where it is refused, as it is headless and from Codex,
+whose hook cannot ask; Claude Code asks the person (`byj-bdd`). Every turn
+ends in a checkpoint, so a change made so is a step back away. Reading it is
+not refused: read-file, nor a shell line that only reads it (`cat`, `grep`,
+`sed -n`, `jq`, git recording or reading it as it is), which a model reaches
+for as often as read-file and was refused for. An agent that could write its profile
 could raise its own autonomy. It changes only on the person's yes: through
 `/init` ("Confirmed once at /init"), or through `profile$edit` when the
 person asks for a change ("Changed as the person asks").
@@ -351,6 +359,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | Invariant | Enforced by |
 |---|---|
 | No tool writes `.brainyard/profile.edn`, in any mode, nor Claude Code or Codex through byj's hook | `permission-test/a-projects-profile-is-written-by-no-tool`, `tool-hook-test/another-agent-writes-no-project-profile` |
+| A shell line that only reads the profile runs; one that may change it is asked of the person every time, and refused headless, in `:deny-by-default` and from Codex | `permission-test/a-shell-line-reads-the-profile-and-asks-to-change-it`, `tool-hook-test/another-agent-writes-no-project-profile` |
 | The person's line reaches the agent its command stands for word for word, and only that agent | `agents-test/the-person-s-typed-line-reaches-the-agent-their-command-stands-for` |
 | An attended agent's call never detaches | `tasks-test/what-never-detaches`, `agents-test/the-shipped-roster` |
 | A git command that records or reads the profile as it is passes the tripwire; a write does not; the person's yes at a hold is told to the model | `permission-test/a-projects-profile-is-written-by-no-tool`, `permission-test/the-gate-follows-the-projects-profile` |
