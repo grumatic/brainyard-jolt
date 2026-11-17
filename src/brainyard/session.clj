@@ -463,6 +463,13 @@
   [line sub]
   (fill-words (:outside @console-words) {:line line :sub sub}))
 
+(defn client-line
+  "`line` said to have been done from outside the session, by the
+  application driving byj over ACP: what a note left by a fork it asked for
+  says (byj-d8c.3)."
+  [line]
+  (fill-words (:outside-client @console-words) {:line line}))
+
 (defn- tell-next-turn!
   "`lines` added to the session's console activity, which its next turn is
   told."

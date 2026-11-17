@@ -69,6 +69,9 @@ class Session:
         self.tools = {t.name: t for t in options.tools}
         #: the prompt being answered: its messages go here
         self.current: Optional[asyncio.Queue] = None
+        #: a fork's outcome (fork_session with before_turn): ``{from,
+        #: beforeTurn, files, saved, error}``, else None
+        self.fork: Optional[dict[str, Any]] = None
 
     def emit(self, m: Message) -> None:
         if self.current is not None:
@@ -95,7 +98,8 @@ class Session:
                     goal_achieved=m.get("goalAchieved"), next_user_prompt=m.get("nextUserPrompt"),
                     elapsed_ms=m.get("elapsedMs"), usage=m.get("usage"), cost_usd=m.get("costUsd"),
                     structured_output=m.get("structuredOutput"),
-                    structured_output_error=m.get("structuredOutputError")))
+                    structured_output_error=m.get("structuredOutputError"),
+                    turn=m.get("turn"), files_changed=m.get("filesChanged"), checkpoint=m.get("checkpoint")))
             except Exception as e:
                 detail = f"{e} {e.data}" if isinstance(e, RpcError) and e.data else str(e)
                 q.put_nowait(ResultMessage(session_id=self.id, stop_reason="error", is_error=True, error=detail))
@@ -136,6 +140,33 @@ class Session:
 
     async def set_permission_mode(self, mode: str) -> None:
         await self.client.conn.request("session/set_mode", {"sessionId": self.id, "modeId": mode})
+
+    async def turns(self) -> list[dict[str, Any]]:
+        """The turns byj keeps of this session, what a rewind can go back to
+        (RFC-069): each ``{turn, ref, before, after, files, question, endedAt}``."""
+        return (await self.client.conn.request("_byj/turns/list", {"sessionId": self.id}))["turns"]
+
+    async def diff(self, turn: Optional[int] = None) -> dict[str, Any]:
+        """A turn's change as git's diff; the last turn that changed files when none is named."""
+        return await self.client.conn.request("_byj/turns/diff", {"sessionId": self.id,
+                                                                  **({"turn": turn} if turn is not None else {})})
+
+    async def rewind(self, turn: int, end: bool = False) -> dict[str, Any]:
+        """The project's files put back as they were when ``turn`` began (or
+        ended), whatever came after kept first as a rewind; the session's next
+        turn is told. Refused while a turn runs. ``{kind, turn, end, files,
+        conflicts, saved}``."""
+        return await self.client.conn.request("_byj/turns/rewind", {"sessionId": self.id, "turn": turn,
+                                                                    **({"end": True} if end else {})})
+
+    async def undo_turn(self, turn: int) -> dict[str, Any]:
+        """What ``turn`` changed taken back alone, what came after it kept."""
+        return await self.client.conn.request("_byj/turns/undoTurn", {"sessionId": self.id, "turn": turn})
+
+    async def undo_rewind(self, n: Optional[int] = None) -> dict[str, Any]:
+        """A rewind taken back: the last, or rewind ``n``."""
+        return await self.client.conn.request("_byj/turns/undoRewind", {"sessionId": self.id,
+                                                                        **({"n": n} if n is not None else {})})
 
 
 def _session_meta(o: SessionOptions, hooks: list[tuple[str, Hook]]) -> dict[str, Any]:
@@ -223,17 +254,22 @@ class ByjClient:
         return await self._open("session/load", options, session_id, on_history)
 
     async def fork_session(self, from_session_id: str, options: SessionOptions,
-                           on_history: Optional[Callable[[Message], Any]] = None) -> Session:
+                           on_history: Optional[Callable[[Message], Any]] = None,
+                           before_turn: Optional[int] = None, keep_files: bool = False) -> Session:
         """A new session that starts where a saved one stands — its history,
-        under a new id — leaving that one as it was."""
+        under a new id — leaving that one as it was. With ``before_turn``, its
+        conversation is cut before that turn and the project's files put back
+        as the turn began, as ``/fork`` does (``keep_files`` leaves them); what
+        it did is the session's ``fork``."""
         import random
         import time
         sid = f"{int(time.time() * 1000)}-{random.getrandbits(32):08x}"
-        return await self._open("session/new", options, sid, on_history, fork_from=from_session_id)
+        return await self._open("session/new", options, sid, on_history, fork_from=from_session_id,
+                                fork={"beforeTurn": before_turn, "keepFiles": keep_files})
 
     async def _open(self, method: str, o: SessionOptions, session_id: Optional[str] = None,
                     on_history: Optional[Callable[[Message], Any]] = None,
-                    fork_from: Optional[str] = None) -> Session:
+                    fork_from: Optional[str] = None, fork: Optional[dict[str, Any]] = None) -> Session:
         hooks = []
         for h in o.hooks:
             self._hook_count += 1
@@ -249,6 +285,10 @@ class ByjClient:
         meta = _session_meta(o, hooks)
         if fork_from:
             meta["brainyard"].update({"forkFrom": fork_from, "sessionId": session_id})
+            if fork and fork.get("beforeTurn") is not None:
+                meta["brainyard"]["forkBeforeTurn"] = fork["beforeTurn"]
+            if fork and fork.get("keepFiles"):
+                meta["brainyard"]["keepFiles"] = True
         try:
             r = await self.conn.request(method, {
                 **({"sessionId": session_id} if session_id and not fork_from else {}),
@@ -266,6 +306,7 @@ class ByjClient:
                 history.append(q.get_nowait())
         sid = session_id or r["sessionId"]
         s = Session(self, sid, o, (r or {}).get("modes", {}).get("availableModes", []))
+        s.fork = (r or {}).get("_meta", {}).get("brainyard", {}).get("fork")
         self.sessions[sid] = s
         for m in history:
             if on_history:

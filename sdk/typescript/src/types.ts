@@ -141,6 +141,69 @@ export interface ResultMessage {
   structuredOutput?: unknown;
   /** With `outputSchema`: why the answer could not be given as data. */
   structuredOutputError?: string;
+  /** The turn it ran, as `byj turns list` numbers it. */
+  turn?: number;
+  /** How many files the turn changed in the project's work tree. */
+  filesChanged?: number;
+  /** What a rewind of the turn goes back to; absent when byj keeps none. */
+  checkpoint?: Checkpoint;
+}
+
+/** A turn as byj keeps it to take back (RFC-069): its ref, and the work tree's commits as it began and ended. */
+export interface Checkpoint {
+  ref: string;
+  before: string;
+  after: string;
+  filesChanged: number;
+}
+
+/** A turn byj keeps, as `byj turns list` shows it. */
+export interface KeptTurn {
+  turn: number;
+  ref: string;
+  before: string;
+  after: string;
+  /** The paths it changed. */
+  files: string[];
+  question: string;
+  /** When it ended, in epoch seconds. */
+  endedAt?: number;
+}
+
+/** A turn's change, as git's diff. */
+export interface TurnDiff {
+  turn: number;
+  ref: string;
+  before: string;
+  after: string;
+  files: string[];
+  diff: string;
+}
+
+/** What a rewind, an undone turn or an undone rewind did to the work tree. */
+export interface RewindResult {
+  kind?: "rewind" | "undo-turn" | "undo-rewind" | string;
+  turn?: number;
+  end?: boolean;
+  /** The paths it changed on disk; none when they were already so. */
+  files: string[];
+  /** Files left with conflict markers by an undone turn. */
+  conflicts: string[];
+  /** The ref what it replaced is kept as: `undoRewind` puts it back. */
+  saved?: string;
+  /** What byj said, when nothing changed. */
+  message?: string;
+}
+
+/** A fork cut before a turn: what it did. */
+export interface ForkOutcome {
+  from: string;
+  beforeTurn?: number;
+  /** The files put back in the work tree, as the turn began. */
+  files?: string[];
+  saved?: string;
+  /** Why the files were not put back, when they were not. */
+  error?: string;
 }
 
 export type Message =

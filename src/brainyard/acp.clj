@@ -43,7 +43,7 @@
 (def extensions
   "byj's extensions (RFC-053 'byj's extensions'), advertised at `initialize`
   and used only with a client that asked for them there."
-  ["tools" "hooks" "events" "predict" "live"])
+  ["tools" "hooks" "events" "predict" "live" "turns"])
 
 (def default-hook-timeout-ms
   "How long a client's hook is waited for before its entry's failure rule
@@ -238,6 +238,9 @@
         (case event
           :session.turn/start
           (swap! st assoc-in [:turn sid] (:turn data))
+          :session/rewind
+          ;; what a _byj/turns method answers with (byj-d8c.3)
+          (swap! st assoc-in [:rewound sid] data)
           :session.turn/end
           ;; what session/prompt answers with: the turn, and what it changed
           ;; and no turn is running: what comes next is no turn's
@@ -346,6 +349,55 @@
 (defn- session-of [conn sid]
   (or (get-in @(:state conn) [:sessions sid])
       (throw (rpc-error -32602 (str "no session " sid)))))
+
+;; --- a session's turns, as data (RFC-069 over ACP, byj-d8c.3) ---------------------
+
+(defn- row-json [{:keys [turn ref before after files subject at]}]
+  {:turn turn :ref ref :before before :after after :files files :question subject :endedAt at})
+
+(defn- turns-list
+  "`_byj/turns/list {sessionId}`: the turns byj keeps of an open session,
+  ascending, each as `byj turns list` shows it — what a rewind can go back
+  to."
+  [conn {:keys [sessionId]}]
+  (let [s (session-of conn sessionId)]
+    {:turns (mapv row-json (changes/rows (:config s) sessionId))}))
+
+(defn- turns-diff
+  "`_byj/turns/diff {sessionId turn?}`: git's diff of a turn, the last that
+  changed files when none is named."
+  [conn {:keys [sessionId turn]}]
+  (let [s (session-of conn sessionId)
+        {:keys [error] :as r} (changes/diff (:config s) sessionId turn)]
+    (when error (throw (rpc-error -32602 error)))
+    (select-keys r [:turn :ref :before :after :files :diff])))
+
+(defn- run-turns-command!
+  "Run `cmd` (`/rewind 3`) in open session `sid` as its own command runs —
+  between its turns, refused while background work writes, the next turn
+  told and :session/rewind on its bus — and answer with what it did, as
+  data: `{kind turn end files conflicts saved}`. Refused while the session's
+  turn runs, rather than run after it: a rewind decided before the turn
+  ended would undo what it did."
+  [conn sid cmd]
+  (let [s (session-of conn sid)]
+    (when (sdk/running? s)
+      (throw (rpc-error -32602 (str "session " sid " is in the middle of a turn: its files may be being written — try again when it ends"))))
+    (swap! (:state conn) update :rewound dissoc sid)
+    (let [r (deref (sdk/command! s cmd))
+          done (get-in @(:state conn) [:rewound sid])
+          said (str/join "\n" (keep (fn [[_ t]] (not-empty (str t))) (:said r)))]
+      (cond
+        (:refused r) (throw (rpc-error -32602 (:refused r)))
+        (:closed r) (throw (rpc-error -32602 (str "session " sid " closed")))
+        done (let [{:keys [kind turn end? files conflicts saved]} done]
+               (cond-> {:kind (name kind) :files (vec files) :conflicts (vec conflicts) :saved saved}
+                 turn (assoc :turn turn)
+                 (some? end?) (assoc :end end?)))
+        ;; nothing changed on disk: the files were already so — or it was
+        ;; refused, in the words the command said it in
+        (some (fn [[k _]] (= :error k)) (:said r)) (throw (rpc-error -32602 said))
+        :else {:files [] :conflicts [] :message said}))))
 
 (defn json-safe
   "`x` as data JSON can carry: a keyword as its name with its namespace
@@ -479,6 +531,14 @@
   [conn {:keys [cwd mcpServers] :as params} {:keys [resume replay?] :or {replay? true}}]
   (when (str/blank? (str cwd)) (throw (rpc-error -32602 "cwd is required")))
   (let [o (get-in params [:_meta :brainyard])
+        _ (when-let [k (:forkBeforeTurn o)]
+            (when-not (and (:forkFrom o) (pos-int? k))
+              (throw (rpc-error -32602 "forkBeforeTurn is a turn of the session forkFrom names")))
+            ;; its files put back under a turn running in this process: no
+            ;; (another process's is refused by changes/rewind!)
+            (when-let [src (get-in @(:state conn) [:sessions (:forkFrom o)])]
+              (when (and (not (:keepFiles o)) (sdk/running? src))
+                (throw (rpc-error -32602 (str "session " (:forkFrom o) " is in the middle of a turn: its files may be being written — fork when it ends, or with keepFiles"))))))
         defaults (:defaults @(:state conn))
         ;; the id chosen here — or by the client, in context/session-id's shape,
         ;; so a fork's history replayed before session/new answers reaches it —
@@ -507,6 +567,8 @@
                       :config (config/from-json (:config o))
                       :label (:label o)
                       :fork-from (:forkFrom o)
+                      :fork-before-turn (:forkBeforeTurn o)
+                      :keep-files? (boolean (:keepFiles o))
                       :commands? (boolean (:commands o))
                       :mcp-servers (mcp-servers mcpServers)
                       :permission-mode (some-> (or (:permissionMode o) (:permission-mode defaults)) keyword)
@@ -529,9 +591,17 @@
     (when-not (deref (:ready s) 60000 false)
       (swap! (:state conn) update :sessions dissoc sid)
       (throw (rpc-error -32603 (str "session " sid " did not start"))))
-    {:sessionId sid
-     :modes {:currentModeId (name (or (some-> (:permission-mode-box s) deref) :auto))
-             :availableModes modes}}))
+    (cond-> {:sessionId sid
+             :modes {:currentModeId (name (or (some-> (:permission-mode-box s) deref) :auto))
+                     :availableModes modes}}
+      ;; what a fork did: where from, before which turn, the files it put
+      ;; back in the session forked from (byj-d8c.3)
+      (:fork s) (assoc :_meta {:brainyard {:fork (let [{:keys [from before-turn files saved error]} (:fork s)]
+                                                   (cond-> {:from from}
+                                                     before-turn (assoc :beforeTurn before-turn)
+                                                     files (assoc :files files)
+                                                     saved (assoc :saved saved)
+                                                     error (assoc :error error)))}}))))
 
 (defn- prompt-text
   "A prompt's content blocks as the line a session takes: text as it is, a
@@ -764,6 +834,20 @@
    "session/delete" delete-session
    "session/prompt" prompt!
    "session/list" list-sessions
+   "_byj/turns/list" turns-list
+   "_byj/turns/diff" turns-diff
+   "_byj/turns/rewind"
+   (fn [conn {:keys [sessionId turn end]}]
+     (when-not (pos-int? turn) (throw (rpc-error -32602 "turn is a turn byj keeps: _byj/turns/list says which")))
+     (run-turns-command! conn sessionId (str "/rewind " turn (when end " end"))))
+   "_byj/turns/undoTurn"
+   (fn [conn {:keys [sessionId turn]}]
+     (when-not (pos-int? turn) (throw (rpc-error -32602 "turn is a turn byj keeps: _byj/turns/list says which")))
+     (run-turns-command! conn sessionId (str "/undo-turn " turn)))
+   "_byj/turns/undoRewind"
+   (fn [conn {:keys [sessionId n]}]
+     (when (and (some? n) (not (pos-int? n))) (throw (rpc-error -32602 "n is a rewind's number")))
+     (run-turns-command! conn sessionId (str "/rewind undo" (when n (str " " n)))))
    "_byj/predict"
    (fn [conn {:keys [predictor signature inputs provider model cwd config]}]
      (let [field (fn [{:keys [name description schema]}]

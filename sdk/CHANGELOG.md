@@ -5,6 +5,16 @@ Each version is the TypeScript and the Python SDK together, released as
 
 ## Unreleased
 
+- A session's turns, as byj keeps them to take back (RFC-069):
+  `session.turns()`, `diff(turn?)`, `rewind(turn, {end})`, `undoTurn(turn)`,
+  `undoRewind(n?)` (Python: `turns`, `diff`, `rewind`, `undo_turn`,
+  `undo_rewind`), each answering with what changed on disk; and
+  `forkSession(id, options, onHistory, {beforeTurn, keepFiles})` /
+  `fork_session(..., before_turn=, keep_files=)`, a fork cut before a turn
+  with the files put back as it began, said in the session's `fork`. A
+  prompt's `result` says its `turn`, `filesChanged` and `checkpoint`. They
+  need a byj that advertises the `turns` extension (byj-d8c.3).
+
 - `connectShared(url, token)` / `connect_shared(url, token)`: an agent shared on
   Brainyard Share, called from an application over A2A with the token its
   owner made for it — `ask`, `stream`, `cancel`, the conversation's context

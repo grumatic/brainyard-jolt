@@ -186,7 +186,7 @@ print goes to standard error and the event log
 ### 4. byj's extensions
 
 Built (`byj-g5n.5`). Advertised as `agentCapabilities._meta.brainyard`
-`{protocol 1, extensions ["tools" "hooks" "events" "predict" "live"]}`. A client asks
+`{protocol 1, extensions ["tools" "hooks" "events" "predict" "live" "turns"]}`. A client asks
 for them by sending `_meta.brainyard` with its `initialize`; one that does not
 is sent no `_byj/event` and no `_meta` on a prompt's answer. Session options,
 client tools and hooks are the client's own requests and need no asking.
@@ -205,6 +205,7 @@ client tools and hooks are the client's own requests and need no asking.
 | `label` | the session's name |
 | `forkFrom` | a saved session to start from: its history under a new id, it left as it was (`persist/fork!`, RFC-016; `byj-g5n.12`) |
 | `sessionId` | the new session's id, chosen by the client in `<millis>-<8 hex>`, so a fork's history — replayed before `session/new` answers — is routed to it |
+| `forkBeforeTurn`, `keepFiles` | with `forkFrom`, the conversation cut before that turn and the project's files put back as it began, as `/fork TURN` does (`keepFiles` leaves them); the session forked from is told at its next turn, in `:outside-client`'s words, and one that kept its files is told what they hold. `session/new` answers `_meta.brainyard.fork {from beforeTurn files saved error}`. Refused while the session forked from runs a turn on this connection and its files would be put back (`byj-d8c.3`) |
 | `commands` | slash commands and `:<tool>` calls allowed in a prompt; false by default |
 
 **Client tools.** `tools: [{name, description, inputSchema, effects?}]`.
@@ -259,6 +260,26 @@ a `_byj/live/event {attachId, sessionId, event, payload}` per event until
 `_byj/live/detach {attachId}` or the connection ends. A session is named by
 its id, a prefix or its label (`channel/find-session`). The extension is
 `live`; a client library does not require it.
+
+**A session's turns** (built, `byj-d8c.3`): what RFC-069 keeps of an open
+session's turns, and its operations, as data rather than slash commands
+typed into a prompt. `_byj/turns/list {sessionId}` → `{turns: [{turn ref
+before after files question endedAt}]}`, as `byj turns list` shows them;
+`_byj/turns/diff {sessionId turn?}` → `{turn ref before after files diff}`,
+the last turn that changed files when none is named; `_byj/turns/rewind
+{sessionId turn end?}`, `_byj/turns/undoTurn {sessionId turn}` and
+`_byj/turns/undoRewind {sessionId n?}` → `{kind turn end files conflicts
+saved}`, or `{files: [] conflicts: [] message}` when the files were already
+so. Each of the last three runs as the session's own `/rewind`,
+`/undo-turn` and `/rewind undo` (`sdk/command!`), whether or not the
+session was opened with `commands`: between its turns, refused while
+background work runs, the next turn told in the command's words and
+`:session/rewind` on the bus. One is refused, not queued, while the
+session's turn runs, since a rewind decided before a turn ended would take
+back what it did; what the command refuses is a JSON-RPC error in its
+words. A prompt that is a slash command is still refused without
+`commands`: the methods are not a way to type one. The extension is
+`turns`; a client library does not require it.
 
 **A structured answer** (built, `byj-g5n.10`): `session/prompt`'s
 `_meta.brainyard.outputSchema`, a JSON Schema, asks for the turn's answer as
@@ -613,6 +634,7 @@ Planned:
 | A plain ACP client is sent no `_byj/event` and no `_meta` on a prompt's answer, though its session asked for events; a client that asked at `initialize` gets the turn's result and byj's events. | `acp-test/extensions-only-when-asked` |
 | A client tool's call reaches the client with its arguments and the `tool_call`'s id, gated as any tool, and its answer is the tool's result; a schema this cannot read refuses the session, naming the keyword. | `acp-test/a-client-tool-is-called-over-the-wire` |
 | A client hook is asked with the payload and its block stands; one that does not answer in time fails open, or closed when it says so; an event that is no hook point is refused. | `acp-test/a-client-hook-decides` |
+| `_byj/turns/*` list an open session's kept turns with their files, diff one, and rewind, undo a turn and undo a rewind as the session's own commands do — the work tree changed, the next turn told — answering with what changed; what cannot be done is refused in the command's words; a prompt that is a command is still refused. `session/new` with `forkBeforeTurn` cuts the conversation before that turn and puts the files back as it began, saying so in `_meta.brainyard.fork`, the session forked from told; `keepFiles` leaves them and tells the new session; `forkBeforeTurn` without `forkFrom` is refused. The SDK's libraries expose them. | `acp-test/a-sessions-turns-are-listed-diffed-and-taken-back-over-acp`, `acp-test/a-session-is-forked-before-a-turn-over-acp`; `sdk/typescript/test/sdk.test.ts` "a session's turns are listed", `sdk/python/tests/test_sdk.py` `test_a_sessions_turns_are_listed_taken_back_and_forked_before` |
 | `_byj/predict` runs an inline signature whose fields are JSON Schema; a field this cannot read is refused. | `acp-test/predict-over-the-wire` |
 | A fork is a new session, under the id the client chose, from a saved one's history, replayed before `session/new` answers; the original is left as it was; an id not in a session id's shape is refused. | `acp-test/a-fork-is-a-new-session-from-a-saved-one`, `sdk-test/a-session-is-forked-and-the-original-left-as-it-was`; both SDKs' "a session is forked" |
 | A live session the connection did not start is listed by its label, asked a question and answered, watched until detached; a session nobody runs is said so. | `acp-test/a-live-session-is-listed-asked-and-watched`; both SDKs' "a live session it did not start", against a real `byj run --serve` |

@@ -37,7 +37,9 @@ commands' mechanism; persistence (RFC-016) the cut of a snapshot before a
 turn; the CLI `byj turns`; Emacs (RFC-067) the diff its review opens; the
 ReAct loop's extension slots (RFC-072) the turn's start as `:turn-start`,
 which `session/begin-turn` keeps from what `begin-turn!` returns; ACP
-(RFC-053) each loaded turn's checkpoint, from `rows` (`byj-d8c.1`).
+(RFC-053) each loaded and each live turn's checkpoint, from `rows` and
+`row` (`byj-d8c.1`, `.2`), and its operations as `_byj/turns/*`
+methods and a fork cut before a turn (`byj-d8c.3`).
 
 ## Model
 
@@ -227,6 +229,9 @@ held by a live process, and is not one in `session list`.
 | `/fork K`, files put back | the session forked from | itself, at once (its next turn) | `:forked-away` |
 | `byj turns fork S K`, files put back | the CLI | S | `:forked-away` in `:outside` |
 | `/fork K keep-files`, `byj turns fork S K keep-files` | either | the new session | `:fork-kept`: its files hold turns K and after, which its conversation does not |
+| `session/new` with `forkFrom S` and `forkBeforeTurn K`, files put back | ACP (RFC-053, `byj-d8c.3`) | S | `:forked-away` in `:outside-client` |
+| the same with `keepFiles` | ACP | the new session | `:fork-kept` |
+| `_byj/turns/rewind`, `undoTurn`, `undoRewind` | ACP | that session, as its own command tells it | `:rewind`, `:undo-turn`, `:undo-rewind` |
 
 ### Going back: the conversation (decided, `byj-gly.485`)
 
@@ -287,6 +292,7 @@ session's id:
 (changes/rows config id)                ; → [{:turn :ref :before :after :files :subject :at} …]
 (changes/subjects config id)            ; → [{:turn :subject} …], one git call (byj-lie)
 (changes/expired refs last-used now {:keep-n :days}) ; → #{ref …} no longer kept (byj-ayk)
+(changes/row config id turn)            ; → one of rows | nil (byj-d8c.2)
 (changes/forget! config id)             ; → refs deleted, the session's turns and rewinds | nil
 (changes/row-line row)                  ; → "   3  2 files   2026-11-08T14:03:44  question…"
 (changes/diff config id & [turn])       ; → {:turn :ref :before :after :root :files :diff} | {:error}
@@ -307,6 +313,8 @@ A rewind refused for a running turn is `{:error … :running [...]}`.
 
 Session commands: `/rewind [TURN [end] | undo [N]]`, `/undo-turn TURN`,
 `/fork [TURN [keep-files]]`. CLI: `byj turns list|diff|rewind|undo-turn|undo|fork`.
+ACP (RFC-053): `_byj/turns/list|diff|rewind|undoTurn|undoRewind`, and
+`session/new`'s `forkFrom` with `forkBeforeTurn` and `keepFiles`.
 
 ## Invariants
 

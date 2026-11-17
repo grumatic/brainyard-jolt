@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chmodSync } from "node:fs";
@@ -227,6 +227,44 @@ test("a session is forked: its history, a new id, the original left as it was", 
     const three = await client.loadSession(one.id, p, (m) => again.push(m));
     assert.equal(again.filter((m) => m.type === "user").length, 1);
     await three.close();
+  } finally {
+    await client.close();
+  }
+});
+
+test("a session's turns are listed, taken back and forked before (RFC-069)", async () => {
+  const p = project([
+    `{:reasoning "r" :tool-calls [{:tool-name "bash" :tool-args {:command "echo a > a.txt"}}] :answer ""}`,
+    `{:reasoning "r" :tool-calls [] :answer "wrote a" :goal-achieved true}`,
+    `{:reasoning "r" :tool-calls [{:tool-name "bash" :tool-args {:command "echo b > b.txt"}}] :answer ""}`,
+    `{:reasoning "r" :tool-calls [] :answer "wrote b" :goal-achieved true}`,
+  ], { "notes.md": "the notes\n" });
+  const git = (...a: string[]) => execFileSync("git", a, { cwd: p.cwd, encoding: "utf8" }).trim();
+  git("init", "-q"); git("add", "-A"); git("-c", "user.name=t", "-c", "user.email=t@x.invalid", "commit", "-q", "-m", "first");
+  const client = await ByjClient.start(byj);
+  try {
+    const s = await client.newSession({ ...p, permissionMode: "auto-approve" });
+    const r1 = await s.run("write a");
+    assert.equal(r1.turn, 1);
+    assert.equal(r1.filesChanged, 1);
+    assert.equal(r1.checkpoint?.ref, `refs/byj/turns/${s.id}/1`);
+    await s.run("write b");
+    const ts = await s.turns();
+    assert.deepEqual(ts.map((t) => [t.turn, t.files]), [[1, ["a.txt"]], [2, ["b.txt"]]]);
+    assert.match((await s.diff(1)).diff, /\+a/);
+    const back = await s.rewind(2);
+    assert.deepEqual([back.kind, back.files], ["rewind", ["b.txt"]]);
+    assert.equal(existsSync(join(p.cwd, "b.txt")), false);
+    assert.deepEqual((await s.undoRewind()).files, ["b.txt"]);
+    assert.deepEqual((await s.undoTurn(1)).files, ["a.txt"]);
+    await assert.rejects(s.rewind(9), /not kept/);
+    await s.close();
+    const f = await client.forkSession(s.id, p, undefined, { beforeTurn: 2 });
+    // back as turn 2 began: a.txt, which undoTurn(1) took away, and no b.txt
+    assert.deepEqual(f.fork && [f.fork.from, f.fork.beforeTurn, f.fork.files], [s.id, 2, ["a.txt", "b.txt"]]);
+    assert.equal(existsSync(join(p.cwd, "a.txt")), true);
+    assert.equal(existsSync(join(p.cwd, "b.txt")), false);
+    await f.close();
   } finally {
     await client.close();
   }

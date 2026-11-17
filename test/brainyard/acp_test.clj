@@ -673,6 +673,103 @@
         (is (some #(= "session.turn/start" (get-in % [:params :event])) events))
         (is (some #(= "session.turn/end" (get-in % [:params :event])) events))))))
 
+(defn- git-project
+  "A fresh git project with one commit, for a session's turns to be kept."
+  [name]
+  (let [dir (fresh-dir name)
+        git #(str/trim (str (:out (apply fx/sh {:dir dir :out :string :err :string} "git" %&))))]
+    (git "init" "-q") (spit (io/file dir "notes.md") "the notes\n")
+    (git "add" "-A") (git "-c" "user.name=t" "-c" "user.email=t@x.invalid" "commit" "-q" "-m" "first")
+    [dir git]))
+
+(deftest a-sessions-turns-are-listed-diffed-and-taken-back-over-acp
+  (let [[dir git] (git-project "turns-methods")
+        c (with-ext (client))
+        {:keys [sessionId]} (new-session c dir (script! dir [{:tool-calls [{:tool-name "bash" :tool-args {:command "echo a > a.txt"}}]}
+                                                             {:answer "wrote a" :goal-achieved true}
+                                                             {:tool-calls [{:tool-name "bash" :tool-args {:command "echo b > b.txt"}}]}
+                                                             {:answer "wrote b" :goal-achieved true}
+                                                             {:answer "looked"}
+                                                             {:answer "and again"}])
+                                         {:events "all"})
+        ask! #(call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text %}]})
+        a (io/file dir "a.txt") b (io/file dir "b.txt")]
+    (ask! "write a") (ask! "write b") (ask! "look")
+    (try
+      (testing "the turns byj keeps, each with what it changed: what a rewind can go back to"
+        (let [ts (get-in (call c "_byj/turns/list" {:sessionId sessionId}) [:result :turns])]
+          (is (= [1 2 3] (mapv :turn ts)))
+          (is (= [["a.txt"] ["b.txt"] []] (mapv :files ts)))
+          (is (= ["write a" "write b" "look"] (mapv :question ts)))
+          (is (= (git "rev-parse" (str "refs/byj/turns/" sessionId "/1^")) (:before (first ts))))))
+      (testing "a turn's diff, the last that changed files when none is named"
+        (is (str/includes? (get-in (call c "_byj/turns/diff" {:sessionId sessionId :turn 1}) [:result :diff]) "+a"))
+        (is (= 2 (get-in (call c "_byj/turns/diff" {:sessionId sessionId}) [:result :turn])))
+        (is (re-find #"changed no files" (get-in (call c "_byj/turns/diff" {:sessionId sessionId :turn 3}) [:error :message]))))
+      (testing "back to turn 2's start, answered with what it did; the session opened without commands"
+        (let [r (:result (call c "_byj/turns/rewind" {:sessionId sessionId :turn 2}))]
+          (is (= {:kind "rewind" :turn 2 :end false :files ["b.txt"] :conflicts []
+                  :saved (str "refs/byj/rewinds/" sessionId "/1")} r))
+          (is (not (.exists b)))
+          (is (.exists a))))
+      (testing "and the session's next turn is told, in /rewind's words"
+        (ask! "what now")
+        (is (some #(and (= "agent.llm/request" (get-in % [:params :event]))
+                        (str/includes? (json/write-str (get-in % [:params :payload])) "/rewind 2: the person put the work tree back"))
+                  @(:seen c))))
+      (testing "the rewind taken back"
+        (is (= ["b.txt"] (get-in (call c "_byj/turns/undoRewind" {:sessionId sessionId}) [:result :files])))
+        (is (= "b\n" (slurp b))))
+      (testing "one turn taken back alone, what came after it kept"
+        (let [r (:result (call c "_byj/turns/undoTurn" {:sessionId sessionId :turn 1}))]
+          (is (= {:kind "undo-turn" :turn 1 :files ["a.txt"] :conflicts []} (select-keys r [:kind :turn :files :conflicts])))
+          (is (not (.exists a)))
+          (is (= "b\n" (slurp b)))))
+      (testing "what cannot be done is refused in the command's words, and changes nothing"
+        (is (re-find #"not kept" (get-in (call c "_byj/turns/rewind" {:sessionId sessionId :turn 9}) [:error :message])))
+        (is (re-find #"nothing to undo" (get-in (call c "_byj/turns/undoTurn" {:sessionId sessionId :turn 3}) [:error :message])))
+        (is (= -32602 (get-in (call c "_byj/turns/rewind" {:sessionId sessionId}) [:error :code])))
+        (is (= -32602 (get-in (call c "_byj/turns/list" {:sessionId "1792000000000-00000000"}) [:error :code]))))
+      (testing "a prompt that is a command is still refused: the methods are not a way to type one"
+        (is (:error (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "/rewind 1"}]}))))
+      (finally (acp/end! (:conn c))))))
+
+(deftest a-session-is-forked-before-a-turn-over-acp
+  (let [[dir git] (git-project "fork-before")
+        c (with-ext (client))
+        model (script! dir [{:tool-calls [{:tool-name "bash" :tool-args {:command "echo a > a.txt"}}]}
+                            {:answer "wrote a" :goal-achieved true}
+                            {:tool-calls [{:tool-name "bash" :tool-args {:command "echo b > b.txt"}}]}
+                            {:answer "wrote b" :goal-achieved true}
+                            {:answer "the fork's first"}
+                            {:answer "the fork's kept"}])
+        {:keys [sessionId]} (new-session c dir model)
+        ask! #(call c "session/prompt" {:sessionId %1 :prompt [{:type "text" :text %2}]})]
+    (ask! sessionId "write a") (ask! sessionId "write b")
+    (try
+      (testing "forkBeforeTurn needs forkFrom, and a turn"
+        (is (= -32602 (get-in (call c "session/new" {:cwd dir :mcpServers [] :_meta {:brainyard {:provider "mock" :model model :forkBeforeTurn 2}}}) [:error :code]))))
+      (testing "a fork before turn 2: its conversation without turn 2, the files put back as turn 2 began, this session told"
+        (let [r (:result (call c "session/new" {:cwd dir :mcpServers []
+                                                :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false}
+                                                                    :forkFrom sessionId :forkBeforeTurn 2}}}))
+              nid (:sessionId r)]
+          (is (= {:from sessionId :beforeTurn 2 :files ["b.txt"] :saved (str "refs/byj/rewinds/" sessionId "/1")}
+                 (get-in r [:_meta :brainyard :fork])))
+          (is (not (.exists (io/file dir "b.txt"))))
+          (is (.exists (io/file dir "a.txt")))
+          (is (= 1 (:turn-count (persist/read-session {:project-dir dir} nid))) "its next turn is 2")
+          (is (seq (persist/take-notes! {:project-dir dir} sessionId)) "the session forked from is told at its next turn")))
+      (testing "keepFiles leaves them, and tells the new session what they hold"
+        (spit (io/file dir "b.txt") "b\n")
+        (let [nid (get-in (call c "session/new" {:cwd dir :mcpServers []
+                                                 :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false}
+                                                                     :forkFrom sessionId :forkBeforeTurn 2 :keepFiles true}}})
+                          [:result :sessionId])]
+          (is (.exists (io/file dir "b.txt")))
+          (is (re-find #"forked from session" (str (first (persist/take-notes! {:project-dir dir} nid)))))))
+      (finally (acp/end! (:conn c))))))
+
 (deftest a-client-tool-is-called-over-the-wire
   (let [dir (fresh-dir "client-tool")
         asked (atom [])

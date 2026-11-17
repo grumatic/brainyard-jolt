@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -214,4 +215,38 @@ def test_a_session_is_forked_its_history_a_new_id_the_original_left_as_it_was():
             three = await client.load_session(one.id, p, again.append)
             assert len([m for m in again if m.type == "user"]) == 1
             await three.close()
+    asyncio.run(go())
+
+
+def test_a_sessions_turns_are_listed_taken_back_and_forked_before():
+    p = project(['{:reasoning "r" :tool-calls [{:tool-name "bash" :tool-args {:command "echo a > a.txt"}}] :answer ""}',
+                 '{:reasoning "r" :tool-calls [] :answer "wrote a" :goal-achieved true}',
+                 '{:reasoning "r" :tool-calls [{:tool-name "bash" :tool-args {:command "echo b > b.txt"}}] :answer ""}',
+                 '{:reasoning "r" :tool-calls [] :answer "wrote b" :goal-achieved true}'],
+                {"notes.md": "the notes\n"}, permission_mode="auto-approve")
+    d = Path(p.cwd)
+    git = lambda *a: subprocess.run(["git", *a], cwd=d, check=True, capture_output=True, text=True).stdout.strip()
+    git("init", "-q"); git("add", "-A"); git("-c", "user.name=t", "-c", "user.email=t@x.invalid", "commit", "-q", "-m", "first")
+
+    async def go():
+        async with await ByjClient.start(**BYJ) as client:
+            s = await client.new_session(p)
+            r1 = await s.run("write a")
+            assert (r1.turn, r1.files_changed) == (1, 1)
+            assert r1.checkpoint["ref"] == f"refs/byj/turns/{s.id}/1"
+            await s.run("write b")
+            assert [(t["turn"], t["files"]) for t in await s.turns()] == [(1, ["a.txt"]), (2, ["b.txt"])]
+            assert "+a" in (await s.diff(1))["diff"]
+            back = await s.rewind(2)
+            assert (back["kind"], back["files"]) == ("rewind", ["b.txt"])
+            assert not (d / "b.txt").exists()
+            assert (await s.undo_rewind())["files"] == ["b.txt"]
+            assert (await s.undo_turn(1))["files"] == ["a.txt"]
+            with pytest.raises(Exception, match="not kept"):
+                await s.rewind(9)
+            await s.close()
+            f = await client.fork_session(s.id, p, before_turn=2)
+            assert (f.fork["from"], f.fork["beforeTurn"], f.fork["files"]) == (s.id, 2, ["a.txt", "b.txt"])
+            assert (d / "a.txt").exists() and not (d / "b.txt").exists()
+            await f.close()
     asyncio.run(go())

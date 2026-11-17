@@ -34,6 +34,7 @@
             [brainyard.predictor :as predictor]
             [brainyard.schedule :as schedule]
             [brainyard.schema :as schema]
+            [brainyard.changes :as changes]
             [brainyard.session :as session]
             [brainyard.tasks :as tasks]
             [brainyard.tools :as tools]))
@@ -69,9 +70,12 @@
   (overrides, the flags' layer: above the project's files, below BY_*)
   :mcp-servers (merged over the config's) :permission-mode :permission-fn
   :tools :hooks :on-event :resume :fork-from (a session to start where it
-  stands, under a new id, leaving it as it was) :session-id (a new session's
-  id, chosen by the caller: `context/session-id`'s shape) :env-fn
-  :on-problem."
+  stands, under a new id, leaving it as it was) :fork-before-turn (with
+  :fork-from, its conversation cut before that turn and its files put back
+  as the turn began, as `/fork TURN` does; :keep-files? true leaves them)
+  :session-id (a new session's id, chosen by the caller:
+  `context/session-id`'s shape) :env-fn :on-problem. A fork's outcome is
+  `:fork` in what it returns: `{:from :before-turn :files :saved :error}`."
   [{:keys [project-dir provider model loop agent mcp-servers permission-mode permission-fn
            tools hooks on-event resume env-fn on-problem] :as opts}]
   (when (str/blank? (str project-dir))
@@ -96,12 +100,24 @@
         ;; a fork is a new session resumed from a copy of another's snapshot
         ;; (`persist/fork!`), the other left as it was
         fork-from (:fork-from opts)
-        resume (if fork-from
-                 (let [nid (or (:session-id opts) (context/session-id))
-                       r (persist/fork! config fork-from nid)]
-                   (when (:problem r) (throw (ex-info (str "cannot fork " fork-from ": " (:problem r)) {:fork-from fork-from})))
-                   nid)
-                 resume)
+        k (:fork-before-turn opts)
+        _ (when (and k (not fork-from)) (throw (ex-info ":fork-before-turn needs :fork-from" {})))
+        fork (when fork-from
+               (let [nid (or (:session-id opts) (context/session-id))
+                     r (persist/fork! config fork-from nid (when k {:before-turn k}))]
+                 (when (:problem r) (throw (ex-info (str "cannot fork " fork-from ": " (:problem r)) {:fork-from fork-from})))
+                 ;; the files put back as the turn began, unless kept, and
+                 ;; each session told at its next turn, as /fork tells them
+                 ;; (RFC-069, byj-d8c.3)
+                 (let [files (when (and k (not (:keep-files? opts))) (changes/rewind! config fork-from k))]
+                   (when (seq (:files files))
+                     (persist/note! config fork-from (session/client-line (session/rewind-line :forked-away files {:session nid}))))
+                   (when (and k (:keep-files? opts))
+                     (persist/note! config nid (session/rewind-line :fork-kept {:turn k} {:from fork-from})))
+                   (cond-> {:id nid :from fork-from}
+                     k (assoc :before-turn k)
+                     files (assoc :files (:files files) :saved (:saved files) :error (:error files))))))
+        resume (if fork (:id fork) resume)
         config (cond-> (assoc config :session-id (or resume (:session-id opts) (context/session-id)))
                  resume (assoc :resume resume))
         tree-name (or loop session/session-loop)
@@ -122,6 +138,7 @@
            :reload-config load
            :permission-fn permission-fn
            :permission-mode-box (atom (:permission-mode config :auto))
+           :fork fork
            :on-event (launch/event-bus config on-event)}]
     (if agent
       (or (session/with-persona b agent {:loop loop})
@@ -225,6 +242,7 @@
     (.start worker)
     {:id id :config config :label (:label opts) :lm (:lm b)
      :commands? (boolean (:commands? opts))
+     :fork (some-> (:fork b) (dissoc :id))
      :state state :cancellers cancellers
      :permission-mode-box (:permission-mode-box b)
      :mcp-box mcp-box :ready ready :done done
@@ -259,6 +277,19 @@
       (deliver reply {:refused why})
       (swap! (:state session) update :queue conj {:text (str/trim (str text)) :reply reply}))
     reply))
+
+(defn command!
+  "Queue the byj command `text` (`/rewind 3`) for the session as `submit!`
+  queues a prompt, whether or not it was opened with `:commands?`: what an
+  application asks for by a method of its own (ACP's `_byj/turns/*`,
+  byj-d8c.3) rather than by typing it, so it runs as the session runs its
+  commands — between its turns, with what they check and tell — and never
+  as a prompt the model reads. The same promise as `submit!`."
+  [session text]
+  (let [t (str/trim (str text))]
+    (if (re-find #"^/" t)
+      (submit! (assoc session :commands? true) t)
+      (doto (promise) (deliver {:refused (str "not a command: " t)})))))
 
 (defn prompt
   "`submit!` as a Task settling with the answer. Cancelling the task stops the

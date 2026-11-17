@@ -7,6 +7,7 @@ import { Connection, RpcError } from "./rpc.js";
 import type {
   ClientOptions, Hook, JsonSchema, LiveSession, Message, PermissionDecision, PermissionMode, PermissionRequest,
   PredictOptions, PredictResult, ResultMessage, SessionOptions, Tool,
+  ForkOutcome, KeptTurn, RewindResult, TurnDiff,
 } from "./types.js";
 
 /** The ACP version spoken. */
@@ -44,6 +45,8 @@ export class Session {
   /** The prompt being answered: its messages go here. */
   current: Channel<Message> | null = null;
   readonly tools = new Map<string, Tool>();
+  /** A fork's outcome (`forkSession` with `beforeTurn`), else undefined. */
+  fork?: ForkOutcome;
 
   constructor(
     readonly client: ByjClient,
@@ -79,6 +82,9 @@ export class Session {
           usage: m.usage, costUsd: m.costUsd, isError: false,
           ...("structuredOutput" in m && { structuredOutput: m.structuredOutput }),
           ...(m.structuredOutputError && { structuredOutputError: m.structuredOutputError }),
+          ...(m.turn !== undefined && { turn: m.turn }),
+          ...(m.filesChanged !== undefined && { filesChanged: m.filesChanged }),
+          ...(m.checkpoint && { checkpoint: m.checkpoint }),
         };
         ch.push(result);
       })
@@ -112,6 +118,35 @@ export class Session {
 
   async setPermissionMode(mode: PermissionMode) {
     await this.client.conn.request("session/set_mode", { sessionId: this.id, modeId: mode });
+  }
+
+  /** The turns byj keeps of this session, what a rewind can go back to (RFC-069). */
+  async turns(): Promise<KeptTurn[]> {
+    return (await this.client.conn.request<{ turns: KeptTurn[] }>("_byj/turns/list", { sessionId: this.id })).turns;
+  }
+
+  /** A turn's change as git's diff; the last turn that changed files when none is named. */
+  async diff(turn?: number): Promise<TurnDiff> {
+    return this.client.conn.request("_byj/turns/diff", { sessionId: this.id, ...(turn !== undefined && { turn }) });
+  }
+
+  /**
+   * The project's files put back as they were when `turn` began (or ended,
+   * with `end`), whatever came after kept first as a rewind; the session's
+   * next turn is told. Refused while a turn runs.
+   */
+  async rewind(turn: number, opts: { end?: boolean } = {}): Promise<RewindResult> {
+    return this.client.conn.request("_byj/turns/rewind", { sessionId: this.id, turn, ...(opts.end && { end: true }) });
+  }
+
+  /** What `turn` changed taken back alone, what came after it kept. */
+  async undoTurn(turn: number): Promise<RewindResult> {
+    return this.client.conn.request("_byj/turns/undoTurn", { sessionId: this.id, turn });
+  }
+
+  /** A rewind taken back: the last, or rewind `n`. */
+  async undoRewind(n?: number): Promise<RewindResult> {
+    return this.client.conn.request("_byj/turns/undoRewind", { sessionId: this.id, ...(n !== undefined && { n }) });
   }
 }
 
@@ -243,17 +278,21 @@ export class ByjClient {
 
   /**
    * A new session that starts where a saved one stands — its history, under a
-   * new id — leaving that one as it was; its history to `onHistory`.
+   * new id — leaving that one as it was; its history to `onHistory`. With
+   * `beforeTurn`, its conversation is cut before that turn and the project's
+   * files put back as the turn began, as `/fork` does (`keepFiles` leaves
+   * them); what it did is the session's `fork`.
    */
-  async forkSession(fromSessionId: string, o: SessionOptions, onHistory?: (m: Message) => void): Promise<Session> {
+  async forkSession(fromSessionId: string, o: SessionOptions, onHistory?: (m: Message) => void,
+                    opts: { beforeTurn?: number; keepFiles?: boolean } = {}): Promise<Session> {
     // the new id is chosen here, so the history replayed before session/new
     // answers is routed to it, as a load's is
     const id = `${Date.now()}-${Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, "0")}`;
-    return this.open("session/new", o, id, onHistory, fromSessionId);
+    return this.open("session/new", o, id, onHistory, fromSessionId, opts);
   }
 
   private async open(method: string, o: SessionOptions, sessionId?: string, onHistory?: (m: Message) => void,
-                     forkFrom?: string) {
+                     forkFrom?: string, fork: { beforeTurn?: number; keepFiles?: boolean } = {}) {
     const hooks: [string, Hook][] = (o.hooks ?? []).map((h) => [`h${++this.hookCount}`, h]);
     for (const [id, h] of hooks) this.hooks.set(id, h);
     // the session exists before its id comes back: a history being replayed
@@ -267,7 +306,11 @@ export class ByjClient {
     }
     try {
       const meta = sessionMeta(o, { hooks });
-      if (forkFrom) Object.assign(meta.brainyard, { forkFrom, sessionId });
+      if (forkFrom) Object.assign(meta.brainyard, {
+        forkFrom, sessionId,
+        ...(fork.beforeTurn !== undefined && { forkBeforeTurn: fork.beforeTurn }),
+        ...(fork.keepFiles && { keepFiles: true }),
+      });
       const r: any = await this.conn.request(method, {
         ...(sessionId && !forkFrom && { sessionId }),
         cwd: o.cwd,
@@ -279,6 +322,7 @@ export class ByjClient {
       });
       const id = sessionId ?? r.sessionId;
       const s = new Session(this, id, o, r?.modes?.availableModes ?? []);
+      if (r?._meta?.brainyard?.fork) s.fork = r._meta.brainyard.fork;
       if (pending) { pending.current?.close(); }
       this.sessions.set(id, s);
       return s;

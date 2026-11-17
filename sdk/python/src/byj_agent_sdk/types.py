@@ -194,6 +194,13 @@ class ResultMessage:
     structured_output: Any = None
     #: With output_schema: why the answer could not be given as data.
     structured_output_error: Optional[str] = None
+    #: The turn it ran, as ``byj turns list`` numbers it.
+    turn: Optional[int] = None
+    #: How many files the turn changed in the project's work tree.
+    files_changed: Optional[int] = None
+    #: What a rewind of the turn goes back to (RFC-069): ``{ref, before,
+    #: after, filesChanged}``; None when byj keeps none.
+    checkpoint: Optional[dict[str, Any]] = None
     type: str = "result"
 
 
