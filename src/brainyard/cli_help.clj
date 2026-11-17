@@ -85,7 +85,8 @@
           [(str " " name " COMMAND -h shows a command's subcommands and options.")])))
 
 (defn command-page
-  "`byj COMMAND -h`: its subcommands, grouped, or its options."
+  "`byj COMMAND -h`: its subcommands, grouped, or what it does and its
+  options."
   [cmd]
   (let [{:keys [name]} @*spec*
         {:keys [summary usage subcommands options]} cmd
@@ -101,6 +102,7 @@
             [(str " " full " SUBCOMMAND -h shows its arguments.")])
       (page (cons "NAME:" (hang (str " " full " -") summary))
             ["USAGE:" (str " " (or usage (str full " [options]")))]
+            (when (:doc cmd) (cons "DESCRIPTION:" (map #(str " " %) (wrap (:doc cmd) (dec width)))))
             (cons "OPTIONS:" (options-lines (concat options (:global @*spec*))))))))
 
 (defn sub-page

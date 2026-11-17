@@ -13,6 +13,9 @@
   - `trajectory/trajectory.edn`, `trajectory/meta.edn`: what that turn leaves
     on disk (RFC-025, RFC-016);
   - `agent/agents.json`: `byj agent --json` in a project of byj's own agents;
+  - `doctor/doctor.json`: `byj doctor --json` in a project with AGENTS.md
+    alone, two copies of byj on PATH and a signed-in account, the machine's
+    tools all said missing so that the file is not the machine's (byj-mmd);
   - `prices.edn`: the price table byj costs a run by;
   - `loops/slots.edn`: every slot the bundled loops offer a project, with its
     keys and its place (RFC-072).
@@ -33,9 +36,11 @@
             [brainyard.bt :as bt]
             [brainyard.channel :as channel]
             [brainyard.config :as config]
+            [brainyard.init :as init]
             [brainyard.json :as json]
             [brainyard.main :as main]
-            [brainyard.session :as session]))
+            [brainyard.session :as session]
+            [brainyard.update :as update]))
 
 (def root "contract")
 
@@ -160,6 +165,28 @@
                       :emacs-tools? false :terminal-tools? false)
         out (with-out-str (#'main/agent-command {:json true} config))]
     (held "agent/agents.json" (str (json/write-str (normal (json/read-str (str/trim out)) dir)) "\n"))))
+
+(deftest the-doctor-report-is-byjs-contract
+  ;; byj-mmd: what the workbench's Doctor panel reads. Outside this
+  ;; repository, so the project is not a git repository's subdirectory
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-contract-doctor-" (System/nanoTime))) .mkdirs))
+        exe! (fn [d] (let [f (io/file dir d "byj")] (io/make-parents f) (spit f "x") (.setExecutable f true) (.getParent f)))
+        path-env (str (exe! "bin") ":" (exe! "other"))]
+    (spit (io/file dir "AGENTS.md") "# a\n")
+    (with-redefs [init/tool-status (fn [req & _] {:name (:name req) :command (:command req) :need (:need req)
+                                                  :for (:for req) :available? false :install []})]
+      (let [d (session/doctor-data
+               {:config {:project-dir dir :working-dir dir}
+                :checkout nil
+                :install-lines-fn (fn [_] (update/install-lines {:running nil :path-env path-env :version-of (constantly "v0.0.0")}))
+                :claude-usage-fn (constantly {:logged-in? true
+                                              :limits [;; a reset already past: one to come is said in
+                                                       ;; hours from now, which moves
+                                                       {:label "Session" :percent 42 :resets-at "2026-01-01T00:00:00Z"}
+                                                       {:label "Weekly" :percent 7 :resets-at nil}]
+                                              :account {:email "person@example.invalid" :organization "Org" :plan "max"
+                                                        :refresh-expires-at (+ (System/currentTimeMillis) (* 3 86400000) 60000)}})})]
+        (held "doctor/doctor.json" (str (json/write-str (normal (json/read-str (json/write-str d)) dir)) "\n"))))))
 
 (deftest the-price-table-is-byjs-contract
   (held "prices.edn" (slurp (io/resource "brainyard/prices.edn"))))

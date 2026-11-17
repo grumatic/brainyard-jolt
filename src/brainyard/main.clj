@@ -2222,13 +2222,20 @@
                  (let [[p m] (run-lm-choice provider model config)] (launch/make-lm p m config env)))]
         (*exit* (loops-command opts lm config)))
 
-      ;; where this machine stands, as /doctor says it (byj-gly.324)
+      ;; where this machine stands, as /doctor says it (byj-gly.324); with
+      ;; --json, as data for a client's panel (byj-mmd): exit 0 whatever the
+      ;; checks say, the data saying what is wrong, non-zero only when there
+      ;; is no report
       (= :doctor command)
       (let [wd (or working-dir (System/getProperty "user.dir") ".")
-            {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})]
-        (println (session/doctor-report {:config config}))
-        (shutdown-agents)
-        (System/exit 0))
+            {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})
+            code (if (:json opts)
+                   (try (println (json/write-str (session/doctor-data {:config config}))) 0
+                        (catch Throwable e
+                          (println (json/write-str {:error (str "no doctor report: " (or (ex-message e) (str e)))}))
+                          1))
+                   (do (println (session/doctor-report {:config config})) 0))]
+        (*exit* code))
 
       ;; what each agent can make happen, as a shared session would run it
       ;; (byj-1wv.47): byj-share asks before sharing one that writes

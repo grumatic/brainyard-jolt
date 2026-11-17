@@ -1472,6 +1472,45 @@
                               ":")
                          (claude-usage/limit-lines u)))))
 
+(defn- doctor-gather
+  "What `/doctor` reads of the machine and the project, once, for its text and
+  its data alike."
+  [ctx]
+  (let [checkout (if (contains? ctx :checkout) (:checkout ctx) (version/source-root))]
+    {:checked ((or (:doctor-check-fn ctx) init/check) (:config ctx))
+     :loops (project-loops/report (:project-dir (:config ctx)))
+     :checkout checkout
+     :installed ((or (:install-lines-fn ctx)
+                     (fn [checkout]
+                       (update/install-lines
+                        {:running (when-not checkout (update/real-path (update/executable-path (persist/own-pid) update/shell)))
+                         :path-env (System/getenv "PATH")
+                         :version-of (fn [cmd p]
+                                       (some-> (init/version-of p (if (= "byj" cmd) ["--version"] ["version"]))
+                                               (cond->> (= "byj" cmd) (str "v"))))})))
+                 checkout)
+     :u (claude-usage-now ctx)}))
+
+(defn- refresh-days [u]
+  (when-let [t (get-in u [:account :refresh-expires-at])]
+    (quot (- t (System/currentTimeMillis)) 86400000)))
+
+(defn- doctor-text [{:keys [checked loops checkout installed u]}]
+  (let [{:keys [email organization plan]} (:account u)
+        days (refresh-days u)]
+    (str (:text checked)
+         (some->> (project-loops/report-text nil loops) (str "\n\n"))
+         "\n\nInstalled" (when checkout (str " (this run is from the checkout " checkout ")")) ":\n"
+         (str/join "\n" (map :text installed))
+         "\n\nClaude Code:\n"
+         (if (:logged-in? u)
+           (str "  signed in" (when email (str " as " email)) (when organization (str " (" organization ")"))
+                (when plan (str ", plan " plan))
+                (when days (str "\n  refresh token: " (if (neg? days) "expired — /login claude" (str days " day(s) left"))
+                                (when (< -1 days 7) " — /login claude soon"))))
+           "  not signed in — /login claude")
+         "\n\n" (subscription-text u))))
+
 (defn doctor-report
   "`/doctor`: the tools and the project (`init$check`), the project's own
   loops — one made from an older bundled loop named so (RFC-071) — what is
@@ -1486,32 +1525,66 @@
   `:install-lines-fn` (checkout → `[{:text}]`), `:checkout` (the source
   root, nil for none)."
   [ctx]
-  (let [checked ((or (:doctor-check-fn ctx) init/check) (:config ctx))
-        checkout (if (contains? ctx :checkout) (:checkout ctx) (version/source-root))
-        installed ((or (:install-lines-fn ctx)
-                       (fn [checkout]
-                         (update/install-lines
-                          {:running (when-not checkout (update/real-path (update/executable-path (persist/own-pid) update/shell)))
-                           :path-env (System/getenv "PATH")
-                           :version-of (fn [cmd p]
-                                         (some-> (init/version-of p (if (= "byj" cmd) ["--version"] ["version"]))
-                                                 (cond->> (= "byj" cmd) (str "v"))))})))
-                   checkout)
-        u (claude-usage-now ctx)
-        {:keys [email organization plan refresh-expires-at]} (:account u)
-        days (when refresh-expires-at (quot (- refresh-expires-at (System/currentTimeMillis)) 86400000))]
-    (str (:text checked)
-         (some->> (project-loops/report-text (:project-dir (:config ctx))) (str "\n\n"))
-         "\n\nInstalled" (when checkout (str " (this run is from the checkout " checkout ")")) ":\n"
-         (str/join "\n" (map :text installed))
-         "\n\nClaude Code:\n"
-         (if (:logged-in? u)
-           (str "  signed in" (when email (str " as " email)) (when organization (str " (" organization ")"))
-                (when plan (str ", plan " plan))
-                (when days (str "\n  refresh token: " (if (neg? days) "expired — /login claude" (str days " day(s) left"))
-                                (when (< -1 days 7) " — /login claude soon"))))
-           "  not signed in — /login claude")
-         "\n\n" (subscription-text u))))
+  (doctor-text (doctor-gather ctx)))
+
+(defn- json-safe
+  "`x` with what JSON has no word for said in words: a keyword as its name
+  (with its namespace, no colon), a file as its path."
+  [x]
+  (walk/postwalk #(cond (keyword? %) (subs (str %) 1)
+                        (instance? java.io.File %) (.getPath ^java.io.File %)
+                        :else %)
+                 x))
+
+(defn doctor-data
+  "`byj doctor --json` (byj-mmd): `doctor-report`'s report as data, for a
+  client that shows it in parts — the workbench's Doctor panel — rather than
+  parse its words. Read once, as `doctor-report` reads it, and given whole as
+  `:text` too; `ctx` as `doctor-report` takes it. RFC-040 \"byj doctor
+  --json\" says each field."
+  [ctx]
+  (let [{:keys [checked loops checkout installed u] :as g} (doctor-gather ctx)
+        {:keys [email organization plan]} (:account u)
+        p (:project checked)]
+    (json-safe
+     {:tools (vec (for [t (:tools checked)]
+                    (cond-> {:name (:name t) :need (:need t) :available (boolean (:available? t))
+                             :version (:version t) :path (:path t) :for (:for t)
+                             :install (vec (:install t))}
+                      (:url t) (assoc :url (:url t))
+                      (contains? t :signed-in?) (assoc :signedIn (boolean (:signed-in? t))))))
+      :missingRequired (vec (:missing-required checked))
+      :project (when p
+                 {:dir (:dir p)
+                  :checks (mapv #(select-keys % [:id :ok :label :detail :text]) (init/project-checks p))})
+      :loops (when loops
+               {:overrides (vec (for [o (:overrides loops)]
+                                  {:loop (:loop o) :file (:file o) :basedOn (:based-on o)
+                                   :bundledHash (:bundled-hash o) :stale (boolean (:stale? o)) :text (:text o)}))
+                :attachments (vec (for [a (:attachments loops)]
+                                    (if (:error a)
+                                      {:error (:error a) :text (:text a)}
+                                      {:slot (:slot a) :name (:name a) :basedOn (:based-on a) :contract (:contract a)
+                                       :stale (boolean (:stale? a)) :text (:text a)})))})
+      :installed (vec (for [l installed]
+                        (cond-> {:name (:name l) :version (:version l) :path (:path l) :origin (:origin l)
+                                 :runsByName (boolean (:runs-by-name? l)) :text (:text l)}
+                          (:shadowed-by l) (assoc :shadowedBy (:shadowed-by l))
+                          (:hint l) (assoc :hint (:hint l))
+                          (:running l) (assoc :running (:running l)))))
+      :checkout checkout
+      :claude {:signedIn (boolean (:logged-in? u)) :email email :organization organization :plan plan
+               :refreshDaysLeft (refresh-days u)}
+      :subscription (when (and (:logged-in? u) (seq (:limits u)))
+                      (cond-> {:plan plan
+                               :windows (vec (for [{:keys [label percent resets-at]} (:limits u)]
+                                               {:name (-> (str label) str/lower-case str/trim (str/replace #"\s+" "-"))
+                                                :label label :usedPercent percent :resetsAt resets-at}))}
+                        (:error u) (assoc :error (:error u))
+                        (:fetched-at u) (assoc :fetchedAt (:fetched-at u))))
+      :subscriptionUnknown (when-not (and (:logged-in? u) (seq (:limits u)))
+                             (or (:error u) (if (:logged-in? u) "no limits reported" "not signed in to Claude Code")))
+      :text (doctor-text g)})))
 
 (defn- capture-file
   "Where a capture goes when nobody says: beside the session it captures, named

@@ -13,6 +13,7 @@
             [brainyard.coach :as coach]
             [brainyard.config :as config]
             [brainyard.effect :as fx]
+            [brainyard.init :as init]
             [brainyard.json :as json]
             [brainyard.schedule]
             [brainyard.agent-host :as ah]
@@ -656,6 +657,69 @@
       (let [{:keys [out]} (run-session ["/usage"] (answer "x")
                                        :claude-usage-fn (fn [] (throw (ex-info "must not be asked" {}))))]
         (is (not (str/includes? (first (said out)) "subscription")))))))
+
+(deftest doctor-gives-its-report-as-data-for-a-clients-panel
+  ;; byj-mmd: byj doctor --json, for the workbench's Doctor panel, from the
+  ;; same seams doctor-report reads the machine through
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "doctor-" (System/nanoTime))) .mkdirs))
+        _ (spit (io/file dir "AGENTS.md") "# a\n")
+        _ (spit (io/file dir "deps.edn") "{}")
+        tools [{:name "git" :command "git" :need :required :for "snapshots" :available? true :version "2.45" :path "/usr/bin/git" :install []}
+               {:name "bd" :command "bd" :need :optional :for "beads" :available? false :install ["brew install beads"] :url "https://example.org/bd"}
+               {:name :claude :command :claude :need :feature :for "the claude-code provider" :available? true :version "2.1" :path "/x/claude" :install [] :signed-in? false}]
+        checked (let [r {:tools tools :project (init/project-status dir) :missing-required []}]
+                  (assoc r :text (init/report-text r)))
+        lines [{:name "byj" :version "v0.3.20" :path "/home/b/.local/bin/byj" :origin :binary :runs-by-name? true
+                :text "- byj: v0.3.20 at /home/b/.local/bin/byj" :note? false}
+               {:name "byj" :version "v0.3.1" :path "/opt/homebrew/bin/byj" :origin :homebrew :runs-by-name? false
+                :shadowed-by "/home/b/.local/bin/byj" :hint "`brew upgrade byj` updates it, `brew uninstall byj` removes it"
+                :text "- byj: v0.3.1 at /opt/homebrew/bin/byj (Homebrew), shadowed by …" :note? true}]
+        u {:logged-in? true :limits [{:label "Session" :percent 42 :resets-at "2026-11-18T10:00:00Z"}
+                                     {:label "Weekly" :percent 7 :resets-at nil}]
+           :account {:email "a@b.c" :organization "Org" :plan "max"
+                     :refresh-expires-at (+ (System/currentTimeMillis) (* 3 86400000) 60000)}}
+        ctx {:config {:project-dir dir :working-dir dir}
+             :doctor-check-fn (constantly checked) :install-lines-fn (constantly lines)
+             :claude-usage-fn (constantly u) :checkout nil}
+        as-json (comp json/read-str json/write-str)
+        j (as-json (session/doctor-data ctx))]
+    (testing "every field, and the report as doctor prints it"
+      (is (= #{:tools :missingRequired :project :loops :installed :checkout :claude :subscription :subscriptionUnknown :text}
+             (set (keys j))))
+      (is (= (session/doctor-report ctx) (:text j)) "the text is the report byj doctor prints"))
+    (testing "the tools, each with what it is for and how to get it"
+      (is (= {:name "bd" :need "optional" :available false :version nil :path nil :for "beads"
+              :install ["brew install beads"] :url "https://example.org/bd"}
+             (second (:tools j))))
+      (is (= false (:signedIn (nth (:tools j) 2))))
+      (is (= [] (:missingRequired j))))
+    (testing "the project's lines: ✓ and ✗ as true and false, a note as null"
+      (let [checks (into {} (map (juxt :id identity)) (get-in j [:project :checks]))]
+        (is (= dir (get-in j [:project :dir])))
+        (is (= ["git" "agents-md" "claude-md" "beads" "gitignore" "code" "project-section" "skills"]
+               (mapv :id (get-in j [:project :checks]))))
+        (is (= {:id "agents-md" :ok true :label "AGENTS.md" :detail nil :text "✓ AGENTS.md"} (checks "agents-md")))
+        (is (= [false "missing"] [(get-in checks ["claude-md" :ok]) (get-in checks ["claude-md" :detail])]))
+        (is (= [nil "deps.edn"] [(get-in checks ["code" :ok]) (get-in checks ["code" :detail])]))))
+    (testing "what is installed: the one that runs by name, then the shadowed, with how"
+      (is (= [{:name "byj" :version "v0.3.20" :path "/home/b/.local/bin/byj" :origin "binary" :runsByName true
+               :text "- byj: v0.3.20 at /home/b/.local/bin/byj"}
+              {:name "byj" :version "v0.3.1" :path "/opt/homebrew/bin/byj" :origin "homebrew" :runsByName false
+               :shadowedBy "/home/b/.local/bin/byj" :hint "`brew upgrade byj` updates it, `brew uninstall byj` removes it"
+               :text "- byj: v0.3.1 at /opt/homebrew/bin/byj (Homebrew), shadowed by …"}]
+             (:installed j))))
+    (testing "the account, and the subscription's windows"
+      (is (= {:signedIn true :email "a@b.c" :organization "Org" :plan "max" :refreshDaysLeft 3} (:claude j)))
+      (is (= {:plan "max" :windows [{:name "session" :label "Session" :usedPercent 42 :resetsAt "2026-11-18T10:00:00Z"}
+                                      {:name "weekly" :label "Weekly" :usedPercent 7 :resetsAt nil}]}
+             (:subscription j)))
+      (is (nil? (:subscriptionUnknown j)))
+      (is (nil? (:loops j)) "a project with no loop of its own"))
+    (testing "signed out: no subscription, and why it is unknown"
+      (let [j (as-json (session/doctor-data (assoc ctx :claude-usage-fn (constantly {:logged-in? false :limits []}))))]
+        (is (= false (get-in j [:claude :signedIn])))
+        (is (nil? (:subscription j)))
+        (is (= "not signed in to Claude Code" (:subscriptionUnknown j)))))))
 
 (deftest loop-runs-a-prompt-now-and-again-as-claude-codes-does
   ;; byj-gly.325

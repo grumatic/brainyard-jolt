@@ -239,16 +239,74 @@
 
 (defn- need-label [need] (case need :required "required" :feature "for a feature" "optional"))
 
+(defn project-checks
+  "The project's lines of the check, as data: `[{:id :ok :label :detail
+  :text}]`, `:ok` true or false for a line marked ✓ or ✗ and nil for a note,
+  `:detail` what follows the label (nil for nothing), `:text` the line as
+  `report-text` prints it. `byj doctor --json` gives them (byj-mmd)."
+  [p]
+  (let [mark #(if % "✓" "✗")
+        line (fn [id ok label detail text] {:id id :ok ok :label label :detail detail :text text})]
+    (vec
+     (remove nil?
+             [(line :git (boolean (:git? p)) "a git repository" nil
+                    (str (mark (:git? p)) " a git repository"))
+              (line :agents-md (boolean (:agents-md? p)) "AGENTS.md" nil
+                    (str (mark (:agents-md? p)) " AGENTS.md"))
+              (let [ok (boolean (and (:claude-md? p) (:claude-imports? p)))
+                    d (cond (not (:claude-md? p)) "missing"
+                            (not (:claude-imports? p)) "does not import AGENTS.md (@AGENTS.md)"
+                            :else "imports AGENTS.md")]
+                (line :claude-md ok "CLAUDE.md" d
+                      (str (mark ok) " CLAUDE.md" (if (= "imports AGENTS.md" d) " " " — ") d)))
+              (let [parts (for [[k v] (sort-by key (:bd-setup p))]
+                            (str "bd setup " (name k) ": " (if (:ok? v) "ok" (str "needs attention — " (:said v)))))]
+                (line :beads (boolean (:beads? p)) "beads (.beads/)" (when (seq parts) (str/join "; " parts))
+                      (str (mark (:beads? p)) " beads (.beads/)" (str/join "" (map #(str "; " %) parts)))))
+              (let [d (case (:gitignore p)
+                        :current "but for its profile.edn"
+                        :whole "whole: git cannot add its profile.edn; /init writes .brainyard/* and !.brainyard/profile.edn"
+                        nil)]
+                (line :gitignore (boolean (:gitignored? p)) ".brainyard/ in .gitignore" d
+                      (str (mark (:gitignored? p)) " .brainyard/ in .gitignore" (case (:gitignore p) :current ", " :whole ", " "") d)))
+              (let [d (if (seq (:build-files p)) (str/join ", " (:build-files p)) "no build files yet")]
+                (line :code nil "code" d (str "code: " d)))
+              (let [d (case (:project-section p)
+                        :drafted "drafted"
+                        ;; said for what is there: under a code line naming
+                        ;; package.json, \"once it has code\" contradicted it
+                        :placeholder (if (seq (:build-files p))
+                                       "not drafted yet — /init drafts it from the code"
+                                       "not drafted yet — /init drafts it once the project has code")
+                        "none")]
+                (line :project-section nil "AGENTS.md's project section" d (str "AGENTS.md's project section: " d)))
+              (when-let [{:keys [preset problems block]} (:profile p)]
+                (let [ok (boolean (and (= :current block) (empty? problems)))
+                      more (str (when preset (str ": " (name preset) " (.brainyard/profile.edn)"))
+                                (case block
+                                  :current "; AGENTS.md shows it"
+                                  :stale " — AGENTS.md's profile block differs from it; /init writes it again"
+                                  :missing " — AGENTS.md does not show it; /init writes its block"
+                                  :orphan " — AGENTS.md shows a profile block, and there is no .brainyard/profile.edn"
+                                  "")
+                                (when (seq problems) (str " — " (str/join "; " problems))))]
+                  (line :profile ok "profile" (not-empty (str/replace more #"^(: |; | — )" ""))
+                        (str (mark ok) " profile" more))))
+              (when (seq (:uncommitted p))
+                (let [d (str/join ", " (map #(str/replace % #"^\S+\s+" "") (:uncommitted p)))]
+                  (line :uncommitted nil "left uncommitted" d (str "left uncommitted: " d))))
+              (let [d (if (seq (:skills p)) (str/join ", " (:skills p)) "none in the project")]
+                (line :skills nil "skills" d (str "skills: " d)))]))))
+
 (defn report-text
   "The check in words: the tools, each missing one with how to install it,
-  then the project. A Markdown list, single-spaced, so that it reads the same
-  printed and drawn by the full-screen renderer, which had dropped its
-  indentation and run its spacing together (the sim's screen pass,
-  byj-gly.315.5)."
+  then the project (`project-checks`). A Markdown list, single-spaced, so
+  that it reads the same printed and drawn by the full-screen renderer, which
+  had dropped its indentation and run its spacing together (the sim's screen
+  pass, byj-gly.315.5)."
   [{:keys [tools project]}]
   (let [missing (remove :available? tools)
-        mark #(if % "✓" "✗")
-        p project]
+        mark #(if % "✓" "✗")]
     (str "Tools:\n"
          (str/join "\n" (for [t tools]
                           (str "- " (mark (:available? t)) " " (:name t)
@@ -262,48 +320,8 @@
                                  (str "- " (:name t) ": "
                                       (if (seq (:install t)) (str/join ", or " (map #(str "`" % "`") (:install t))) "no install hint for this platform")
                                       (when (:url t) (str " — " (:url t))))))))
-         "\n\nProject " (:dir p) ":\n"
-         (str/join "\n"
-                   (map #(str "- " %)
-                        (remove nil?
-                        [(str (mark (:git? p)) " a git repository")
-                         (str (mark (:agents-md? p)) " AGENTS.md")
-                         (str (mark (and (:claude-md? p) (:claude-imports? p))) " CLAUDE.md"
-                              (cond (not (:claude-md? p)) " — missing"
-                                    (not (:claude-imports? p)) " — does not import AGENTS.md (@AGENTS.md)"
-                                    :else " imports AGENTS.md"))
-                         (str (mark (:beads? p)) " beads (.beads/)"
-                              (when-let [s (:bd-setup p)]
-                                (str/join "" (for [[k v] (sort-by key s)]
-                                               (str "; bd setup " (name k) ": " (if (:ok? v) "ok" (str "needs attention — " (:said v))))))))
-                         (str (mark (:gitignored? p))
-                              (case (:gitignore p)
-                                :current " .brainyard/ in .gitignore, but for its profile.edn"
-                                :whole " .brainyard/ in .gitignore, whole: git cannot add its profile.edn; /init writes .brainyard/* and !.brainyard/profile.edn"
-                                " .brainyard/ in .gitignore"))
-                         (str "code: " (if (seq (:build-files p)) (str/join ", " (:build-files p)) "no build files yet"))
-                         (str "AGENTS.md's project section: "
-                              (case (:project-section p)
-                                :drafted "drafted"
-                                ;; said for what is there: under a code line naming
-                                ;; package.json, \"once it has code\" contradicted it
-                                :placeholder (if (seq (:build-files p))
-                                               "not drafted yet — /init drafts it from the code"
-                                               "not drafted yet — /init drafts it once the project has code")
-                                "none"))
-                         (when-let [{:keys [preset problems block]} (:profile p)]
-                           (str (mark (and (= :current block) (empty? problems))) " profile"
-                                (when preset (str ": " (name preset) " (.brainyard/profile.edn)"))
-                                (case block
-                                  :current "; AGENTS.md shows it"
-                                  :stale " — AGENTS.md's profile block differs from it; /init writes it again"
-                                  :missing " — AGENTS.md does not show it; /init writes its block"
-                                  :orphan " — AGENTS.md shows a profile block, and there is no .brainyard/profile.edn"
-                                  "")
-                                (when (seq problems) (str " — " (str/join "; " problems)))))
-                         (when (seq (:uncommitted p))
-                           (str "left uncommitted: " (str/join ", " (map #(str/replace % #"^\S+\s+" "") (:uncommitted p)))))
-                         (str "skills: " (if (seq (:skills p)) (str/join ", " (:skills p)) "none in the project"))]))))))
+         "\n\nProject " (:dir project) ":\n"
+         (str/join "\n" (map #(str "- " (:text %)) (project-checks project))))))
 
 (defn check
   "Where this machine and project `dir` stand for brainyard (`init$check`):

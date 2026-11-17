@@ -275,16 +275,22 @@
         (is (= [(str "- byj: v0.3.2 at " local-byj)
                 (str "- byj: v0.3.1 at " brew-byj " (Homebrew), shadowed by " local-byj " — `brew upgrade byj` updates it, `brew uninstall byj` removes it")]
                (mapv :text lines)))
-        (is (= [false true] (mapv :note? lines)) "only the shadowed ones are notes after an update")))
+        (is (= [false true] (mapv :note? lines)) "only the shadowed ones are notes after an update")
+        (is (= [{:name "byj" :version "v0.3.2" :path local-byj :origin :binary :runs-by-name? true}
+                {:name "byj" :version "v0.3.1" :path brew-byj :origin :homebrew :runs-by-name? false
+                 :shadowed-by local-byj :hint "`brew upgrade byj` updates it, `brew uninstall byj` removes it"}]
+               (mapv #(dissoc % :text :note?) lines))
+            "what each line says, as data, for byj doctor --json (byj-mmd)")))
     (testing "the shadowed copy is its own: byj update from it, or rm"
       (let [lines (u/install-lines {:running (.getCanonicalPath (io/file keg-byj)) :path-env (str (.getPath brew-bin) ":" (.getPath local)) :version-of version-of})]
         (is (str/includes? (:text (second lines)) (str "`" local-byj " update` updates it, `rm -f " local-byj "` removes it")))))
     (testing "the running byj that is not the one byj runs by name"
       (let [lines (u/install-lines {:running (.getCanonicalPath (io/file keg-byj)) :path-env path-env :version-of version-of})]
         (is (str/includes? (:text (first lines)) (str " — not this one, " (.getCanonicalPath (io/file keg-byj)) ", which runs only by its path")))
-        (is (:note? (first lines)))))
+        (is (:note? (first lines)))
+        (is (= (.getCanonicalPath (io/file keg-byj)) (:running (first lines))))))
     (testing "nothing on PATH, or from a checkout"
-      (is (= [{:text "- byj: not on PATH" :note? false}]
+      (is (= [{:name "byj" :runs-by-name? false :text "- byj: not on PATH" :note? false}]
              (u/install-lines {:running nil :path-env (.getPath (fresh-dir "bare")) :version-of version-of})))
       (is (= (str "- byj: v0.3.2 at " local-byj)
              (:text (first (u/install-lines {:running nil :path-env path-env :version-of version-of}))))

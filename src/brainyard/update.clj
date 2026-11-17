@@ -453,24 +453,37 @@
   PATH decides which runs — the other went stale with nothing said
   (2026-10-14). `version-of` is a fn of the command and a path to what it says
   its version is, or nil. Each line is `{:text :note?}`, `:note?` on the ones
-  worth saying after an update. Nothing is updated or removed: the copy's
-  owner does."
+  worth saying after an update, and what it says as data, for `byj doctor
+  --json` (byj-mmd): `:name`, `:version`, `:path`, `:origin`,
+  `:runs-by-name?`, `:shadowed-by` (the path that runs by name instead),
+  `:hint` (how its owner updates or removes a shadowed copy) and `:running`
+  (the running byj, when it is not this one). Nothing is updated or removed:
+  the copy's owner does."
   [{:keys [running path-env version-of]}]
   (vec (mapcat
         (fn [cmd]
           (let [[first-c & others] (copies cmd path-env)
-                desc (fn [c] (str (or (version-of cmd (:path c)) "version unknown") " at " (:path c)
+                version (memoize (fn [c] (version-of cmd (:path c))))
+                desc (fn [c] (str (or (version c) "version unknown") " at " (:path c)
                                   (when (= :homebrew (:origin c)) " (Homebrew)")))
+                data (fn [c] {:name cmd :version (version c) :path (:path c) :origin (:origin c)})
                 not-this? (and first-c (= "byj" cmd) running (not= running (:real first-c)))]
             (concat
-             [{:text (if first-c
-                       (str "- " cmd ": " (desc first-c)
-                            (when not-this? (str " — not this one, " running ", which runs only by its path")))
-                       (str "- " cmd ": not on PATH"))
-               :note? (boolean not-this?)}]
+             [(merge
+               (if first-c
+                 (assoc (data first-c) :runs-by-name? true)
+                 {:name cmd :runs-by-name? false})
+               (when not-this? {:running running})
+               {:text (if first-c
+                        (str "- " cmd ": " (desc first-c)
+                             (when not-this? (str " — not this one, " running ", which runs only by its path")))
+                        (str "- " cmd ": not on PATH"))
+                :note? (boolean not-this?)})]
              (for [c others]
-               {:text (str "- " cmd ": " (desc c) ", shadowed by " (:path first-c) " — " (way-with c))
-                :note? true}))))
+               (assoc (data c)
+                      :runs-by-name? false :shadowed-by (:path first-c) :hint (way-with c)
+                      :text (str "- " cmd ": " (desc c) ", shadowed by " (:path first-c) " — " (way-with c))
+                      :note? true)))))
         ["byj"])))
 
 ;; --- a Homebrew install (byj-gly.181.12) --------------------------------------------

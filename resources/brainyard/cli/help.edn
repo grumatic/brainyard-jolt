@@ -162,8 +162,9 @@
              :doc "Only the project's folder in the registry is removed, never the project; registering it again brings back the same slug. --json gives the record removed."}]}]}
   {:name "doctor"
    :summary "Where this machine stands: the tools, the project, Claude Code's sign-in and its subscription's use"
-   :usage "byj doctor"
-   :options []}
+   :usage "byj doctor [-C DIR] [--json]"
+   :doc "Prints the report /doctor gives. --json gives it as data for a client's panel: {tools, missingRequired, project {dir, checks [{id, ok, label, detail, text}]}, loops, installed, checkout, claude, subscription, subscriptionUnknown, text}, text being the report as printed; it exits 0 whatever the checks say (RFC-040)."
+   :options [:json]}
   {:name "update"
    :summary "Check for a newer release of byj, install it, or roll back (RFC-029)"
    :usage "byj update [--check | --yes | --rollback]"

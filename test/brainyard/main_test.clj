@@ -476,6 +476,32 @@
           (is (str/includes? err said) err)
           (is (not (str/includes? err "Unhandled exception"))))))))
 
+(deftest byj-doctor-json-gives-the-report-as-data
+  ;; byj-mmd: for the workbench's Doctor panel. The machine is read through
+  ;; seams here: no tool is run, no keychain or network asked
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-doctor-" (System/nanoTime))) .mkdirs))]
+    (spit (io/file dir "AGENTS.md") "# a\n")
+    (with-redefs [brainyard.init/tool-status (fn [req & _] {:name (:name req) :command (:command req) :need (:need req)
+                                                            :for (:for req) :available? false :install []})
+                  brainyard.update/install-lines (constantly [{:name "byj" :runs-by-name? false :text "- byj: not on PATH" :note? false}])
+                  brainyard.claude-usage/usage (constantly {:logged-in? false :limits []})]
+      (let [{:keys [exit out]} (run-main "-C" dir "doctor" "--json")
+            j (json/read-str out)
+            text (:out (run-main "-C" dir "doctor"))]
+        (is (= 0 exit) "0 whatever the checks say: the data says what is wrong")
+        (is (= dir (get-in j [:project :dir])) "-C names the project")
+        (is (some #(= {:id "agents-md" :ok true} (select-keys % [:id :ok])) (get-in j [:project :checks])))
+        (is (seq (:missingRequired j)) "every tool is missing here")
+        (is (= [{:name "byj" :version nil :path nil :origin nil :runsByName false :text "- byj: not on PATH"}] (:installed j)))
+        (is (= {:signedIn false} (select-keys (:claude j) [:signedIn])))
+        (is (nil? (:subscription j)))
+        (is (= text (str (:text j) "\n")) "without --json, the same report as text, as before")))
+    (testing "no report at all: non-zero, and why"
+      (with-redefs [brainyard.init/check (fn [& _] (throw (ex-info "boom" {})))]
+        (let [{:keys [exit out]} (run-main "-C" dir "doctor" "--json")]
+          (is (= 1 exit))
+          (is (= {:error "no doctor report: boom"} (json/read-str out))))))))
+
 (deftest byj-turns-lists-a-session-s-turns-and-diffs-one
   ;; RFC-069: a scratch repository outside this one, two turns made through
   ;; brainyard.changes as the session makes them, read back by the CLI

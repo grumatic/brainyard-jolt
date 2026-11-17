@@ -464,7 +464,10 @@ brainyard-playground-apps' Desktop (`claude-usage.ts`).
   installed — the byj and byj-share that run by name and every other copy on
   PATH, shadowed (RFC-029, `byj-gly.181.13`) — then Claude Code's sign-in:
   the account, the plan, and the days its refresh token has left (under
-  seven, it says `/login claude` soon). Then the windows.
+  seven, it says `/login claude` soon). Then the windows. `byj doctor
+  --json` gives the same as data, the windows as `{name, label,
+  usedPercent, resetsAt}` or null with why they are unknown (RFC-040,
+  `byj-mmd`).
 - `/usage` adds the windows as bars when `:claude-usage` is `on`, or `auto`
   (the default) on the claude-code provider. A session on another provider
   is not asked, so neither is the keychain or the network.

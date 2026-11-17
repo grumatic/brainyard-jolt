@@ -196,11 +196,12 @@
 
 (declare attachment-report attachment-line)
 
-(defn report-text
-  "doctor's `Loops:` section — every loop the project holds of its own, an
-  override whose base no longer matches the bundled loop named as such, and
-  every attachment to a slot, one whose slot changed named as such — or nil
-  when the project holds none of either."
+(defn report
+  "What doctor says of the project's loops, as data (byj-mmd): `{:overrides
+  [{:loop :file :based-on :bundled-hash :stale? :text}] :attachments [{:slot
+  :name :based-on :contract :stale? :text}]}`, `:text` each one's line as
+  `report-text` prints it, an attachment the loop could not be read for being
+  `{:error}`; nil when the project holds none of either."
   [project-dir]
   (when project-dir
     (let [os (seq (overrides project-dir))
@@ -209,11 +210,23 @@
                                             (bt/expand (resolve "react") resolve)))
                        (catch Throwable e [{:error (ex-message e)}])))]
       (when (or os as)
-        (str/join "\n" (concat
-                        (when os (cons "Loops (the project's own, found before the bundled ones):"
-                                       (map override-line os)))
-                        (when as (cons "Attachments (the project's, in the ReAct loop's slots, RFC-072):"
-                                       (map #(if (:error %) (str "  " (:error %)) (attachment-line %)) as)))))))))
+        {:overrides (mapv #(assoc % :text (override-line %)) os)
+         :attachments (mapv #(assoc % :text (if (:error %) (str "  " (:error %)) (attachment-line %))) as)}))))
+
+(defn report-text
+  "doctor's `Loops:` section — every loop the project holds of its own, an
+  override whose base no longer matches the bundled loop named as such, and
+  every attachment to a slot, one whose slot changed named as such — or nil
+  when the project holds none of either: `report` in words. Given a report
+  already made, that one's."
+  ([project-dir] (report-text project-dir (report project-dir)))
+  ([_ {os :overrides as :attachments}]
+   (when (or (seq os) (seq as))
+     (str/join "\n" (concat
+                     (when (seq os) (cons "Loops (the project's own, found before the bundled ones):"
+                                          (map :text os)))
+                     (when (seq as) (cons "Attachments (the project's, in the ReAct loop's slots, RFC-072):"
+                                          (map :text as))))))))
 
 (defn source-line
   "What `--print-tree` says of where one loop of a tree was found

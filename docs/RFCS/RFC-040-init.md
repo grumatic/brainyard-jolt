@@ -467,6 +467,38 @@ for the next stage (`byj-gly.340`, fixed in `sim/run!`).
   - Its help is a line in `cli/help.edn`.
   - Seen on a new directory that was not a repository: `bd init` ran
     `git init` itself, then committed its files.
+- **`byj doctor [-C DIR] [--json]`** prints the report `/doctor` gives: the
+  check, the project's loops, what is installed, Claude Code's sign-in and
+  the subscription's windows (RFC-006, RFC-029, RFC-071).
+
+### The report as data: `byj doctor --json` (`byj-mmd`)
+
+A client that shows the report in parts — brainyard-apps' workbench has a
+Doctor panel — would otherwise parse its words, which mix ✓ and ✗ lines,
+indented sign-in lines and bars, and may change. `--json` prints one object
+built from what `session/doctor-report` reads, read once for the data and
+the text alike (`session/doctor-data`):
+
+| Field | What it holds |
+|---|---|
+| `tools` | each requirement: `{name, need (required, feature, optional), available, version, path, for, install}`, with `url` when it names one and `signedIn` for a tool that says how to ask |
+| `missingRequired` | the required tools that are missing, by name |
+| `project` | `{dir, checks}`: the Project section's lines in order, each `{id, ok, label, detail, text}` (`init/project-checks`). `ok` is true or false for a ✓ or ✗ line and null for a note; `id` is one of `git`, `agents-md`, `claude-md`, `beads`, `gitignore`, `code`, `project-section`, `profile`, `uncommitted`, `skills`; `text` is the line as printed |
+| `loops` | `{overrides, attachments}` (`project-loops/report`), null when the project holds no loop of its own and attaches nothing |
+| `installed` | each copy of byj on PATH (`update/install-lines`): `{name, version, path, origin, runsByName, text}`, a shadowed copy with `shadowedBy` and `hint` (how its owner updates or removes it), and `running` when the running byj is not the one that runs by name |
+| `checkout` | the source checkout this run is from, or null |
+| `claude` | `{signedIn, email, organization, plan, refreshDaysLeft}` |
+| `subscription` | `{plan, windows [{name, label, usedPercent, resetsAt}]}` with `error` and `fetchedAt` when the last reading is shown, or null when the windows are unknown |
+| `subscriptionUnknown` | why the windows are unknown, or null |
+| `text` | the report as `byj doctor` prints it |
+
+The account's email and organization are the person's own; a client shows
+them only to that person. `byj doctor --json` exits 0 whatever the checks
+say: the data says what is wrong. It exits 1, with `{error}`, only when no
+report could be made. Without `--json`, the text is as it was. The
+object's shape is part of byj's contract with the programs built on it,
+`contract/doctor/doctor.json` (RFC-070).
+
 - **Divergence `init-sets-up-the-project`** (`docs/divergences.md` and
   `.edn`): brainyard's `/init` authors BRAINYARD.md, while the port's sets up
   the project with AGENTS.md as the one instruction file.
@@ -608,7 +640,7 @@ again on that project, `byj init` added the link
 - Event `:session/suggestion` `{:next-user-prompt}`: a suggestion from a
   call the person made between turns.
 - Also in `brainyard.init`: `check`, `tool-status`, `project-status`, `profile-status`,
-  `report-text`, `on-path`, `version-of`, `platform`, `requirements`,
+  `project-checks`, `report-text`, `on-path`, `version-of`, `platform`, `requirements`,
   `imports-agents-md?`, `ignores-brainyard`, `ignores-brainyard?`, `templates`, `marked-blocks`,
   `set-block`, `project-block`, `skill-links`, `plan-writes`, `apply-writes!`, `scaffold`,
   `beads`, `remove-beads-blocks`, `survey`, `survey-files`, `install`.
@@ -628,6 +660,9 @@ again on that project, `byj init` added the link
   - `init/templates/{index.edn, AGENTS.md, CLAUDE.md}` (built).
 - Entry points: `/init` (`session/init-line`) and `byj init`
   (`main/init-command`).
+- `byj doctor --json`: `session/doctor-data` beside `session/doctor-report`,
+  from `project-loops/report` and the data `update/install-lines` gives with
+  each line.
 
 ## Invariants
 
@@ -657,6 +692,7 @@ All of them are planned. Nothing enforces them until their beads are built.
 | A person's call of an agent (a typed `:agent$…`) hands its suggestion to the session, which offers it in the input line; a model's call of an agent is never given one in its tool result — in a turn a command became (`/init`), the subagent's suggestion is offered at the turn's end instead. | `session-test/init-is-a-turn-that-drives-agent-init`, `agents-test/delegation-runs-a-child-turn`, `tui-test/the-models-next-question-is-offered-in-the-input` |
 | bd's git default is the person's to state: `git-profile` says `:unstated` only when bd's block holds its conservative default and nothing outside bd's blocks names a profile; the next steps then say so with prompts that write either answer and suggest nothing, and the starter issues ask the person once; named outside the blocks, neither appears. | `init-test/the-git-default-bds-block-sets-is-the-persons-to-state` |
 | `byj init` ends with the next steps, `--check` too; the AGENTS.md template's brainyard block says where a newcomer starts. | `init-test/byj-init-says-what-to-do-next` |
+| `byj doctor --json` gives the report as data: the tools, the project's lines as `{id, ok, label, detail}` with ✓ and ✗ as true and false and a note as null, what is installed, the account, and the windows or null with why; its `text` is what `byj doctor` prints, unchanged. It exits 0 whatever the checks say and 1 only when no report could be made. | `session-test/doctor-gives-its-report-as-data-for-a-clients-panel`, `main-test/byj-doctor-json-gives-the-report-as-data`, `update-test/the-other-copies-on-path-are-said-and-left`; its shape is byj's contract, `contract/doctor/doctor.json` (`contract-test/the-doctor-report-is-byjs-contract`) |
 | `byj init` has a help page. | nothing enforces it: `cli-help-test/every-dispatched-subcommand-has-help` covers only subcommands with subcommands of their own |
 
 ## Not in scope
