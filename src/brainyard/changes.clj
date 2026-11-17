@@ -18,9 +18,10 @@
   - `begin-turn!` and `end-turn!` are the session's, at a turn's start and
     end (`session/begin-turn`, `session/end-turn`).
   - Off outside a git work tree, without a session id, or with `:changes?`
-    false. The last `:changes-turns` refs of the repository are kept,
-    newest by commit time; an older one is deleted and git's gc takes its
-    objects.
+    false. A ref is kept while it is among the repository's newest
+    `:changes-turns`, or among its session's newest `:changes-turns` and
+    the session was used within `:changes-days` (`expired`, byj-ayk); an
+    older one is deleted and git's gc takes its objects.
   - What the person changes while a turn runs is in that turn's change: the
     snapshots see the work tree, not who wrote it.
   - A `.brainyard/` directory is left out, at any depth, whether git ignores
@@ -46,6 +47,8 @@
   (atom {}))
 
 (def ^:private ref-prefix "refs/byj/turns/")
+
+(def ^:private rewind-prefix "refs/byj/rewinds/")
 
 (def ^:private ident
   ;; who a snapshot's commit names: byj, never the person's identity, and
@@ -80,6 +83,15 @@
   `{:ok out}` (untrimmed) or `{:error}`."
   [dir env & args]
   (let [{:keys [exit out err]} (apply git* dir env args)]
+    (if (= 0 exit) {:ok out} {:error (str/trim (str err out))})))
+
+(defn- git-in
+  "git `args` in `dir` with `in` on its standard input: `{:ok out}` or
+  `{:error}`."
+  [dir in & args]
+  (let [{:keys [exit out err]} (try (let [r (apply fx/sh {:dir (str dir) :out :string :err :string :in in} "git" args)]
+                                      {:exit (:exit r) :out (str (:out r)) :err (str (:err r))})
+                                    (catch Throwable e {:exit nil :out "" :err (str (ex-message e))}))]
     (if (= 0 exit) {:ok out} {:error (str/trim (str err out))})))
 
 (defn- line [r] (some-> (:ok r) str/trim not-empty))
@@ -211,18 +223,62 @@
           (subs (clock/stamp (* 1000 (or at 0)) (or (clock/offset-seconds) 0) false) 0 19)
           (let [q (str subject)] (if (> (count q) 70) (str (subs q 0 69) "…") q))))
 
+(def ^:private day-s (* 24 60 60))
+
+(defn expired
+  "Which of `refs` — one kind's, `[{:ref :session :n :t} …]`, `:t` its
+  commit time in epoch seconds — are no longer kept at `now` (epoch
+  seconds), as a set of `:ref`s. A ref is kept while either holds:
+
+  - it is among the repository's newest `keep-n`, by commit time, a tie to
+    the later number — the rule this was until byj-ayk, so nothing it kept
+    is lost;
+  - its session was used within `days` — its newest ref of any kind,
+    `last-used` (session → epoch seconds), no older — and it is among that
+    session's newest `keep-n`.
+
+  The second is what a long session needs: under the first alone, the
+  turns other sessions ended took its first turns from it while it was
+  still open (RFC-069). A session idle past `days` keeps only what the
+  first holds."
+  [refs last-used now {:keys [keep-n days]}]
+  (let [recent (->> refs (sort-by (juxt (comp - :t) (comp - :n))) (take keep-n) (map :ref))
+        own (for [[session rs] (group-by :session refs)
+                  :when (<= (- now (get last-used session 0)) (* days day-s))
+                  r (take keep-n (sort-by (comp - :n) rs))]
+              (:ref r))
+        kept (into (set recent) own)]
+    (into #{} (comp (map :ref) (remove kept)) refs)))
+
 (defn- prune!
-  "Keep the newest `keep-n` refs under `prefix` (the turns', unless given)
-  of the repository at `root`."
-  [root keep-n & [prefix]]
-  ;; newest by commit time, which is to the second: a tie goes to the later
-  ;; turn, so a session's turns ended in one second are kept in order
-  (let [refs (->> (str/split-lines (or (:ok (git root nil "for-each-ref" "--format=%(committerdate:unix) %(refname)" (or prefix ref-prefix))) ""))
-                  (keep #(when-let [[_ t r n] (re-matches #"(\d+) (\S+/(\d+))" %)]
-                           {:t (parse-long t) :ref r :n (parse-long n)}))
-                  (sort-by (juxt (comp - :t) (comp - :n))))]
-    (doseq [{r :ref} (drop keep-n refs)]
-      (git root nil "update-ref" "-d" r))))
+  "Delete the refs of the repository at `root` its turns and rewinds no
+  longer keep (`expired`, `:changes-turns` and `:changes-days` of
+  `config`): one for-each-ref, and one update-ref for whatever goes."
+  [root config]
+  (let [refs (->> (str/split-lines (or (:ok (git root nil "for-each-ref" "--format=%(committerdate:unix) %(refname)"
+                                                 ref-prefix rewind-prefix)) ""))
+                  (keep #(when-let [[_ t r kind session n] (re-matches #"(\d+) (refs/byj/(turns|rewinds)/([^/]+)/(\d+))" %)]
+                           {:t (parse-long t) :ref r :kind kind :session session :n (parse-long n)})))
+        last-used (reduce (fn [m {:keys [session t]}] (update m session (fnil max 0) t)) {} refs)
+        opts {:keep-n (max 1 (or (:changes-turns config) 200))
+              :days (max 0 (or (:changes-days config) 30))}
+        now (quot (System/currentTimeMillis) 1000)
+        gone (into [] (mapcat (fn [[_ rs]] (expired rs last-used now opts))) (group-by :kind refs))]
+    (when (seq gone)
+      (git-in root (apply str (for [r gone] (str "delete " r "\n"))) "update-ref" "--stdin"))))
+
+(defn forget!
+  "Session `id`'s turn and rewind refs deleted, as the session is: nothing
+  can be taken back to a session there is no more (byj-ayk). The number
+  deleted, nil outside git."
+  [config id]
+  (when-let [r (root config)]
+    (let [refs (->> (str/split-lines (or (:ok (git r nil "for-each-ref" "--format=%(refname)"
+                                                   (str ref-prefix (safe id) "/") (str rewind-prefix (safe id) "/"))) ""))
+                    (remove str/blank?))]
+      (when (seq refs)
+        (git-in r (apply str (for [x refs] (str "delete " x "\n"))) "update-ref" "--stdin"))
+      (count refs))))
 
 ;; --- who is mid-turn in a work tree (RFC-069, byj-gly.487) --------------------
 ;;
@@ -299,7 +355,7 @@
               msg (str "byj " id " turn " turn (when first-line (str ": " first-line)))]
           (when-let [after (snapshot! root msg before)]
             (git root nil "update-ref" "-m" "byj turn" (ref-name id turn) after)
-            (prune! root (max 1 (or (:changes-turns config) 200)))
+            (prune! root config)
             (count (changed-files root before after))))))))
 
 (defn- no-git [config]
@@ -337,8 +393,6 @@
 ;; their stash are not touched, as with the snapshots; nor is anything the
 ;; snapshots leave out (.gitignore's, .brainyard/, Emacs's lock, auto-save
 ;; and backup files).
-
-(def ^:private rewind-prefix "refs/byj/rewinds/")
 
 (defn- rewind-numbers [root id]
   (->> (str/split-lines (or (:ok (git root nil "for-each-ref" "--format=%(refname)" (str rewind-prefix (safe id) "/"))) ""))
@@ -378,7 +432,7 @@
             (empty? files) {:files [] :from now}
             :else (let [ref (str rewind-prefix (safe id) "/" (inc (or (last (rewind-numbers root id)) 0)))]
                     (git root nil "update-ref" "-m" "byj rewind" ref now)
-                    (prune! root (max 1 (or (:changes-turns config) 200)) rewind-prefix)
+                    (prune! root config)
                     {:files files :saved ref :from now})))
         {:error "the work tree could not be snapshotted, so nothing was changed"})))
 

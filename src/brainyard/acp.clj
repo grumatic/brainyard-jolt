@@ -20,6 +20,7 @@
   `an-agent-sdk`)."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [brainyard.changes :as changes]
             [brainyard.channel :as channel]
             [brainyard.config :as config]
             [brainyard.context :as context]
@@ -604,6 +605,9 @@
       (sdk/close! open))
     (let [r (persist/delete! {:project-dir cwd} sessionId)]
       (when (:problem r) (throw (rpc-error -32602 (:problem r))))
+      ;; and what it kept to rewind: nothing goes back to a session there
+      ;; is no more (RFC-069, byj-ayk)
+      (changes/forget! {:project-dir cwd :working-dir cwd} sessionId)
       (swap! (:state conn) update :listed dissoc sessionId)
       {})))
 

@@ -141,8 +141,8 @@ A task is a question, the work tree it was asked in, and a check.
 
 - **The question** is the trajectory record's `:question` (RFC-025).
 - **The work tree** is the parent of the turn's checkpoint commit (RFC-069).
-  A repository keeps only its newest `:changes-turns`, so a task set is built
-  while they exist and saved by commit id.
+  Turn refs are pruned (RFC-069 "Every turn is kept"), so a task set is
+  built while they exist and saved by commit id.
 - **The check**, in order of trust: what a machine repeats — the project's
   test or build command, a dogfood stage's check (RFC-041); then what the
   person did — a turn rewound is a failure, a turn whose change was committed
@@ -165,8 +165,9 @@ never a loop on a project's own work.
   second's slack either side), whose question's first line is the ref's
   subject.
 - **The start** is the turn ref's parent, by commit id, and is **pinned** as
-  `refs/byj/tasks/<set>/<id>`: the repository prunes turn refs past
-  `:changes-turns`, and git's gc would take a start no ref holds. A pin is
+  `refs/byj/tasks/<set>/<id>`: the repository prunes turn refs (RFC-069),
+  and git's gc would take a start no ref holds; a pin is never pruned, nor
+  deleted with its session. A pin is
   released only when a person retires its task (`byj loops tasks retire
   ID…`, `loop-tasks/retire!`, `byj-ng7.11`), which takes it out of the set
   and keeps its id in the set's `:retired`, so a rebuild leaves it out

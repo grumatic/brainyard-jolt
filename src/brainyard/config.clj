@@ -113,7 +113,9 @@
    :changes? {:type "boolean" :default true :family :session
               :doc "Keep each turn's change as git keeps things: the project's work tree snapshotted as the turn begins and ends (commit objects, through an index of byj's own: HEAD, the index, the stash and the work tree untouched), every turn kept as refs/byj/turns/<session>/<turn> whose parent is its start — what a write-file, a bash command or a tangle changed alike. byj turns lists and diffs them, byj-review shows one in magit or vc (RFC-069). Nothing outside a git work tree."}
    :changes-turns {:type "integer" :default 200 :family :session
-                   :doc "How many turn refs (:changes?) a repository keeps, the newest by commit time, across its sessions; an older one is deleted as a turn ends, and git's gc takes what only it held. A turn that changed nothing shares its trees with the turn before, so its ref costs a commit object (RFC-069)."}
+                   :doc "How many turn refs (:changes?) are kept: the repository's newest, by commit time, across its sessions, and besides them each session's own newest while it was used within :changes-days, so a long session keeps its first turns however many other sessions run. An older one is deleted as a turn ends, and git's gc takes what only it held; a rewind's refs are kept alike. A turn that changed nothing shares its trees with the turn before, so its ref costs a commit object (RFC-069)."}
+   :changes-days {:type "integer" :default 30 :family :session
+                  :doc "How long after its last turn or rewind a session keeps its own newest :changes-turns turn refs (RFC-069, byj-ayk); past it, only what the repository's newest :changes-turns hold."}
    :share-tools? {:type "boolean" :default true :family :session
                   :doc "The session's agent can share: share$status, share$ls, share$start and share$control, the operations /share runs (RFC-043, byj-gly.362.2). share$start publishes what it shares, so :tool-ask-effects asks before it by default. Never a subagent's."}
    :recap? {:type "boolean" :default true :family :session

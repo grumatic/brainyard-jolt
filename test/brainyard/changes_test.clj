@@ -97,6 +97,57 @@
       (is (nil? (changes/end-turn! (assoc cfg :changes? false)))))
     (is (re-find #"no turn that changed files" (:error (changes/diff cfg "s-none"))))))
 
+(deftest a-session-keeps-its-own-turns-however-many-other-sessions-run
+  ;; byj-ayk: the repository's newest :changes-turns, and besides them each
+  ;; session's own newest while it was used within :changes-days
+  (let [day (* 24 60 60)
+        now (* 1000 day)
+        ref (fn [kind session n t] {:ref (str "refs/byj/" kind "/" session "/" n) :session session :n n :t t})
+        ;; a long session's first turns, long ago, and its last an hour ago;
+        ;; four short sessions since, each turn newer than all of the long
+        ;; one's; an idle session, last used forty days ago
+        long-s (for [n (range 1 6)] (ref "turns" "long" n (- now (* 3 day) (- (* 60 n)))))
+        long-s (concat long-s [(ref "turns" "long" 6 (- now 3600))])
+        short-s (for [s (range 4) n (range 1 4)] (ref "turns" (str "short" s) n (- now 1800 (- (* 10 (+ (* 3 s) n))))))
+        idle-s (for [n (range 1 4)] (ref "turns" "idle" n (- now (* 40 day) (- n))))
+        refs (concat long-s short-s idle-s)
+        last-used (reduce (fn [m {:keys [session t]}] (update m session (fnil max 0) t)) {} refs)
+        gone (changes/expired refs last-used now {:keep-n 3 :days 30})
+        kept (fn [session] (sort (keep #(when (and (= session (:session %)) (not (gone (:ref %)))) (:n %)) refs)))]
+    (testing "a session used within :changes-days keeps its own newest, though every other session's turns are newer"
+      (is (= [4 5 6] (kept "long")))
+      (is (every? #(= [1 2 3] (kept (str "short" %))) (range 4))))
+    (testing "the repository's newest are kept as they always were, whoever's they are"
+      (let [newest (take 3 (sort-by (juxt (comp - :t) (comp - :n)) refs))]
+        (is (not-any? (comp gone :ref) newest))))
+    (testing "a session idle past :changes-days keeps only what the repository's newest hold"
+      (is (= [] (kept "idle")))
+      (is (= [1 2 3] (sort (keep #(when (= "idle" (:session %)) (:n %))
+                                 (remove (comp (changes/expired idle-s last-used now {:keep-n 3 :days 30}) :ref) idle-s))))
+          "alone in its repository, the newest are its own"))
+    (testing "a session's turns past its own newest go however recent"
+      (is (= [4 5 6] (kept "long"))))))
+
+(deftest a-long-session-keeps-its-first-turns-and-a-deleted-one-leaves-none
+  (let [dir (repo "keep")
+        a (io/file dir "a.txt")
+        cfg (fn [id] {:project-dir dir :working-dir dir :session-id id :changes-turns 2})
+        turn! (fn [id n] (changes/begin-turn! (cfg id) n (str "turn " n)) (spit a (str id " " n "\n")) (changes/end-turn! (cfg id)))]
+    (turn! "long" 1)
+    (turn! "long" 2)
+    (doseq [s ["s1" "s2" "s3"] n [1 2]] (turn! s n))
+    (testing "three sessions ran six turns since: the long one, used today, still has both"
+      (is (= [1 2] (changes/turns (cfg "long") "long")))
+      (is (every? #(= [1 2] (changes/turns (cfg %) %)) ["s1" "s2" "s3"])))
+    (testing "a rewind's refs are kept alike, and a deleted session takes its turns and rewinds with it"
+      (is (:saved (changes/rewind! (cfg "s1") "s1" 1)))
+      (is (= [1] (changes/rewinds (cfg "s1") "s1")))
+      (is (= 3 (changes/forget! (cfg "s1") "s1")))
+      (is (= [] (changes/turns (cfg "s1") "s1")))
+      (is (= [] (changes/rewinds (cfg "s1") "s1")))
+      (is (= [1 2] (changes/turns (cfg "s2") "s2")) "another session's are its own")
+      (is (= "" (sh dir "git" "for-each-ref" "refs/byj/rewinds/s1/" "refs/byj/turns/s1/"))))))
+
 (deftest outside-git-nothing-is-kept
   (let [dir (fresh-dir "nogit")
         cfg {:project-dir dir :working-dir dir :session-id "s-n"}]

@@ -85,9 +85,46 @@ the question's first line.
   to go back to. Its two commits share a tree, so its ref costs a commit
   object. Whether a turn changed files is read from its trees.
   (`byj-gly.483`; until then only a turn that changed files was kept.)
-- **Pruning:** the repository keeps its newest `:changes-turns` (200) turn
-  refs across sessions, by commit time. An older one is deleted as a turn
-  ends, and git's gc takes what only it held.
+- **Pruning** (`changes/expired`, `byj-ayk`): a turn ref is kept while
+  either holds:
+  - it is among the repository's newest `:changes-turns` (200), by commit
+    time, whoever's — the whole rule until byj-ayk, so nothing it kept is
+    lost;
+  - its session was used — its newest turn or rewind ended — within
+    `:changes-days` (30), and it is among that session's own newest
+    `:changes-turns`.
+
+  An older one is deleted as a turn ends or a rewind is kept, in one
+  for-each-ref and one `update-ref --stdin`, and git's gc takes what only
+  it held. A rewind's refs are kept by the same rule, among rewinds. A
+  session idle past `:changes-days` keeps only what the first rule holds;
+  ACP's `session/delete` deletes a session's turn and rewind refs with it
+  (`changes/forget!`).
+
+  Why: under the first rule alone, a long session lost its first turns to
+  the turns other sessions ended while it was still open — one repository
+  held 141 turn refs a few days after a 92-turn session, so sixty more
+  turns of any session would have begun taking it. Measured by
+  `dev/brainyard/dev/turn_refs_spike.clj` on a workload of that session
+  (92 turns over two days, three more on day 20 and on day 45) beside six
+  five-turn sessions a day for sixty days:
+
+  | rule | the long session's turn 1 lost | can be taken back on day 45 | refs, most and at the end |
+  |---|---|---|---|
+  | the repository's newest 200 | on day 3 | no | 200, 200 |
+  | and each session's own newest 200 within 30 days | never in the 60 days | yes | 1003, 1003 |
+
+  What the refs hold that no branch does is small, so the price of the
+  five times as many refs is too:
+
+  | repository | turns | objects (commit, tree, blob) | loose | packed |
+  |---|---|---|---|---|
+  | A (a web app, a 92-turn session among 34) | 141 | 282, 282, 177 | 591 KB | 175 KB (1.2 KB a turn) |
+  | this one (source files of thousands of lines) | 24 | 48, 226, 1033 | 6.4 MB | 2.5 MB (107 KB a turn) |
+
+  Packed alone, without the deltas a whole repack also finds against the
+  branches: an upper bound. A thousand turns of this repository are some
+  100 MB until a gc packs them, and less after.
 - **The end event:** `:session.turn/end` carries `:files-changed`.
 - **Off:** nothing is kept outside a git work tree, without a session id, or
   with `:changes?` false.
@@ -245,6 +282,8 @@ session's id:
 (changes/turns config id)               ; → [n …] kept, ascending
 (changes/rows config id)                ; → [{:turn :ref :before :after :files :subject :at} …]
 (changes/subjects config id)            ; → [{:turn :subject} …], one git call (byj-lie)
+(changes/expired refs last-used now {:keep-n :days}) ; → #{ref …} no longer kept (byj-ayk)
+(changes/forget! config id)             ; → refs deleted, the session's turns and rewinds | nil
 (changes/row-line row)                  ; → "   3  2 files   2026-11-08T14:03:44  question…"
 (changes/diff config id & [turn])       ; → {:turn :ref :before :after :root :files :diff} | {:error}
 (changes/rewind! config id turn & [end?])      ; → {:turn :end? :files :saved :from} | {:error}
@@ -271,6 +310,7 @@ Session commands: `/rewind [TURN [end] | undo [N]]`, `/undo-turn TURN`,
 |---|---|
 | A turn's change is git's diff between snapshots of the work tree at its start and end, kept as `refs/byj/turns/<session>/<turn>` with the start as parent: what bash writes is in it, what `.gitignore` names, `.brainyard/` and Emacs's lock, auto-save and backup files are not, nor the person's work from before the turn, nor what came after; a nested repository with no commit does not stop it; HEAD, the index and the stash are untouched; the repository keeps its newest `:changes-turns`; nothing outside git, without a session id or with `:changes?` false. | `changes-test/a-turns-change-is-git-s-diff-between-its-start-and-end`, `changes-test/outside-git-nothing-is-kept`, `session-test/a-turns-writes-are-kept-for-its-review` |
 | A same-size edit made in the second the person's index was written is in the turn's end snapshot, however late in the next second the turn ends. | `changes-test/a-same-size-edit-in-the-second-the-index-was-written-is-kept` |
+| A session used within `:changes-days` keeps its own newest `:changes-turns` turns however many turns other sessions end, beside the repository's newest, which are kept as before; one idle past it keeps only those; a rewind's refs are kept alike; a deleted session's turn and rewind refs go with it, another's stay. | `changes-test/a-session-keeps-its-own-turns-however-many-other-sessions-run`, `changes-test/a-long-session-keeps-its-first-turns-and-a-deleted-one-leaves-none`, `acp-test/a-saved-session-is-deleted` |
 | Every turn is kept, one that changed nothing too; its diff says it changed no files, and "the last turn" means the last that changed files. | `changes-test/a-turns-change-is-git-s-diff-between-its-start-and-end` |
 | `byj turns list` lists every kept turn with how many files it changed; `diff` is what `byj emacs changes` says. | `main-test/byj-turns-lists-a-session-s-turns-and-diffs-one` |
 | Going back first keeps what it replaces as a rewind ref, the person's work since included, and puts back bytes exactly; a file the target lacks is removed and one it has is made; undoing a rewind puts back what it replaced, and is itself undone the same way; HEAD and the index are the person's still. | `changes-test/a-work-tree-goes-back-to-a-turn-and-a-turn-is-undone-alone` |

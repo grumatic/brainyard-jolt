@@ -453,11 +453,21 @@
       (is (= #{a b held} (listed)))
       (io/make-parents (io/file dir ".brainyard" "transcripts" a "t.edn"))
       (spit (io/file dir ".brainyard" "transcripts" a "t.edn") "[]")
+      ;; what a and b kept to rewind, as RFC-069 keeps it
+      (let [git #(str/trim (:out (apply fx/sh {:dir dir :out :string :err :string} "git" %&)))]
+        (git "init" "-q")
+        (let [c0 (git "-c" "user.name=byj" "-c" "user.email=byj@localhost" "commit-tree" "-m" "byj"
+                      (git "hash-object" "-w" "-t" "tree" "/dev/null"))]
+          (doseq [r [(str "refs/byj/turns/" a "/1") (str "refs/byj/rewinds/" a "/1") (str "refs/byj/turns/" b "/1")]]
+            (git "update-ref" r c0))))
       (testing "a listed session is deleted, its transcript with it, and is listed no more"
         (is (= {} (:result (call c "session/delete" {:sessionId a}))))
         (is (not (.exists (persist/session-dir cfg a))))
         (is (not (.exists (io/file dir ".brainyard" "transcripts" a))))
         (is (= #{b held} (listed))))
+      (testing "and what it kept to rewind goes with it, another session's left (byj-ayk)"
+        (let [refs (str/trim (:out (fx/sh {:dir dir :out :string} "git" "for-each-ref" "--format=%(refname)" "refs/byj/")))]
+          (is (= (str "refs/byj/turns/" b "/1") refs))))
       (testing "one open on this connection is closed first"
         (is (= {} (:result (call c "session/delete" {:sessionId b}))))
         (is (:error (call c "session/prompt" {:sessionId b :prompt [{:type "text" :text "x"}]})))
