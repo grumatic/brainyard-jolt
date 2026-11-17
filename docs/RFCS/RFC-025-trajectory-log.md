@@ -45,7 +45,8 @@ it cost. That is a record, not a stream.
  :terminated-by :answer-channel
  :total-iterations 2
  :iterations [{:n 1 :channel "tool" :thought "I should look"
-               :tools [{:name "list-dir" :args {:path "."} :result "…"}]}
+               :tools [{:name "list-dir" :args {:path "."} :result "…"
+                        :started-at 1794746057066 :duration-ms 12}]}
               {:n 2 :channel "answer" :answer "a deps file"}]
  :model "mock-1" :provider :mock
  :usage {:in 1243 :out 287 :cache-read 900 :cache-write 300 :calls 2}
@@ -54,6 +55,14 @@ it cost. That is a record, not a stream.
  :loop {:hash "cdf9eecbbb3a"}         ; the tree the turn ran, expanded (byj-ng7.19)
  :jolt "v0.8.10"}                     ; the RUNTIME that produced the turn
 ```
+
+**A call says when it began and how long it ran** (`byj-53r`):
+`:started-at` (epoch ms) and `:duration-ms`, from the call's start to its
+result — a permission request's wait included, and for a call that outruns
+`:fast-eval-timeout-ms`, to the marker it returned (RFC-019). It is the
+trajectory's alone: the iterations the next prompt shows (`:iterations`) do
+not carry it, a number that differs on every run of the same work. A call
+recorded before has neither.
 
 **`:permission-mode` is the port's, and optional** (divergence
 `trajectory-keeps-the-permission-mode`, byj-gly.288.49.9): the mode a person
@@ -235,6 +244,7 @@ hold, and neither does the default.
 |---|---|
 | What a turn leaves on disk — `trajectory.edn` and the session's `meta.edn` — is exported as `contract/trajectory/` and held to what byj writes (RFC-070 phase 2) | `contract-test/the-session-socket-and-the-trajectory-are-byjs-contract` |
 | A turn appends exactly one record, with its question, answer, iterations, model, provider, usage and duration. | `trajectory-test/a-turn-records-what-it-did` |
+| A call's record says when it began and how long it ran, and the prompt that shows the call again does not | `trajectory-test/a-call-is-recorded-with-when-it-began-and-how-long-it-ran` |
 | A turn's record says which loop it ran, by the hash `flow check` gives that loop's file expanded | `trajectory-test/a-turn-records-which-loop-it-ran` |
 | Turns append; position is the ordering. | `trajectory-test/a-second-turn-appends-rather-than-replacing` |
 | The record keeps every iteration, though the prompt is capped. | `trajectory-test/the-record-keeps-what-the-prompt-was-made-to-forget` |

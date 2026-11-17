@@ -147,6 +147,33 @@
         (is (= "list-dir" (:name (first (:tools (first (:iterations rec)))))))
         (is (= "I should look" (:thought (first (:iterations rec)))))))))
 
+(deftest a-call-is-recorded-with-when-it-began-and-how-long-it-ran
+  (let [dir (fresh-dir "trajectory-timed")
+        cfg {:working-dir (.getPath dir) :project-dir (.getPath dir)
+             :session-id "s1"}
+        asked (atom [])
+        replies (atom [{:reasoning "look" :tool-calls [{:tool-name "list-dir" :tool-args {:path "."}}]}
+                       {:reasoning "done" :tool-calls [] :answer "looked"}])
+        before (System/currentTimeMillis)]
+    (agent/ask "what is here"
+               {:lm {:provider :mock :format :mock :model "mock-1"
+                     :responses (fn [req] (swap! asked conj (pr-str req))
+                                  (let [r (first @replies)]
+                                    (swap! replies #(if (next %) (vec (rest %)) %))
+                                    (json/write-str r)))}
+                :config cfg})
+    (let [after (System/currentTimeMillis)
+          [rec] (tr/read-trajectories cfg "s1")
+          call (first (:tools (first (:iterations rec))))]
+      (testing "the record keeps when the call began and how long it ran (byj-53r)"
+        (is (<= before (:started-at call) after))
+        (is (<= 0 (:duration-ms call) (- after before)))
+        (is (nil? (schema/explain-problems tr/record-schema rec))))
+      (testing "and the prompt that shows the call again does not: it would differ on every run"
+        (is (= 2 (count @asked)))
+        (is (str/includes? (second @asked) "list-dir"))
+        (is (not (re-find #"started-at|elapsed-ms|duration-ms" (second @asked))))))))
+
 (deftest a-second-turn-appends-rather-than-replacing
   (let [dir (fresh-dir "trajectory-append")
         cfg {:working-dir (.getPath dir) :project-dir (.getPath dir)

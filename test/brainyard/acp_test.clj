@@ -331,6 +331,48 @@
             (is (str/includes? (get-in tc [:content 0 :content :text]) "the notes"))))
         (finally (acp/end! (:conn c2)))))))
 
+(deftest a-replayed-call-says-when-it-began-and-how-long-it-ran
+  (let [dir (fresh-dir "load-timed")
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1})
+        model (script! dir [{:tool-calls [{:tool-name "bash" :tool-args {:command "sleep 0.3"}}]}
+                            {:answer "slept" :goal-achieved true}])
+        {:keys [sessionId]} (new-session c dir model)
+        before (System/currentTimeMillis)
+        _ (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "sleep a little"}]})
+        after (System/currentTimeMillis)
+        live (first (filter #(= "tool_call_update" (:sessionUpdate %)) (updates c sessionId)))
+        _ (acp/end! (:conn c))
+        load! (fn []
+                (let [c2 (client)
+                      _ (call c2 "initialize" {:protocolVersion 1})
+                      _ (call c2 "session/load" {:sessionId sessionId :cwd dir :mcpServers []
+                                                 :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false}}}})
+                      tc (first (filter #(= "tool_call" (:sessionUpdate %)) (updates c2 sessionId)))]
+                  (acp/end! (:conn c2))
+                  tc))]
+    (testing "a live call's update carries byj's own time for it"
+      (is (<= before (get-in live [:_meta :brainyard :startedAt]) after))
+      (is (<= 300 (get-in live [:_meta :brainyard :durationMs]) (- after before))))
+    (testing "a replayed call, the time the run kept, beside its turn"
+      (let [tc (load!)
+            {:keys [startedAt durationMs turn]} (get-in tc [:_meta :brainyard])]
+        (is (= "completed" (:status tc)))
+        (is (= 1 turn))
+        (is (= (get-in live [:_meta :brainyard :startedAt]) startedAt))
+        (is (= (get-in live [:_meta :brainyard :durationMs]) durationMs))))
+    (testing "a call recorded before calls were timed has neither, and still loads"
+      (let [f (io/file dir ".brainyard" "sessions" sessionId "trajectory.edn")
+            untime (fn [r] (update r :iterations
+                                   (fn [its] (mapv (fn [it] (cond-> it
+                                                              (:tools it) (update :tools (fn [ts] (mapv #(dissoc % :started-at :duration-ms) ts)))))
+                                                   its))))]
+        (is (.exists f))
+        (spit f (str (str/join "\n" (map (comp pr-str untime read-string) (remove str/blank? (str/split-lines (slurp f))))) "\n"))
+        (let [tc (load!)]
+          (is (= "completed" (:status tc)))
+          (is (= {:turn 1} (get-in tc [:_meta :brainyard]))))))))
+
 (deftest saved-sessions-are-listed-for-an-editor-to-import
   (let [dir (fresh-dir "list")
         c (client)

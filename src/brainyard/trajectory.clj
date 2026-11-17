@@ -68,7 +68,7 @@
       (= "answer" c) (assoc :answer (trunc answer max-answer-chars))
       (= "llm-error" c) (assoc :error (str error))
       (seq tool-results)
-      (assoc :tools (mapv (fn [{:keys [tool-name tool-args tool-result tool-error? spilled node slot]}]
+      (assoc :tools (mapv (fn [{:keys [tool-name tool-args tool-result tool-error? spilled node slot started-at elapsed-ms]}]
                             (cond-> {:name (str tool-name)}
                               ;; a tree's call (`:tool/run`): the node that
                               ;; made it, and the slot it ran in (byj-8gc)
@@ -78,6 +78,11 @@
                               (some? tool-result) (assoc :result (trunc tool-result max-field-chars))
                               ;; where the whole of a result the prompt cut went
                               spilled (assoc :spilled spilled)
+                              ;; when the call began (epoch ms) and how long it
+                              ;; ran, for a client that shows the turn again
+                              ;; (byj-53r); a call recorded before has neither
+                              started-at (assoc :started-at started-at)
+                              elapsed-ms (assoc :duration-ms elapsed-ms)
                               ;; only when it failed: a record is read far more
                               ;; often than it is written, and `:error? false`
                               ;; on every successful call is noise
@@ -171,7 +176,9 @@
                                      [:spilled {:optional true} :string]
                                      [:error? {:optional true} :boolean]
                                      [:node {:optional true} :keyword]
-                                     [:slot {:optional true} :keyword]]]]]]]
+                                     [:slot {:optional true} :keyword]
+                                     [:started-at {:optional true} :int]
+                                     [:duration-ms {:optional true} :int]]]]]]]
    [:session {:optional true} :string]
    [:asked {:optional true} :string]
    [:agent {:optional true} :string]

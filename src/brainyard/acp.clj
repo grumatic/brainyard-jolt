@@ -166,12 +166,23 @@
                 :else nil)]
     (str tool-name (when a (str " " (clip a 80))))))
 
+(defn- call-timing
+  "`meta` with when a call began (`startedAt`, epoch ms) and how long it ran
+  (`durationMs`), which ACP has no field for (byj-53r); a call recorded
+  before calls were timed has neither, and a client shows no time."
+  [meta started-at duration-ms]
+  (cond-> meta
+    started-at (assoc :startedAt started-at)
+    duration-ms (assoc :durationMs duration-ms)))
+
 (defn- replay-turns!
   "A loaded session's history (`session-history/turns`) as `session/update`s, every
   turn from its first, each update naming its turn in `_meta.brainyard.turn`
   as `byj turns list` numbers it: the question as the user's message, each
   thought, each tool call with its result — one `tool_call`, already
-  completed or failed, its id `turn-N-S-I` — and the answer (byj-lie)."
+  completed or failed, its id `turn-N-S-I`, with its `startedAt` and
+  `durationMs` when the record kept them (byj-53r) — and the answer
+  (byj-lie)."
   [conn sid effects-of turns]
   (doseq [{:keys [turn question answer steps]} turns]
     (let [up! #(update! conn sid (assoc % :_meta {:brainyard {:turn turn}}))]
@@ -180,13 +191,14 @@
       (doseq [[k step] (map-indexed vector steps)]
         (when-let [t (not-empty (str (:thought step)))]
           (up! {:sessionUpdate "agent_thought_chunk" :content (text-block t)}))
-        (doseq [[i {:keys [name args result error?]}] (map-indexed vector (:tools step))]
-          (up! {:sessionUpdate "tool_call" :toolCallId (str "turn-" turn "-" k "-" i)
-                :title (call-title name args)
-                :kind (tool-kind (effects-of name))
-                :status (if error? "failed" "completed")
-                :rawInput (if (map? args) args {})
-                :content [{:type "content" :content (text-block (clip result 4000))}]})))
+        (doseq [[i {:keys [name args result error? started-at duration-ms]}] (map-indexed vector (:tools step))]
+          (update! conn sid {:sessionUpdate "tool_call" :toolCallId (str "turn-" turn "-" k "-" i)
+                             :title (call-title name args)
+                             :kind (tool-kind (effects-of name))
+                             :status (if error? "failed" "completed")
+                             :rawInput (if (map? args) args {})
+                             :content [{:type "content" :content (text-block (clip result 4000))}]
+                             :_meta {:brainyard (call-timing {:turn turn} started-at duration-ms)}})))
       (when-not (str/blank? (str answer))
         (up! {:sessionUpdate "agent_message_chunk" :content (text-block answer)})))))
 
@@ -221,10 +233,13 @@
           :agent.tools/results
           (let [ids (get-in @st [:calls sid])]
             (doseq [[[id _] r] (map vector ids (:results data))]
-              (update! conn sid {:sessionUpdate "tool_call_update" :toolCallId id
-                                 :status (if (:tool-error? r) "failed" "completed")
-                                 :content [{:type "content"
-                                            :content (text-block (clip (:tool-result r) 4000))}]})))
+              (update! conn sid (cond-> {:sessionUpdate "tool_call_update" :toolCallId id
+                                         :status (if (:tool-error? r) "failed" "completed")
+                                         :content [{:type "content"
+                                                    :content (text-block (clip (:tool-result r) 4000))}]}
+                                  ;; byj's own time for the call, so a client
+                                  ;; need not keep one (byj-53r)
+                                  (:started-at r) (assoc :_meta {:brainyard (call-timing {} (:started-at r) (:elapsed-ms r))})))))
           :session/resumed
           (when replay?
             (let [turns (try (session-history/turns {:project-dir project-dir :working-dir project-dir} (or (:id data) sid))

@@ -456,7 +456,9 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
       (do (emit! ctx :agent.tree/tool-missing {:node (:id node) :tool (:tool node)})
           :failure)
       (let [_ (step-start! ctx node :tool (:tool node) args)
+            t0 (System/currentTimeMillis)
             result (tools/call-tool tool args ctx)
+            t1 (System/currentTimeMillis)
             _ (account-tool-cost! st-memory result)
             ;; a call can go wrong three ways, and only one of them carries
             ;; :error-message. A gate-blocked call returns {:hook-blocked true}
@@ -481,7 +483,8 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                                 :tool-results [(cond-> {:tool-name (:tool node) :tool-args args
                                                         :tool-result (result->str result)
                                                         :tool-error? (boolean failed)
-                                                        :node (or (:id node) :tool/run)}
+                                                        :node (or (:id node) :tool/run)
+                                                        :started-at t0 :elapsed-ms (- t1 t0)}
                                                  (:attached-to ctx) (assoc :slot (:attached-to ctx)))]})))
         (if failed
           (do (emit! ctx :agent.tree/tool-failed {:node (:id node) :tool (:tool node) :error failed})
@@ -887,7 +890,7 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                                             ctx tool-name
                                             #(tools/call-tool (get @tools tool-name) tool-args (assoc ctx :tool-call-index i))))]
                               (account-tool-cost! st-memory raw)
-                              (assoc (run call raw) ::elapsed-ms (- (System/currentTimeMillis) t0)))))
+                              (assoc (run call raw) :started-at t0 :elapsed-ms (- (System/currentTimeMillis) t0)))))
                     batch))
         n (if (:parallel-tools? config) (max 1 (count batch)) 1)]
     (emit! ctx :agent.tools/calls {:tool-calls batch})
@@ -895,12 +898,14 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
     (m/sp
      (let [results (m/? (fx/bounded n tasks))
            blocked (some #(when (true? (:hook-blocked (::raw %))) (::raw %)) results)
-           ;; how long each took is the renderer's to show (byj-gly.240), and
-           ;; the event's alone: in the results a model reads again it would be
-           ;; a number that differs on every run of the same work
-           timed (mapv #(-> % (dissoc ::raw ::elapsed-ms) (assoc :elapsed-ms (::elapsed-ms %))) results)
-           results (mapv #(dissoc % ::raw ::elapsed-ms) results)]
-       (swap! st-memory assoc :last-tool-results results :last-channel :tool :no-action-streak 0)
+           ;; when each began and how long it took is the renderer's to show
+           ;; (byj-gly.240) and the trajectory's to keep (byj-53r), never the
+           ;; model's: in the results it reads again it would be a number that
+           ;; differs on every run of the same work, so `accumulate-action`
+           ;; keeps it out of `:iterations`
+           timed (mapv #(dissoc % ::raw) results)
+           results (mapv #(dissoc % ::raw :started-at :elapsed-ms) results)]
+       (swap! st-memory assoc :last-tool-results timed :last-channel :tool :no-action-streak 0)
        (emit! ctx :agent.tools/results {:results timed})
        ;; off the fiber: a user hook body may call a blocking tool (RFC-009)
        (m/? (fx/task-of #(hooks/fire! ctx :agent.tool-calls/post {:iteration iteration :calls batch :results results})))
@@ -962,6 +967,16 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                    (str "NO ACTION: your previous reply populated neither `tool-calls` nor `answer`. "
                         "Call a tool or write the final answer."))))))))
 
+(defn- untimed
+  "An iteration record without its calls' `:started-at` and `:elapsed-ms`:
+  the trajectory keeps them (byj-53r), and what the prompt shows again
+  (`:iterations`) does not, a number that differs on every run of the same
+  work."
+  [record]
+  (cond-> record
+    (seq (:tool-results record))
+    (update :tool-results (fn [rs] (mapv #(dissoc % :started-at :elapsed-ms) rs)))))
+
 (defn ^{:reads #{:iteration-count :last-reasoning :last-channel :last-tool-results :pending-notices :answer :last-error} :writes #{:iterations :pending-notices :trajectory-iterations}}
   accumulate-action
   "Append this iteration's record to :iterations (capped) and the uncapped
@@ -1000,7 +1015,7 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                 (cond-> (-> % (update :trajectory-iterations conj record)
                             (assoc :pending-notices []))
                   (not= :answer last-channel)
-                  (update :iterations (fn [its] (vec (take-last keep-n (conj its record)))))))))))
+                  (update :iterations (fn [its] (vec (take-last keep-n (conj its (untimed record))))))))))))
 
 (defn ^{:reads #{:started-at} :writes #{}}
   arm-task-notify-action
