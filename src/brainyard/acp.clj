@@ -176,6 +176,11 @@
     started-at (assoc :startedAt started-at)
     duration-ms (assoc :durationMs duration-ms)))
 
+(defn- checkpoint-meta
+  "A turn's checkpoint (`session-history/checkpoint`) as `_meta` says it."
+  [{:keys [ref before after files-changed]}]
+  {:ref ref :before before :after after :filesChanged files-changed})
+
 (defn- replay-turns!
   "A loaded session's history (`session-history/turns`) as `session/update`s, every
   turn from its first, each update naming its turn in `_meta.brainyard.turn`
@@ -183,10 +188,18 @@
   thought, each tool call with its result — one `tool_call`, already
   completed or failed, its id `turn-N-S-I`, with its `startedAt` and
   `durationMs` when the record kept them (byj-53r) — and the answer
-  (byj-lie)."
+  (byj-lie). A turn byj keeps a checkpoint of says it on its first update,
+  `_meta.brainyard.checkpoint {ref before after filesChanged}`: what a
+  rewind of it goes back to (byj-d8c.1); one with none can be taken back
+  to no more."
   [conn sid effects-of turns]
-  (doseq [{:keys [turn question answer steps]} turns]
-    (let [up! #(update! conn sid (assoc % :_meta {:brainyard {:turn turn}}))]
+  (doseq [{:keys [turn question answer steps checkpoint]} turns]
+    (let [first? (atom true)
+          ;; the turn's first update, whatever it is, carries its checkpoint
+          meta #(cond-> %
+                  (and checkpoint (compare-and-set! first? true false))
+                  (assoc :checkpoint (checkpoint-meta checkpoint)))
+          up! #(update! conn sid (assoc % :_meta {:brainyard (meta {:turn turn})}))]
       (when-not (str/blank? (str question))
         (up! {:sessionUpdate "user_message_chunk" :content (text-block question)}))
       (doseq [[k step] (map-indexed vector steps)]
@@ -199,7 +212,7 @@
                              :status (if error? "failed" "completed")
                              :rawInput (if (map? args) args {})
                              :content [{:type "content" :content (text-block (clip result 4000))}]
-                             :_meta {:brainyard (call-timing {:turn turn} started-at duration-ms)}})))
+                             :_meta {:brainyard (meta (call-timing {:turn turn} started-at duration-ms))}})))
       (when-not (str/blank? (str answer))
         (up! {:sessionUpdate "agent_message_chunk" :content (text-block answer)})))))
 

@@ -36,7 +36,8 @@ knows git and the session's id, not providers, tools or renderers.
 commands' mechanism; persistence (RFC-016) the cut of a snapshot before a
 turn; the CLI `byj turns`; Emacs (RFC-067) the diff its review opens; the
 ReAct loop's extension slots (RFC-072) the turn's start as `:turn-start`,
-which `session/begin-turn` keeps from what `begin-turn!` returns.
+which `session/begin-turn` keeps from what `begin-turn!` returns; ACP
+(RFC-053) each loaded turn's checkpoint, from `rows` (`byj-d8c.1`).
 
 ## Model
 
@@ -132,7 +133,10 @@ the question's first line.
 ### Reading the turns
 
 - **`changes/rows`:** a session's kept turns, each as `{:turn :ref :before
-  :after :files :subject :at}`. The CLI shows them with `byj turns list
+  :after :files :subject :at}`, in two git calls however many turns: one
+  `for-each-ref` with each ref's parent, one `diff-tree --stdin` for every
+  turn's files (`byj-d8c.1`; a 92-turn session in about 0.3 s, where it
+  had run two git calls a turn). The CLI shows them with `byj turns list
   SESSION`, and `/rewind` with no argument shows the same.
 - **`changes/diff`:** git's diff between a turn's two snapshots, for the last
   turn that changed files unless a turn is named.

@@ -20,7 +20,9 @@
     answer among them.
 
   `turns` puts them together: each turn once, numbered as `byj turns list`
-  numbers it, with what each source knows of it. Reads only."
+  numbers it, with what each source knows of it, and the checkpoint the
+  turn refs keep of it — what a rewind goes back to (byj-d8c.1). Reads
+  only."
   (:require [clojure.string :as str]
             [brainyard.changes :as changes]
             [brainyard.persist :as persist]
@@ -65,15 +67,25 @@
                           (when (seq (:tools it)) [{:tools (:tools it)}]))]
          step)))
 
+(defn checkpoint
+  "A turn's checkpoint as a client is told it: its ref, the work tree's
+  commits as it began and ended, and how many files it changed — from
+  `changes/rows`."
+  [{:keys [ref before after files]}]
+  {:ref ref :before before :after after :files-changed (count files)})
+
 (defn turns
   "Session `id`'s turns, ascending: `{:turn :question :answer :steps
-  :terminated-by}`, each from the first source that has it — the trajectory,
-  then the snapshot's last turns, then the turn refs, which know only the
-  question. A turn in a /compact summary is the summary's no longer. [] when
-  the session left none of them."
+  :terminated-by :checkpoint}`, each from the first source that has it —
+  the trajectory, then the snapshot's last turns, then the turn refs,
+  which know only the question. `:checkpoint` (`checkpoint`) is there while
+  byj keeps the turn's refs (RFC-069): not for one begun outside git, with
+  `:changes?` off, or pruned. A turn in a /compact summary is the summary's
+  no longer. [] when the session left none of them."
   [config id]
   (let [records (trajectory/read-trajectories config id)
         subjects (try (changes/subjects config id) (catch Throwable _ []))
+        kept (into {} (map (juxt :turn checkpoint)) (try (changes/rows config id) (catch Throwable _ [])))
         snap (persist/read-session config id)
         prev (when-not (:problem snap)
                (remove (fn [[_ e]] (:compacted e))
@@ -90,4 +102,4 @@
          ;; the later source wins: records, then the snapshot, then the refs
          (reduce (fn [m [n t]] (if (pos-int? n) (assoc m n t) m)) (sorted-map))
          vals
-         vec)))
+         (mapv #(if-let [c (kept (:turn %))] (assoc % :checkpoint c) %)))))

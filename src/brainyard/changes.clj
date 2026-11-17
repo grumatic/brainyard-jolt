@@ -195,23 +195,44 @@
          (sort-by :turn) vec)
     []))
 
+(defn- files-of
+  "Each of the commits `afters` with the paths it changed from its parent,
+  `{after [path …]}`, in one `git diff-tree --stdin`: a session's every
+  turn in one call, where a diff a turn took a process each (byj-d8c.1)."
+  [root afters]
+  (if (empty? afters)
+    {}
+    (let [wanted (set afters)
+          out (:ok (git-in root (str (str/join "\n" afters) "\n")
+                           "diff-tree" "--stdin" "-r" "--name-only" "--no-renames" "--always" "-z"))]
+      ;; -z: each commit's id, then its paths, every one ended by a NUL
+      (loop [[x & more] (str/split (or out "") #"\u0000") cur nil acc {}]
+        (cond
+          (nil? x) acc
+          (str/blank? x) (recur more cur acc)
+          (wanted (str/trim x)) (recur more (str/trim x) (assoc acc (str/trim x) []))
+          cur (recur more cur (update acc cur conj x))
+          :else (recur more cur acc))))))
+
 (defn rows
   "Session `id`'s kept turns, ascending, as the turn list shows them:
   `{:turn :ref :before :after :files :subject :at}` — `:files` the paths it
-  changed, `:at` its end in epoch seconds."
+  changed, `:at` its end in epoch seconds. Two git calls, however many
+  turns."
   [config id]
   (if-let [r (root config)]
-    (->> (str/split-lines (or (:ok (git r nil "for-each-ref" "--format=%(refname)%09%(objectname)%09%(committerdate:unix)%09%(subject)"
-                                     (str ref-prefix (safe id) "/"))) ""))
-         (keep (fn [l]
-                 (let [[ref after at subject] (str/split l #"\t" 4)]
-                   (when-let [n (some-> ref turn-of)]
-                     (when-let [before (line (git r nil "rev-parse" "--verify" "-q" (str after "^")))]
-                       {:turn n :ref ref :before before :after after
-                        :files (changed-files r before after)
-                        :at (some-> at parse-long)
-                        :subject (question-of subject)})))))
-         (sort-by :turn) vec)
+    (let [refs (->> (str/split-lines (or (:ok (git r nil "for-each-ref" "--format=%(refname)%09%(objectname)%09%(parent)%09%(committerdate:unix)%09%(subject)"
+                                                   (str ref-prefix (safe id) "/"))) ""))
+                    (keep (fn [l]
+                            (let [[ref after before at subject] (str/split l #"\t" 5)
+                                  before (first (str/split (str before) #" "))]
+                              (when-let [n (some-> ref turn-of)]
+                                (when-not (str/blank? before)
+                                  {:turn n :ref ref :before before :after after
+                                   :at (some-> at parse-long)
+                                   :subject (question-of subject)}))))))
+          files (files-of r (distinct (map :after refs)))]
+      (->> refs (map #(assoc % :files (get files (:after %) []))) (sort-by :turn) vec))
     []))
 
 (defn row-line

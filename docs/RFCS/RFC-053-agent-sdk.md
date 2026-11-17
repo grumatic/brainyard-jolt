@@ -168,7 +168,7 @@ print goes to standard error and the event log
 |---|---|
 | `initialize` | protocol 1 (2 only once negotiated support exists); `loadSession`; `sessionCapabilities` `close`, `list`, `resume`, `delete`; text and embedded-context prompts; stdio MCP servers; byj's version (RFC-029) as `agentInfo.version` |
 | `session/new` | a session in `cwd` — the project dir, its `.brainyard/` read as any session reads it; `mcpServers` started as the session's (RFC-024); `_meta.brainyard` options below. Answers byj's session id (`context/session-id`) |
-| `session/load` | `persist/restore` of that id (RFC-016), its history replayed as `session/update`s as ACP asks — every turn from the first (`session-history/turns`), each update naming its turn in `_meta.brainyard.turn`; refused while another process holds its lock |
+| `session/load` | `persist/restore` of that id (RFC-016), its history replayed as `session/update`s as ACP asks — every turn from the first (`session-history/turns`), each update naming its turn in `_meta.brainyard.turn`, a turn's first its checkpoint in `_meta.brainyard.checkpoint`; refused while another process holds its lock |
 | `session/list` | the project's saved sessions, newest first — `persist/summaries` of `cwd` (or the directory byj runs in), what `byj run --resume` lists — less an unreadable snapshot and a session that never ran a turn; each a `SessionInfo`: the title the conversation's name, else its last question, `updatedAt` ISO 8601, and `_meta.brainyard` `turnCount`, `createdAt`, `heldBy` (the pid of a live process holding it, which `session/load` would refuse). Fifty a page, `nextCursor` the next page's offset. Advertised as `sessionCapabilities.list`: an editor's thread import reads it (`byj-g5n.14`, found in Zed) |
 | `session/resume` | `session/load` without the history replayed — the session opened where it stood, for a client that keeps its own copy of the thread; `sessionCapabilities.resume` |
 | `session/delete` | `persist/delete!` (RFC-016): the session's directory and transcript tree removed, and its turn and rewind refs (`changes/forget!`, RFC-069), closed first when this connection has it open, refused while another live process holds it. The request names no project, so it is the one `session/list` listed the session in on this connection, else `_meta.brainyard.cwd`, else the directory byj runs in; `sessionCapabilities.delete` |
@@ -531,7 +531,14 @@ Decided while building it:
   carries `_meta.brainyard.startedAt` (epoch ms) and `durationMs`
   (`byj-53r`), which ACP has no field for; one recorded before has
   neither, and a client shows no time. A live call's `tool_call_update`
-  carries the same two, so a client need not time a call itself. A session that left
+  carries the same two, so a client need not time a call itself. A turn
+  byj keeps a checkpoint of (RFC-069) says it on its first update,
+  `_meta.brainyard.checkpoint {ref before after filesChanged}`: the ref,
+  the work tree's commits as the turn began and ended — what a rewind of
+  it goes back to — and how many files it changed (`byj-d8c.1`, from
+  `changes/rows`, two git calls for the whole session). A turn with none —
+  begun outside git, with `:changes?` off, or pruned — can be taken back to
+  no more. A session that left
   none of them replays its transcript as user, agent and thought chunks,
   as before.
 - **A permission request names the call** the gate is asking about, its
@@ -583,6 +590,7 @@ Planned:
 | A permission request reaches the client as `session/request_permission`, naming the call with byj's four answers, and its answer is the gate's; allow-always is remembered for the session. | `acp-test/a-prompt-is-the-clients-to-answer` |
 | `session/cancel` ends the running turn, the prompt answered `cancelled`. | `acp-test/a-cancel-ends-the-turn-cancelled` |
 | `session/load` replays the history before it answers; a session already open is refused. | `acp-test/a-session-is-loaded-with-its-history` |
+| A loaded turn's first update says its checkpoint — its ref, the commits as it began and ended, the files it changed, none for a turn that changed nothing all the same — once; a turn whose refs are gone has none and is replayed all the same. | `acp-test/a-loaded-turn-says-what-a-rewind-of-it-goes-back-to`, `session-history-test/every-turn-is-put-together-from-what-the-session-left` |
 | A replayed call carries the start and duration its record kept, a live one's update byj's own, and a call recorded before neither | `acp-test/a-replayed-call-says-when-it-began-and-how-long-it-ran` |
 | `session/load` replays every turn from the first, not only the snapshot's window, each update naming its turn | `acp-test/a-loaded-session-replays-every-turn-not-only-the-snapshots-window`, `session-history-test/every-turn-is-put-together-from-what-the-session-left` |
 | A record written before records carried `:turn` is numbered by its question among the turn refs, else by position | `session-history-test/a-record-is-numbered-by-its-turn-or-by-the-turn-refs-question` |

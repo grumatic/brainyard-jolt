@@ -373,6 +373,44 @@
           (is (= "completed" (:status tc)))
           (is (= {:turn 1} (get-in tc [:_meta :brainyard]))))))))
 
+(deftest a-loaded-turn-says-what-a-rewind-of-it-goes-back-to
+  (let [dir (fresh-dir "load-checkpoint")
+        git #(str/trim (str (:out (apply fx/sh {:dir dir :out :string :err :string} "git" %&))))
+        _ (do (git "init" "-q") (spit (io/file dir "notes.md") "the notes\n")
+              (git "add" "-A") (git "-c" "user.name=t" "-c" "user.email=t@x.invalid" "commit" "-q" "-m" "first"))
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1})
+        model (script! dir [{:tool-calls [{:tool-name "bash" :tool-args {:command "echo made > made.txt"}}]}
+                            {:answer "made it" :goal-achieved true}
+                            {:answer "nothing to change"}
+                            {:answer "still nothing"}])
+        {:keys [sessionId]} (new-session c dir model)]
+    (doseq [q ["make a file" "look" "look again"]]
+      (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text q}]}))
+    (acp/end! (:conn c))
+    ;; turn 3's refs gone, as pruning takes them
+    (git "update-ref" "-d" (str "refs/byj/turns/" sessionId "/3"))
+    (let [c2 (client)
+          _ (call c2 "initialize" {:protocolVersion 1})
+          _ (call c2 "session/load" {:sessionId sessionId :cwd dir :mcpServers []
+                                     :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false}}}})
+          us (updates c2 sessionId)
+          cps (for [n [1 2 3]] (some #(when (= n (get-in % [:_meta :brainyard :turn])) (get-in % [:_meta :brainyard :checkpoint])) us))]
+      (try
+        (testing "each turn's first update says its checkpoint: its ref, the commits a rewind goes back to, the files it changed"
+          (let [[c1 c2'] cps]
+            (is (= (str "refs/byj/turns/" sessionId "/1") (:ref c1)))
+            (is (= 1 (:filesChanged c1)))
+            (is (= (git "rev-parse" (str "refs/byj/turns/" sessionId "/1")) (:after c1)))
+            (is (= (git "rev-parse" (str "refs/byj/turns/" sessionId "/1^")) (:before c1)))
+            (is (= 0 (:filesChanged c2')) "a turn that changed nothing is still a start to go back to")))
+        (testing "once, on the first"
+          (is (= 1 (count (filter #(and (= 1 (get-in % [:_meta :brainyard :turn])) (get-in % [:_meta :brainyard :checkpoint])) us)))))
+        (testing "a turn whose refs are gone has none, and is replayed all the same"
+          (is (nil? (nth cps 2)))
+          (is (some #(and (= 3 (get-in % [:_meta :brainyard :turn])) (= "look again" (get-in % [:content :text]))) us)))
+        (finally (acp/end! (:conn c2)))))))
+
 (deftest saved-sessions-are-listed-for-an-editor-to-import
   (let [dir (fresh-dir "list")
         c (client)

@@ -42,11 +42,21 @@
         sh! #(apply fx/sh {:dir dir :out :string :err :string} %&)
         _ (sh! "git" "init" "-q")
         tree (str/trim (:out (sh! "git" "hash-object" "-w" "-t" "tree" "/dev/null")))
-        ref! (fn [n q] (let [c (str/trim (:out (sh! "git" "-c" "user.name=t" "-c" "user.email=t@x.invalid"
-                                                  "commit-tree" tree "-m" (str "byj " id " turn " n ": " q))))]
-                         (sh! "git" "update-ref" (str "refs/byj/turns/" id "/" n) c)))
-        f (io/file dir ".brainyard" "sessions" id "trajectory.edn")]
-    (ref! 1 "list the notes") (ref! 2 "a turn cancelled") (ref! 3 "read them")
+        commit! (fn [t msg & parent] (str/trim (:out (apply sh! "git" "-c" "user.name=t" "-c" "user.email=t@x.invalid"
+                                                            "commit-tree" t "-m" msg (when parent ["-p" (first parent)])))))
+        ;; a turn kept as byj keeps it: its end, whose parent is its start
+        ref! (fn [n q & [after-tree]]
+               (let [before (commit! tree (str "byj " id " turn " n ", before"))
+                     c (commit! (or after-tree tree) (str "byj " id " turn " n ": " q) before)]
+                 (sh! "git" "update-ref" (str "refs/byj/turns/" id "/" n) c)
+                 {:before before :after c}))
+        changed (do (spit (io/file dir "notes.md") "hi\n")
+                    (sh! "git" "add" "notes.md")
+                    (str/trim (:out (sh! "git" "write-tree"))))
+        f (io/file dir ".brainyard" "sessions" id "trajectory.edn")
+        kept-1 (ref! 1 "list the notes")
+        _ (ref! 2 "a turn cancelled")
+        _ (ref! 3 "read them" changed)]
     (io/make-parents f)
     (spit f (str (pr-str {:v 3 :question "list the notes" :success true
                           :iterations [{:n 1 :channel "tool" :thought "Listing."
@@ -62,6 +72,13 @@
       (is (= {:turn 1 :question "list the notes" :answer "one file: notes.md"
               :steps [{:thought "Listing."} {:tools [{:name "list-dir" :args {:path "."} :result "notes.md"}]}]}
              (select-keys (first ts) [:turn :question :answer :steps])))
-      (is (= {:turn 2 :question "a turn cancelled" :steps []} (second ts)) "a turn only its ref knows: its question")
-      (is (= "they say hi" (:answer (nth ts 2))) "the session's own record, not its child's"))
+      (is (= {:turn 2 :question "a turn cancelled" :steps []} (dissoc (second ts) :checkpoint)) "a turn only its ref knows: its question")
+      (is (= "they say hi" (:answer (nth ts 2))) "the session's own record, not its child's")
+      (testing "each turn's checkpoint, what a rewind goes back to, and how many files it changed (byj-d8c.1)"
+        (is (= {:ref (str "refs/byj/turns/" id "/1") :before (:before kept-1) :after (:after kept-1) :files-changed 0}
+               (:checkpoint (first ts))))
+        (is (= 1 (:files-changed (:checkpoint (nth ts 2)))))))
+    (sh! "git" "update-ref" "-d" (str "refs/byj/turns/" id "/3"))
+    (is (nil? (:checkpoint (nth (sh/turns {:project-dir dir :working-dir dir} id) 2)))
+        "a turn whose ref is gone has none, and is still there")
     (is (= [] (sh/turns {:project-dir dir :working-dir dir} "1794746057066-ffffffff")) "a session that left nothing")))
