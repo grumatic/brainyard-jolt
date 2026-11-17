@@ -214,26 +214,36 @@
           cur (recur more cur (update acc cur conj x))
           :else (recur more cur acc))))))
 
+(defn- rows-at
+  "The turn refs `pattern` names in the repository at `r`, as `rows` gives
+  them."
+  [r pattern]
+  (let [refs (->> (str/split-lines (or (:ok (git r nil "for-each-ref" "--format=%(refname)%09%(objectname)%09%(parent)%09%(committerdate:unix)%09%(subject)"
+                                                 pattern)) ""))
+                  (keep (fn [l]
+                          (let [[ref after before at subject] (str/split l #"\t" 5)
+                                before (first (str/split (str before) #" "))]
+                            (when-let [n (some-> ref turn-of)]
+                              (when-not (str/blank? before)
+                                {:turn n :ref ref :before before :after after
+                                 :at (some-> at parse-long)
+                                 :subject (question-of subject)}))))))
+        files (files-of r (distinct (map :after refs)))]
+    (->> refs (map #(assoc % :files (get files (:after %) []))) (sort-by :turn) vec)))
+
 (defn rows
   "Session `id`'s kept turns, ascending, as the turn list shows them:
   `{:turn :ref :before :after :files :subject :at}` — `:files` the paths it
   changed, `:at` its end in epoch seconds. Two git calls, however many
   turns."
   [config id]
-  (if-let [r (root config)]
-    (let [refs (->> (str/split-lines (or (:ok (git r nil "for-each-ref" "--format=%(refname)%09%(objectname)%09%(parent)%09%(committerdate:unix)%09%(subject)"
-                                                   (str ref-prefix (safe id) "/"))) ""))
-                    (keep (fn [l]
-                            (let [[ref after before at subject] (str/split l #"\t" 5)
-                                  before (first (str/split (str before) #" "))]
-                              (when-let [n (some-> ref turn-of)]
-                                (when-not (str/blank? before)
-                                  {:turn n :ref ref :before before :after after
-                                   :at (some-> at parse-long)
-                                   :subject (question-of subject)}))))))
-          files (files-of r (distinct (map :after refs)))]
-      (->> refs (map #(assoc % :files (get files (:after %) []))) (sort-by :turn) vec))
-    []))
+  (if-let [r (root config)] (rows-at r (str ref-prefix (safe id) "/")) []))
+
+(defn row
+  "Turn `turn` of session `id` as `rows` gives it, or nil when it is not
+  kept."
+  [config id turn]
+  (when-let [r (root config)] (first (rows-at r (ref-name id turn)))))
 
 (defn row-line
   "One of `rows` as a line: its turn, how many files it changed, when it

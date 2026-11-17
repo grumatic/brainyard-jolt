@@ -153,7 +153,8 @@ client                                   byj acp
                                      ←   session/update  agent_message_chunk …
                                      ←   _byj/event {sessionId, event, payload}      (when asked for)
                                      →   {stopReason end_turn, _meta.brainyard{answer, terminatedBy,
-                                          iterations, goalAchieved, nextUserPrompt, usage, costUsd}}
+                                          iterations, goalAchieved, nextUserPrompt, usage, costUsd,
+                                          turn, filesChanged, checkpoint}}
   session/cancel {sessionId}             (notification; pending prompts answered cancelled)
   EOF on stdin                           every turn cancelled, every session closed, exit 0
 ```
@@ -276,7 +277,11 @@ an application that wants data and no agent asks `_byj/predict`.
 **The turn's result** rides in `session/prompt`'s answer, `_meta.brainyard`,
 for a client that asked: `answer`, `terminatedBy`, `iterations`,
 `goalAchieved`, `nextUserPrompt`, `elapsedMs`, `usage`, `costUsd`, and with an
-`outputSchema` `structuredOutput` or `structuredOutputError`.
+`outputSchema` `structuredOutput` or `structuredOutputError`. And the turn
+it ran as `byj turns list` numbers it, `turn`, how many files it changed,
+`filesChanged`, and its checkpoint as a loaded turn says it, `checkpoint
+{ref before after filesChanged}` — what a rewind of it goes back to,
+absent when byj keeps none (`byj-d8c.2`).
 `stopReason` is `end_turn`, `cancelled` or `max_turn_requests` (the iteration
 cap); a turn that failed is a JSON-RPC error, its answer in `data.detail`.
 
@@ -515,7 +520,10 @@ Decided while building it:
   `agent_thought_chunk`s; a batch of calls is `tool_call`s (`call-N-I`, the
   batch and its place) and their results `tool_call_update`s, completed or
   failed, the result clipped to 4,000 characters. An answer that was not
-  streamed is sent whole before the prompt is answered.
+  streamed is sent whole before the prompt is answered. Every update of a
+  turn names it in `_meta.brainyard.turn`, as a replayed one does, beside
+  what else its `_meta` says (`byj-d8c.2`): a client numbers live and
+  loaded turns alike, without asking for `_byj/event`.
 - **A loaded session's history is replayed whole** before `session/load`
   answers, every turn from its first (`byj-lie`): the snapshot keeps only
   the last 500 transcript entries, which in a 92-turn session that ran
@@ -590,6 +598,7 @@ Planned:
 | A permission request reaches the client as `session/request_permission`, naming the call with byj's four answers, and its answer is the gate's; allow-always is remembered for the session. | `acp-test/a-prompt-is-the-clients-to-answer` |
 | `session/cancel` ends the running turn, the prompt answered `cancelled`. | `acp-test/a-cancel-ends-the-turn-cancelled` |
 | `session/load` replays the history before it answers; a session already open is refused. | `acp-test/a-session-is-loaded-with-its-history` |
+| Every update of a live turn names its turn, beside what else its `_meta` says; its prompt's result says the turn, the files it changed and its checkpoint, one that changed nothing too. | `acp-test/a-live-turn-names-itself-and-says-what-it-changed` |
 | A loaded turn's first update says its checkpoint — its ref, the commits as it began and ended, the files it changed, none for a turn that changed nothing all the same — once; a turn whose refs are gone has none and is replayed all the same. | `acp-test/a-loaded-turn-says-what-a-rewind-of-it-goes-back-to`, `session-history-test/every-turn-is-put-together-from-what-the-session-left` |
 | A replayed call carries the start and duration its record kept, a live one's update byj's own, and a call recorded before neither | `acp-test/a-replayed-call-says-when-it-began-and-how-long-it-ran` |
 | `session/load` replays every turn from the first, not only the snapshot's window, each update naming its turn | `acp-test/a-loaded-session-replays-every-turn-not-only-the-snapshots-window`, `session-history-test/every-turn-is-put-together-from-what-the-session-left` |

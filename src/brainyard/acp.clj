@@ -216,28 +216,44 @@
       (when-not (str/blank? (str answer))
         (up! {:sessionUpdate "agent_message_chunk" :content (text-block answer)})))))
 
+(defn- in-turn
+  "Update `u` naming the turn session `sid` is in, from the connection's
+  state `st`, beside whatever `_meta.brainyard` it says already."
+  [st sid u]
+  (if-let [t (get-in st [:turn sid])] (assoc-in u [:_meta :brainyard :turn] t) u))
+
 (defn- on-event
   "The session's events as `session/update`s: the answer field's chunks as
   the agent's message, the reasoning as its thoughts, a batch of tool calls
-  as `tool_call`s and their results as `tool_call_update`s. A loaded
-  session's history is replayed from its first turn (`replay-turns!`), or,
-  where it left nothing to read it from, from its snapshot's transcript."
+  as `tool_call`s and their results as `tool_call_update`s, each naming
+  its turn in `_meta.brainyard.turn` as a replayed one does (byj-d8c.2). A
+  loaded session's history is replayed from its first turn
+  (`replay-turns!`), or, where it left nothing to read it from, from its
+  snapshot's transcript."
   [conn sid-box effects-of replay? project-dir]
   (fn [event data]
     (when-let [sid @sid-box]
-      (let [st (:state conn)]
+      (let [st (:state conn)
+            live! #(update! conn sid (in-turn @st sid %))]
         (case event
+          :session.turn/start
+          (swap! st assoc-in [:turn sid] (:turn data))
+          :session.turn/end
+          ;; what session/prompt answers with: the turn, and what it changed
+          ;; and no turn is running: what comes next is no turn's
+          (swap! st #(-> % (assoc-in [:ended sid] {:turn (get-in % [:turn sid]) :files-changed (:files-changed data)})
+                         (update :turn dissoc sid)))
           :agent.llm/chunk
           (case (some-> (:field data) name)
             "answer" (do (swap! st assoc-in [:streamed sid] true)
-                         (update! conn sid {:sessionUpdate "agent_message_chunk" :content (text-block (:text data))}))
-            "reasoning" (update! conn sid {:sessionUpdate "agent_thought_chunk" :content (text-block (:text data))})
+                         (live! {:sessionUpdate "agent_message_chunk" :content (text-block (:text data))}))
+            "reasoning" (live! {:sessionUpdate "agent_thought_chunk" :content (text-block (:text data))})
             nil)
           :agent.tools/calls
           (let [n (get-in (swap! st update-in [:batches sid] (fnil inc 0)) [:batches sid])
                 ids (vec (for [[i {:keys [tool-name tool-args]}] (map-indexed vector (:tool-calls data))]
                            (let [id (str "call-" n "-" i)]
-                             (update! conn sid {:sessionUpdate "tool_call" :toolCallId id
+                             (live! {:sessionUpdate "tool_call" :toolCallId id
                                                 :title (call-title tool-name tool-args)
                                                 :kind (tool-kind (effects-of tool-name))
                                                 :status "pending"
@@ -247,7 +263,7 @@
           :agent.tools/results
           (let [ids (get-in @st [:calls sid])]
             (doseq [[[id _] r] (map vector ids (:results data))]
-              (update! conn sid (cond-> {:sessionUpdate "tool_call_update" :toolCallId id
+              (live! (cond-> {:sessionUpdate "tool_call_update" :toolCallId id
                                          :status (if (:tool-error? r) "failed" "completed")
                                          :content [{:type "content"
                                                     :content (text-block (clip (:tool-result r) 4000))}]}
@@ -546,8 +562,11 @@
             (try (#'sdk/schema-fields out-schema)
                  (catch clojure.lang.ExceptionInfo e (throw (rpc-error -32602 (str "outputSchema: " (ex-message e)))))))
         text (prompt-text prompt)
-        _ (swap! (:state conn) assoc-in [:streamed sessionId] false)
-        r (deref (sdk/submit! s text))]
+        _ (swap! (:state conn) #(-> % (assoc-in [:streamed sessionId] false) (update :ended dissoc sessionId)))
+        r (deref (sdk/submit! s text))
+        ;; the turn this ran, and what it changed (byj-d8c.2)
+        {:keys [turn files-changed]} (get-in @(:state conn) [:ended sessionId])
+        in-it #(cond-> % turn (assoc-in [:_meta :brainyard :turn] turn))]
     (cond
       (:refused r) (throw (rpc-error -32602 (:refused r)))
       (:closed r) {:stopReason "cancelled"}
@@ -561,11 +580,16 @@
           (throw (rpc-error -32603 "the turn failed" {:detail (str answer)})))
         ;; the answer, when it was not streamed as it was written
         (when (and (seq (str answer)) (not (get-in @(:state conn) [:streamed sessionId])))
-          (update! conn sessionId {:sessionUpdate "agent_message_chunk" :content (text-block answer)}))
+          (update! conn sessionId (in-it {:sessionUpdate "agent_message_chunk" :content (text-block answer)})))
         (let [structured (when (and out-schema (not= :cancelled terminated-by))
                            (try (sdk/structure-answer s text answer out-schema)
                                 (catch Throwable e {:error (or (ex-message e) (str e))})))
-              cost (let [cs (remove nil? [(:cost usage) (:cost structured)])] (when (seq cs) (reduce + cs)))]
+              cost (let [cs (remove nil? [(:cost usage) (:cost structured)])] (when (seq cs) (reduce + cs)))
+              ;; what a rewind of it goes back to, as a loaded turn says it
+              ;; (byj-d8c.1): byj kept it before it said the turn ended
+              checkpoint (when (and turn (ext? conn))
+                           (some-> (try (changes/row (:config s) sessionId turn) (catch Throwable _ nil))
+                                   session-history/checkpoint checkpoint-meta))]
           (cond-> {:stopReason (stop-reason result)}
             (ext? conn)
             (assoc :_meta {:brainyard (cond-> {:answer answer
@@ -576,6 +600,9 @@
                                                :elapsedMs (:elapsed-ms result)
                                                :usage (dissoc usage :cost :unpriced)
                                                :costUsd cost}
+                                        turn (assoc :turn turn)
+                                        (some? files-changed) (assoc :filesChanged files-changed)
+                                        checkpoint (assoc :checkpoint checkpoint)
                                         (contains? structured :value) (assoc :structuredOutput (json-safe (:value structured)))
                                         (:error structured) (assoc :structuredOutputError (:error structured)))})))))))
 

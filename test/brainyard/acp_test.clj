@@ -620,6 +620,37 @@
 
 (defn- with-ext [c] (call c "initialize" {:protocolVersion 1 :_meta {:brainyard {:sdk "test" :version "0"}}}) c)
 
+(deftest a-live-turn-names-itself-and-says-what-it-changed
+  (let [dir (fresh-dir "live-turn")
+        git #(str/trim (str (:out (apply fx/sh {:dir dir :out :string :err :string} "git" %&))))
+        _ (do (git "init" "-q") (spit (io/file dir "notes.md") "the notes\n")
+              (git "add" "-A") (git "-c" "user.name=t" "-c" "user.email=t@x.invalid" "commit" "-q" "-m" "first"))
+        c (with-ext (client))
+        {:keys [sessionId]} (new-session c dir (script! dir [{:reasoning "make it" :tool-calls [{:tool-name "bash" :tool-args {:command "echo made > made.txt"}}]}
+                                                             {:answer "made it" :goal-achieved true}
+                                                             {:answer "nothing to change"}]))
+        r1 (:result (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "make a file"}]}))
+        seen-1 (vec (updates c sessionId))
+        r2 (:result (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "look"}]}))
+        seen-2 (drop (count seen-1) (updates c sessionId))]
+    (try
+      (testing "every update of a turn as it runs names its turn, as a replayed one does"
+        (is (seq seen-1))
+        (is (every? #(= 1 (get-in % [:_meta :brainyard :turn])) seen-1) (pr-str (map (juxt :sessionUpdate :_meta) seen-1)))
+        (is (every? #(= 2 (get-in % [:_meta :brainyard :turn])) seen-2))
+        (is (some #(and (= "tool_call_update" (:sessionUpdate %)) (get-in % [:_meta :brainyard :durationMs])) seen-1)
+            "beside what it said already"))
+      (testing "and its result says the turn, how many files it changed and its checkpoint"
+        (is (= {:turn 1 :filesChanged 1} (select-keys (get-in r1 [:_meta :brainyard]) [:turn :filesChanged])))
+        (is (= {:ref (str "refs/byj/turns/" sessionId "/1")
+                :before (git "rev-parse" (str "refs/byj/turns/" sessionId "/1^"))
+                :after (git "rev-parse" (str "refs/byj/turns/" sessionId "/1"))
+                :filesChanged 1}
+               (get-in r1 [:_meta :brainyard :checkpoint])))
+        (is (= {:turn 2 :filesChanged 0} (select-keys (get-in r2 [:_meta :brainyard]) [:turn :filesChanged])))
+        (is (= 0 (get-in r2 [:_meta :brainyard :checkpoint :filesChanged])) "a turn that changed nothing is still one to go back to"))
+      (finally (acp/end! (:conn c))))))
+
 (deftest extensions-only-when-asked
   (let [dir (fresh-dir "ext")
         run (fn [c]
