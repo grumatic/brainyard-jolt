@@ -61,6 +61,35 @@
 (defn- slug [s]
   (-> (str/lower-case (str s)) (str/replace #"[^a-z0-9]+" "-") (str/replace #"^-+|-+$" "")))
 
+(defn- worktree-place
+  "Where a worktree asked for as `w` (`{:branch :path}`) goes: its branch,
+  `default-branch` when not named, and its directory, `path` relative to
+  the project `src`, or `.brainyard/worktrees/<branch>` under it."
+  [src w default-branch]
+  (let [branch (or (not-empty (str/trim (str (:branch w)))) default-branch)]
+    {:branch branch
+     :dir (if-let [p (not-empty (str (:path w)))]
+            (let [f (io/file p)] (if (.isAbsolute f) f (io/file src p)))
+            (io/file src ".brainyard" "worktrees" (slug branch)))}))
+
+(defn new-worktree!
+  "A git worktree for a new session to start in, no session forked
+  (byj-z0z): `:worktree`'s `:branch` checked out as it is when it exists
+  and no `:from` is named, else a new branch — `byj/<id>` unless named —
+  from `:from` (HEAD when not named); a clean checkout, the project's
+  uncommitted work left where it is (`worktree/open!`). Where it goes is
+  as `fork-worktree!` puts one. What `base` opens, as its `:worktree`:
+  `{:dir :project-dir :branch :base :created :from-dir :session-id}`.
+  Throws ex-info when it cannot be made, and leaves no worktree then."
+  [{:keys [project-dir worktree session-id]}]
+  (let [src (absolute project-dir)
+        top (or (worktree/top src) (throw (ex-info (str src " is not in a git work tree: a worktree is git's") {})))
+        nid (or session-id (context/session-id))
+        {:keys [branch dir]} (worktree-place src worktree (str "byj/" nid))
+        w (worktree/open! top dir branch (not-empty (str (:from worktree))))]
+    (when (:error w) (throw (ex-info (:error w) {})))
+    (assoc w :project-dir (worktree/within top src (:dir w)) :from-dir src :session-id nid)))
+
 (defn fork-worktree!
   "A fork in a git worktree of its own (byj-8yt): session `:fork-from` of
   `:project-dir`, cut before `:fork-before-turn` or as it stands, written
@@ -81,13 +110,10 @@
   (let [src (absolute project-dir)
         src-config {:project-dir src :working-dir src :session-id fork-from}
         nid (or session-id (context/session-id))
-        branch (or (not-empty (str/trim (str (:branch worktree)))) (str "byj/fork-" nid))
-        dir (if-let [p (not-empty (str (:path worktree)))]
-              (let [f (io/file p)] (if (.isAbsolute f) f (io/file src p)))
-              (io/file src ".brainyard" "worktrees" (slug branch)))
+        {:keys [branch dir]} (worktree-place src worktree (str "byj/fork-" nid))
         snap (persist/read-session src-config fork-from)
         _ (when (:problem snap) (throw (ex-info (str "cannot fork " fork-from ": " (:problem snap)) {:fork-from fork-from})))
-        w (changes/worktree! src-config fork-from fork-before-turn dir branch)
+        w (changes/worktree! src-config fork-from fork-before-turn dir branch (not-empty (str (:from worktree))))
         _ (when (:error w) (throw (ex-info (str "cannot fork " fork-from " into a worktree: " (:error w)) {:fork-from fork-from})))
         dest {:project-dir (:project-dir w) :working-dir (:project-dir w)}
         r (persist/fork! src-config fork-from nid {:before-turn fork-before-turn :into dest})]
@@ -117,16 +143,21 @@
   :fork-from, its conversation cut before that turn and its files put back
   as the turn began, as `/fork TURN` does; :keep-files? true leaves them)
   :session-id (a new session's id, chosen by the caller:
-  `context/session-id`'s shape) :env-fn :on-problem :worktree (with
-  :fork-from, the fork made in a git worktree of its own, `{:branch
-  :path}`, both optional, and opened there: `fork-worktree!`; or what that
-  returned, to open one already made). A fork's outcome is `:fork` in what
-  it returns: `{:from :before-turn :files :saved :error :worktree}`."
+  `context/session-id`'s shape) :env-fn :on-problem :worktree (`{:branch
+  :path :from}`, each optional: the session opened in a git worktree of its
+  own — with :fork-from, the fork made there, `fork-worktree!`; without, a
+  new session on a checkout, `new-worktree!` — or what those returned, to
+  open one already made). A fork's outcome is `:fork` in what it returns:
+  `{:from :before-turn :files :saved :error :worktree}`; a worktree made is
+  `:worktree`."
   [{:keys [project-dir provider model loop agent mcp-servers permission-mode permission-fn
            tools hooks on-event resume env-fn on-problem] :as opts}]
   (when (str/blank? (str project-dir))
     (throw (ex-info "a session needs a :project-dir" {})))
-  (let [wt (let [w (:worktree opts)] (if (and w (not (:dir w))) (fork-worktree! opts) w))
+  (let [wt (let [w (:worktree opts)]
+             (cond (or (nil? w) (:dir w)) w
+                   (:fork-from opts) (fork-worktree! opts)
+                   :else (new-worktree! opts)))
         wd (absolute (if wt (:project-dir wt) project-dir))
         env (or env-fn (launch/env-fn wd))
         ;; the directory given IS the project: the CLI takes the git root above
@@ -152,7 +183,7 @@
         fork (cond
                ;; made already, the session written there: what is left is
                ;; to resume it
-               wt (cond-> {:id (:session-id wt) :from fork-from
+               (and wt fork-from) (cond-> {:id (:session-id wt) :from fork-from
                            :worktree (select-keys wt [:dir :project-dir :branch :base :files])}
                     k (assoc :before-turn k))
                fork-from
@@ -171,7 +202,7 @@
                      k (assoc :before-turn k)
                      files (assoc :files (:files files) :saved (:saved files) :error (:error files))))))
         resume (if fork (:id fork) resume)
-        config (cond-> (assoc config :session-id (or resume (:session-id opts) (context/session-id)))
+        config (cond-> (assoc config :session-id (or resume (:session-id wt) (:session-id opts) (context/session-id)))
                  resume (assoc :resume resume))
         tree-name (or loop session/session-loop)
         b {:lm lm
@@ -192,6 +223,8 @@
            :permission-fn permission-fn
            :permission-mode-box (atom (:permission-mode config :auto))
            :fork fork
+           ;; the worktree it was opened in, when one was made for it
+           :worktree (some-> wt (select-keys [:dir :project-dir :branch :base :created :files]))
            :on-event (launch/event-bus config on-event)}]
     (if agent
       (or (session/with-persona b agent {:loop loop})
@@ -296,6 +329,7 @@
     {:id id :config config :label (:label opts) :lm (:lm b)
      :commands? (boolean (:commands? opts))
      :fork (some-> (:fork b) (dissoc :id))
+     :worktree (:worktree b)
      :state state :cancellers cancellers
      :permission-mode-box (:permission-mode-box b)
      :mcp-box mcp-box :ready ready :done done

@@ -274,6 +274,12 @@ test("a session's turns are listed, taken back and forked before (RFC-069)", asy
     assert.equal(existsSync(join(w.fork!.worktree!.cwd, "b.txt")), false);
     assert.equal(existsSync(join(p.cwd, "b.txt")), true);
     await w.close();
+    // a new session in a worktree of its own, no fork: a clean checkout of HEAD
+    const n = await client.newSession(p, { worktree: { branch: "fresh" } });
+    assert.deepEqual([n.worktree?.branch, n.worktree?.created, n.fork], ["fresh", true, undefined]);
+    assert.equal(readFileSync(join(n.worktree!.cwd, "notes.md"), "utf8"), "the notes\n");
+    assert.equal(existsSync(join(n.worktree!.cwd, "b.txt")), false);
+    await n.close();
   } finally {
     await client.close();
   }

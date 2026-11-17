@@ -72,6 +72,9 @@ class Session:
         #: a fork's outcome (fork_session with before_turn): ``{from,
         #: beforeTurn, files, saved, error, worktree}``, else None
         self.fork: Optional[dict[str, Any]] = None
+        #: the worktree it was opened in, when one was made for it:
+        #: ``{path, cwd, branch, base, created?, files?}``, else None
+        self.worktree: Optional[dict[str, Any]] = None
 
     def emit(self, m: Message) -> None:
         if self.current is not None:
@@ -244,9 +247,14 @@ class ByjClient:
     async def __aexit__(self, *exc: Any) -> None:
         await self.close()
 
-    async def new_session(self, options: SessionOptions) -> Session:
-        """A new session in a project."""
-        return await self._open("session/new", options)
+    async def new_session(self, options: SessionOptions,
+                          worktree: Union[bool, dict[str, str], None] = None) -> Session:
+        """A new session in a project — or, with ``worktree`` (``True``, or
+        ``{"branch", "path", "from"}``), in a new git worktree of it, a clean
+        checkout of HEAD, of ``from``, or of an existing ``branch`` as it is,
+        the session's ``worktree`` saying where (its ``cwd`` is where it is
+        loaded and listed from)."""
+        return await self._open("session/new", options, fork={"worktree": worktree})
 
     async def load_session(self, session_id: str, options: SessionOptions,
                            on_history: Optional[Callable[[Message], Any]] = None) -> Session:
@@ -295,8 +303,9 @@ class ByjClient:
                 meta["brainyard"]["forkBeforeTurn"] = fork["beforeTurn"]
             if fork and fork.get("keepFiles"):
                 meta["brainyard"]["keepFiles"] = True
-            if fork and fork.get("worktree"):
-                meta["brainyard"]["worktree"] = {} if fork["worktree"] is True else fork["worktree"]
+
+        if fork and fork.get("worktree"):
+            meta["brainyard"]["worktree"] = {} if fork["worktree"] is True else fork["worktree"]
         try:
             r = await self.conn.request(method, {
                 **({"sessionId": session_id} if session_id and not fork_from else {}),
@@ -315,6 +324,7 @@ class ByjClient:
         sid = session_id or r["sessionId"]
         s = Session(self, sid, o, (r or {}).get("modes", {}).get("availableModes", []))
         s.fork = (r or {}).get("_meta", {}).get("brainyard", {}).get("fork")
+        s.worktree = (r or {}).get("_meta", {}).get("brainyard", {}).get("worktree")
         self.sessions[sid] = s
         for m in history:
             if on_history:

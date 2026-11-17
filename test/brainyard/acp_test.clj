@@ -813,8 +813,7 @@
         worktrees (io/file dir ".brainyard" "worktrees")]
     (ask! sessionId "write a") (ask! sessionId "write b")
     (try
-      (testing "a worktree is where a fork goes, and its files are the turn's start: not kept as they are"
-        (is (= -32602 (get-in (fork! {:worktree {}}) [:error :code])))
+      (testing "a fork's worktree holds the turn's start: not files kept as they are"
         (is (re-find #"keep-files" (get-in (fork! {:forkFrom sessionId :forkBeforeTurn 2 :keepFiles true :worktree {}}) [:error :message])))
         (is (re-find #"not kept" (get-in (fork! {:forkFrom sessionId :forkBeforeTurn 9 :worktree {}}) [:error :message])))
         (is (empty? (.list worktrees)) "and none is left behind"))
@@ -852,6 +851,59 @@
                           (str/includes? (json/write-str (get-in % [:params :payload])) "into a git worktree of its own"))
                     @(:seen c))
               "the note, in the request its turn sent")))
+      (finally (acp/end! (:conn c))))))
+
+(deftest a-new-session-starts-in-a-worktree-of-its-own-over-acp
+  ;; byj-z0z: no session forked — a checkout of HEAD, of a branch as it is,
+  ;; or of a ref on a new branch
+  (let [[dir git] (git-project "new-worktree")
+        trunk (git "branch" "--show-current")
+        commit! #(git "-c" "user.name=t" "-c" "user.email=t@x.invalid" "commit" "-q" "-m" %)
+        _ (do (git "checkout" "-q" "-b" "feature") (spit (io/file dir "f.txt") "f\n") (git "add" "f.txt") (commit! "f")
+              (git "checkout" "-q" trunk) (spit (io/file dir "dirty.txt") "not committed\n"))
+        c (with-ext (client))
+        model (script! (fresh-dir "new-worktree-model")
+                       [{:tool-calls [{:tool-name "bash" :tool-args {:command "echo c > c.txt"}}]}
+                        {:answer "wrote c" :goal-achieved true}])
+        open! #(call c "session/new" {:cwd dir :mcpServers []
+                                      :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false} :worktree %}}})
+        worktrees (io/file dir ".brainyard" "worktrees")
+        at #(str/trim (str (:out (fx/sh {:dir %1 :out :string :err :string} "git" "rev-parse" %2))))]
+    (try
+      (testing "on HEAD: a new branch, a clean checkout, the session there"
+        (let [r (:result (open! {}))
+              sid (:sessionId r)
+              {:keys [path cwd branch base created] :as wt} (get-in r [:_meta :brainyard :worktree])]
+          (is (= {:branch (str "byj/" sid) :base (git "rev-parse" "HEAD") :created true} (select-keys wt [:branch :base :created])) (pr-str r))
+          (is (= (.getCanonicalPath (io/file worktrees (str "byj-" sid))) path cwd))
+          (is (nil? (get-in r [:_meta :brainyard :fork])) "nothing forked")
+          (is (= "the notes\n" (slurp (io/file path "notes.md"))))
+          (is (not (.exists (io/file path "dirty.txt"))) "the project's uncommitted work stays where it is")
+          (is (not (.exists (io/file path "f.txt"))))
+          (call c "session/prompt" {:sessionId sid :prompt [{:type "text" :text "write c"}]})
+          (is (= "c\n" (slurp (io/file path "c.txt"))) "its turn works there")
+          (is (not (.exists (io/file dir "c.txt"))))
+          (is (some #{sid} (map :sessionId (get-in (call c "session/list" {:cwd cwd}) [:result :sessions]))))
+          (is (not (some #{sid} (map :sessionId (get-in (call c "session/list" {:cwd dir}) [:result :sessions])))))))
+      (testing "an existing branch, checked out as it is"
+        (let [{:keys [path branch base created]} (get-in (open! {:branch "feature"}) [:result :_meta :brainyard :worktree])]
+          (is (= ["feature" false] [branch created]))
+          (is (= (git "rev-parse" "feature") base (at path "HEAD")))
+          (is (= "f\n" (slurp (io/file path "f.txt"))))))
+      (testing "a ref, on a new branch named"
+        (let [{:keys [path branch created]} (get-in (open! {:branch "feature-2" :from "feature"}) [:result :_meta :brainyard :worktree])]
+          (is (= ["feature-2" true] [branch created]))
+          (is (.exists (io/file path "f.txt")))))
+      (testing "what cannot be made is refused, and leaves no worktree"
+        (let [before (set (.list worktrees))]
+          (is (re-find #"feature" (str (get-in (open! {:branch "feature"}) [:error :message]))) "checked out in another worktree")
+          (is (= -32602 (get-in (open! {:from "no-such-ref"}) [:error :code])))
+          (is (= -32602 (get-in (open! "yes") [:error :code])))
+          (is (= before (set (.list worktrees))))))
+      (testing "not on a load: a saved session is loaded where it was made"
+        (is (= -32602 (get-in (call c "session/load" {:sessionId "1792000000000-00000000" :cwd dir :mcpServers []
+                                                       :_meta {:brainyard {:worktree {}}}})
+                              [:error :code]))))
       (finally (acp/end! (:conn c))))))
 
 (deftest a-client-tool-is-called-over-the-wire

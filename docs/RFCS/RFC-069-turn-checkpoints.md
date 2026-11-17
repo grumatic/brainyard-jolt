@@ -265,6 +265,10 @@ they were: `sdk/fork-worktree!`, ACP's `session/new` with `worktree`.
   works, since its earlier turns' paths name the project's work tree.
 - `keepFiles` has no meaning here and is refused: a worktree's files are
   the turn's start.
+
+A new session with no fork can be opened in a worktree of its own too, a
+clean checkout (RFC-053's `worktree`, `byj-z0z`): `worktree/open!`, the
+same placement.
 - **Snapshot:** `persist/fork!` with `:before-turn` writes it (RFC-016, `persist/cut-before`).
 - **Its fields:** history and transcript without turn K and after,
   `:turn-count` K−1 (its next turn is K, under its own id),
@@ -329,7 +333,7 @@ session's id:
 (changes/rewinds config id)                     ; → [n …]
 (persist/cut-before snapshot k)                 ; → snapshot | {:problem}
 (persist/fork! config from-id new-id {:before-turn k :into config}) ; → file | {:problem}
-(changes/worktree! config id turn dir branch)   ; → {:dir :project-dir :branch :base :files} | {:error} (byj-8yt)
+(changes/worktree! config id turn dir branch & [from]) ; → {:dir :project-dir :branch :base :files} | {:error} (byj-8yt)
 (changes/running root & [id])                   ; → [{:session :turn :pid :at} …], id's own here left out
 (persist/note! config id line)                  ; → true | nil (no such session)
 (persist/take-notes! config id)                 ; → [line …] | nil, and none left

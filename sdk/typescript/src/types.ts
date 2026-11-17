@@ -205,11 +205,11 @@ export interface ForkOutcome {
   /** Why the files were not put back, when they were not. */
   error?: string;
   /** The worktree it was made in, when one was asked for (`forkSession`'s `worktree`). */
-  worktree?: ForkWorktree;
+  worktree?: Worktree;
 }
 
-/** A fork's worktree of its own: the session forked from, and the project's work tree, are left as they were. */
-export interface ForkWorktree {
+/** A session's worktree of its own, made for it: the project's work tree is left as it was. */
+export interface Worktree {
   /** The worktree's top. */
   path: string;
   /** The session's project in it, where it is loaded and listed from. */
@@ -218,8 +218,10 @@ export interface ForkWorktree {
   branch: string;
   /** The commit it was added at: HEAD then. */
   base: string;
-  /** The files that differ from `base`, as the turn began: left uncommitted. */
-  files: string[];
+  /** A fork's: the files that differ from `base`, as the turn began, left uncommitted. */
+  files?: string[];
+  /** A new session's: whether its branch was made for it, or an existing one checked out. */
+  created?: boolean;
 }
 
 /** `forkSession`'s options. */
@@ -232,12 +234,24 @@ export interface ForkOptions {
   worktree?: boolean | WorktreeOptions;
 }
 
-/** Where a fork goes when it is not the project's own work tree: a new git worktree. */
+/** A git worktree a session is opened in, its own: where it goes and what it checks out. */
 export interface WorktreeOptions {
-  /** Its new branch; `byj/fork-<id>` when not named. */
+  /**
+   * Its branch: `byj/<id>` (a fork's `byj/fork-<id>`) when not named. A new
+   * session's names an existing one to check it out as it is, when no `from`
+   * is given.
+   */
   branch?: string;
   /** Its directory, relative to the project; `.brainyard/worktrees/<branch>` when not named. */
   path?: string;
+  /** The ref a new branch starts from (a branch, tag or commit); HEAD when not named. */
+  from?: string;
+}
+
+/** `newSession`'s options. */
+export interface NewSessionOptions {
+  /** The session opened in a new git worktree of its own, a clean checkout: `true` for the defaults. */
+  worktree?: boolean | WorktreeOptions;
 }
 
 export type Message =

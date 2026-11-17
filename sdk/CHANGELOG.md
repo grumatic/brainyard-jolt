@@ -20,6 +20,10 @@ Each version is the TypeScript and the Python SDK together, released as
   forked from and the project's work tree are left as they were. Where it
   is, its branch and the files it holds beyond HEAD are the session's
   `fork.worktree` (byj-8yt).
+- `newSession(options, {worktree: true | {branch, path, from}})` /
+  `new_session(options, worktree=)`: a new session in a new git worktree of
+  its own, a clean checkout of HEAD, of a ref, or of an existing branch as
+  it is; where it is, the session's `worktree` (byj-z0z).
 - `undoTurn` / `undo_turn` of a turn a later change conflicts with in every
   file answers its `conflicts`, and a `message` that says a conflict kept it
   back (byj-v55).

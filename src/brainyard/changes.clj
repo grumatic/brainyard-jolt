@@ -543,32 +543,33 @@
   be seen and committed. The project's work tree, its HEAD and index, and
   the session are not touched.
 
+  The branch starts at `from`, HEAD when nil.
+
   `{:dir :project-dir :branch :base :files}` — `:dir` the worktree's top,
   `:project-dir` the project's directory within it (the project may be a
   subdirectory of its repository), `:base` the commit it was added at,
   `:files` the paths in it that differ from `:base` — or `{:error}`, with
   no worktree left behind."
-  [config id turn dir branch]
+  [config id turn dir branch & [from]]
   (if-let [r (root config)]
-    (let [head (line (git r nil "rev-parse" "--verify" "-q" "HEAD^{commit}"))
+    (let [head (line (git r nil "rev-parse" "--verify" "-q" (str (or from "HEAD") "^{commit}")))
           target (cond
-                   (not head) {:error "the repository has no commit yet to add a worktree at"}
+                   (not head) {:error (if from
+                                        (str from " is not a commit of this repository")
+                                        "the repository has no commit yet to add a worktree at")}
                    turn (or (:before (row config id turn))
                             {:error (str "turn " turn " of session " id " is not kept: byj turns list " id " says which are")})
                    :else (or (snapshot! r (str "byj " id " fork into a worktree"))
                              {:error "the work tree could not be snapshotted, so no worktree was added"}))]
       (if (:error target)
         target
-        (let [w (worktree/add! r dir branch)]
+        (let [w (worktree/add! r dir branch head)]
           (if (:error w)
             w
-            (let [{:keys [files error]} (apply-tree! (:dir w) head target)
-                  top (.getCanonicalPath (io/file r))
-                  pd (.getCanonicalPath (io/file (or (:project-dir config) (:working-dir config) top)))
-                  rel (when (str/starts-with? pd (str top "/")) (subs pd (inc (count top))))]
+            (let [{:keys [files error]} (apply-tree! (:dir w) head target)]
               (if error
                 (do (worktree/remove! r (:dir w) branch)
                     {:error (str "the worktree's files could not be put as the turn began, so it was removed: " error)})
-                {:dir (:dir w) :project-dir (if rel (.getPath (io/file (:dir w) rel)) (:dir w))
+                {:dir (:dir w) :project-dir (worktree/within r (or (:project-dir config) (:working-dir config) r) (:dir w))
                  :branch branch :base head :files files}))))))
     (no-git config)))

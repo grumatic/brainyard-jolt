@@ -22,14 +22,52 @@
        (catch Throwable e {:error (ex-message e)})))
 
 (defn add!
-  "A git worktree of `project` at `dir`, on a new branch `branch` from HEAD:
-  `{:dir :branch}` with `dir` canonical, or `{:error}`. teams' `add-worktree!`
-  before it was shared."
-  [project dir branch]
-  (let [r (git project "worktree" "add" "-b" branch (str dir) "HEAD")]
+  "A git worktree of `project` at `dir`, on a new branch `branch` from `from`
+  (HEAD when nil): `{:dir :branch}` with `dir` canonical, or `{:error}`.
+  teams' `add-worktree!` before it was shared."
+  [project dir branch & [from]]
+  (let [r (git project "worktree" "add" "-b" branch (str dir) (or from "HEAD"))]
     (if (:error r)
       {:error (str "could not add a worktree on " branch ": " (:error r))}
       {:dir (.getCanonicalPath (io/file (str dir))) :branch branch})))
+
+(defn- branch? [project b]
+  (:ok (git project "rev-parse" "--verify" "-q" (str "refs/heads/" b))))
+
+(defn open!
+  "A worktree of `project` at `dir` for a session to start in (byj-z0z):
+  `branch` checked out as it is when it exists and no `from` is named —
+  git refuses one checked out in another worktree, and its words are the
+  answer — else a new branch `branch` from `from` (HEAD when nil). A clean
+  checkout: nothing uncommitted is carried. `{:dir :branch :base :created}`
+  — `:base` the commit checked out, `:created` whether the branch is new —
+  or `{:error}`."
+  [project dir branch from]
+  (let [existing? (and (nil? from) (branch? project branch))
+        r (if existing?
+            (let [r (git project "worktree" "add" (str dir) branch)]
+              (if (:error r)
+                {:error (str "could not check out " branch " in a worktree: " (:error r))}
+                {:dir (.getCanonicalPath (io/file (str dir))) :branch branch}))
+            (add! project dir branch from))]
+    (if (:error r)
+      r
+      (assoc r :base (:ok (git (:dir r) "rev-parse" "HEAD")) :created (not existing?)))))
+
+(defn within
+  "`project-dir`'s place in worktree `wt-dir` of the repository whose top is
+  `top`: the project may be a subdirectory of its repository."
+  [top project-dir wt-dir]
+  (let [top (.getCanonicalPath (io/file (str top)))
+        pd (.getCanonicalPath (io/file (str project-dir)))]
+    (if (str/starts-with? pd (str top "/"))
+      (.getPath (io/file (str wt-dir) (subs pd (inc (count top)))))
+      (str wt-dir))))
+
+(defn top
+  "The top of the git work tree `dir` is in, or nil."
+  [dir]
+  (:ok (git dir "rev-parse" "--show-toplevel")))
 
 (defn remove!
   "The worktree at `dir` and its branch `branch` taken away again, what

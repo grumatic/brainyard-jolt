@@ -257,4 +257,10 @@ def test_a_sessions_turns_are_listed_taken_back_and_forked_before():
             assert (Path(wt["cwd"]) / "a.txt").read_text() == "a\n" and not (Path(wt["cwd"]) / "b.txt").exists()
             assert (d / "b.txt").exists()
             await w.close()
+            # a new session in a worktree of its own, no fork: a clean checkout of HEAD
+            n = await client.new_session(p, worktree={"branch": "fresh"})
+            assert (n.worktree["branch"], n.worktree["created"], n.fork) == ("fresh", True, None)
+            assert (Path(n.worktree["cwd"]) / "notes.md").read_text() == "the notes\n"
+            assert not (Path(n.worktree["cwd"]) / "b.txt").exists()
+            await n.close()
     asyncio.run(go())

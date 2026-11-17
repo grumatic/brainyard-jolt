@@ -7,7 +7,7 @@ import { Connection, RpcError } from "./rpc.js";
 import type {
   ClientOptions, Hook, JsonSchema, LiveSession, Message, PermissionDecision, PermissionMode, PermissionRequest,
   PredictOptions, PredictResult, ResultMessage, SessionOptions, Tool,
-  ForkOptions, ForkOutcome, KeptTurn, RewindResult, TurnDiff,
+  ForkOptions, ForkOutcome, KeptTurn, NewSessionOptions, RewindResult, TurnDiff, Worktree,
 } from "./types.js";
 
 /** The ACP version spoken. */
@@ -47,6 +47,8 @@ export class Session {
   readonly tools = new Map<string, Tool>();
   /** A fork's outcome (`forkSession` with `beforeTurn`), else undefined. */
   fork?: ForkOutcome;
+  /** The worktree it was opened in, when one was made for it (`newSession`'s or `forkSession`'s `worktree`). */
+  worktree?: Worktree;
 
   constructor(
     readonly client: ByjClient,
@@ -267,8 +269,14 @@ export class ByjClient {
   }
 
   /** A new session in a project. */
-  async newSession(o: SessionOptions): Promise<Session> {
-    return this.open("session/new", o);
+  /**
+   * A new session in a project — or, with `worktree`, in a new git worktree
+   * of it, a clean checkout of HEAD, of `from`, or of an existing `branch` as
+   * it is, the session's `worktree` saying where (its `cwd` is where it is
+   * loaded and listed from).
+   */
+  async newSession(o: SessionOptions, opts: NewSessionOptions = {}): Promise<Session> {
+    return this.open("session/new", o, undefined, undefined, undefined, { worktree: opts.worktree });
   }
 
   /** A saved session, resumed; its history arrives as `user`, `text` and `thought` messages to `onHistory`. */
@@ -313,8 +321,8 @@ export class ByjClient {
         forkFrom, sessionId,
         ...(fork.beforeTurn !== undefined && { forkBeforeTurn: fork.beforeTurn }),
         ...(fork.keepFiles && { keepFiles: true }),
-        ...(fork.worktree && { worktree: fork.worktree === true ? {} : fork.worktree }),
       });
+      if (fork.worktree) Object.assign(meta.brainyard, { worktree: fork.worktree === true ? {} : fork.worktree });
       const r: any = await this.conn.request(method, {
         ...(sessionId && !forkFrom && { sessionId }),
         cwd: o.cwd,
@@ -327,6 +335,7 @@ export class ByjClient {
       const id = sessionId ?? r.sessionId;
       const s = new Session(this, id, o, r?.modes?.availableModes ?? []);
       if (r?._meta?.brainyard?.fork) s.fork = r._meta.brainyard.fork;
+      if (r?._meta?.brainyard?.worktree) s.worktree = r._meta.brainyard.worktree;
       if (pending) { pending.current?.close(); }
       this.sessions.set(id, s);
       return s;

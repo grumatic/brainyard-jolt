@@ -551,15 +551,21 @@
         _ (when (and chosen (not (re-matches #"\d{13}-[0-9a-f]{8}" (str chosen))))
             (throw (rpc-error -32602 (str "a session id is <millis>-<8 hex>, not " chosen))))
         sid-box (atom (or resume chosen (context/session-id)))
-        ;; a fork into a worktree of its own (byj-8yt): made first, since
-        ;; the session works there — its files, its tools' fs, its history
-        _ (when (and (:worktree o) (not (:forkFrom o)))
-            (throw (rpc-error -32602 "worktree is where a fork goes: it needs forkFrom")))
+        ;; a worktree of its own — a fork's (byj-8yt), or a new session's on
+        ;; a checkout (byj-z0z): made first, since the session works there —
+        ;; its files, its tools' fs, its history
+        _ (when-let [w (:worktree o)]
+            (cond
+              resume (throw (rpc-error -32602 "worktree is for session/new: a saved session is loaded where it was made"))
+              (not (or (true? w) (map? w))) (throw (rpc-error -32602 "worktree is true or {branch? path? from?}"))))
         wt (when-let [w (:worktree o)]
-             (try (sdk/fork-worktree! {:project-dir cwd :fork-from (:forkFrom o) :fork-before-turn (:forkBeforeTurn o)
-                                       :keep-files? (boolean (:keepFiles o)) :session-id @sid-box
-                                       :worktree (when (map? w) (select-keys w [:branch :path]))})
-                  (catch clojure.lang.ExceptionInfo e (throw (rpc-error -32602 (ex-message e))))))
+             (let [w (when (map? w) (select-keys w [:branch :path :from]))
+                   opts {:project-dir cwd :worktree w :session-id @sid-box}]
+               (try (if (:forkFrom o)
+                      (sdk/fork-worktree! (assoc opts :fork-from (:forkFrom o) :fork-before-turn (:forkBeforeTurn o)
+                                                 :keep-files? (boolean (:keepFiles o))))
+                      (sdk/new-worktree! opts))
+                    (catch clojure.lang.ExceptionInfo e (throw (rpc-error -32602 (ex-message e)))))))
         cwd (if wt (:project-dir wt) cwd)
         ;; the client's editor as the file tools' fs, when it offers one
         fs-cap (get-in @(:state conn) [:client :clientCapabilities :fs])
@@ -609,18 +615,26 @@
     (cond-> {:sessionId sid
              :modes {:currentModeId (name (or (some-> (:permission-mode-box s) deref) :auto))
                      :availableModes modes}}
+      ;; the worktree it was opened in (byj-z0z): `cwd` is where it is
+      ;; loaded and listed from
+      (:worktree s) (assoc-in [:_meta :brainyard :worktree]
+                              (let [{:keys [dir project-dir branch base created files]} (:worktree s)]
+                                (cond-> {:path dir :cwd project-dir :branch branch :base base}
+                                  (some? created) (assoc :created created)
+                                  files (assoc :files files))))
       ;; what a fork did: where from, before which turn, the files it put
       ;; back in the session forked from (byj-d8c.3), or the worktree it
       ;; was made in (byj-8yt): `cwd` is where it is loaded and listed from
-      (:fork s) (assoc :_meta {:brainyard {:fork (let [{:keys [from before-turn files saved error worktree]} (:fork s)]
-                                                   (cond-> {:from from}
-                                                     before-turn (assoc :beforeTurn before-turn)
-                                                     files (assoc :files files)
-                                                     saved (assoc :saved saved)
-                                                     error (assoc :error error)
-                                                     worktree (assoc :worktree {:path (:dir worktree) :cwd (:project-dir worktree)
-                                                                                :branch (:branch worktree) :base (:base worktree)
-                                                                                :files (:files worktree)})))}}))))
+      (:fork s) (assoc-in [:_meta :brainyard :fork]
+                          (let [{:keys [from before-turn files saved error worktree]} (:fork s)]
+                            (cond-> {:from from}
+                              before-turn (assoc :beforeTurn before-turn)
+                              files (assoc :files files)
+                              saved (assoc :saved saved)
+                              error (assoc :error error)
+                              worktree (assoc :worktree {:path (:dir worktree) :cwd (:project-dir worktree)
+                                                         :branch (:branch worktree) :base (:base worktree)
+                                                         :files (:files worktree)})))))))
 
 (defn- prompt-text
   "A prompt's content blocks as the line a session takes: text as it is, a
