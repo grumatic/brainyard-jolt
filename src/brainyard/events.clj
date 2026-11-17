@@ -148,7 +148,7 @@
    :bt.repeat/exhausted {:level :trace :doc "A :repeat hit :max-n without its :until; {:id}."}
    :bt.scope/cancelled {:level :trace :doc "A :scope was cancelled."}
    :session.turn/end {:level :trace :doc "A session turn finished; {:terminated-by :iterations :usage :elapsed-ms :ended-at :files-changed}, the last how many files differ between the git snapshots of its start and end, kept for a review (RFC-067)."}
-   :session/rewind {:level :quiet :doc "The person put files back between turns (RFC-069): {:kind :rewind|:undo-turn|:undo-rewind|:fork :turn :end? :files :conflicts :saved}, :saved the ref that keeps what was replaced; a :fork's :session is the new session, whose conversation was cut before :turn. The command's own line says it."}
+   :session/rewind {:level :quiet :doc "The person put files back between turns (RFC-069): {:kind :rewind|:undo-turn|:undo-rewind|:fork :turn :end? :files :conflicts :saved}, :saved the ref that keeps what was replaced; a :fork's :session is the new session, whose conversation was cut before :turn. An :undo-turn a conflict kept back entirely has :files [] and :conflicts, :saved nil: nothing was written. The command's own line says it."}
    :session/suggestion {:level :trace :doc "What the person might type next, from a call they made themselves (a typed :agent$…), outside a turn; {:next-user-prompt}. /init's comes with its turn's end instead (byj-gly.350)."}
    :session/resumed {:level :trace :doc "A session was resumed from its snapshot; {:id :transcript [[kind text] …] :turn-count :usage}, what was said before and what it cost, for a front end to show again."}
    :config/applied {:level :trace :doc "A turn's start found the config files changed and put the new values in force; {:keys}."}

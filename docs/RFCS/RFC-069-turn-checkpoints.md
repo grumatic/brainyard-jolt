@@ -174,8 +174,13 @@ Untouched: HEAD, the index, the stash, and anything the snapshots leave out.
   - the turn's start as theirs.
 
   What came after the turn stays. Where something later changed the same
-  lines, the file is left with conflict markers and named. The index is
-  never used, where `git apply -3` would have used the person's.
+  lines, the file is left with conflict markers and named. Where something
+  later changed a file the turn made (modify/delete), git leaves it as it
+  is: named in `:conflicts`, it is not in `:files`. When that is every file,
+  nothing is written, and `/undo-turn`, `byj turns undo-turn` and
+  `_byj/turns/undoTurn` say a conflict kept the turn back — never that the
+  files were already so (`byj-v55`). The index is never used, where
+  `git apply -3` would have used the person's.
 - **Undo a rewind** (`changes/undo-rewind!`, `/rewind undo [N]`, `byj turns
   undo`): the work tree put back as it was just before rewind N, the last by
   default. That is itself kept first, as the newest rewind, so taking the last

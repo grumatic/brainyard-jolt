@@ -516,6 +516,13 @@
       (is (= ["b"] (:files (json/read-str (:out (run-main "-C" dir "turns" "undo-turn" "s-cli" "1" "--json"))))))
       (is (not (.exists (io/file dir "b"))))
       (is (= 2 (:exit (run-main "-C" dir "turns" "rewind" "s-cli"))) "no turn named"))
+    (testing "a turn whose file was changed after it is said to be kept back by the conflict, not already so (byj-v55)"
+      (spit (io/file dir "b") "b\nmore\n")
+      (let [{:keys [exit out err]} (run-main "-C" dir "turns" "undo-turn" "s-cli" "1")]
+        (is (= 1 exit))
+        (is (not (str/includes? out "already as they were")))
+        (is (str/includes? err "turn 1's change was not taken back: what came after it changed b too")))
+      (is (= "b\nmore\n" (slurp (io/file dir "b"))) "nothing written"))
     (testing "a fork cut before turn 2, the files put back to its start"
       (persist/save! {:working-dir dir :project-dir dir} "s-cli"
                      {:turn-count 2 :previous-turns [{:question "make b" :answer "made" :turn 1} {:question "just talk" :answer "ok" :turn 2}]})

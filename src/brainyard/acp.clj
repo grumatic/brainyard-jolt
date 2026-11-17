@@ -391,9 +391,13 @@
         (:refused r) (throw (rpc-error -32602 (:refused r)))
         (:closed r) (throw (rpc-error -32602 (str "session " sid " closed")))
         done (let [{:keys [kind turn end? files conflicts saved]} done]
+               ;; a conflict that kept the turn's change from being taken back
+               ;; at all is an answer, not an error: what it is, and why
+               ;; nothing was written, in the command's words (byj-v55)
                (cond-> {:kind (name kind) :files (vec files) :conflicts (vec conflicts) :saved saved}
                  turn (assoc :turn turn)
-                 (some? end?) (assoc :end end?)))
+                 (some? end?) (assoc :end end?)
+                 (empty? files) (assoc :message said)))
         ;; nothing changed on disk: the files were already so — or it was
         ;; refused, in the words the command said it in
         (some (fn [[k _]] (= :error k)) (:said r)) (throw (rpc-error -32602 said))

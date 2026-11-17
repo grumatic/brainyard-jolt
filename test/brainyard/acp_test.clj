@@ -734,6 +734,29 @@
         (is (:error (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "/rewind 1"}]}))))
       (finally (acp/end! (:conn c))))))
 
+(deftest a-turn-a-later-one-conflicts-with-is-not-said-to-be-taken-back-already
+  ;; byj-v55: turn 1 made notes.txt, turn 2 changed it; taking turn 1 back
+  ;; alone is a modify/delete conflict, and nothing is written
+  (let [[dir _] (git-project "undo-conflict")
+        c (with-ext (client))
+        {:keys [sessionId]} (new-session c dir (script! dir [{:tool-calls [{:tool-name "bash" :tool-args {:command "echo one > notes.txt"}}]}
+                                                             {:answer "made" :goal-achieved true}
+                                                             {:tool-calls [{:tool-name "bash" :tool-args {:command "echo two >> notes.txt"}}]}
+                                                             {:answer "added" :goal-achieved true}]))
+        ask! #(call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text %}]})
+        notes (io/file dir "notes.txt")]
+    (ask! "make notes") (ask! "add to them")
+    (try
+      (let [r (:result (call c "_byj/turns/undoTurn" {:sessionId sessionId :turn 1}))]
+        (testing "answered with the conflict, as byj turns undo-turn answers it"
+          (is (= {:kind "undo-turn" :turn 1 :files [] :conflicts ["notes.txt"]} (select-keys r [:kind :turn :files :conflicts])) (pr-str r)))
+        (testing "in words that say a conflict kept it back, not that it was already so"
+          (is (re-find #"not taken back" (str (:message r))))
+          (is (not (re-find #"already as they were" (str (:message r))))))
+        (testing "and nothing was written"
+          (is (= "one\ntwo\n" (slurp notes)))))
+      (finally (acp/end! (:conn c))))))
+
 (deftest a-session-is-forked-before-a-turn-over-acp
   (let [[dir git] (git-project "fork-before")
         c (with-ext (client))

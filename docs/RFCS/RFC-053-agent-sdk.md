@@ -269,8 +269,9 @@ before after files question endedAt}]}`, as `byj turns list` shows them;
 the last turn that changed files when none is named; `_byj/turns/rewind
 {sessionId turn end?}`, `_byj/turns/undoTurn {sessionId turn}` and
 `_byj/turns/undoRewind {sessionId n?}` → `{kind turn end files conflicts
-saved}`, or `{files: [] conflicts: [] message}` when the files were already
-so. Each of the last three runs as the session's own `/rewind`,
+saved}`, with `message` when it changed no files: the files were already
+so (`conflicts` empty), or a conflict kept a turn's change from being taken
+back at all (`conflicts` names the files, `byj-v55`). Each of the last three runs as the session's own `/rewind`,
 `/undo-turn` and `/rewind undo` (`sdk/command!`), whether or not the
 session was opened with `commands`: between its turns, refused while
 background work runs, the next turn told in the command's words and

@@ -481,10 +481,21 @@
 
 (defn- rewound!
   "What `rewind-command` did, said: to the person, to the next turn (a line of
-  console activity) and to the bus. `{:text}`."
+  console activity) and to the bus. `{:text}`, or `{:error}` when a
+  conflict kept a turn's change from being taken back at all: a later
+  change to the same file (modify/delete) leaves it as it is, and nothing
+  is written — said so, never as files that were already so (byj-v55)."
   [ctx kind {:keys [turn end? files conflicts saved] :as r} lead]
-  (if (empty? files)
+  (cond
+    (and (empty? files) (seq conflicts))
+    (do (events/emit! ctx :session/rewind {:kind kind :turn turn :end? (boolean end?) :files []
+                                           :conflicts (vec conflicts) :saved nil})
+        {:error (str "turn " turn "'s change was not taken back: what came after it changed " (file-list conflicts)
+                     " too, so it cannot be taken back alone there — nothing was changed; /rewind " turn
+                     " puts every file back as turn " turn " began")})
+    (empty? files)
     {:text "the files are already as they were then: nothing changed"}
+    :else
     (do
       (tell-next-turn! ctx [(rewind-line kind r)])
       (events/emit! ctx :session/rewind {:kind kind :turn turn :end? (boolean end?) :files files
