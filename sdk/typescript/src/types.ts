@@ -204,6 +204,40 @@ export interface ForkOutcome {
   saved?: string;
   /** Why the files were not put back, when they were not. */
   error?: string;
+  /** The worktree it was made in, when one was asked for (`forkSession`'s `worktree`). */
+  worktree?: ForkWorktree;
+}
+
+/** A fork's worktree of its own: the session forked from, and the project's work tree, are left as they were. */
+export interface ForkWorktree {
+  /** The worktree's top. */
+  path: string;
+  /** The session's project in it, where it is loaded and listed from. */
+  cwd: string;
+  /** Its new branch, from `base`. */
+  branch: string;
+  /** The commit it was added at: HEAD then. */
+  base: string;
+  /** The files that differ from `base`, as the turn began: left uncommitted. */
+  files: string[];
+}
+
+/** `forkSession`'s options. */
+export interface ForkOptions {
+  /** Its conversation cut before this turn, the files as it began. */
+  beforeTurn?: number;
+  /** The project's files left as they are (not with `worktree`). */
+  keepFiles?: boolean;
+  /** Made in a new git worktree, and worked in there: `true` for the defaults. */
+  worktree?: boolean | WorktreeOptions;
+}
+
+/** Where a fork goes when it is not the project's own work tree: a new git worktree. */
+export interface WorktreeOptions {
+  /** Its new branch; `byj/fork-<id>` when not named. */
+  branch?: string;
+  /** Its directory, relative to the project; `.brainyard/worktrees/<branch>` when not named. */
+  path?: string;
 }
 
 export type Message =

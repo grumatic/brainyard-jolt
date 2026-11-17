@@ -6,7 +6,7 @@
 // checkout (`jolt -m brainyard.main`) unless BYJ_BIN names a binary.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { execFileSync, spawn } from "node:child_process";
 import { join } from "node:path";
@@ -265,6 +265,15 @@ test("a session's turns are listed, taken back and forked before (RFC-069)", asy
     assert.equal(existsSync(join(p.cwd, "a.txt")), true);
     assert.equal(existsSync(join(p.cwd, "b.txt")), false);
     await f.close();
+    // into a worktree of its own: the project's files left as they are
+    writeFileSync(join(p.cwd, "b.txt"), "b\n");
+    const w = await client.forkSession(s.id, p, undefined, { beforeTurn: 2, worktree: { branch: "try-again" } });
+    assert.equal(w.fork?.worktree?.branch, "try-again");
+    assert.equal(w.fork?.files, undefined);
+    assert.equal(readFileSync(join(w.fork!.worktree!.cwd, "a.txt"), "utf8"), "a\n");
+    assert.equal(existsSync(join(w.fork!.worktree!.cwd, "b.txt")), false);
+    assert.equal(existsSync(join(p.cwd, "b.txt")), true);
+    await w.close();
   } finally {
     await client.close();
   }

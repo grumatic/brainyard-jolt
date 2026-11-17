@@ -7,7 +7,7 @@ import { Connection, RpcError } from "./rpc.js";
 import type {
   ClientOptions, Hook, JsonSchema, LiveSession, Message, PermissionDecision, PermissionMode, PermissionRequest,
   PredictOptions, PredictResult, ResultMessage, SessionOptions, Tool,
-  ForkOutcome, KeptTurn, RewindResult, TurnDiff,
+  ForkOptions, ForkOutcome, KeptTurn, RewindResult, TurnDiff,
 } from "./types.js";
 
 /** The ACP version spoken. */
@@ -281,10 +281,13 @@ export class ByjClient {
    * new id — leaving that one as it was; its history to `onHistory`. With
    * `beforeTurn`, its conversation is cut before that turn and the project's
    * files put back as the turn began, as `/fork` does (`keepFiles` leaves
-   * them); what it did is the session's `fork`.
+   * them). With `worktree`, the fork is made in a new git worktree instead,
+   * its files the turn's start (or the project's as they are, with no turn),
+   * and works there: the session forked from and the project's work tree are
+   * left as they were. What it did is the session's `fork`.
    */
   async forkSession(fromSessionId: string, o: SessionOptions, onHistory?: (m: Message) => void,
-                    opts: { beforeTurn?: number; keepFiles?: boolean } = {}): Promise<Session> {
+                    opts: ForkOptions = {}): Promise<Session> {
     // the new id is chosen here, so the history replayed before session/new
     // answers is routed to it, as a load's is
     const id = `${Date.now()}-${Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, "0")}`;
@@ -292,7 +295,7 @@ export class ByjClient {
   }
 
   private async open(method: string, o: SessionOptions, sessionId?: string, onHistory?: (m: Message) => void,
-                     forkFrom?: string, fork: { beforeTurn?: number; keepFiles?: boolean } = {}) {
+                     forkFrom?: string, fork: ForkOptions = {}) {
     const hooks: [string, Hook][] = (o.hooks ?? []).map((h) => [`h${++this.hookCount}`, h]);
     for (const [id, h] of hooks) this.hooks.set(id, h);
     // the session exists before its id comes back: a history being replayed
@@ -310,6 +313,7 @@ export class ByjClient {
         forkFrom, sessionId,
         ...(fork.beforeTurn !== undefined && { forkBeforeTurn: fork.beforeTurn }),
         ...(fork.keepFiles && { keepFiles: true }),
+        ...(fork.worktree && { worktree: fork.worktree === true ? {} : fork.worktree }),
       });
       const r: any = await this.conn.request(method, {
         ...(sessionId && !forkFrom && { sessionId }),

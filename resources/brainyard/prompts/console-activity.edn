@@ -9,7 +9,9 @@
 ;; `undo` from another process, a `/fork` that put them back, a fork that
 ;; kept files its conversation does not remember — is left as a note and
 ;; told its next turn the same way (byj-gly.488): :outside wraps the line,
-;; and :outside-client one an application did over ACP (byj-d8c.3).
+;; and :outside-client one an application did over ACP (byj-d8c.3). A fork
+;; into a worktree of its own is told where it now works (byj-8yt): its
+;; earlier turns' paths name the project's work tree, not its own.
 {:heading "The person did these directly between turns (their own tool calls and commands, newest last, results cut short):"
  :rewind "/rewind {turn}: the person put the work tree back as it was when turn {turn} {point}. Changed on disk: {files}. What was written to those files after that is no longer there: read a file again before relying on what it held."
  :undo-turn "/undo-turn {turn}: the person took back what turn {turn} changed, alone; what came after it stays. Changed on disk: {files}.{conflicts} Read a file again before relying on what it held."
@@ -18,4 +20,5 @@
  :outside "{line} (Done from outside this session, with byj turns {sub}.)"
  :outside-client "{line} (Done from outside this session, by the application that drives byj over ACP.)"
  :forked-away "/fork {turn}: the person forked a new session ({session}) from this conversation before turn {turn}, and put the work tree back as it was when turn {turn} began. Changed on disk: {files}. What was written to those files after that is no longer there: read a file again before relying on what it held."
- :fork-kept "This session was forked from session {from} before its turn {turn}, keeping the files as they were: the work tree still holds what that session's turns {turn} and after wrote, which this conversation does not include. Read a file before relying on what you think it holds."}
+ :fork-kept "This session was forked from session {from} before its turn {turn}, keeping the files as they were: the work tree still holds what that session's turns {turn} and after wrote, which this conversation does not include. Read a file before relying on what you think it holds."
+ :fork-worktree "This session was forked from session {from}{cut} into a git worktree of its own at {dir}, on branch {branch}. Its earlier turns worked in {project}; the files are here now, as they were {when}. Work in {dir}: a path in {project} outside it is the other session's work tree, not this one's."}

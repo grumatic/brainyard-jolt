@@ -8,7 +8,7 @@ import asyncio
 import inspect
 import os
 
-from typing import Any, AsyncIterator, Callable, Optional
+from typing import Any, AsyncIterator, Callable, Optional, Union
 
 from .rpc import Connection, RpcError
 from .types import (
@@ -70,7 +70,7 @@ class Session:
         #: the prompt being answered: its messages go here
         self.current: Optional[asyncio.Queue] = None
         #: a fork's outcome (fork_session with before_turn): ``{from,
-        #: beforeTurn, files, saved, error}``, else None
+        #: beforeTurn, files, saved, error, worktree}``, else None
         self.fork: Optional[dict[str, Any]] = None
 
     def emit(self, m: Message) -> None:
@@ -255,17 +255,23 @@ class ByjClient:
 
     async def fork_session(self, from_session_id: str, options: SessionOptions,
                            on_history: Optional[Callable[[Message], Any]] = None,
-                           before_turn: Optional[int] = None, keep_files: bool = False) -> Session:
+                           before_turn: Optional[int] = None, keep_files: bool = False,
+                           worktree: Union[bool, dict[str, str], None] = None) -> Session:
         """A new session that starts where a saved one stands — its history,
         under a new id — leaving that one as it was. With ``before_turn``, its
         conversation is cut before that turn and the project's files put back
-        as the turn began, as ``/fork`` does (``keep_files`` leaves them); what
-        it did is the session's ``fork``."""
+        as the turn began, as ``/fork`` does (``keep_files`` leaves them). With
+        ``worktree`` (``True``, or ``{"branch", "path"}``), the fork is made in
+        a new git worktree instead, its files the turn's start (or the
+        project's as they are, with no turn), and works there: the session
+        forked from and the project's work tree are left as they were, and
+        ``fork["worktree"]`` says ``{path, cwd, branch, base, files}``. What it
+        did is the session's ``fork``."""
         import random
         import time
         sid = f"{int(time.time() * 1000)}-{random.getrandbits(32):08x}"
         return await self._open("session/new", options, sid, on_history, fork_from=from_session_id,
-                                fork={"beforeTurn": before_turn, "keepFiles": keep_files})
+                                fork={"beforeTurn": before_turn, "keepFiles": keep_files, "worktree": worktree})
 
     async def _open(self, method: str, o: SessionOptions, session_id: Optional[str] = None,
                     on_history: Optional[Callable[[Message], Any]] = None,
@@ -289,6 +295,8 @@ class ByjClient:
                 meta["brainyard"]["forkBeforeTurn"] = fork["beforeTurn"]
             if fork and fork.get("keepFiles"):
                 meta["brainyard"]["keepFiles"] = True
+            if fork and fork.get("worktree"):
+                meta["brainyard"]["worktree"] = {} if fork["worktree"] is True else fork["worktree"]
         try:
             r = await self.conn.request(method, {
                 **({"sessionId": session_id} if session_id and not fork_from else {}),

@@ -541,7 +541,7 @@
             ;; its files put back under a turn running in this process: no
             ;; (another process's is refused by changes/rewind!)
             (when-let [src (get-in @(:state conn) [:sessions (:forkFrom o)])]
-              (when (and (not (:keepFiles o)) (sdk/running? src))
+              (when (and (not (:keepFiles o)) (not (:worktree o)) (sdk/running? src))
                 (throw (rpc-error -32602 (str "session " (:forkFrom o) " is in the middle of a turn: its files may be being written — fork when it ends, or with keepFiles"))))))
         defaults (:defaults @(:state conn))
         ;; the id chosen here — or by the client, in context/session-id's shape,
@@ -551,6 +551,16 @@
         _ (when (and chosen (not (re-matches #"\d{13}-[0-9a-f]{8}" (str chosen))))
             (throw (rpc-error -32602 (str "a session id is <millis>-<8 hex>, not " chosen))))
         sid-box (atom (or resume chosen (context/session-id)))
+        ;; a fork into a worktree of its own (byj-8yt): made first, since
+        ;; the session works there — its files, its tools' fs, its history
+        _ (when (and (:worktree o) (not (:forkFrom o)))
+            (throw (rpc-error -32602 "worktree is where a fork goes: it needs forkFrom")))
+        wt (when-let [w (:worktree o)]
+             (try (sdk/fork-worktree! {:project-dir cwd :fork-from (:forkFrom o) :fork-before-turn (:forkBeforeTurn o)
+                                       :keep-files? (boolean (:keepFiles o)) :session-id @sid-box
+                                       :worktree (when (map? w) (select-keys w [:branch :path]))})
+                  (catch clojure.lang.ExceptionInfo e (throw (rpc-error -32602 (ex-message e))))))
+        cwd (if wt (:project-dir wt) cwd)
         ;; the client's editor as the file tools' fs, when it offers one
         fs-cap (get-in @(:state conn) [:client :clientCapabilities :fs])
         fs-tools (when (or (:readTextFile fs-cap) (:writeTextFile fs-cap))
@@ -573,6 +583,7 @@
                       :fork-from (:forkFrom o)
                       :fork-before-turn (:forkBeforeTurn o)
                       :keep-files? (boolean (:keepFiles o))
+                      :worktree wt
                       :commands? (boolean (:commands o))
                       :mcp-servers (mcp-servers mcpServers)
                       :permission-mode (some-> (or (:permissionMode o) (:permission-mode defaults)) keyword)
@@ -599,13 +610,17 @@
              :modes {:currentModeId (name (or (some-> (:permission-mode-box s) deref) :auto))
                      :availableModes modes}}
       ;; what a fork did: where from, before which turn, the files it put
-      ;; back in the session forked from (byj-d8c.3)
-      (:fork s) (assoc :_meta {:brainyard {:fork (let [{:keys [from before-turn files saved error]} (:fork s)]
+      ;; back in the session forked from (byj-d8c.3), or the worktree it
+      ;; was made in (byj-8yt): `cwd` is where it is loaded and listed from
+      (:fork s) (assoc :_meta {:brainyard {:fork (let [{:keys [from before-turn files saved error worktree]} (:fork s)]
                                                    (cond-> {:from from}
                                                      before-turn (assoc :beforeTurn before-turn)
                                                      files (assoc :files files)
                                                      saved (assoc :saved saved)
-                                                     error (assoc :error error)))}}))))
+                                                     error (assoc :error error)
+                                                     worktree (assoc :worktree {:path (:dir worktree) :cwd (:project-dir worktree)
+                                                                                :branch (:branch worktree) :base (:base worktree)
+                                                                                :files (:files worktree)})))}}))))
 
 (defn- prompt-text
   "A prompt's content blocks as the line a session takes: text as it is, a

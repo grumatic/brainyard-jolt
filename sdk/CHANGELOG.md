@@ -14,6 +14,15 @@ Each version is the TypeScript and the Python SDK together, released as
   with the files put back as it began, said in the session's `fork`. A
   prompt's `result` says its `turn`, `filesChanged` and `checkpoint`. They
   need a byj that advertises the `turns` extension (byj-d8c.3).
+- `forkSession(..., {beforeTurn, worktree: true | {branch, path}})` /
+  `fork_session(..., before_turn=, worktree=)`: the fork made in a new git
+  worktree, its files the turn's start, and worked in there; the session
+  forked from and the project's work tree are left as they were. Where it
+  is, its branch and the files it holds beyond HEAD are the session's
+  `fork.worktree` (byj-8yt).
+- `undoTurn` / `undo_turn` of a turn a later change conflicts with in every
+  file answers its `conflicts`, and a `message` that says a conflict kept it
+  back (byj-v55).
 
 - `connectShared(url, token)` / `connect_shared(url, token)`: an agent shared on
   Brainyard Share, called from an application over A2A with the token its

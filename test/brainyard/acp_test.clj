@@ -793,6 +793,67 @@
           (is (re-find #"forked from session" (str (first (persist/take-notes! {:project-dir dir} nid)))))))
       (finally (acp/end! (:conn c))))))
 
+(deftest a-session-is-forked-before-a-turn-into-a-worktree-of-its-own-over-acp
+  ;; byj-8yt: the session forked from and the project's work tree untouched
+  (let [[dir git] (git-project "fork-worktree")
+        c (with-ext (client))
+        model (script! dir [{:tool-calls [{:tool-name "bash" :tool-args {:command "echo a > a.txt"}}]}
+                            {:answer "wrote a" :goal-achieved true}
+                            {:tool-calls [{:tool-name "bash" :tool-args {:command "echo b > b.txt"}}]}
+                            {:answer "wrote b" :goal-achieved true}])
+        ;; each session's mock reads its script from the start
+        fork-model (script! (fresh-dir "fork-worktree-model")
+                            [{:tool-calls [{:tool-name "bash" :tool-args {:command "echo c > c.txt"}}]}
+                             {:answer "wrote c" :goal-achieved true}])
+        {:keys [sessionId]} (new-session c dir model)
+        ask! #(call c "session/prompt" {:sessionId %1 :prompt [{:type "text" :text %2}]})
+        fork! #(call c "session/new" {:cwd dir :mcpServers []
+                                      :_meta {:brainyard (merge {:provider "mock" :model model :config {:builtin-agents? false}} %)}})
+        refs #(git "for-each-ref" "--format=%(refname)" (str "refs/byj/rewinds/" sessionId "/"))
+        worktrees (io/file dir ".brainyard" "worktrees")]
+    (ask! sessionId "write a") (ask! sessionId "write b")
+    (try
+      (testing "a worktree is where a fork goes, and its files are the turn's start: not kept as they are"
+        (is (= -32602 (get-in (fork! {:worktree {}}) [:error :code])))
+        (is (re-find #"keep-files" (get-in (fork! {:forkFrom sessionId :forkBeforeTurn 2 :keepFiles true :worktree {}}) [:error :message])))
+        (is (re-find #"not kept" (get-in (fork! {:forkFrom sessionId :forkBeforeTurn 9 :worktree {}}) [:error :message])))
+        (is (empty? (.list worktrees)) "and none is left behind"))
+      (let [r (:result (fork! {:forkFrom sessionId :forkBeforeTurn 2 :worktree {} :events "all" :model fork-model}))
+            nid (:sessionId r)
+            {:keys [path cwd branch base files] :as wt} (get-in r [:_meta :brainyard :fork :worktree])
+            in-wt #(str/trim (str (:out (apply fx/sh {:dir path :out :string :err :string} "git" %&))))]
+        (testing "a new worktree on a branch of its own, from HEAD"
+          (is (= {:from sessionId :beforeTurn 2} (dissoc (get-in r [:_meta :brainyard :fork]) :worktree)) "no files put back here")
+          (is (= (str "byj/fork-" nid) branch))
+          (is (= (.getCanonicalPath (io/file worktrees (str "byj-fork-" nid))) path))
+          (is (= path cwd) "the project is the repository's top")
+          (is (= (git "rev-parse" "HEAD") base (in-wt "rev-parse" "HEAD")))
+          (is (= branch (in-wt "rev-parse" "--abbrev-ref" "HEAD"))))
+        (testing "its files as turn 2 began, uncommitted on that branch"
+          (is (= "a\n" (slurp (io/file path "a.txt"))))
+          (is (not (.exists (io/file path "b.txt"))))
+          (is (= "the notes\n" (slurp (io/file path "notes.md"))))
+          (is (some #{"a.txt"} files) (pr-str wt)))
+        (testing "the project's work tree and the session forked from as they were"
+          (is (= "a\n" (slurp (io/file dir "a.txt"))))
+          (is (= "b\n" (slurp (io/file dir "b.txt"))))
+          (is (= "" (refs)) "nothing put back here, so no rewind kept")
+          (is (= 2 (:turn-count (persist/read-session {:project-dir dir} sessionId))))
+          (is (empty? (persist/take-notes! {:project-dir dir} sessionId))))
+        (testing "the fork is a session of the worktree: listed there, not here, its conversation turn 1's"
+          (is (some #{nid} (map :sessionId (get-in (call c "session/list" {:cwd cwd}) [:result :sessions]))))
+          (is (not (some #{nid} (map :sessionId (get-in (call c "session/list" {:cwd dir}) [:result :sessions])))))
+          (is (= ["write a"] (map :question (:previous-turns (persist/read-session {:project-dir cwd} nid))))))
+        (testing "its next turn works in the worktree, told where it now is"
+          (ask! nid "write c")
+          (is (= "c\n" (slurp (io/file path "c.txt"))))
+          (is (not (.exists (io/file dir "c.txt"))))
+          (is (some #(and (= "_byj/event" (:method %)) (= nid (get-in % [:params :sessionId]))
+                          (str/includes? (json/write-str (get-in % [:params :payload])) "into a git worktree of its own"))
+                    @(:seen c))
+              "the note, in the request its turn sent")))
+      (finally (acp/end! (:conn c))))))
+
 (deftest a-client-tool-is-called-over-the-wire
   (let [dir (fresh-dir "client-tool")
         asked (atom [])

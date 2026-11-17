@@ -236,6 +236,7 @@ held by a live process, and is not one in `session list`.
 | `/fork K keep-files`, `byj turns fork S K keep-files` | either | the new session | `:fork-kept`: its files hold turns K and after, which its conversation does not |
 | `session/new` with `forkFrom S` and `forkBeforeTurn K`, files put back | ACP (RFC-053, `byj-d8c.3`) | S | `:forked-away` in `:outside-client` |
 | the same with `keepFiles` | ACP | the new session | `:fork-kept` |
+| `session/new` with `forkFrom S` and `worktree` | ACP (`byj-8yt`) | the new session, in its worktree | `:fork-worktree`: where it now works, its earlier turns' paths being the project's |
 | `_byj/turns/rewind`, `undoTurn`, `undoRewind` | ACP | that session, as its own command tells it | `:rewind`, `:undo-turn`, `:undo-rewind` |
 
 ### Going back: the conversation (decided, `byj-gly.485`)
@@ -243,6 +244,27 @@ held by a live process, and is not one in `session list`.
 A conversation is taken back to turn K by a **fork**: a new session whose
 snapshot is this one's cut before K, this one untouched. `/fork [TURN
 [keep-files]]` and `byj turns fork SESSION [TURN [keep-files]]` make it.
+
+### A fork in a worktree of its own (`byj-8yt`)
+
+A fork made in the project's work tree puts its files back under the
+session forked from. One made in a **worktree of its own** leaves both as
+they were: `sdk/fork-worktree!`, ACP's `session/new` with `worktree`.
+
+- **The worktree** (`changes/worktree!`) is added on a new branch from
+  HEAD: `byj/fork-<id>` under `.brainyard/worktrees/` by default, which
+  the snapshots leave out. Its files are then made the turn's start (with
+  no turn, the project's work tree as it is now, a snapshot) by git's
+  binary diff from HEAD, applied there and left uncommitted. So the
+  branch's history is the project's own, with no byj snapshot in it, and
+  what the turn's start held beyond HEAD is a change to see and commit.
+  One that cannot be made so is removed again.
+- **The session** is written into the worktree (`persist/fork!` with
+  `:into`) and opened there: it is listed, loaded and kept from there, and
+  its turns run in its files. It is told, at its next turn, where it now
+  works, since its earlier turns' paths name the project's work tree.
+- `keepFiles` has no meaning here and is refused: a worktree's files are
+  the turn's start.
 - **Snapshot:** `persist/fork!` with `:before-turn` writes it (RFC-016, `persist/cut-before`).
 - **Its fields:** history and transcript without turn K and after,
   `:turn-count` K−1 (its next turn is K, under its own id),
@@ -306,7 +328,8 @@ session's id:
 (changes/undo-rewind! config id & [n])          ; → {:files :saved :undid} | {:error}
 (changes/rewinds config id)                     ; → [n …]
 (persist/cut-before snapshot k)                 ; → snapshot | {:problem}
-(persist/fork! config from-id new-id {:before-turn k}) ; → file | {:problem}
+(persist/fork! config from-id new-id {:before-turn k :into config}) ; → file | {:problem}
+(changes/worktree! config id turn dir branch)   ; → {:dir :project-dir :branch :base :files} | {:error} (byj-8yt)
 (changes/running root & [id])                   ; → [{:session :turn :pid :at} …], id's own here left out
 (persist/note! config id line)                  ; → true | nil (no such session)
 (persist/take-notes! config id)                 ; → [line …] | nil, and none left
@@ -319,7 +342,8 @@ A rewind refused for a running turn is `{:error … :running [...]}`.
 Session commands: `/rewind [TURN [end] | undo [N]]`, `/undo-turn TURN`,
 `/fork [TURN [keep-files]]`. CLI: `byj turns list|diff|rewind|undo-turn|undo|fork`.
 ACP (RFC-053): `_byj/turns/list|diff|rewind|undoTurn|undoRewind`, and
-`session/new`'s `forkFrom` with `forkBeforeTurn` and `keepFiles`.
+`session/new`'s `forkFrom` with `forkBeforeTurn`, `keepFiles` and
+`worktree`.
 
 ## Invariants
 
@@ -338,6 +362,7 @@ ACP (RFC-053): `_byj/turns/list|diff|rewind|undoTurn|undoRewind`, and
 | A turn marks its work tree while it runs, and no longer; a rewind, an undone turn or an undone rewind changes nothing while another process's turn, or another session's, runs there, and names it; the asker's own does not hold it back; a mark whose process is gone is removed. | `changes-test/a-turn-running-in-the-work-tree-holds-a-rewind-back`, `main-test/byj-turns-lists-a-session-s-turns-and-diffs-one` |
 | What `byj turns` does to a session's files is told at its next turn, saying it came from outside; `/fork K` tells the session forked from at its next turn; a fork that kept the files tells the new session at its first, once. A note is left only for a session there is, and is not a session. | `main-test/byj-turns-lists-a-session-s-turns-and-diffs-one`, `session-test/a-session-is-forked-before-a-turn-with-its-files`, `persist-test/a-note-is-left-for-a-session-s-next-turn` |
 | The suite leaves no `refs/byj/` in this repository, nor do named namespaces run through the runner (`jolt -M:test NS…`) or `brainyard.dev/test-ns`. | `test-runner/run` (`own-sessions`) |
+| A fork into a worktree of its own: a new worktree on a new branch from HEAD, its files the turn's start left uncommitted; the new session written, listed and run there, and told where it works; the project's work tree, the session forked from and its rewinds untouched; one that cannot be made (no `forkFrom`, `keepFiles`, a turn not kept) is refused with no worktree left. | `acp-test/a-session-is-forked-before-a-turn-into-a-worktree-of-its-own-over-acp` |
 
 ## Known gaps
 

@@ -226,16 +226,19 @@
   copied, with `:forked-from` naming it and times of its own (byj-g5n.12,
   RFC-053). Nothing else is copied — not its lock, channel, trajectory or
   transcripts — and `from-id` is not touched, so the two go on apart, each
-  resumable. Returns the new snapshot's file, or `{:problem …}`: the snapshot
-  unreadable, the turn not one to cut before, or `new-id` already a session."
-  [config from-id new-id & [{:keys [before-turn]}]]
+  resumable. `into`, another project's config, writes the new session
+  there — a worktree's (byj-8yt) — rather than beside `from-id`. Returns
+  the new snapshot's file, or `{:problem …}`: the snapshot unreadable, the
+  turn not one to cut before, or `new-id` already a session."
+  [config from-id new-id & [{:keys [before-turn into]}]]
   (let [snap (read-session config from-id)
-        snap (if (and before-turn (not (:problem snap))) (cut-before snap before-turn) snap)]
+        snap (if (and before-turn (not (:problem snap))) (cut-before snap before-turn) snap)
+        to (or into config)]
     (cond
       (:problem snap) snap
-      (.exists (session-dir config new-id)) {:problem (str "session " new-id " already exists")}
+      (.exists (session-dir to new-id)) {:problem (str "session " new-id " already exists")}
       :else (let [now (System/currentTimeMillis)
-                  f (session-file config new-id)]
+                  f (session-file to new-id)]
               (write-edn! f (cond-> (assoc snap :id (str new-id) :forked-from (str from-id) :created-at now :updated-at now)
                               before-turn (assoc :forked-before-turn before-turn)))
               f))))

@@ -249,4 +249,12 @@ def test_a_sessions_turns_are_listed_taken_back_and_forked_before():
             assert (f.fork["from"], f.fork["beforeTurn"], f.fork["files"]) == (s.id, 2, ["a.txt", "b.txt"])
             assert (d / "a.txt").exists() and not (d / "b.txt").exists()
             await f.close()
+            # into a worktree of its own: the project's files left as they are
+            (d / "b.txt").write_text("b\n")
+            w = await client.fork_session(s.id, p, before_turn=2, worktree={"branch": "try-again"})
+            wt = w.fork["worktree"]
+            assert wt["branch"] == "try-again" and "files" not in w.fork
+            assert (Path(wt["cwd"]) / "a.txt").read_text() == "a\n" and not (Path(wt["cwd"]) / "b.txt").exists()
+            assert (d / "b.txt").exists()
+            await w.close()
     asyncio.run(go())

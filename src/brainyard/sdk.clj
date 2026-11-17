@@ -36,6 +36,7 @@
             [brainyard.schema :as schema]
             [brainyard.changes :as changes]
             [brainyard.session :as session]
+            [brainyard.worktree :as worktree]
             [brainyard.tasks :as tasks]
             [brainyard.tools :as tools]))
 
@@ -57,6 +58,48 @@
 
 (defn- absolute [dir] (.getCanonicalPath (io/file dir)))
 
+(defn- slug [s]
+  (-> (str/lower-case (str s)) (str/replace #"[^a-z0-9]+" "-") (str/replace #"^-+|-+$" "")))
+
+(defn fork-worktree!
+  "A fork in a git worktree of its own (byj-8yt): session `:fork-from` of
+  `:project-dir`, cut before `:fork-before-turn` or as it stands, written
+  as a new session into a worktree whose files are the turn's start — or,
+  with no turn, the project's as they are now (`changes/worktree!`). The
+  worktree is `.brainyard/worktrees/<branch>` under the project unless
+  `:worktree`'s `:path` names one (relative to the project), on a new
+  branch `byj/fork-<id>` unless its `:branch` names one. The new session is
+  told where it now works, its earlier turns' paths being the project's.
+  The session forked from and the project's work tree are not touched.
+  What `base` opens, as its `:worktree`: `{:dir :project-dir :branch :base
+  :files :from-dir :session-id}`. Throws ex-info when it cannot be made,
+  and leaves no worktree then."
+  [{:keys [project-dir fork-from fork-before-turn worktree session-id keep-files?]}]
+  (cond
+    (not fork-from) (throw (ex-info ":worktree needs :fork-from" {}))
+    keep-files? (throw (ex-info ":keep-files? is for a fork in the same work tree: a worktree's files are the turn's start" {})))
+  (let [src (absolute project-dir)
+        src-config {:project-dir src :working-dir src :session-id fork-from}
+        nid (or session-id (context/session-id))
+        branch (or (not-empty (str/trim (str (:branch worktree)))) (str "byj/fork-" nid))
+        dir (if-let [p (not-empty (str (:path worktree)))]
+              (let [f (io/file p)] (if (.isAbsolute f) f (io/file src p)))
+              (io/file src ".brainyard" "worktrees" (slug branch)))
+        snap (persist/read-session src-config fork-from)
+        _ (when (:problem snap) (throw (ex-info (str "cannot fork " fork-from ": " (:problem snap)) {:fork-from fork-from})))
+        w (changes/worktree! src-config fork-from fork-before-turn dir branch)
+        _ (when (:error w) (throw (ex-info (str "cannot fork " fork-from " into a worktree: " (:error w)) {:fork-from fork-from})))
+        dest {:project-dir (:project-dir w) :working-dir (:project-dir w)}
+        r (persist/fork! src-config fork-from nid {:before-turn fork-before-turn :into dest})]
+    (when (:problem r)
+      (worktree/remove! src (:dir w) branch)
+      (throw (ex-info (str "cannot fork " fork-from ": " (:problem r)) {:fork-from fork-from})))
+    (persist/note! dest nid (session/rewind-line :fork-worktree {}
+                                                 {:from fork-from :dir (:project-dir w) :branch branch :project src
+                                                  :cut (if fork-before-turn (str " before its turn " fork-before-turn) "")
+                                                  :when (if fork-before-turn (str "when turn " fork-before-turn " began") "when it was forked")}))
+    (assoc w :from-dir src :session-id nid)))
+
 ;; --- opening -----------------------------------------------------------------------
 
 (defn base
@@ -74,13 +117,17 @@
   :fork-from, its conversation cut before that turn and its files put back
   as the turn began, as `/fork TURN` does; :keep-files? true leaves them)
   :session-id (a new session's id, chosen by the caller:
-  `context/session-id`'s shape) :env-fn :on-problem. A fork's outcome is
-  `:fork` in what it returns: `{:from :before-turn :files :saved :error}`."
+  `context/session-id`'s shape) :env-fn :on-problem :worktree (with
+  :fork-from, the fork made in a git worktree of its own, `{:branch
+  :path}`, both optional, and opened there: `fork-worktree!`; or what that
+  returned, to open one already made). A fork's outcome is `:fork` in what
+  it returns: `{:from :before-turn :files :saved :error :worktree}`."
   [{:keys [project-dir provider model loop agent mcp-servers permission-mode permission-fn
            tools hooks on-event resume env-fn on-problem] :as opts}]
   (when (str/blank? (str project-dir))
     (throw (ex-info "a session needs a :project-dir" {})))
-  (let [wd (absolute project-dir)
+  (let [wt (let [w (:worktree opts)] (if (and w (not (:dir w))) (fork-worktree! opts) w))
+        wd (absolute (if wt (:project-dir wt) project-dir))
         env (or env-fn (launch/env-fn wd))
         ;; the directory given IS the project: the CLI takes the git root above
         ;; its working directory, and a session opened in a subdirectory of a
@@ -102,7 +149,13 @@
         fork-from (:fork-from opts)
         k (:fork-before-turn opts)
         _ (when (and k (not fork-from)) (throw (ex-info ":fork-before-turn needs :fork-from" {})))
-        fork (when fork-from
+        fork (cond
+               ;; made already, the session written there: what is left is
+               ;; to resume it
+               wt (cond-> {:id (:session-id wt) :from fork-from
+                           :worktree (select-keys wt [:dir :project-dir :branch :base :files])}
+                    k (assoc :before-turn k))
+               fork-from
                (let [nid (or (:session-id opts) (context/session-id))
                      r (persist/fork! config fork-from nid (when k {:before-turn k}))]
                  (when (:problem r) (throw (ex-info (str "cannot fork " fork-from ": " (:problem r)) {:fork-from fork-from})))

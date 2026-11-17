@@ -31,6 +31,14 @@
       {:error (str "could not add a worktree on " branch ": " (:error r))}
       {:dir (.getCanonicalPath (io/file (str dir))) :branch branch})))
 
+(defn remove!
+  "The worktree at `dir` and its branch `branch` taken away again, what
+  they held with them: for one just added that could not be made what it
+  was for (byj-8yt)."
+  [project dir branch]
+  (git project "worktree" "remove" "--force" (str dir))
+  (git project "branch" "-D" branch))
+
 (defn- read-line* [f]
   (try (some-> (slurp f) str/trim not-empty) (catch Throwable _ nil)))
 
