@@ -161,6 +161,28 @@
   (let [[a b] (some-> (:ok (git root nil "rev-parse" (str ref "^{tree}") (str ref "^^{tree}"))) str/split-lines)]
     (and a b (not= a b))))
 
+(defn- question-of
+  "The question a turn ref's commit subject names: it is
+  \"byj ID turn N: QUESTION\"."
+  [subject]
+  (or (second (re-find #"^byj \S+ turn \d+(?:, before)?: ?(.*)$" (str subject))) ""))
+
+(defn subjects
+  "Session `id`'s kept turns and their questions, ascending, in one git call:
+  `{:turn :subject}` — what `rows` gives without the commits and files. A
+  turn no record was written for, a cancelled one or a `!` line, is here
+  (byj-lie)."
+  [config id]
+  (if-let [r (root config)]
+    (->> (str/split-lines (or (:ok (git r nil "for-each-ref" "--format=%(refname)%09%(subject)"
+                                     (str ref-prefix (safe id) "/"))) ""))
+         (keep (fn [l]
+                 (let [[ref subject] (str/split l #"\t" 2)]
+                   (when-let [n (some-> ref turn-of)]
+                     {:turn n :subject (question-of subject)}))))
+         (sort-by :turn) vec)
+    []))
+
 (defn rows
   "Session `id`'s kept turns, ascending, as the turn list shows them:
   `{:turn :ref :before :after :files :subject :at}` — `:files` the paths it
@@ -176,8 +198,7 @@
                        {:turn n :ref ref :before before :after after
                         :files (changed-files r before after)
                         :at (some-> at parse-long)
-                        ;; the commit's subject is "byj ID turn N: QUESTION"
-                        :subject (or (second (re-find #"^byj \S+ turn \d+(?:, before)?: ?(.*)$" (str subject))) "")})))))
+                        :subject (question-of subject)})))))
          (sort-by :turn) vec)
     []))
 

@@ -43,6 +43,7 @@
             [brainyard.programs-test]
             [brainyard.projects-test]
             [brainyard.session-test]
+            [brainyard.session-history-test]
             [brainyard.extension-test]
             [brainyard.sdk-test]
             [brainyard.acp-test]
@@ -139,6 +140,7 @@
     brainyard.programs-test
     brainyard.projects-test
     brainyard.session-test
+    brainyard.session-history-test
     brainyard.extension-test
     brainyard.sdk-test
     brainyard.acp-test

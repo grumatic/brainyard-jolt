@@ -24,6 +24,7 @@
             [brainyard.config :as config]
             [brainyard.context :as context]
             [brainyard.effect :as fx]
+            [brainyard.session-history :as session-history]
             [brainyard.hooks :as hooks]
             [brainyard.json :as json]
             [brainyard.permission :as permission]
@@ -165,11 +166,37 @@
                 :else nil)]
     (str tool-name (when a (str " " (clip a 80))))))
 
+(defn- replay-turns!
+  "A loaded session's history (`session-history/turns`) as `session/update`s, every
+  turn from its first, each update naming its turn in `_meta.brainyard.turn`
+  as `byj turns list` numbers it: the question as the user's message, each
+  thought, each tool call with its result — one `tool_call`, already
+  completed or failed, its id `turn-N-S-I` — and the answer (byj-lie)."
+  [conn sid effects-of turns]
+  (doseq [{:keys [turn question answer steps]} turns]
+    (let [up! #(update! conn sid (assoc % :_meta {:brainyard {:turn turn}}))]
+      (when-not (str/blank? (str question))
+        (up! {:sessionUpdate "user_message_chunk" :content (text-block question)}))
+      (doseq [[k step] (map-indexed vector steps)]
+        (when-let [t (not-empty (str (:thought step)))]
+          (up! {:sessionUpdate "agent_thought_chunk" :content (text-block t)}))
+        (doseq [[i {:keys [name args result error?]}] (map-indexed vector (:tools step))]
+          (up! {:sessionUpdate "tool_call" :toolCallId (str "turn-" turn "-" k "-" i)
+                :title (call-title name args)
+                :kind (tool-kind (effects-of name))
+                :status (if error? "failed" "completed")
+                :rawInput (if (map? args) args {})
+                :content [{:type "content" :content (text-block (clip result 4000))}]})))
+      (when-not (str/blank? (str answer))
+        (up! {:sessionUpdate "agent_message_chunk" :content (text-block answer)})))))
+
 (defn- on-event
   "The session's events as `session/update`s: the answer field's chunks as
   the agent's message, the reasoning as its thoughts, a batch of tool calls
-  as `tool_call`s and their results as `tool_call_update`s."
-  [conn sid-box effects-of replay?]
+  as `tool_call`s and their results as `tool_call_update`s. A loaded
+  session's history is replayed from its first turn (`replay-turns!`), or,
+  where it left nothing to read it from, from its snapshot's transcript."
+  [conn sid-box effects-of replay? project-dir]
   (fn [event data]
     (when-let [sid @sid-box]
       (let [st (:state conn)]
@@ -199,12 +226,17 @@
                                  :content [{:type "content"
                                             :content (text-block (clip (:tool-result r) 4000))}]})))
           :session/resumed
-          (doseq [[kind x] (when replay? (:transcript data))]
-            (case kind
-              :you (update! conn sid {:sessionUpdate "user_message_chunk" :content (text-block x)})
-              :answer (update! conn sid {:sessionUpdate "agent_message_chunk" :content (text-block x)})
-              :thought (update! conn sid {:sessionUpdate "agent_thought_chunk" :content (text-block x)})
-              nil))
+          (when replay?
+            (let [turns (try (session-history/turns {:project-dir project-dir :working-dir project-dir} (or (:id data) sid))
+                             (catch Throwable _ nil))]
+              (if (seq turns)
+                (replay-turns! conn sid effects-of turns)
+                (doseq [[kind x] (:transcript data)]
+                  (case kind
+                    :you (update! conn sid {:sessionUpdate "user_message_chunk" :content (text-block x)})
+                    :answer (update! conn sid {:sessionUpdate "agent_message_chunk" :content (text-block x)})
+                    :thought (update! conn sid {:sessionUpdate "agent_thought_chunk" :content (text-block x)})
+                    nil)))))
           nil)))))
 
 (defn- pending-call-id
@@ -419,7 +451,7 @@
         wanted? (event-filter (:events o))
         tool-effects (into {} (for [t (concat tools/builtin-tools client-tools)] [(:name t) (:effects t)]))
         effects-of #(get tool-effects % #{})
-        translate (on-event conn sid-box effects-of replay?)
+        translate (on-event conn sid-box effects-of replay? cwd)
         s (try
             (sdk/open-session
              (cond-> {:project-dir cwd

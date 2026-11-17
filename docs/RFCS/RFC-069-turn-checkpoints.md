@@ -244,6 +244,7 @@ session's id:
 (changes/end-turn! config)              ; → files changed (0 when none) | nil; the turn kept as a ref
 (changes/turns config id)               ; → [n …] kept, ascending
 (changes/rows config id)                ; → [{:turn :ref :before :after :files :subject :at} …]
+(changes/subjects config id)            ; → [{:turn :subject} …], one git call (byj-lie)
 (changes/row-line row)                  ; → "   3  2 files   2026-11-08T14:03:44  question…"
 (changes/diff config id & [turn])       ; → {:turn :ref :before :after :root :files :diff} | {:error}
 (changes/rewind! config id turn & [end?])      ; → {:turn :end? :files :saved :from} | {:error}

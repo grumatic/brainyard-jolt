@@ -289,6 +289,48 @@
           (is (:error (call c2 "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "x"}]}))))
         (finally (acp/end! (:conn c2)))))))
 
+;; byj-lie: a 92-turn session's snapshot kept 500 transcript entries, which
+;; began in turn 63, and session/load replayed only those
+(deftest a-loaded-session-replays-every-turn-not-only-the-snapshots-window
+  (let [dir (fresh-dir "load-all")
+        _ (spit (io/file dir "notes.md") "the notes")
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1})
+        model (script! dir [{:tool-calls [{:tool-name "read-file" :tool-args {:path "notes.md"}}]}
+                            {:answer "first answer" :goal-achieved true}
+                            {:answer "second answer"}
+                            {:answer "third answer"}])
+        {:keys [sessionId]} (new-session c dir model)]
+    (doseq [q ["first question" "second question" "third question"]]
+      (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text q}]}))
+    (acp/end! (:conn c))
+    ;; the snapshot's window, as a long session's: the last turn's alone
+    (let [f (persist/session-file {:project-dir dir} sessionId)
+          snap (read-string (slurp f))]
+      (spit f (pr-str (update snap :transcript #(vec (take-last 2 %))))))
+    (let [c2 (client)
+          _ (call c2 "initialize" {:protocolVersion 1})
+          r (call c2 "session/load" {:sessionId sessionId :cwd dir :mcpServers []
+                                     :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false}}}})
+          us (updates c2 sessionId)
+          of (fn [kind] (filter #(= kind (:sessionUpdate %)) us))]
+      (try
+        (is (:result r))
+        (testing "every turn's question, from the first, each naming its turn as byj turns list does"
+          (is (= [["first question" 1] ["second question" 2] ["third question" 3]]
+                 (map (juxt #(get-in % [:content :text]) #(get-in % [:_meta :brainyard :turn])) (of "user_message_chunk")))))
+        (testing "and its answer"
+          (is (= [["first answer" 1] ["second answer" 2] ["third answer" 3]]
+                 (map (juxt #(get-in % [:content :text]) #(get-in % [:_meta :brainyard :turn])) (of "agent_message_chunk")))))
+        (testing "a tool call it made, done, with its result"
+          (let [tc (first (of "tool_call"))]
+            (is (str/starts-with? (:title tc) "read-file notes.md"))
+            (is (= "completed" (:status tc)))
+            (is (= "read" (:kind tc)))
+            (is (= 1 (get-in tc [:_meta :brainyard :turn])))
+            (is (str/includes? (get-in tc [:content 0 :content :text]) "the notes"))))
+        (finally (acp/end! (:conn c2)))))))
+
 (deftest saved-sessions-are-listed-for-an-editor-to-import
   (let [dir (fresh-dir "list")
         c (client)

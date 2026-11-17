@@ -168,7 +168,7 @@ print goes to standard error and the event log
 |---|---|
 | `initialize` | protocol 1 (2 only once negotiated support exists); `loadSession`; `sessionCapabilities` `close`, `list`, `resume`, `delete`; text and embedded-context prompts; stdio MCP servers; byj's version (RFC-029) as `agentInfo.version` |
 | `session/new` | a session in `cwd` — the project dir, its `.brainyard/` read as any session reads it; `mcpServers` started as the session's (RFC-024); `_meta.brainyard` options below. Answers byj's session id (`context/session-id`) |
-| `session/load` | `persist/restore` of that id (RFC-016), its history replayed as `session/update`s as ACP asks; refused while another process holds its lock |
+| `session/load` | `persist/restore` of that id (RFC-016), its history replayed as `session/update`s as ACP asks — every turn from the first (`session-history/turns`), each update naming its turn in `_meta.brainyard.turn`; refused while another process holds its lock |
 | `session/list` | the project's saved sessions, newest first — `persist/summaries` of `cwd` (or the directory byj runs in), what `byj run --resume` lists — less an unreadable snapshot and a session that never ran a turn; each a `SessionInfo`: the title the conversation's name, else its last question, `updatedAt` ISO 8601, and `_meta.brainyard` `turnCount`, `createdAt`, `heldBy` (the pid of a live process holding it, which `session/load` would refuse). Fifty a page, `nextCursor` the next page's offset. Advertised as `sessionCapabilities.list`: an editor's thread import reads it (`byj-g5n.14`, found in Zed) |
 | `session/resume` | `session/load` without the history replayed — the session opened where it stood, for a client that keeps its own copy of the thread; `sessionCapabilities.resume` |
 | `session/delete` | `persist/delete!` (RFC-016): the session's directory and transcript tree removed, closed first when this connection has it open, refused while another live process holds it. The request names no project, so it is the one `session/list` listed the session in on this connection, else `_meta.brainyard.cwd`, else the directory byj runs in; `sessionCapabilities.delete` |
@@ -514,10 +514,22 @@ Decided while building it:
   field's chunks are `agent_message_chunk`s, the reasoning field's
   `agent_thought_chunk`s; a batch of calls is `tool_call`s (`call-N-I`, the
   batch and its place) and their results `tool_call_update`s, completed or
-  failed, the result clipped to 4,000 characters; a resumed session's
-  transcript is replayed as user, agent and thought chunks before
-  `session/load` answers. An answer that was not streamed is sent whole
-  before the prompt is answered.
+  failed, the result clipped to 4,000 characters. An answer that was not
+  streamed is sent whole before the prompt is answered.
+- **A loaded session's history is replayed whole** before `session/load`
+  answers, every turn from its first (`byj-lie`): the snapshot keeps only
+  the last 500 transcript entries, which in a 92-turn session that ran
+  many tools began in turn 63. `session-history/turns` puts the turns
+  together from the trajectory (question, thoughts, tool calls, answer),
+  the turn refs (RFC-069: a turn no record was written for — cancelled, a
+  `!` line — and the number of a record written before records carried
+  `:turn`, found by its question) and the snapshot's last turns (a
+  cancelled one's answer). Each turn is its question as a user chunk, each
+  thought, each call as one `tool_call` already completed or failed
+  (`turn-N-S-I`), and its answer, every update naming its turn in
+  `_meta.brainyard.turn` as `byj turns list` does. A session that left
+  none of them replays its transcript as user, agent and thought chunks,
+  as before.
 - **A permission request names the call** the gate is asking about, its
   kind from the tool's effects (`process` execute, `fs/write` edit,
   `fs/read` read, `net/*` fetch); allow-always and reject-always are
@@ -567,6 +579,8 @@ Planned:
 | A permission request reaches the client as `session/request_permission`, naming the call with byj's four answers, and its answer is the gate's; allow-always is remembered for the session. | `acp-test/a-prompt-is-the-clients-to-answer` |
 | `session/cancel` ends the running turn, the prompt answered `cancelled`. | `acp-test/a-cancel-ends-the-turn-cancelled` |
 | `session/load` replays the history before it answers; a session already open is refused. | `acp-test/a-session-is-loaded-with-its-history` |
+| `session/load` replays every turn from the first, not only the snapshot's window, each update naming its turn | `acp-test/a-loaded-session-replays-every-turn-not-only-the-snapshots-window`, `session-history-test/every-turn-is-put-together-from-what-the-session-left` |
+| A record written before records carried `:turn` is numbered by its question among the turn refs, else by position | `session-history-test/a-record-is-numbered-by-its-turn-or-by-the-turn-refs-question` |
 | `session/list` gives the project's saved sessions that ran a turn, newest first, as `SessionInfo`, a page at a time; a cursor it did not give is refused; a listed session loads. | `acp-test/saved-sessions-are-listed-for-an-editor-to-import`; `dev/acp-interop.sh`'s official client |
 | `session/resume` opens a saved session with nothing of its history sent, and its next turn goes on from it; one already open is refused. | `acp-test/a-saved-session-is-resumed-without-its-history`; `dev/acp-interop.sh`'s official client |
 | `session/delete` removes a listed session and its transcript, closing it first when open here; one another live process holds is refused and kept; an id not in a session id's shape is refused. | `acp-test/a-saved-session-is-deleted`; `dev/acp-interop.sh`'s official client |

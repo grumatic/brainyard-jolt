@@ -185,7 +185,7 @@
       f)
     (catch Throwable _ nil)))
 
-(defn- numbered
+(defn numbered
   "`previous-turns` with the turn each one was, newest last ending at turn
   `n`: its own `:turn` (RFC-069), a /compact summary's `:compacted`, or for
   an entry saved before either, counted back from the newest."
