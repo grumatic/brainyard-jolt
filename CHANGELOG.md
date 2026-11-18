@@ -23,9 +23,9 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   so the dependencies' spec can be committed; one an earlier `/init` wrote
   gets the line from the next, and `/doctor` and `/init`'s check mark it ✗
   until then.
-- **A session's first question is `--with-question TEXT`**:
-  `byj --with-question "explain deps.edn"` where it was `byj "explain
-  deps.edn"`. A first word that names no command is now refused as an
+- **A session's first question is `-q TEXT`**: `byj -q "explain
+  deps.edn"` where it was `byj "explain deps.edn"`; each `-q` is a turn of
+  its own, in order. A first word that names no command is now refused as an
   unknown command — on stderr with how to ask instead, exit 2; with
   `--json`, `{"error": "unknown command WORD"}`, exit 1 — where it was run
   as a question: a typo, or a client probing a command an older byj lacks,

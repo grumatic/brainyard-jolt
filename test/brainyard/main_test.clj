@@ -366,14 +366,13 @@
 
 (deftest run-is-the-default-and-prompt-asks-one-question
   (let [cmd (fn [& args] (select-keys (main/parse-args (vec args)) [:command :questions :provider :errors]))]
-    (testing "byj alone is a session; its first question is --with-question's, never bare words (byj-gxh)"
+    (testing "byj alone is a session; its first questions are -q's, a turn each, never bare words (byj-gxh)"
       (is (= {:command :run :questions []} (cmd)))
-      (is (= {:command :run :questions ["fix it"]} (cmd "--with-question" "fix it")))
-      (is (= {:command :run :questions ["fix it" "then this"]} (cmd "run" "--with-question" "fix it" "--with-question" "then this")))
+      (is (= {:command :run :questions ["fix it"]} (cmd "-q" "fix it")))
+      (is (= {:command :run :questions ["fix it" "then this"]} (cmd "run" "-q" "fix it" "--question" "then this")))
       (is (= "fix" (:unknown-command (main/parse-args ["fix" "it"]))) "a word that names no command is one byj does not have")
-      (is (= ["byj run takes its first question by --with-question, not as words: byj run --with-question \"fix it\""]
-             (:errors (cmd "run" "fix" "it"))))
-      (is (= ["--with-question needs the question: --with-question TEXT"] (:errors (cmd "--with-question")))))
+      (is (= ["byj run takes its first question by -q, not as words: byj run -q \"fix it\""]
+             (:errors (cmd "run" "fix" "it")))))
     (testing "--prompt is ask: one question, answered and done, as `claude -p`"
       (is (= {:command :ask :questions ["hi"]} (cmd "--prompt" "hi")))
       (is (= {:command :ask :questions ["hi"]} (cmd "run" "--prompt" "hi")) "run named, --prompt still asks")
@@ -553,7 +552,7 @@
       (is (= 2 exit))
       (is (= "" out))
       (is (str/includes? err "unknown command \"what\""))
-      (is (str/includes? err "byj --with-question \"what is this\""))))
+      (is (str/includes? err "byj -q \"what is this\""))))
   (testing "a named command's, --prompt's, --attach's and -q's are questions still"
     (is (= :ask (:command (main/parse-args ["-A" "s1" "q"]))))
     (is (= [:run "nosuch"] ((juxt :command :unknown-command) (main/parse-args ["-C" "/tmp" "nosuch" "--json" "x"]))))

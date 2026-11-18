@@ -94,7 +94,7 @@
 
 (defn- settle-command
   "The command the parsed words come to. None named is `run`, a session,
-  whose first question is `--with-question`'s (byj-gxh); `--prompt` makes
+  whose first questions are `-q`'s, a turn each (byj-gxh); `--prompt` makes
   `run` (named or not) `ask`, one question answered and done, as `claude -p`
   — whose `-p` is byj's, and brainyard's, `--provider`. `--attach` with no
   command named is `ask` too, the one command it means anything to, as when
@@ -115,7 +115,7 @@
     (and first-word (not command-named?)) (assoc opts :command :run :unknown-command first-word)
     (and (= :run command) (seq words))
     (update opts :errors (fnil conj [])
-            (str "byj run takes its first question by --with-question, not as words: byj run --with-question "
+            (str "byj run takes its first question by -q, not as words: byj run -q "
                  (pr-str (str/join " " words))))
     :else (update opts :command #(or % :run))))
 
@@ -139,12 +139,9 @@
           ("-C" "--working-dir") (recur (rest more) (assoc opts :working-dir (first more)))
           ("-n" "--max-iterations") (recur (rest more) (assoc opts :max-iterations (parse-long (first more))))
           ("-l" "--loop") (recur (rest more) (assoc opts :loop (first more)))
+          ;; a question, each its own turn in order: a session's first ones
+          ;; (byj-gxh), bare words being a command byj does not have
           ("-q" "--question") (recur (rest more) (update opts :questions conj (first more)))
-          ;; a session's first question (byj-gxh): bare words are a command
-          ;; byj does not have, never a question
-          "--with-question" (if (and (seq more) (not (str/blank? (first more))))
-                              (recur (rest more) (update opts :questions conj (first more)))
-                              (recur (rest more) (update opts :errors (fnil conj []) "--with-question needs the question: --with-question TEXT")))
           ;; one question, answered and done: run becomes ask (byj-4dx)
           "--prompt" (if (and (seq more) (not (str/blank? (first more))))
                        (recur (rest more) (-> opts (assoc :prompt true) (update :questions conj (first more))))
@@ -2300,7 +2297,7 @@
         (if (:json opts)
           (do (println (json/write-str {:error (str "unknown command " w)})) (*exit* 1))
           (do (err-println (str "byj: unknown command " (pr-str w) " — byj -h lists the commands.\n"
-                                "A session's first question: byj --with-question " (pr-str (str/join " " (:words opts)))
+                                "A session's first question: byj -q " (pr-str (str/join " " (:words opts)))
                                 "; one question answered and done: byj --prompt " (pr-str (str/join " " (:words opts)))))
               (*exit* 2))))
 

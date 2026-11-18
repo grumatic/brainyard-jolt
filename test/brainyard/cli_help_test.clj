@@ -86,7 +86,8 @@
     (let [t (cli-help/text ["run" "-h"] nil)]
       (is (re-find #"(?m)^   -p, --provider NAME +openai" t))
       (is (re-find #"(?m)^       --resume-latest +continue" t))
-      (is (not (str/includes? t "--question")) "ask's own options are not run's")))
+      (is (re-find #"(?m)^   -q, --question TEXT +a question, each -q a turn" t) "a session's first questions (byj-gxh)")
+      (is (not (str/includes? t "--trace-prompts")) "ask's own options are not run's")))
   (testing "a subcommand: its forms, and what it does in full"
     (let [t (cli-help/text ["turns" "fork" "x" "--json" "-h"] nil)]
       (is (str/includes? t " byj turns fork SESSION [TURN [keep-files]] [--json]"))
