@@ -88,7 +88,13 @@
   (is (= :deny-by-default (config/coerce "keyword" ":deny-by-default")))
   (is (= ["bash" "write-*"] (config/coerce "vector" "bash, write-*")))
   (is (= #{:process :fs/write} (config/coerce "set" "process,fs/write")))
-  (is (= {:steps 10} (config/coerce "object" "{:steps 10}"))))
+  (is (= {:steps 10} (config/coerce "object" "{:steps 10}")))
+  (testing "an object is one map read whole, else the text as given (byj-ob0)"
+    (is (= "just a string" (config/coerce "object" "just a string")) "not the symbol just, its first form")
+    (is (= "{:a 1} {:b 2}" (config/coerce "object" "{:a 1} {:b 2}")))
+    (is (= "[1 2]" (config/coerce "object" "[1 2]")))
+    (is (= "{:a" (config/coerce "object" "{:a")))
+    (is (nil? (config/coerce "object" "nil")))))
 
 (deftest layers
   (let [user (write-config! (fresh-dir "user") {:agent {:config {:max-iterations 5 :max-tool-calls 9}}})

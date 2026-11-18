@@ -324,7 +324,7 @@ a config map by hand cannot store a relative path either.
 | A key another program declares under `~/.brainyard/config-keys` draws no "unknown" problem and is not read; an unreadable declaration declares nothing | `config-test/a-key-another-program-declares-is-not-called-unknown` |
 | `:working-dir` and `:project-dir` are absolute and canonical wherever config is resolved, and whatever is written to a snapshot is absolute. | `persist-test/a-stored-directory-is-absolute` |
 | Every key the kernel reads is declared with a type and a doc; `agent/default-config` is the schema's defaults; values are validated against their type. | `config-test/the-schema-declares-what-the-kernel-reads` |
-| Strings are coerced by declared type, and an unparseable value is left alone. | `config-test/strings-are-coerced-by-type` |
+| Strings are coerced by declared type, and an unparseable value is left alone; an object is one map (or nil) read whole, so anything else is refused as the text it was, not as its first form (`byj-ob0`). | `config-test/strings-are-coerced-by-type`, `main-test/byj-config-gives-the-settings-as-data-and-writes-as-config-set-does` |
 | default < user < project < caller < env, and a blank variable is not a layer. | `config-test/layers` |
 | The file is brainyard's shape, permissions are bridged, a persisted `false` shadows a `true` default; misplaced, unknown, wrong-typed and unreadable files are problems, not exceptions. | `config-test/the-file-is-brainyards-shape` |
 | A key's variable is `BY_` + its name, coerced by type. | `config-test/environment` |

@@ -516,10 +516,14 @@
     (testing "refused as a session's /config refuses: a permission key, a wrong type, no such key"
       (doseq [[args stage] [[["tool-allow-tools" "[\"bash\"]"] "writable"]
                             [["max-iterations" "\"many\""] "schema"]
+                            [["agent-lm-tiers" "\"just a string\""] "schema"]
                             [["no-such-key" "1"] "writable"]]]
         (let [{:keys [exit out]} (apply cfg "set" (concat args ["--json"]))]
           (is (= 1 exit))
           (is (= stage (:stage (json/read-str out))) (str args))))
+      (is (str/includes? (:error (json/read-str (:out (cfg "set" "agent-lm-tiers" "\"just a string\"" "--json"))))
+                         "got \"just a string\"")
+          "the refusal names the value as it was given, not its first word (byj-ob0)")
       (is (nil? (get-in (edn/read-string (slurp f)) [:agent :config :tool-allow-tools])))
       (is (= 1 (:exit (cfg "set" "max-iterations" "1" "--scope" "everywhere")))))
     (testing "unset: the key gone from the file, its default in force again"

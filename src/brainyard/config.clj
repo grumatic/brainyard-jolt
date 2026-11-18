@@ -474,7 +474,13 @@
         "vector" (vec (remove str/blank? (map str/trim (str/split s #","))))
         "set" (set (map #(keyword (str/replace % #"^:" ""))
                         (remove str/blank? (map str/trim (str/split s #",")))))
-        "object" (try (edn/read-string s) (catch Throwable _ v))
+        ;; one map, read whole, or the string itself: read alone, the first
+        ;; form of `just a string` was the symbol `just`, and the refusal
+        ;; said "got just" of a value nobody gave (byj-ob0)
+        "object" (let [forms (try (edn/read-string (str "[" s "\n]")) (catch Throwable _ nil))]
+                   (if (and (= 1 (count forms)) (or (map? (first forms)) (nil? (first forms))))
+                     (first forms)
+                     v))
         v))))
 
 (defn from-json
