@@ -6,6 +6,94 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+## v0.3.20 — 2026-11-18
+
+- **A project's profile** (RFC-073): what the project is for — its goal,
+  scope and done criteria — and how far an agent goes on its own: filing,
+  working and closing beads, committing, deciding, and pushing, each at
+  `:never`, `:ask` or `:act`, a push and a change of scope never past
+  `:ask`; from one of three presets (conservative, collaborator, autopilot).
+  It is `.brainyard/profile.edn`, committed, and no tool writes it:
+  - `/init` drafts it when you say what the project is for, shows it with
+    the epic and first issues it would file, and writes it only on your yes;
+  - AGENTS.md shows it in a `BRAINYARD:profile` block, which `/init check`
+    and `/doctor` keep in step with the file;
+  - `profile$edit` changes it as you ask, showing each field old and new,
+    and writes only on your yes, asked every time;
+  - the permission gate holds it: an axis at `:never` refuses what it
+    covers, one at `:ask` asks you in every mode, one at `:act` leaves it to
+    the rest of the gate; a command a profile lets the agent run on its own
+    is not put to the auto-mode classifier;
+  - a shell line that only reads the profile runs, one that may change it
+    asks you, and `rm -rf .brainyard` while it holds a profile or a loop is
+    refused.
+- **`/drive` works through the project's goal under its profile**: it takes
+  the next ready bead under the goal's epic, works it in a turn of its own,
+  checks the work tree and the bead, and closes it as the profile says —
+  asking you where the profile says to ask, and stopping at its limits. A
+  bead gets at most `:drive-bead-attempts` turns in a run (3), then is set
+  aside for you, labelled `human`; a bead a cancelled run left claimed is
+  released by the next run. `/init`'s next steps offer it once there is a
+  profile.
+- **`/init`'s `.gitignore` keeps the profile**: `.brainyard/*` then
+  `!.brainyard/profile.edn`, and an earlier `/init`'s `.brainyard/` is
+  turned into that. It names bd's conservative git default (agents commit
+  only when asked) as yours to state, with prompts that write either answer.
+- **`byj projects`**: the projects byj and brainyard's `by` have run in, one
+  registry on a machine that runs both (`~/.brainyard/projects/`). A session
+  registers its project as it starts; `byj projects list|path|add|prune|remove`
+  inspect it, `prune` and `remove` asking first.
+- **For an application on byj's ACP** (RFC-053, RFC-069):
+  - `session/load` replays every turn from the first, not only the last 500
+    lines of the transcript, each update naming its turn, a turn's first its
+    checkpoint (what a rewind of it goes back to), and each tool call its
+    start and duration; a live turn's updates and `session/prompt`'s result
+    name the turn, the files it changed and its checkpoint;
+  - `_byj/turns/list`, `diff`, `rewind`, `undoTurn` and `undoRewind` take a
+    session's turns back by method, answering with what changed on disk; a
+    turn a later change conflicts with in every file is said to be kept back,
+    not already taken back;
+  - `session/new` forks before a turn (`forkBeforeTurn`), and opens a fork
+    or a new session in a git worktree of its own (`worktree`), the
+    project's work tree left as it was;
+  - what a session says beside its answer while it answers — a turn waiting
+    for an MCP server, the servers changed, a command's words — reaches the
+    client as a notice, marked apart from the answer;
+  - `session/new`, `load` and `resume` say the provider and model the
+    session runs on, and `session/list` the model a session chose.
+- **`byj doctor --json`** and **`byj config`**, for a client that shows them
+  in parts: the doctor report as data (the tools, the project's checks, what
+  is installed, the account and its windows); every setting with its type,
+  default, value, source and whether it may be written, and the providers,
+  models and permission modes to choose from. `byj config set KEY VALUE
+  [--scope project|user]` and `byj config unset KEY` write one as a
+  session's `/config` does — never a permission key, the schema and a secret
+  scan first, a snapshot kept. Both shapes are byj's contract
+  (`contract/doctor/`, `contract/config/`).
+- **A session built while one of its MCP servers finishes starting gets the
+  server's tools** from its next turn. It could run every turn without them,
+  saying nothing, when the server finished in the moment the session's tools
+  were read (#1).
+- **A session keeps its own turns to take back.** A session used in the last
+  `:changes-days` (30) keeps its newest `:changes-turns` turns however many
+  other sessions end, so a long session's first turns can still be rewound,
+  undone, forked before or diffed while it is open. Deleting a session over
+  ACP deletes its turn refs.
+- **A trajectory record names the session's turn** (`:turn`), as `byj turns
+  list` numbers it, and a subagent's the turn it ran in; each tool call
+  keeps its start and duration. `trajectory$export`'s `:turns` range and
+  `session$analytics` name turns the same way.
+- **Listing a directory that holds a login or a key is no longer refused**:
+  `ls ~/.brainyard`, `stat`, `find` with nothing that opens a file, and
+  `list-dir`. Reading what is in it still is.
+- **One skill ships in byj**, `skill-authoring`, read-only; a project's or
+  your own skill of the same name takes its place, and
+  `:builtin-skills? false` drops it.
+- **Sharing a session with a recording records it**: `/share start --record`
+  started the sidecar unrecorded.
+- **byj starts faster on macOS** (0.56 s against 0.76 s), built with jolt
+  v0.8.27.
+
 - **A project can add to the ReAct loop without copying it** (RFC-072).
   The loop now has slots, each empty unless a project fills it:
   - after the tools run: what it finds reaches the next iteration as a
