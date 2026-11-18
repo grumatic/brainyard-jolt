@@ -534,6 +534,40 @@
     (testing "without --json, as --print-config"
       (is (re-find #"max-iterations\s+default\s+20" (:out (cfg)))))))
 
+(deftest byj-deps-gives-the-dependencies-as-data-and-writes-them-whole
+  ;; byj-9dv: for the workbench's dependencies tab, which has no EDN of its own
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-deps-cli-" (System/nanoTime))) .mkdirs))
+        deps! (fn [in & args] (with-in-str (or in "") (apply run-main "-C" dir "deps" args)))
+        spec "{\"projects\": {\"up\": {\"path\": \"../no-such-dir\", \"kind\": \"upstream\"}},
+               \"roles\": {\"design\": {}, \"implement\": {}},
+               \"handoffs\": [{\"from\": \"design\", \"to\": \"implement\", \"gives\": [{\"kind\": \"note\"}]}]}"]
+    (testing "no files: both said absent, nothing to check"
+      (let [{:keys [exit out]} (deps! nil "--json")
+            j (json/read-str out)]
+        (is (= 0 exit))
+        (is (= {:path (str dir "/.brainyard/deps.edn") :exists false} (get-in j [:files :spec])))
+        (is (= [{} {} [] []] ((juxt :spec :local :checks :problems) j)))))
+    (testing "write: the spec from JSON on stdin, then read as data"
+      (let [{:keys [exit out]} (deps! spec "write" "--json")]
+        (is (= 0 exit))
+        (is (= {:ok true :file (str dir "/.brainyard/deps.edn") :snapshot nil} (json/read-str out))))
+      (is (= :upstream (get-in (edn/read-string (slurp (io/file dir ".brainyard" "deps.edn"))) [:projects :up :kind])))
+      (let [j (json/read-str (:out (deps! nil "--json")))]
+        (is (= "upstream" (get-in j [:spec :projects :up :kind])))
+        (is (= #{"project-missing" "never-reviewed" "unbound-role" "not-ready"} (set (map :kind (:checks j)))))))
+    (testing "--local writes the machine's file"
+      (is (= 0 (:exit (deps! "{\"bindings\": {\"design\": [\"s-1\"]}}" "write" "--local" "--json"))))
+      (is (= {:design ["s-1"]} (:bindings (edn/read-string (slurp (io/file dir ".brainyard" "deps-local.edn")))))))
+    (testing "refused: not JSON, a role that is not one; exit 1 and the stage"
+      (is (= [1 "input"] (let [{:keys [exit out]} (deps! "{nope" "write" "--json")] [exit (:stage (json/read-str out))])))
+      (is (= [1 "check"] (let [{:keys [exit out]} (deps! "{\"handoffs\": [{\"from\": \"a\", \"to\": \"b\"}]}" "write" "--json")]
+                           [exit (:stage (json/read-str out))]))))
+    (testing "without --json, a summary"
+      (let [{:keys [exit out]} (deps! nil)]
+        (is (= 0 exit))
+        (is (str/includes? out "handoff design → implement"))))
+    (is (= 2 (:exit (deps! nil "bogus"))))))
+
 (deftest byj-doctor-json-gives-the-report-as-data
   ;; byj-mmd: for the workbench's Doctor panel. The machine is read through
   ;; seams here: no tool is run, no keychain or network asked

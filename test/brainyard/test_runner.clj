@@ -23,6 +23,7 @@
             [brainyard.share-test]
             [brainyard.discovery-test]
             [brainyard.config-test]
+            [brainyard.deps-test]
             [brainyard.configbox-test]
             [brainyard.context-test]
             [brainyard.cost-test]
@@ -120,6 +121,7 @@
     brainyard.share-test brainyard.split-test
     brainyard.discovery-test
     brainyard.config-test
+    brainyard.deps-test
     brainyard.configbox-test
     brainyard.context-test
     brainyard.cost-test

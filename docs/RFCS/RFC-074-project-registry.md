@@ -28,8 +28,9 @@ project is registered, and how a record is listed, read back and removed.
 registration reads the project's path and its git config's origin, and
 nothing else.
 
-**It hands** a list of records to `byj projects`, and a path for a slug.
-Nothing else in byj reads the registry yet.
+**It hands** a list of records to `byj projects`, and a path for a slug;
+and the records to `brainyard.deps`, which finds a project a spec names by
+its origin (RFC-075).
 
 ## Model
 

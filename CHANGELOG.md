@@ -6,6 +6,20 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj deps`** (RFC-075): a project's dependencies — the projects it uses
+  or is affected by, and what a session playing one role hands to one
+  playing another — kept in `.brainyard/deps.edn` (committed) and
+  `deps-local.edn` (this machine's sessions bound to each role, and what was
+  handed). `byj deps --json` reads both, finds each project by its path or
+  the registry's origin, checks what it provides (files there, a binary on
+  PATH at a version), lists its commits since it was last reviewed, says
+  which sessions play each role and whether each handoff's files, beads,
+  branch and note are ready, with every check as `{level kind target
+  message}`. `byj deps write [--local]` takes the whole new file as JSON on
+  stdin, refuses a schema problem, a cycle or a handoff naming no role,
+  snapshots the old file and writes the new one in a stable order. Its
+  shape is byj's contract, `contract/deps/deps.json`.
+
 ## v0.3.20 — 2026-11-18
 
 - **A project's profile** (RFC-073): what the project is for — its goal,

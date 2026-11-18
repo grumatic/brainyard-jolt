@@ -59,6 +59,7 @@ A number missing from the table is an RFC that is not byj's.
 | [072](RFC-072-loop-extension-slots.md) | Loop extension slots | Room a bundled loop leaves for a project: a slot expanded at load time into the trees a project attached to it, held to the slot's keys, made live as a loop proposal is (built, `byj-9sp`) |
 | [073](RFC-073-project-profile.md) | Project profile | What a project is for, its scope and when it is done, and how far an agent goes on its own — filing, working, committing and closing beads, deciding — as data the person confirms once at `/init`, shown in AGENTS.md, held by the permission gate, and followed by `/drive` (decided; built: the profile as data and its tripwire, `/init` drafting it and writing it on a yes, its AGENTS.md block, the gate holding what it governs, `/drive`; measured once per preset, `byj-71w`) |
 | [074](RFC-074-project-registry.md) | Project registry | The person's projects, one folder each in `~/.brainyard/projects`, brainyard's registry and slug byte for byte so `by` and byj keep one; registered as a session or a question starts, and `byj projects list\|path\|add\|prune\|remove` (built, `byj-k29`) |
+| [075](RFC-075-project-dependencies.md) | Project dependencies | The projects one depends on and the handoffs between its sessions' roles, in `.brainyard/deps.edn` and `deps-local.edn`: read leniently, resolved, checked, and written whole through `byj deps write` with a snapshot; `byj deps --json` for a client's dependencies tab (built, `byj-9dv`) |
 
 ## The reference implementation
 

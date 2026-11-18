@@ -21,6 +21,7 @@
             [brainyard.tools :as tools]
             [brainyard.config :as config]
             [brainyard.configbox :as configbox]
+            [brainyard.deps :as deps]
             [brainyard.events :as events]
             [brainyard.launch :as launch]
             [brainyard.acp :as acp]
@@ -83,7 +84,7 @@
 (defn- effects [s] (set (map keyword (globs s))))
 
 (def ^:private command-names
-  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "config"})
+  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "config" "deps"})
 
 (def ^:private command-aliases
   "Old names a command still answers to: `sessions` (brainyard's `by
@@ -177,6 +178,8 @@
           ;; `loops propose`: why, in words; the bundled loop as the candidate
           "--why" (recur (rest more) (assoc opts :why (first more)))
           "--scope" (recur (rest more) (assoc opts :scope (first more)))
+          ;; `deps write`: the local file, not the spec (byj-9dv)
+          "--local" (recur more (assoc opts :local true))
           "--bundled" (recur more (assoc opts :bundled true))
           ;; `loops eval|propose`: each turn in this byj, not a sandboxed child
           "--in-process" (recur more (assoc opts :in-process true))
@@ -2149,6 +2152,49 @@
                 1)
             (fail (:error r))))))))
 
+(defn- deps-command
+  "`byj deps [--json]` and `byj deps write [--local] [--json]` (byj-9dv,
+  RFC-075): the project's dependencies — `.brainyard/deps.edn` and
+  `deps-local.edn` — as data and checked, for a client's dependencies tab,
+  and either file written whole from JSON on stdin through `deps/write!`'s
+  checks, so a client never writes the EDN itself."
+  [{:keys [questions json local]} dir]
+  (let [[sub & more] questions
+        out (fn [x] (println (json/write-str x)))]
+    (cond
+      (nil? sub)
+      (let [r (deps/report dir)]
+        (if json
+          (out r)
+          (do (println (str "spec:  " (get-in r [:files :spec :path]) (when-not (get-in r [:files :spec :exists]) " (none)")))
+              (println (str "local: " (get-in r [:files :local :path]) (when-not (get-in r [:files :local :exists]) " (none)")))
+              (doseq [{:keys [id dir head]} (:projects r)]
+                (println (format "project %-20s %s" id (if dir (str dir (when head (str " @ " head))) "not on this machine"))))
+              (doseq [{:keys [id sessions]} (:roles r)]
+                (println (format "role    %-20s %s" id (if (seq sessions) (str/join ", " (map :id sessions)) "no session bound"))))
+              (doseq [{:keys [from to ready handed]} (:handoffs r)]
+                (println (format "handoff %-20s %s" (str from " → " to) (cond handed "handed" ready "ready" :else "waiting"))))
+              (doseq [{:keys [file key message]} (:problems r)]
+                (err-println (str "deps: " file (when key (str " " key)) ": " message)))
+              (doseq [{:keys [level kind message]} (:checks r)]
+                (println (format "%-5s %-16s %s" level kind message)))))
+        0)
+
+      (and (= "write" sub) (empty? more))
+      (let [text (slurp *in*)
+            parsed (try {:ok (json/read-str text)} (catch Throwable e {:error (ex-message e)}))
+            r (if (:error parsed)
+                {:error (str "the new file is not JSON: " (:error parsed)) :stage :input}
+                (deps/write! dir (if local :local :spec) (:ok parsed)))]
+        (cond
+          json (out (cond-> r (:stage r) (update :stage name)))
+          (:ok r) (println (str "wrote " (:file r) (when (:snapshot r) (str "; the old one kept as " (:snapshot r)))))
+          :else (err-println (str "deps: " (:error r))))
+        (if (:ok r) 0 1))
+
+      :else
+      (do (err-println "usage: byj deps [--json] | byj deps write [--local] [--json] < NEW.json") 2))))
+
 (defn- agent-command
   "`byj agent [--name NAME] [--json]` (byj-1wv.47): every agent with its
   reach, least first, or one in full. The one is named by `--name`; a bare
@@ -2345,6 +2391,12 @@
                                         (str "updated " (quot (- (System/currentTimeMillis) updated-at) 60000) "m ago")))))))))
 
       ;; the settings as data, and a key written as /config writes it (byj-d9q)
+      ;; the project's dependencies (byj-9dv, RFC-075)
+      (= :deps command)
+      (let [wd (or working-dir (System/getProperty "user.dir") ".")]
+        (*exit* (deps-command opts (:project-dir (:config (config/load-config {:working-dir wd :overrides overrides
+                                                                                 :env-fn (env-fn wd)}))))))
+
       (= :config command)
       (let [wd (or working-dir (System/getProperty "user.dir") ".")]
         (*exit* (config-command opts (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)}))))

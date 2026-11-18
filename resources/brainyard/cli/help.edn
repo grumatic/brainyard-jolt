@@ -165,6 +165,11 @@
    :usage "byj config [set KEY VALUE | unset KEY] [--scope project|user] [--json]"
    :doc "Without --json, every key, its layer and its value, as --print-config. --json gives {files, items [{key, family, type, enum, default, value, source, doc, writable, whyNot, changed, nextSession}], problems [{file, kind, key, message}], choices {providers, models, permissionModes}}. set writes KEY in the project's config.edn (--scope user: ~/.brainyard's) with every check a session's /config makes — never a permission key, the schema, a secret scan, a snapshot first, the file read back — VALUE being JSON (true, 200, '[\"a\",\"b\"]', '\"concise\"') or a bare word; unset removes it, so its default applies again. --json answers {ok, key, value, was, unset, scope, file, snapshot} or {error, stage}, exit 1."
    :options [:scope :json]}
+  {:name "deps"
+   :summary "Projects this one depends on, and handoffs between roles, checked (RFC-075)"
+   :usage "byj deps [-C DIR] [--json] | byj deps write [--local] [--json] < NEW.json"
+   :doc "Reads .brainyard/deps.edn (the spec, committed) and .brainyard/deps-local.edn (this machine's bindings of sessions to roles, and what was handed). --json gives {files, spec, local, projects [{id, kind, dir, resolvedBy, gitRemote, head, provides, changes}], roles [{id, sessions}], handoffs [{from, to, gives, ready, handed}], checks [{level, kind, target, message}], problems [{file, key, message}]}. write takes the whole new spec (--local: the local file) as JSON on stdin, holds it to the schema, refuses a cycle or a handoff naming no role, snapshots the old file under .brainyard/deps-snapshots/ and writes the new one in a stable order; --json answers {ok, file, snapshot} or {error, stage}, exit 1."
+   :options [:local :json]}
   {:name "doctor"
    :summary "Where this machine stands: the tools, the project, Claude Code's sign-in and its subscription's use"
    :usage "byj doctor [-C DIR] [--json]"
@@ -195,6 +200,7 @@
   :verbose {:flags "-v, --verbose" :doc "trace reasoning, tool calls and results to stderr"}
   :trace-prompts {:flags "--trace-prompts" :doc "also dump the full prompts to stderr"}
   :json {:flags "--json" :doc "print the result map as JSON"}
+  :local {:flags "--local" :doc "deps write: the local file, .brainyard/deps-local.edn, not the spec"}
   :scope {:flags "--scope S" :doc "project (the default) or user: which config.edn a write goes to"}
   :test {:flags "--test" :doc "agent build: run every example on the agent, in a copy of its project; the result kept as its last test"}
   :abilities {:flags "--abilities ID,…" :doc "agent build: the builder's abilities ticked, written as the agent's :tools and :config (\"\" for none)"}

@@ -16,6 +16,10 @@
   - `config/config.json`: `byj config --json` in a project whose config.edn
     sets a key and holds one byj does not know, with a home of its own
     (byj-d9q);
+  - `deps/deps.json`: `byj deps --json` in a project that depends on one
+    found by its path and one found nowhere, with two roles, a session bound
+    to one and one gone, and a handoff whose gives are ready but its branch,
+    bd's answer given (byj-9dv);
   - `doctor/doctor.json`: `byj doctor --json` in a project with AGENTS.md
     alone, two copies of byj on PATH and a signed-in account, the machine's
     tools all said missing so that the file is not the machine's (byj-mmd);
@@ -40,6 +44,7 @@
             [brainyard.channel :as channel]
             [brainyard.config :as config]
             [brainyard.configbox :as configbox]
+            [brainyard.deps :as deps]
             [brainyard.init :as init]
             [brainyard.json :as json]
             [brainyard.main :as main]
@@ -186,6 +191,33 @@
                 (update :items (fn [is] (mapv #(cond-> % (= "allowed-dirs" (:key %)) (assoc :value "<varies>")) is))))]
       (held "config/config.json"
             (str (json/write-str (normal (json/read-str (json/write-str j)) (str/replace dir (str "/" (.getName (io/file dir))) ""))) "\n")))))
+
+(deftest the-dependencies-are-byjs-contract
+  ;; byj-9dv: what the workbench's dependencies tab reads. Outside this
+  ;; repository and git, so no commit's id is in it; bd's answer given
+  (let [top (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-contract-deps-" (System/nanoTime))) .mkdirs))
+        dir (str top "/here")
+        sid "s-1700000000000"
+        put! (fn [f text] (io/make-parents f) (spit f text))]
+    (put! (io/file top "up" "contract" "api.json") "{}\n")
+    (put! (io/file dir "docs" "a.md") "# a\n")
+    (put! (deps/spec-file dir)
+          (pr-str {:schema-version 1
+                   :projects {:up {:name "up" :git "git@github.com:o/up.git" :path "../up" :kind :upstream
+                                   :provides [{:id :api :kind :files :paths ["contract/api.json"]}
+                                              {:id :tool :kind :binary :command "no-such-tool" :version ">= 1.0"}]
+                                   :affects ["src/a.clj"]}
+                              :lost {:git "git@github.com:o/lost.git" :kind :reference}}
+                   :roles {:design {:title "설계" :does "decisions and beads" :bogus 1} :implement {:worktree true}}
+                   :handoffs [{:from :design :to :implement
+                               :gives [{:kind :file :paths ["docs/*.md"]} {:kind :bead :id "x-1"} {:kind :branch} {:kind :note}]}]}))
+    (put! (deps/local-file dir) (pr-str {:bindings {:design [sid "gone-1"]}}))
+    (put! (io/file dir ".brainyard" "sessions" sid "session.edn")
+          (pr-str {:schema-version 1 :id sid :turn-count 1 :previous-turns [{:question "decide" :answer "done" :turn 1}]
+                   :conversation-title "decide" :created-at 1700000000000 :updated-at 1700000000000}))
+    (let [d (deps/report dir {:registry [] :path-env ""
+                              :bd-fn (fn [_ & _] {:exit 0 :out "[{\"id\":\"x-1\",\"status\":\"closed\"}]"})})]
+      (held "deps/deps.json" (str (json/write-str (normal (json/read-str (json/write-str d)) top)) "\n")))))
 
 (deftest the-doctor-report-is-byjs-contract
   ;; byj-mmd: what the workbench's Doctor panel reads. Outside this
