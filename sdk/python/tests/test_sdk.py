@@ -142,6 +142,7 @@ def test_a_session_is_loaded_with_its_history():
     async def go():
         async with await ByjClient.start(**BYJ) as one:
             s = await one.new_session(p)
+            assert s.lm == {"provider": "mock", "model": p.model, "label": f"mock/{p.model}"}, "byj-66y"
             await s.run("first question")
         history = []
         async with await ByjClient.start(**BYJ) as two:

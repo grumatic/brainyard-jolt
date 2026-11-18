@@ -28,6 +28,7 @@
             [brainyard.session-history :as session-history]
             [brainyard.hooks :as hooks]
             [brainyard.json :as json]
+            [brainyard.llm :as llm]
             [brainyard.permission :as permission]
             [brainyard.persist :as persist]
             [brainyard.schema :as schema]
@@ -221,6 +222,12 @@
   state `st`, beside whatever `_meta.brainyard` it says already."
   [st sid u]
   (if-let [t (get-in st [:turn sid])] (assoc-in u [:_meta :brainyard :turn] t) u))
+
+(defn- lm-json
+  "An LM as a client is told it: `{provider model label}`, the model null
+  when the provider's own default is asked, `label` as `/model` takes it."
+  [lm]
+  {:provider (some-> (:provider lm) name) :model (not-empty (str (:model lm))) :label (llm/lm-label lm)})
 
 (defn- notice
   "What session `sid` said beside its answer, `kind` `:info` or `:error`, as
@@ -635,7 +642,12 @@
       (throw (rpc-error -32603 (str "session " sid " did not start"))))
     (cond-> {:sessionId sid
              :modes {:currentModeId (name (or (some-> (:permission-mode-box s) deref) :auto))
-                     :availableModes modes}}
+                     :availableModes modes}
+             ;; the provider and model it runs on, as opening settled them —
+             ;; its own saved model, the one asked for, byj acp's -p/-m, or
+             ;; :default-lm — read once it is up, a resume having chosen
+             ;; (byj-66y)
+             :_meta {:brainyard {:lm (lm-json (sdk/current-lm s))}}}
       ;; the worktree it was opened in (byj-z0z): `cwd` is where it is
       ;; loaded and listed from
       (:worktree s) (assoc-in [:_meta :brainyard :worktree]
@@ -742,7 +754,7 @@
 (defn- session-info
   "A saved session as ACP's `SessionInfo`: its title the conversation's name,
   else its last question."
-  [cwd {:keys [id updated-at conversation-title last-question turn-count created-at]}]
+  [cwd {:keys [id updated-at conversation-title last-question turn-count created-at model]}]
   (let [held (persist/holder {:project-dir cwd} id)]
     {:sessionId id
      :cwd cwd
@@ -750,6 +762,10 @@
      :updatedAt (some-> updated-at java.time.Instant/ofEpochMilli str)
      :_meta {:brainyard (cond-> {:turnCount (or turn-count 0)}
                           created-at (assoc :createdAt (str (java.time.Instant/ofEpochMilli created-at)))
+                          ;; the model it last asked when it chose one of its
+                          ;; own (`/model`), as a label; else it asks whatever
+                          ;; opens it (byj-66y)
+                          model (assoc :model model)
                           held (assoc :heldBy (str held)))}}))
 
 (defn- delete-session

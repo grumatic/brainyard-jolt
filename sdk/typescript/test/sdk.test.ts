@@ -146,6 +146,7 @@ test("a session is loaded with its history", async () => {
   const p = project([`{:reasoning "r" :tool-calls [] :answer "first answer" :goal-achieved true}`]);
   const one = await ByjClient.start(byj);
   const s = await one.newSession(p);
+  assert.deepEqual(s.lm, { provider: "mock", model: p.model, label: `mock/${p.model}` }, "the model it runs on (byj-66y)");
   await s.run("first question");
   await one.close();
   const two = await ByjClient.start(byj);

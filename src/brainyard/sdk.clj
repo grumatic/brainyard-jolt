@@ -277,6 +277,9 @@
         cancellers (atom {})
         wakeups (tasks/wakeups)
         task-registry (tasks/registry)
+        ;; the model the session asks once a resume or `/model` chose one,
+        ;; for `current-lm` (byj-66y)
+        lm-box (atom nil)
         on-said (:on-said opts)
         ;; the viewer sees every event; the turn's end is also kept, for the
         ;; prompt the turn was answering
@@ -311,7 +314,7 @@
         done (promise)
         worker (Thread. (fn []
                           (try
-                            (session/run (assoc b :read-input read-input :emit emit
+                            (session/run (assoc b :read-input read-input :emit emit :lm-box lm-box
                                                 :mcp-box mcp-box :cancellers cancellers
                                                 :wakeups wakeups :task-registry task-registry))
                             (catch Throwable t
@@ -326,7 +329,7 @@
                               (deliver ready false)
                               (deliver done true)))))]
     (.start worker)
-    {:id id :config config :label (:label opts) :lm (:lm b)
+    {:id id :config config :label (:label opts) :lm (:lm b) :lm-box lm-box
      :commands? (boolean (:commands? opts))
      :fork (some-> (:fork b) (dissoc :id))
      :worktree (:worktree b)
@@ -334,6 +337,12 @@
      :permission-mode-box (:permission-mode-box b)
      :mcp-box mcp-box :ready ready :done done
      :on-event (:on-event b)}))
+
+(defn current-lm
+  "The LM session `s` asks now: the one a resume took back from its save or
+  `/model` switched to, else the one it was opened with (byj-66y)."
+  [s]
+  (or (some-> (:lm-box s) deref) (:lm s)))
 
 ;; --- talking to it -----------------------------------------------------------------
 

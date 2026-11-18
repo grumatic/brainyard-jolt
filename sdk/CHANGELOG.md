@@ -24,6 +24,9 @@ Each version is the TypeScript and the Python SDK together, released as
   `new_session(options, worktree=)`: a new session in a new git worktree of
   its own, a clean checkout of HEAD, of a ref, or of an existing branch as
   it is; where it is, the session's `worktree` (byj-z0z).
+- A session's `lm`, `{provider, model, label}`: the provider and model it
+  runs on as opening it settled them — its own saved model, the one asked
+  for, or byj's default (byj-66y).
 - A `notice` message (Python: `NoticeMessage`), `{kind: "info" | "error", text}`:
   what the session says beside its answer while it answers a prompt — a
   turn waiting for an MCP server, the servers changed, a command's words —

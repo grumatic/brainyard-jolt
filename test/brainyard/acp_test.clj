@@ -289,6 +289,30 @@
           (is (:error (call c2 "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "x"}]}))))
         (finally (acp/end! (:conn c2)))))))
 
+(deftest a-session-answers-the-provider-and-model-it-runs-on
+  ;; byj-66y: a client that did not choose them could not say which a
+  ;; session runs on — one made elsewhere, or one /model changed
+  (let [dir (fresh-dir "lm")
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1})
+        model (script! dir [{:answer "first answer"}])
+        r (new-session c dir model {:commands true})
+        sessionId (:sessionId r)]
+    (is (= {:provider "mock" :model model :label (str "mock/" model)} (get-in r [:_meta :brainyard :lm]))
+        "the one asked for")
+    (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "first question"}]})
+    (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "/model mock/another"}]})
+    (call c "session/close" {:sessionId sessionId})
+    (testing "loaded asking for none, it runs on the model it chose, and says so"
+      (let [r (call c "session/load" {:sessionId sessionId :cwd dir :mcpServers []
+                                      :_meta {:brainyard {:config {:builtin-agents? false}}}})]
+        (is (= {:provider "mock" :model "another" :label "mock/another"} (get-in r [:result :_meta :brainyard :lm])))
+        (call c "session/close" {:sessionId sessionId})))
+    (testing "session/list says the model a session chose"
+      (let [row (some #(when (= sessionId (:sessionId %)) %) (:sessions (:result (call c "session/list" {:cwd dir}))))]
+        (is (= "mock/another" (get-in row [:_meta :brainyard :model])))))
+    (acp/end! (:conn c))))
+
 ;; byj-lie: a 92-turn session's snapshot kept 500 transcript entries, which
 ;; began in turn 63, and session/load replayed only those
 (deftest a-loaded-session-replays-every-turn-not-only-the-snapshots-window

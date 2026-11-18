@@ -209,6 +209,15 @@ export interface ForkOutcome {
 }
 
 /** A session's worktree of its own, made for it: the project's work tree is left as it was. */
+/** The provider and model a session runs on (byj-66y). */
+export interface SessionLm {
+  provider: string;
+  /** Null when the provider's own default model is asked. */
+  model: string | null;
+  /** `provider/model`, as `/model` takes it. */
+  label: string;
+}
+
 export interface Worktree {
   /** The worktree's top. */
   path: string;

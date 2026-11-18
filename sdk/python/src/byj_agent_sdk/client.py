@@ -75,6 +75,9 @@ class Session:
         #: the worktree it was opened in, when one was made for it:
         #: ``{path, cwd, branch, base, created?, files?}``, else None
         self.worktree: Optional[dict[str, Any]] = None
+        #: the provider and model it runs on, as opening it settled them:
+        #: ``{provider, model, label}`` (byj-66y), else None
+        self.lm: Optional[dict[str, Any]] = None
 
     def emit(self, m: Message) -> None:
         if self.current is not None:
@@ -325,6 +328,7 @@ class ByjClient:
         s = Session(self, sid, o, (r or {}).get("modes", {}).get("availableModes", []))
         s.fork = (r or {}).get("_meta", {}).get("brainyard", {}).get("fork")
         s.worktree = (r or {}).get("_meta", {}).get("brainyard", {}).get("worktree")
+        s.lm = (r or {}).get("_meta", {}).get("brainyard", {}).get("lm")
         self.sessions[sid] = s
         for m in history:
             if on_history:

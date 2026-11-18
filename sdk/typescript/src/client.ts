@@ -7,7 +7,7 @@ import { Connection, RpcError } from "./rpc.js";
 import type {
   ClientOptions, Hook, JsonSchema, LiveSession, Message, PermissionDecision, PermissionMode, PermissionRequest,
   PredictOptions, PredictResult, ResultMessage, SessionOptions, Tool,
-  ForkOptions, ForkOutcome, KeptTurn, NewSessionOptions, RewindResult, TurnDiff, Worktree,
+  ForkOptions, ForkOutcome, KeptTurn, NewSessionOptions, RewindResult, SessionLm, TurnDiff, Worktree,
 } from "./types.js";
 
 /** The ACP version spoken. */
@@ -49,6 +49,8 @@ export class Session {
   fork?: ForkOutcome;
   /** The worktree it was opened in, when one was made for it (`newSession`'s or `forkSession`'s `worktree`). */
   worktree?: Worktree;
+  /** The provider and model it runs on, as opening it settled them (byj-66y); undefined from a byj that does not say. */
+  lm?: SessionLm;
 
   constructor(
     readonly client: ByjClient,
@@ -336,6 +338,7 @@ export class ByjClient {
       const s = new Session(this, id, o, r?.modes?.availableModes ?? []);
       if (r?._meta?.brainyard?.fork) s.fork = r._meta.brainyard.fork;
       if (r?._meta?.brainyard?.worktree) s.worktree = r._meta.brainyard.worktree;
+      if (r?._meta?.brainyard?.lm) s.lm = r._meta.brainyard.lm;
       if (pending) { pending.current?.close(); }
       this.sessions.set(id, s);
       return s;
