@@ -71,12 +71,12 @@
       (is (not (str/includes? t "undo-turn")) "no subcommand on the top page")
       (doseq [c ["eval" "exam" "app" "file"]]
         (is (not (re-find (re-pattern (str "(?m)^   " c " ")) t)) (str c " is Share's (RFC-070 D4)")))
-      ;; a screen, not 130 lines: a line a command, `projects` the newest
-      ;; (byj-k29, after `turns`, byj-gly.483, `emacs`, byj-gly.462, `file`, byj-1wv.70.3,
+      ;; a screen, not 130 lines: a line a command, `config` the newest
+      ;; (byj-d9q, after `projects`, byj-k29, `turns`, byj-gly.483, `emacs`, byj-gly.462, `file`, byj-1wv.70.3,
       ;; `acp`, byj-g5n.4, and `agent`, byj-1wv.47), and
       ;; -p, -m and -C among the global options since they stand before the
       ;; command (byj-gly.420)
-      (is (< (count (str/split-lines t)) 46) "a screen, not 130 lines")))
+      (is (< (count (str/split-lines t)) 47) "a screen, not 130 lines")))
   (testing "a command with subcommands lists them"
     (let [t (cli-help/text ["turns" "-h"] nil)]
       (is (str/includes? t "COMMANDS:"))

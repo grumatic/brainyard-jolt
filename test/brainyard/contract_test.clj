@@ -13,6 +13,9 @@
   - `trajectory/trajectory.edn`, `trajectory/meta.edn`: what that turn leaves
     on disk (RFC-025, RFC-016);
   - `agent/agents.json`: `byj agent --json` in a project of byj's own agents;
+  - `config/config.json`: `byj config --json` in a project whose config.edn
+    sets a key and holds one byj does not know, with a home of its own
+    (byj-d9q);
   - `doctor/doctor.json`: `byj doctor --json` in a project with AGENTS.md
     alone, two copies of byj on PATH and a signed-in account, the machine's
     tools all said missing so that the file is not the machine's (byj-mmd);
@@ -36,6 +39,7 @@
             [brainyard.bt :as bt]
             [brainyard.channel :as channel]
             [brainyard.config :as config]
+            [brainyard.configbox :as configbox]
             [brainyard.init :as init]
             [brainyard.json :as json]
             [brainyard.main :as main]
@@ -165,6 +169,23 @@
                       :emacs-tools? false :terminal-tools? false)
         out (with-out-str (#'main/agent-command {:json true} config))]
     (held "agent/agents.json" (str (json/write-str (normal (json/read-str (str/trim out)) dir)) "\n"))))
+
+(deftest the-settings-are-byjs-contract
+  ;; byj-d9q: what the workbench's settings page reads. A home of its own, so
+  ;; the person's config.edn is not in it
+  (let [dir (fresh-dir "config")
+        home (fresh-dir "config-home")
+        f (io/file dir ".brainyard" "config.edn")]
+    (io/make-parents f)
+    (spit f "{:agent {:config {:max-iterations 30 :bogus 1}}}")
+    (let [loaded (config/load-config {:working-dir dir :project-dir dir :user-dir home})
+          ;; as `byj config --json` prints it, from the same parts
+          j (-> (merge (configbox/report (assoc-in loaded [:config :user-dir] home)) {:choices (main/config-choices)})
+                ;; the directories a run may write by default name the
+                ;; machine's temporary directory and home
+                (update :items (fn [is] (mapv #(cond-> % (= "allowed-dirs" (:key %)) (assoc :value "<varies>")) is))))]
+      (held "config/config.json"
+            (str (json/write-str (normal (json/read-str (json/write-str j)) (str/replace dir (str "/" (.getName (io/file dir))) ""))) "\n")))))
 
 (deftest the-doctor-report-is-byjs-contract
   ;; byj-mmd: what the workbench's Doctor panel reads. Outside this

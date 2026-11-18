@@ -22,7 +22,9 @@
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
+            [clojure.walk :as walk]
             [brainyard.config :as config]
+            [brainyard.json :as json]
             [brainyard.secrets :as secrets]))
 
 (def snapshot-retention
@@ -189,6 +191,55 @@
       {}
       (let [m (try (edn/read-string (slurp f)) (catch Throwable _ nil))]
         (if (map? m) m {})))))
+
+;; --- as data, for a client (byj-d9q) ---------------------------------------------------
+
+(defn json-value
+  "A config value as JSON says it: a keyword as its name (with its namespace,
+  no colon), a set as an array, a file as its path, anything else JSON has no
+  word for as its string."
+  [v]
+  (walk/postwalk (fn [x]
+                   (cond (keyword? x) (subs (str x) 1)
+                         (set? x) (vec (sort-by str x))
+                         (instance? java.io.File x) (.getPath ^java.io.File x)
+                         (or (nil? x) (string? x) (number? x) (boolean? x) (map? x) (sequential? x) (map-entry? x)) x
+                         :else (str x)))
+                 v))
+
+(defn report
+  "`byj config --json`'s settings (byj-d9q): `loaded` is `config/load-config`'s
+  answer. `{:files {:user {:path :exists} :project …} :items […] :problems […]}`,
+  an item a key as `rows` gives it with its family, type and enum, and
+  whether a change waits for the next session; a problem what the files
+  held that was dropped, a key at a time. Values as `shown` says them, in
+  JSON's words."
+  [{:keys [config sources issues]}]
+  (let [c (assoc config :config-sources sources)
+        file (fn [scope] (when-let [f (scope-file c scope)] {:path (.getPath f) :exists (.isFile f)}))]
+    {:files {:user (file :user) :project (file :project)}
+     :items (vec (for [{:keys [key value default source doc writable? changed? why-not]} (rows c nil nil)
+                       :let [{:keys [family type enum]} (get config/config-items key)]]
+                   (cond-> {:key (name key) :family (some-> family name) :type type
+                            :default (json-value default) :value (json-value value)
+                            :source (name source) :doc doc
+                            :writable (boolean writable?) :changed (boolean changed?)
+                            :nextSession (contains? config/next-session-keys key)}
+                     enum (assoc :enum (json-value (vec enum)))
+                     why-not (assoc :whyNot why-not))))
+     :problems (vec (for [{:keys [file kind key message]} issues]
+                      {:file file :kind (name kind) :key (some-> key name) :message message}))}))
+
+(defn json-input
+  "A value for key `k` given as JSON text — `true`, `200`, `[\"a\",\"b\"]`,
+  `\"concise\"` — as the key's declared type, as `config/from-json` takes an
+  SDK client's; text that is not JSON is taken as `config$set` takes a value,
+  coerced from a string by the type (byj-d9q)."
+  [k text]
+  (let [parsed (try {:v (json/read-str (str text))} (catch Throwable _ nil))]
+    (if parsed
+      (get (config/from-json {k (:v parsed)}) k)
+      (config/coerce (get-in config/config-items [k :type]) (str text)))))
 
 ;; --- snapshots ---------------------------------------------------------------------------
 

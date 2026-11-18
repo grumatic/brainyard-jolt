@@ -606,18 +606,26 @@
                 k))))
 
 (defn read-file
-  "One config.edn as {:config {k v} :problems [...]} — never throws. Unknown
-  keys, schema keys at the top level (brainyard's `::misplaced-config-keys`)
-  and values of the wrong type are reported and dropped; a key another
-  program declares (`others`, `declared-keys`) is dropped unreported."
+  "One config.edn as {:config {k v} :problems [...] :issues [...]} — never
+  throws. Unknown keys, schema keys at the top level (brainyard's
+  `::misplaced-config-keys`) and values of the wrong type are reported and
+  dropped; a key another program declares (`others`, `declared-keys`) is
+  dropped unreported. `:problems` says each in words; `:issues` says the same
+  as data, a key at a time — `{:file :kind :key :message}`, `:kind` one of
+  `:unreadable`, `:not-a-map`, `:misplaced`, `:unknown`, `:wrong-value` and
+  `:key` nil for a file that does not read — for `byj config --json`
+  (byj-d9q)."
   [^java.io.File f & [others]]
   (if-not (.isFile f)
-    {:config {} :problems []}
+    {:config {} :problems [] :issues []}
     (let [path (.getPath f)
-          m (try (edn/read-string (slurp f)) (catch Throwable e {::unreadable (ex-message e)}))]
+          m (try (edn/read-string (slurp f)) (catch Throwable e {::unreadable (ex-message e)}))
+          issue (fn [kind k message] {:file path :kind kind :key k :message message})]
       (cond
-        (::unreadable m) {:config {} :problems [(str path ": unreadable EDN — " (::unreadable m))]}
-        (not (map? m)) {:config {} :problems [(str path ": expected a map")]}
+        (::unreadable m) {:config {} :problems [(str path ": unreadable EDN — " (::unreadable m))]
+                          :issues [(issue :unreadable nil (str "unreadable EDN — " (::unreadable m)))]}
+        (not (map? m)) {:config {} :problems [(str path ": expected a map")]
+                        :issues [(issue :not-a-map nil "expected a map")]}
         :else
         (let [declared (bridge m)
               misplaced (sort (filter config-keys (keys m)))
@@ -629,7 +637,11 @@
                                                   " belong under [:agent :config] — ignored"))
                        (seq unknown) (conj (str path ": unknown keys ignored: " (str/join ", " unknown)))
                        (seq bad) (conj (str path ": wrong value, ignored: "
-                                            (str/join "; " (for [k bad] (value-problem k (get declared k)))))))})))))
+                                            (str/join "; " (for [k bad] (value-problem k (get declared k)))))))
+           :issues (vec (concat
+                         (for [k misplaced] (issue :misplaced k "belongs under [:agent :config] — ignored"))
+                         (for [k unknown] (issue :unknown k "unknown key, ignored"))
+                         (for [k bad] (issue :wrong-value k (str "wrong value, ignored: " (value-problem k (get declared k)))))))})))))
 
 ;; ============================================================================
 ;; Resolution
@@ -697,7 +709,7 @@
         the working dir, else the working dir).
 
   → {:config {k v} :sources {k :default|:user|:project|:caller|:env}
-     :problems [string] :files [path]}"
+     :problems [string] :issues [{:file :kind :key :message}] :files [path]}"
   [{:keys [working-dir overrides env-fn user-dir project-dir]
     :or {working-dir "." env-fn (fn [_] nil)}}]
   (let [user-dir (or user-dir (System/getenv "HOME"))
@@ -705,10 +717,10 @@
         project-dir (resolve-project-dir working-dir (or (:project-dir overrides) project-dir))
         project-file (config-file project-dir)
         others (declared-keys user-dir)
-        user (if user-file (read-file user-file others) {:config {} :problems []})
+        user (if user-file (read-file user-file others) {:config {} :problems [] :issues []})
         ;; the project's own file is not read twice when it is the user's
         project (if (and user-file (= (.getCanonicalPath user-file) (.getCanonicalPath project-file)))
-                  {:config {} :problems []}
+                  {:config {} :problems [] :issues []}
                   (read-file project-file others))
         env (env-layer env-fn)
         overrides (select-keys overrides config-keys)
@@ -726,6 +738,8 @@
                        (assoc :allowed-dirs (default-allowed-dirs (:project-dir c)))))
      :sources (reduce (fn [acc [label m]] (into acc (for [k (keys m)] [k label]))) {} layers)
      :problems (vec (concat (:problems user) (:problems project)))
+     ;; the same as data, a key at a time (`read-file`)
+     :issues (vec (concat (:issues user) (:issues project)))
      :files (vec (keep (fn [[f r]] (when (and f (.isFile f) (seq (:config r))) (.getPath f)))
                        [[user-file user] [project-file project]]))}))
 

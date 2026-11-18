@@ -13,6 +13,7 @@ so it never reads byj's tree, and byj's own suite never reads its tree either.
 | `trajectory/trajectory.edn` | what the turn leaves in `.brainyard/sessions/<id>/trajectory.edn`, a record a line | RFC-025 |
 | `trajectory/meta.edn` | the session's `meta.edn` beside it | RFC-016, RFC-031 |
 | `agent/agents.json` | `byj agent --json` in a project of byj's own agents | RFC-018 |
+| `config/config.json` | `byj config --json` in a project whose config.edn sets a key and holds one byj does not know, with a home of its own; the default directories a run may write, which name the machine's, written `<varies>` | RFC-013 |
 | `doctor/doctor.json` | `byj doctor --json` in a project with AGENTS.md alone, two copies of byj on PATH, a signed-in account, and every tool said missing so that it is not the machine's | RFC-040 |
 | `prices.edn` | the price table byj costs a run by | RFC-006 |
 | `loops/slots.edn` | every slot the bundled loops offer a project: its id, keys and place | RFC-072 |

@@ -20,6 +20,7 @@
             [brainyard.mcp :as mcp]
             [brainyard.tools :as tools]
             [brainyard.config :as config]
+            [brainyard.configbox :as configbox]
             [brainyard.events :as events]
             [brainyard.launch :as launch]
             [brainyard.acp :as acp]
@@ -82,7 +83,7 @@
 (defn- effects [s] (set (map keyword (globs s))))
 
 (def ^:private command-names
-  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects"})
+  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "config"})
 
 (def ^:private command-aliases
   "Old names a command still answers to: `sessions` (brainyard's `by
@@ -175,6 +176,7 @@
           "--keep" (recur more (assoc opts :keep true))
           ;; `loops propose`: why, in words; the bundled loop as the candidate
           "--why" (recur (rest more) (assoc opts :why (first more)))
+          "--scope" (recur (rest more) (assoc opts :scope (first more)))
           "--bundled" (recur more (assoc opts :bundled true))
           ;; `loops eval|propose`: each turn in this byj, not a sandboxed child
           "--in-process" (recur more (assoc opts :in-process true))
@@ -2086,6 +2088,67 @@
           (flush)
           (web-share/serve! (web-share/build-ttyd-argv (assoc ttyd-opts :child-argv child)))))))
 
+(defn config-choices
+  "What a client's pickers offer beside the settings (byj-d9q): every
+  provider with its default model, the models `/model` lists, and the
+  permission modes."
+  []
+  {:providers (vec (for [[id p] (sort-by key llm/providers)]
+                     {:id (name id) :defaultModel (:model p)}))
+   :models (vec (for [{:keys [provider model description light?]} @llm/curated-models]
+                  {:provider (name provider) :model model :description description :light (boolean light?)}))
+   :permissionModes permission/modes})
+
+(defn- config-command
+  "`byj config [--json]`, `byj config set KEY VALUE [--scope project|user]`
+  and `byj config unset KEY [--scope …]` (byj-d9q): the settings as data, for
+  a client's settings page, and a key written through `configbox/set-key!`
+  with every check a session's /config makes — writable (never a permission
+  key), schema, secret scan, snapshot, re-read — so a client never writes
+  config.edn itself. VALUE is JSON, coerced by the key's type
+  (`configbox/json-input`). Without --json, as --print-config."
+  [{:keys [questions json scope]} loaded]
+  (let [[sub k-text v-text & more] questions
+        out (fn [x] (println (json/write-str x)))
+        fail (fn [msg] (if json (out {:error msg}) (err-println (str "config: " msg))) 1)
+        scope (some-> scope keyword)]
+    (cond
+      (and scope (not (#{:project :user} scope)))
+      (fail (str "--scope is project or user, not " (name scope)))
+
+      (nil? sub)
+      (if json
+        (do (out (merge (configbox/report loaded) {:choices (config-choices)})) 0)
+        (let [{:keys [problems files]} loaded]
+          (doseq [p problems] (err-println (str "config: " p)))
+          (println (str "files: " (if (seq files) (str/join ", " files) "(none)")))
+          (doseq [{:keys [key value source]} (config/describe loaded)]
+            (println (format "%-30s %-8s %s" key (name source) (pr-str value))))
+          0))
+
+      (not (#{"set" "unset"} sub))
+      (fail (str "no such config command: " sub " — byj config [set KEY VALUE | unset KEY]"))
+
+      (or (str/blank? (str k-text)) (and (= "set" sub) (nil? v-text)) (seq more))
+      (fail (if (= "set" sub) "usage: byj config set KEY VALUE [--scope project|user]" "usage: byj config unset KEY [--scope project|user]"))
+
+      :else
+      (let [k (keyword (str/replace (str k-text) #"^:" ""))
+            unset? (= "unset" sub)
+            r (configbox/set-key! (:config loaded) scope k (when-not unset? (configbox/json-input k v-text))
+                                  {:reason (str "byj config " sub " " (name k)) :unset? unset?})]
+        (if (:ok? r)
+          (do (if json
+                (out {:ok true :key (name k) :value (configbox/json-value (:now r)) :was (configbox/json-value (:was r))
+                      :unset (boolean unset?) :scope (some-> (:scope r) name) :file (:path r) :snapshot (:snapshot r)})
+                (println (str (name k) ": " (pr-str (:was r)) " → " (if unset? "unset" (pr-str (:now r))) " in " (:path r))))
+              0)
+          (if json
+            (do (out (cond-> {:error (:error r) :stage (some-> (:stage r) name)}
+                       (:reverted? r) (assoc :reverted true)))
+                1)
+            (fail (:error r))))))))
+
 (defn- agent-command
   "`byj agent [--name NAME] [--json]` (byj-1wv.47): every agent with its
   reach, least first, or one in full. The one is named by `--name`; a bare
@@ -2280,6 +2343,11 @@
                                       (:llm-calls usage 0) " LLM call(s) · "
                                       (when updated-at
                                         (str "updated " (quot (- (System/currentTimeMillis) updated-at) 60000) "m ago")))))))))
+
+      ;; the settings as data, and a key written as /config writes it (byj-d9q)
+      (= :config command)
+      (let [wd (or working-dir (System/getProperty "user.dir") ".")]
+        (*exit* (config-command opts (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)}))))
 
       print-config
       (let [wd (or working-dir (System/getProperty "user.dir") ".")

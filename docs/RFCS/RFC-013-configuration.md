@@ -206,6 +206,39 @@ repository and a user write affects every project on the machine
 (divergence `config-auto-scope-is-the-project` — this is where the port had a
 real defect, found by it happening).
 
+### From outside a session: `byj config` (`byj-d9q`)
+
+A client's settings page — brainyard-apps' workbench — reads and writes the
+settings through the CLI, so it never writes config.edn itself and drifts
+from the rules above:
+
+- **`byj config [-C DIR] --json`** prints `{files, items, problems,
+  choices}`: `files` the user's and the project's config.edn, each `{path,
+  exists}`; `items` every key as `config$read` reports it — `key` (as
+  config.edn writes it), `family`, `type`, `enum` when the key names its
+  values, `default`, `value` (both as `shown` says them), `source`
+  (`default`, `user`, `project`, `caller`, `env`), `doc`, `writable` and
+  `whyNot`, `changed`, `nextSession` (a change waits for the next session);
+  `problems` what `load-config` dropped from either file, a key at a time,
+  `{file, kind, key, message}` (`read-file`'s `:issues`); `choices` the
+  providers with their default models, the models `/model` lists, and the
+  permission modes (`main/config-choices`). Values in JSON's words: a
+  keyword as its name, a set as an array (`configbox/json-value`). Without
+  `--json`, as `--print-config`.
+- **`byj config set KEY VALUE [--scope project|user] [--json]`** writes
+  through `set-key!`, every check a session's `/config` makes: writable
+  (never a permission key, `:builtin-hooks?` or a per-run key), schema,
+  secret scan, snapshot, re-read. VALUE is JSON — `true`, `200`,
+  `'["a","b"]'`, `'"concise"'` — coerced by the key's type as
+  `config/from-json` takes an SDK client's; text that is not JSON is coerced
+  as `config$set` coerces it (`configbox/json-input`). **`byj config unset
+  KEY`** removes it from that file. `:auto`, the project, is the scope unless
+  one is named. `--json` answers `{ok, key, value, was, unset, scope, file,
+  snapshot}`, or `{error, stage}` and exit 1.
+
+The object's shape is byj's contract, `contract/config/config.json`
+(RFC-070). Not over ACP, by the request that asked for it.
+
 ### An edit is in force from the next turn
 
 There is no cached global to swap: `make-ctx` builds the registry, zones and
@@ -246,13 +279,14 @@ Enforced by `session-test/an-edited-config-applies-from-the-next-turn` and
 ## API
 
 `brainyard.config`: `config-items`, `config-keys`, `next-session-keys`, `defaults`, `coerce`, `valid?`,
-`config-file`, `read-file`, `env-layer`, `load-config`, `describe`, `features`,
+`config-file`, `read-file` (`:issues` beside `:problems`), `env-layer`, `load-config`, `describe`, `features`,
 `feature-on?`.
 
 `brainyard.configbox`: `unwritable`, `writable?`, `writable-keys`, `grantable`,
 `grant!`,
 `secret-patterns`, `secrets-in`, `scope-file`, `read-scope`, `snapshots`,
-`take-snapshot!`, `set-key!`, `revert!`, `reload-report`, `commands`.
+`take-snapshot!`, `set-key!`, `revert!`, `reload-report`, `commands`, and for
+`byj config`, `report`, `json-value`, `json-input`.
 
 `config$read` reports each key's **effective value, its `:default`, and
 `:changed?`** — the effective value alone is not enough to advise an undo. A run
@@ -265,7 +299,8 @@ true). The writes carry `:effects #{:fs/write :config/write}`, so
 `--ask-effects config/write` puts a person in front of them through the gate
 that already exists (RFC-012) rather than a second confirm parameter.
 
-CLI: `--print-config` prints every key, its value and its layer, then exits.
+CLI: `--print-config` prints every key, its value and its layer, then exits;
+`byj config` (above) gives them as data and writes one.
 Flags that set config keys (`-C`, `-n`, `--ask`, `--allow`, `--deny`,
 `--ask-effects`, `--deny-effects`, `--permission-mode`) are the caller layer.
 
@@ -303,6 +338,7 @@ a config map by hand cannot store a relative path either.
 | A wrong type, an unknown key and a secret-shaped value are refused, the secret masked. | `configbox-test/a-value-of-the-wrong-type-is-refused`, `configbox-test/an-unknown-key-is-refused-rather-than-written`, `configbox-test/a-secret-shaped-value-is-refused-and-not-echoed` |
 | A write preserves the rest of the file, leaves no temp file, and can be undone. | `configbox-test/the-rest-of-the-file-survives-a-write`, `configbox-test/a-write-leaves-no-half-written-file`, `configbox-test/a-write-can-be-undone` |
 | A file changed underneath is not clobbered. | `configbox-test/a-file-that-changed-underneath-is-not-overwritten` |
+| `byj config --json` gives every key with its type, enum, default, value, source, doc and whether it may be written and why not, what a file held that was dropped a key at a time, and the providers, models and permission modes to choose from; `byj config set` writes a JSON value as the key's type through every check `config$set` makes, a permission key, a wrong type and an unknown key refused with the stage, and `unset` puts the default back. Its shape is `contract/config/config.json`. | `main-test/byj-config-gives-the-settings-as-data-and-writes-as-config-set-does`, `contract-test/the-settings-are-byjs-contract` |
 | Writing can be switched off without losing reading. | `configbox-test/writing-can-be-switched-off-without-losing-reading` |
 
 ## One schema, not several

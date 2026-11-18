@@ -476,6 +476,60 @@
           (is (str/includes? err said) err)
           (is (not (str/includes? err "Unhandled exception"))))))))
 
+(deftest byj-config-gives-the-settings-as-data-and-writes-as-config-set-does
+  ;; byj-d9q: for the workbench's settings page. Only the project's file is
+  ;; written; the person's own is read, as any run reads it
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-config-" (System/nanoTime))) .mkdirs))
+        f (io/file dir ".brainyard" "config.edn")
+        _ (io/make-parents f)
+        _ (spit f "{:agent {:config {:max-iterations 30 :bogus 1 :recap? \"no\"}}}")
+        cfg #(apply run-main "-C" dir "config" %&)
+        item (fn [j k] (some #(when (= k (:key %)) %) (:items j)))]
+    (testing "every key, its type, default, value, source and whether it may be written"
+      (let [{:keys [exit out]} (cfg "--json")
+            j (json/read-str out)]
+        (is (= 0 exit))
+        (is (= {:path (.getPath f) :exists true} (get-in j [:files :project])))
+        (is (= {:key "max-iterations" :family "loop" :type "integer" :default 20 :value 30 :source "project"
+                :doc "Iteration ceiling for one turn." :writable true :changed true :nextSession false}
+               (item j "max-iterations")))
+        (is (= ["default" "concise" "explanatory"] (:enum (item j "output-style"))))
+        (is (= [false "permissions"] ((juxt :writable :family) (item j "permission-mode"))))
+        (is (str/includes? (:whyNot (item j "permission-mode")) "permission key"))
+        (is (= #{["unknown" "bogus"] ["wrong-value" "recap?"]}
+               (set (map (juxt :kind :key) (filter #(= (.getPath f) (:file %)) (:problems j)))))
+            "what a file held that was dropped, a key at a time")
+        (is (some #(= {:id "claude-code" :defaultModel "opus"} %) (get-in j [:choices :providers])))
+        (is (some #(= ["claude-code" "haiku" true] ((juxt :provider :model :light) %)) (get-in j [:choices :models])))
+        (is (= ["auto" "ask-each-time" "auto-approve" "deny-by-default"] (mapv :id (get-in j [:choices :permissionModes]))))))
+    (testing "set: a JSON value as the key's type, through every check, with a snapshot"
+      (let [{:keys [exit out]} (cfg "set" "max-iterations" "40" "--json")
+            r (json/read-str out)]
+        (is (= 0 exit))
+        (is (= [true "max-iterations" 40 30 "project" (.getPath f)] ((juxt :ok :key :value :was :scope :file) r)))
+        (is (.isFile (io/file (:snapshot r)))))
+      (is (= "concise" (:value (json/read-str (:out (cfg "set" "output-style" "\"concise\"" "--json")))))
+          "a keyword key's string")
+      (is (= 0 (:exit (cfg "set" "output-style" "explanatory"))) "and a bare word, as config$set takes one")
+      (is (= {:max-iterations 40 :output-style :explanatory}
+             (select-keys (get-in (edn/read-string (slurp f)) [:agent :config]) [:max-iterations :output-style]))))
+    (testing "refused as a session's /config refuses: a permission key, a wrong type, no such key"
+      (doseq [[args stage] [[["tool-allow-tools" "[\"bash\"]"] "writable"]
+                            [["max-iterations" "\"many\""] "schema"]
+                            [["no-such-key" "1"] "writable"]]]
+        (let [{:keys [exit out]} (apply cfg "set" (concat args ["--json"]))]
+          (is (= 1 exit))
+          (is (= stage (:stage (json/read-str out))) (str args))))
+      (is (nil? (get-in (edn/read-string (slurp f)) [:agent :config :tool-allow-tools])))
+      (is (= 1 (:exit (cfg "set" "max-iterations" "1" "--scope" "everywhere")))))
+    (testing "unset: the key gone from the file, its default in force again"
+      (let [r (json/read-str (:out (cfg "unset" "max-iterations" "--json")))]
+        (is (= [true true 40] ((juxt :ok :unset :was) r))))
+      (is (not (contains? (get-in (edn/read-string (slurp f)) [:agent :config]) :max-iterations)))
+      (is (= ["default" 20] ((juxt :source :value) (item (json/read-str (:out (cfg "--json"))) "max-iterations")))))
+    (testing "without --json, as --print-config"
+      (is (re-find #"max-iterations\s+default\s+20" (:out (cfg)))))))
+
 (deftest byj-doctor-json-gives-the-report-as-data
   ;; byj-mmd: for the workbench's Doctor panel. The machine is read through
   ;; seams here: no tool is run, no keychain or network asked

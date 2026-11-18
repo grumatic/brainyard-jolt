@@ -138,11 +138,8 @@
 ;; --- sessions --------------------------------------------------------------------
 
 (def modes
-  "The permission modes (RFC-012) as ACP session modes."
-  [{:id "auto" :name "Auto" :description "A classifier decides each gated call, asking when unsure"}
-   {:id "ask-each-time" :name "Ask each time" :description "Every gated call is asked about"}
-   {:id "auto-approve" :name "Auto-approve" :description "Gated calls run without asking"}
-   {:id "deny-by-default" :name "Deny by default" :description "Gated calls are refused"}])
+  "The permission modes (RFC-012) as ACP session modes: `permission/modes`."
+  permission/modes)
 
 (defn- ext? [conn] (boolean (:extensions? @(:state conn))))
 

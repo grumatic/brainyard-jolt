@@ -211,6 +211,14 @@
   (or (some-> (:permission-mode-box ctx) deref)
       (config ctx :permission-mode :auto)))
 
+(def modes
+  "Every permission mode, named and said for a person choosing one: ACP's
+  session modes, and `byj config --json`'s choices (byj-d9q)."
+  [{:id "auto" :name "Auto" :description "A classifier decides each gated call, asking when unsure"}
+   {:id "ask-each-time" :name "Ask each time" :description "Every gated call is asked about"}
+   {:id "auto-approve" :name "Auto-approve" :description "Gated calls run without asking"}
+   {:id "deny-by-default" :name "Deny by default" :description "Gated calls are refused"}])
+
 (def cycle-modes
   "The modes shift+tab steps through, in order. `:deny-by-default` is not one:
   it is a policy a config sets, not a posture a person toggles into."
