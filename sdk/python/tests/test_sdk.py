@@ -53,6 +53,14 @@ def test_query_streams_a_turn_and_ends_with_its_result():
     assert isinstance(r.iterations, int)
 
 
+def test_what_the_session_says_beside_its_answer_is_a_notice_not_text():
+    # byj-tc7
+    ms = asyncio.run(collect(query("/usage", project([], commands=True), **BYJ)))
+    notices = [m for m in ms if m.type == "notice"]
+    assert notices and notices[0].kind == "info" and "turn(s)" in notices[0].text, ms
+    assert not any(m.type == "text" for m in ms), "none of it is the answer's text"
+
+
 def test_a_tool_of_the_applications_is_called_after_can_use_tool_allows_it():
     calls, asked = [], []
 

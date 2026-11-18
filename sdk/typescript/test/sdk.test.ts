@@ -104,6 +104,14 @@ test("a hook blocks a call", async () => {
   assert.equal(existsSync(join(p.cwd, "made-it")), false);
 });
 
+test("what the session says beside its answer is a notice, not text (byj-tc7)", async () => {
+  const p = project([]);
+  const ms = await collect(query({ prompt: "/usage", options: { ...byj, ...p, commands: true } }));
+  const notice = ms.find((m) => m.type === "notice");
+  assert.ok(notice && notice.type === "notice" && notice.kind === "info" && notice.text.includes("turn(s)"), JSON.stringify(ms));
+  assert.ok(!ms.some((m) => m.type === "text"), "none of it is the answer's text");
+});
+
 test("a client holds sessions: events, a cancel, a mode, predict", async () => {
   const client = await ByjClient.start(byj);
   try {

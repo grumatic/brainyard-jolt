@@ -130,6 +130,17 @@ class ThoughtMessage:
 
 
 @dataclass
+class NoticeMessage:
+    """What the session said beside its answer while it answered a prompt —
+    waiting for an MCP server, the servers changed, a command's words — never
+    part of the answer. ``kind`` is ``"info"`` or ``"error"``."""
+    session_id: str
+    kind: str
+    text: str
+    type: str = "notice"
+
+
+@dataclass
 class UserMessage:
     """A resumed session's earlier question."""
     session_id: str
@@ -204,7 +215,7 @@ class ResultMessage:
     type: str = "result"
 
 
-Message = Union[TextMessage, ThoughtMessage, UserMessage, ToolCallMessage, ToolResultMessage,
+Message = Union[TextMessage, ThoughtMessage, NoticeMessage, UserMessage, ToolCallMessage, ToolResultMessage,
                 PermissionMessage, EventMessage, ResultMessage]
 
 

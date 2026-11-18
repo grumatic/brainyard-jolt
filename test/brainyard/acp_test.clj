@@ -793,6 +793,44 @@
           (is (re-find #"forked from session" (str (first (persist/take-notes! {:project-dir dir} nid)))))))
       (finally (acp/end! (:conn c))))))
 
+(deftest what-a-session-says-while-it-answers-reaches-the-client-as-a-notice
+  ;; byj-tc7 (seen finding GitHub #1): a turn's start waiting for an MCP
+  ;; server, and the servers changed, were said only to the session's :emit,
+  ;; which ACP did not pass on, so a client could not tell a session that had
+  ;; its MCP tools from one that did not
+  (let [c (client)
+        dir (fresh-dir "notices")
+        stub (.getCanonicalPath (io/file "test/fixtures/mcp/stub_server.py"))
+        {:keys [sessionId]} (:result (call c "session/new"
+                                           {:cwd dir
+                                            ;; up a second after it is started: still starting when the
+                                            ;; session builds its tools, and when the prompt comes
+                                            :mcpServers [{:name "slow" :command "sh" :args ["-c" (str "sleep 1; exec python3 " stub)] :env []}]
+                                            :_meta {:brainyard {:provider "mock" :model (script! dir [{:answer "done"}])
+                                                                ;; the agent's tool list names the server's tools, so its
+                                                                ;; turn waits for them
+                                                                :config {:builtin-agents? false :visible-tools ["mcp$slow$*" "read-file"]}}}}))
+        r (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "use the slow tools"}]} 40000)
+        us (updates c sessionId)
+        notices (filter #(get-in % [:_meta :brainyard :notice]) us)
+        said (str/join "\n" (map #(get-in % [:content :text]) notices))]
+    (is (= "end_turn" (get-in r [:result :stopReason])))
+    (is (str/includes? said "waiting for MCP server(s) slow, whose tools this turn uses") said)
+    (is (re-find #"MCP servers changed, in force from this turn: 3 tool\(s\) from slow" said) said)
+    (is (every? #(= "agent_message_chunk" (:sessionUpdate %)) notices))
+    (is (= #{"info"} (set (map #(get-in % [:_meta :brainyard :notice]) notices))))
+    (is (some #(and (= "done" (get-in % [:content :text])) (nil? (get-in % [:_meta :brainyard :notice]))) us)
+        "the answer is not a notice")
+    (is (< (.indexOf (vec us) (first notices))
+           (.indexOf (vec us) (first (filter #(= "done" (get-in % [:content :text])) us))))
+        "said as it was said: before the answer")
+    (testing "nothing is said twice, nor outside a prompt"
+      (let [n (count notices)]
+        (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "again"}]} 40000)
+        (is (= n (count (filter #(get-in % [:_meta :brainyard :notice]) (updates c sessionId))))
+            "the servers moved no more, so the next turn says nothing of them")))
+    (call c "session/close" {:sessionId sessionId})))
+
 (deftest a-session-is-forked-before-a-turn-into-a-worktree-of-its-own-over-acp
   ;; byj-8yt: the session forked from and the project's work tree untouched
   (let [[dir git] (git-project "fork-worktree")

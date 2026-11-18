@@ -12,7 +12,7 @@ from typing import Any, AsyncIterator, Callable, Optional, Union
 
 from .rpc import Connection, RpcError
 from .types import (
-    Block, EventMessage, Hook, Message, ModifyArgs, PermissionDecision, PermissionMessage,
+    Block, EventMessage, Hook, Message, ModifyArgs, NoticeMessage, PermissionDecision, PermissionMessage,
     PermissionRequest, PredictResult, Replace, ResultMessage, SessionOptions, TextMessage,
     ThoughtMessage, ToolCallMessage, ToolResultMessage, UserMessage,
 )
@@ -390,7 +390,10 @@ class ByjClient:
             return
         kind = u.get("sessionUpdate")
         text = (u.get("content") or {}).get("text", "") if isinstance(u.get("content"), dict) else ""
-        if kind == "agent_message_chunk":
+        notice = ((u.get("_meta") or {}).get("brainyard") or {}).get("notice")
+        if kind == "agent_message_chunk" and notice:
+            s.emit(NoticeMessage(sid, notice, text))
+        elif kind == "agent_message_chunk":
             s.emit(TextMessage(sid, text))
         elif kind == "agent_thought_chunk":
             s.emit(ThoughtMessage(sid, text))

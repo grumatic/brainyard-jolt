@@ -257,6 +257,8 @@ export interface NewSessionOptions {
 export type Message =
   | { type: "text"; sessionId: string; text: string }
   | { type: "thought"; sessionId: string; text: string }
+  /** What the session said beside its answer while it answered a prompt — waiting for an MCP server, the servers changed, a command's words — never part of the answer. */
+  | { type: "notice"; sessionId: string; kind: "info" | "error"; text: string }
   | { type: "toolCall"; sessionId: string; id: string; title: string; kind: string; input: unknown }
   | { type: "toolResult"; sessionId: string; id: string; status: "completed" | "failed"; output: string }
   | { type: "permission"; sessionId: string; request: PermissionRequest; decision: PermissionDecision; by: "callback" | "none" }

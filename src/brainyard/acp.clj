@@ -222,6 +222,14 @@
   [st sid u]
   (if-let [t (get-in st [:turn sid])] (assoc-in u [:_meta :brainyard :turn] t) u))
 
+(defn- notice
+  "What session `sid` said beside its answer, `kind` `:info` or `:error`, as
+  an `agent_message_chunk` marked `_meta.brainyard.notice` with the kind, so
+  a client can show it apart from the answer (byj-tc7)."
+  [st sid kind text]
+  (in-turn st sid {:sessionUpdate "agent_message_chunk" :content (text-block text)
+                   :_meta {:brainyard {:notice (name kind)}}}))
+
 (defn- on-event
   "The session's events as `session/update`s: the answer field's chunks as
   the agent's message, the reasoning as its thoughts, a batch of tool calls
@@ -602,7 +610,20 @@
                                   (when (and (ext? conn) (wanted? e))
                                     (notify! conn "_byj/event" {:sessionId @sid-box :event (subs (str e) 1)
                                                                 :payload (json-safe d)})))
-                      :on-problem (fn [msg] (binding [*out* *err*] (println msg)))}
+                      :on-problem (fn [msg] (binding [*out* *err*] (println msg)))
+                      ;; what the session says while it answers a prompt — a
+                      ;; turn's start waiting for an MCP server, the servers
+                      ;; changed, a command's words — as it says it, marked as
+                      ;; a notice, not the answer (byj-tc7): a client could
+                      ;; not tell a session that had its MCP tools from one
+                      ;; that did not (GitHub #1). The answer is sent as it is
+                      ;; streamed; what a _byj/turns method runs, and a resume's
+                      ;; notes, are not a prompt's
+                      :on-said (fn [kind text]
+                                 (let [sid @sid-box st @(:state conn)]
+                                   (when (and sid (#{:info :error} kind) (seq (str text))
+                                              (get-in st [:prompting sid]))
+                                     (update! conn sid (notice st sid kind text)))))}
                resume (assoc :resume resume)))
             (catch clojure.lang.ExceptionInfo e
               (throw (rpc-error -32602 (ex-message e)))))
@@ -665,8 +686,10 @@
             (try (#'sdk/schema-fields out-schema)
                  (catch clojure.lang.ExceptionInfo e (throw (rpc-error -32602 (str "outputSchema: " (ex-message e)))))))
         text (prompt-text prompt)
-        _ (swap! (:state conn) #(-> % (assoc-in [:streamed sessionId] false) (update :ended dissoc sessionId)))
-        r (deref (sdk/submit! s text))
+        _ (swap! (:state conn) #(-> % (assoc-in [:streamed sessionId] false) (update :ended dissoc sessionId)
+                                    (assoc-in [:prompting sessionId] true)))
+        r (try (deref (sdk/submit! s text))
+               (finally (swap! (:state conn) update :prompting dissoc sessionId)))
         ;; the turn this ran, and what it changed (byj-d8c.2)
         {:keys [turn files-changed]} (get-in @(:state conn) [:ended sessionId])
         in-it #(cond-> % turn (assoc-in [:_meta :brainyard :turn] turn))]
@@ -674,7 +697,8 @@
       (:refused r) (throw (rpc-error -32602 (:refused r)))
       (:closed r) {:stopReason "cancelled"}
       (:no-turn r)
-      (do (doseq [[_ t] (:said r) :when (seq (str t))]
+      ;; its notices went out as it said them; anything else it said, now
+      (do (doseq [[k t] (:said r) :when (and (not (#{:info :error} k)) (seq (str t)))]
             (update! conn sessionId {:sessionUpdate "agent_message_chunk" :content (text-block t)}))
           {:stopReason "end_turn"})
       :else

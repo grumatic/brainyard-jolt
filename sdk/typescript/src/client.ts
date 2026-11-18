@@ -388,7 +388,12 @@ export class ByjClient {
     const s = this.sessions.get(sessionId);
     if (!s) return;
     switch (u.sessionUpdate) {
-      case "agent_message_chunk": s.emit({ type: "text", sessionId, text: u.content?.text ?? "" }); break;
+      case "agent_message_chunk": {
+        const notice = u._meta?.brainyard?.notice;
+        if (notice) s.emit({ type: "notice", sessionId, kind: notice, text: u.content?.text ?? "" });
+        else s.emit({ type: "text", sessionId, text: u.content?.text ?? "" });
+        break;
+      }
       case "agent_thought_chunk": s.emit({ type: "thought", sessionId, text: u.content?.text ?? "" }); break;
       case "user_message_chunk": s.emit({ type: "user", sessionId, text: u.content?.text ?? "" }); break;
       case "tool_call":

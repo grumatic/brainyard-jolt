@@ -24,6 +24,11 @@ Each version is the TypeScript and the Python SDK together, released as
   `new_session(options, worktree=)`: a new session in a new git worktree of
   its own, a clean checkout of HEAD, of a ref, or of an existing branch as
   it is; where it is, the session's `worktree` (byj-z0z).
+- A `notice` message (Python: `NoticeMessage`), `{kind: "info" | "error", text}`:
+  what the session says beside its answer while it answers a prompt — a
+  turn waiting for an MCP server, the servers changed, a command's words —
+  which was never sent before, or came as the answer's `text` for a
+  command. Text that is the answer is still `text` (byj-tc7).
 - `undoTurn` / `undo_turn` of a turn a later change conflicts with in every
   file answers its `conflicts`, and a `message` that says a conflict kept it
   back (byj-v55).

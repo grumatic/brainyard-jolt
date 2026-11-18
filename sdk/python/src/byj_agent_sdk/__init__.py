@@ -13,7 +13,7 @@ from .client import (EXTENSIONS, PROTOCOL_VERSION, SDK_VERSION, ByjClient, ByjVe
                      query)
 from .remote import KEEPS_QUESTIONS, KINDS, SharedAgent, SharedAgentError, SharedAnswer, SharedEvent, connect_shared
 from .rpc import RpcError
-from .types import (HOOK_EVENTS, Block, EventMessage, Hook, McpServer, Message, ModifyArgs,
+from .types import (HOOK_EVENTS, Block, EventMessage, Hook, McpServer, Message, ModifyArgs, NoticeMessage,
                     PermissionDecision, PermissionMessage, PermissionRequest, PredictResult, Replace,
                     ResultMessage, SessionOptions, TextMessage, ThoughtMessage, Tool, ToolCallMessage,
                     ToolResultMessage, UserMessage)
@@ -40,6 +40,6 @@ __all__ = [
     "PROTOCOL_VERSION", "EXTENSIONS", "SDK_VERSION", "HOOK_EVENTS",
     "SessionOptions", "Tool", "Hook", "Block", "Replace", "ModifyArgs", "McpServer",
     "PermissionRequest", "PermissionDecision", "PredictResult",
-    "Message", "TextMessage", "ThoughtMessage", "UserMessage", "ToolCallMessage", "ToolResultMessage",
+    "Message", "TextMessage", "ThoughtMessage", "NoticeMessage", "UserMessage", "ToolCallMessage", "ToolResultMessage",
     "PermissionMessage", "EventMessage", "ResultMessage",
 ]
