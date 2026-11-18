@@ -23,6 +23,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   so the dependencies' spec can be committed; one an earlier `/init` wrote
   gets the line from the next, and `/doctor` and `/init`'s check mark it ✗
   until then.
+- `byj WORD --json`, where WORD is no command, answers `{"error": "unknown
+  command WORD"}` and exits 1, where it ran WORD as a question — a model's
+  turn and a saved session for a client probing a command an older byj
+  lacks. Without `--json`, bare words are a question as before.
 
 ## v0.3.20 — 2026-11-18
 

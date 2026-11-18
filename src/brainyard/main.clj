@@ -98,13 +98,17 @@
   `run` (named or not) `ask`, one question answered and done, as `claude -p`
   — whose `-p` is byj's, and brainyard's, `--provider`. `--attach` with no
   command named is `ask` too, the one command it means anything to, as when
-  `ask` was the default."
-  [{:keys [command command-named? prompt attach] :as opts}]
+  `ask` was the default. A first word that names no command, given with
+  `--json`, which a session never takes, is a command this byj does not
+  have — a client probing for one — not a question: `:unknown-command`,
+  refused before a turn could start and a session be saved (byj-tyz)."
+  [{:keys [command command-named? prompt attach json first-word] :as opts}]
   (cond
     (and prompt (contains? #{nil :run :ask} command)) (assoc opts :command :ask)
     prompt (update opts :errors (fnil conj [])
                    (str "--prompt asks one question, not `" (name command) "`: byj --prompt TEXT"))
     (and attach (not command-named?)) (assoc opts :command :ask)
+    (and json first-word (not command-named?)) (assoc opts :command :run :unknown-command first-word)
     :else (update opts :command #(or % :run))))
 
 (defn parse-args
@@ -285,7 +289,9 @@
             (and (nil? (:command opts)) (command-names (command-aliases a a)))
             (recur more (assoc opts :command (keyword (command-aliases a a)) :command-named? true))
             :else
-            (recur more (-> opts (update :command #(or % :run)) (update :questions conj a)))))))))
+            (recur more (cond-> (-> opts (update :command #(or % :run)) (update :questions conj a))
+                          ;; the word a command would have been (byj-tyz)
+                          (nil? (:command opts)) (assoc :first-word a)))))))))
 
 (defn- help-words
   "The words the help is asked by: the command, when one was named, and the
@@ -2272,6 +2278,12 @@
     (cond
       ;; brainyard's layout: the commands, a command's, one subcommand's
       help (print (cli-help/text (help-words opts) (version/version-long)))
+
+      ;; a command this byj does not have, asked for as data (byj-tyz): said
+      ;; as data, never run as a question
+      (:unknown-command opts)
+      (do (println (json/write-str {:error (str "unknown command " (:unknown-command opts))}))
+          (*exit* 1))
 
       ;; an option no command knows, before any command runs: once checked
       ;; only ahead of ask and run, so `byj --bogus agent` listed the agents

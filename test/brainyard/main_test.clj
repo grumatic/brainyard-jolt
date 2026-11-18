@@ -534,6 +534,22 @@
     (testing "without --json, as --print-config"
       (is (re-find #"max-iterations\s+default\s+20" (:out (cfg)))))))
 
+(deftest a-command-byj-does-not-have-asked-for-as-data-is-refused-not-asked
+  ;; byj-tyz: `byj deps -C DIR --json` on a byj without deps ran "deps" as a
+  ;; question — a model's turn, a session saved — and exited 0
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-unknown-" (System/nanoTime))) .mkdirs))
+        {:keys [exit out]} (run-main "-p" "mock" "nosuch" "-C" dir "--json")]
+    (is (= 1 exit))
+    (is (= {:error "unknown command nosuch"} (json/read-str out)))
+    (is (not (.exists (io/file dir ".brainyard" "sessions"))) "no turn ran, no session was saved"))
+  (testing "a question with no --json, a named command's, --prompt's and -q's are questions still"
+    (is (nil? (:unknown-command (main/parse-args ["what" "is" "this"]))))
+    (is (= [:run "nosuch"] ((juxt :command :unknown-command) (main/parse-args ["-C" "/tmp" "nosuch" "--json" "x"]))))
+    (is (= [:ask nil] ((juxt :command :unknown-command) (main/parse-args ["ask" "what" "--json"]))))
+    (is (= [:ask nil] ((juxt :command :unknown-command) (main/parse-args ["--prompt" "what" "--json"]))))
+    (is (nil? (:unknown-command (main/parse-args ["-q" "what" "--json"]))))
+    (is (= :deps (:command (main/parse-args ["deps" "--json"]))))))
+
 (deftest byj-deps-gives-the-dependencies-as-data-and-writes-them-whole
   ;; byj-9dv: for the workbench's dependencies tab, which has no EDN of its own
   (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-deps-cli-" (System/nanoTime))) .mkdirs))
