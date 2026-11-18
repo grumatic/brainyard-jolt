@@ -11,7 +11,8 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   playing another — kept in `.brainyard/deps.edn` (committed) and
   `deps-local.edn` (this machine's sessions bound to each role, and what was
   handed). `byj deps --json` reads both, finds each project by its path or
-  the registry's origin, checks what it provides (files there, a binary on
+  the registry's origin (an SSH host alias, `git@github-work:o/r.git`, as
+  the host `ssh -G` resolves it to), checks what it provides (files there, a binary on
   PATH at a version), lists its commits since it was last reviewed, says
   which sessions play each role and whether each handoff's files, beads,
   branch and note are ready, with every check as `{level kind target

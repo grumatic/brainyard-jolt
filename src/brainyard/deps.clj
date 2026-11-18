@@ -259,17 +259,64 @@
           (:timeout r) {:error "no answer in time"}
           :else {:error (str (or (some-> (:err r) ex-message) "could not run"))})))
 
+(def known-forges
+  "Hosts that are a forge's own name, never a person's SSH alias for one."
+  #{"github.com" "gitlab.com" "bitbucket.org" "codeberg.org" "git.sr.ht" "ssh.dev.azure.com"})
+
+(defn- ssh-hostname*
+  "The host ssh connects to for `host`, as `ssh -G` resolves it through the
+  person's ssh config — `github.com` for a `Host github-work` alias — or
+  nil when ssh cannot say."
+  [host]
+  (let [r (run "." "ssh" "-G" host)]
+    (when (= 0 (:exit r))
+      (some #(second (re-matches #"(?i)hostname\s+(\S+)" (str/trim %))) (str/split-lines (str (:out r)))))))
+
+(def ^:dynamic *ssh-hostname*
+  "`ssh-hostname*`, asked once a host in a process (byj-sih)."
+  (memoize ssh-hostname*))
+
+(defn- split-url
+  "A git URL's `{:host :path :ssh?}`: `:ssh?` for scp-style and ssh://, whose
+  host may be an alias in the person's ssh config; no `:host` for a local
+  path."
+  [url]
+  (let [u (str/trim (str url))]
+    (if-let [[_ scheme more] (re-matches #"([A-Za-z][A-Za-z0-9+.-]*)://(.*)" u)]
+      (let [[hostport path] (str/split (str/replace more #"^[^@/]+@" "") #"/" 2)]
+        {:host (str/replace hostport #":\d+$" "") :path (str path) :ssh? (str/includes? (str/lower-case scheme) "ssh")})
+      (let [more (str/replace u #"^[^@/]+@" "")
+            [host path] (str/split more #":" 2)]
+        (if (and path (not (str/includes? host "/")))
+          {:host host :path path :ssh? true}
+          {:path u})))))
+
 (defn git-key
   "A git URL as the repository it names, for comparing two spellings of one:
   `git@github.com:o/r.git`, `https://github.com/o/r` and
-  `ssh://git@github.com/o/r.git` are all `github.com/o/r`."
+  `ssh://git@github.com/o/r.git` are all `github.com/o/r`. An SSH host is
+  the one the person's ssh config resolves it to (`*ssh-hostname*`), so
+  `git@github-work:o/r.git`, through `Host github-work` / `HostName
+  github.com`, is `github.com/o/r` too (byj-sih)."
   [url]
   (when-not (str/blank? (str url))
-    (let [u (str/trim (str url))
-          u (if (str/includes? u "://")
-              (-> u (str/replace #"^[A-Za-z+]+://" "") (str/replace #"^[^@/]+@" ""))
-              (-> u (str/replace #"^[^@/]+@" "") (str/replace-first ":" "/")))]
-      (-> u (str/replace #"/+$" "") (str/replace #"\.git$" "") str/lower-case))))
+    (let [{:keys [host path ssh?]} (split-url url)
+          host (if (and ssh? host) (or (*ssh-hostname* host) host) host)]
+      (-> (str (when host (str host "/")) path)
+          (str/replace #"/+$" "") (str/replace #"\.git$" "") str/lower-case))))
+
+(defn same-repo?
+  "Do git URLs `a` and `b` name one repository: the same `git-key`, or —
+  where ssh could not resolve an alias — the same owner and name on two
+  hosts, one of them no known forge (byj-sih)."
+  [a b]
+  (let [ka (git-key a) kb (git-key b)]
+    (boolean
+     (and ka kb
+          (or (= ka kb)
+              (let [[ha pa] (str/split ka #"/" 2) [hb pb] (str/split kb #"/" 2)]
+                (and pa (= pa pb) (str/includes? pa "/")
+                     (not (and (known-forges ha) (known-forges hb))))))))))
 
 (defn- canonical [f] (try (.getCanonicalPath (io/file (str f))) (catch Throwable _ (str f))))
 
@@ -284,8 +331,8 @@
   (let [by-path (when-let [path (not-empty (:path p))]
                   (let [f (io/file path) f (if (.isAbsolute f) f (io/file (str dir) path))]
                     (when (.isDirectory f) (canonical f))))
-        by-registry (when-let [k (and (not by-path) (git-key (:git p)))]
-                      (some #(when (and (not (:missing? %)) (= k (git-key (:git-remote %)))) (canonical (:path %)))
+        by-registry (when (and (not by-path) (not (str/blank? (:git p))))
+                      (some #(when (and (not (:missing? %)) (same-repo? (:git p) (:git-remote %))) (canonical (:path %)))
                             (force registry)))]
     (cond by-path {:dir by-path :resolved-by :path}
           by-registry {:dir by-registry :resolved-by :registry}
@@ -379,7 +426,7 @@
                         (str (id-name id) " is not on this machine: "
                              (cond (:path p) (str "no directory " (:path p)) :else "no :path")
                              (if (:git p) (str ", and no registered project's origin is " (:git p)) "")))])
-              (when (and pdir (:git p) (not= (git-key (:git p)) (git-key remote)))
+              (when (and pdir (:git p) (not (same-repo? (:git p) remote)))
                 [(check :warn :remote-mismatch
                         (str (id-name id) "'s origin is " (or remote "not set") ", not " (:git p)))])
               (for [pv provides :when (not (:ok pv))]

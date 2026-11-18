@@ -158,6 +158,33 @@
         (let [r (with-redefs [changes/rows (constantly [])] (deps/report dir {:registry [] :path-env bin}))]
           (is (= "bd is not on PATH" (:detail (second (:gives (first (:handoffs r))))))))))))
 
+(deftest an-ssh-host-alias-names-the-forge-it-stands-for
+  ;; byj-sih: `Host github-work` / `HostName github.com` in ~/.ssh/config, a
+  ;; second GitHub account's remote
+  (binding [deps/*ssh-hostname* {"github-work" "github.com" "github.com" "github.com"}]
+    (testing "an alias is the host ssh resolves it to; https is as written"
+      (is (= "github.com/o/r" (deps/git-key "git@github-work:o/r.git")))
+      (is (= "github.com/o/r" (deps/git-key "ssh://git@github-work:22/o/r.git")))
+      (is (= "github.com/o/r" (deps/git-key "https://github.com/O/r/")))
+      (is (deps/same-repo? "git@github-work:o/r.git" "https://github.com/o/r")))
+    (testing "the registry finds a project by its alias's origin, and no remote-mismatch"
+      (let [dir (tmp "alias-here")
+            reg (tmp "alias-reg")]
+        (fx/sh {:dir reg :out :string :err :string} "git" "init" "-q")
+        (fx/sh {:dir reg :out :string :err :string} "git" "remote" "add" "origin" "git@github-work:o/r.git")
+        (io/make-parents (deps/spec-file dir))
+        (spit (deps/spec-file dir) (pr-str {:projects {:r {:git "git@github.com:o/r.git" :seen "x"}}}))
+        (let [r (deps/report dir {:registry [{:path reg :git-remote "git@github-work:o/r.git"}]})]
+          (is (= [reg "registry"] ((juxt :dir :resolvedBy) (first (:projects r)))))
+          (is (empty? (check r "remote-mismatch")))))))
+  (testing "where ssh cannot say, the owner and name, one host no known forge"
+    (binding [deps/*ssh-hostname* (constantly nil)]
+      (is (= "github-work/o/r" (deps/git-key "git@github-work:o/r.git")))
+      (is (deps/same-repo? "git@github-work:o/r.git" "git@github.com:o/r.git"))
+      (is (not (deps/same-repo? "git@gitlab.com:o/r.git" "git@github.com:o/r.git")) "two forges are two repositories")
+      (is (not (deps/same-repo? "git@github-work:o/other.git" "git@github.com:o/r.git")))
+      (is (not (deps/same-repo? "git@github.com:o/r.git" nil))))))
+
 (deftest what-does-not-fit-is-dropped-and-said
   (let [dir (tmp "lenient")
         f (io/file dir ".brainyard" "deps.edn")]
