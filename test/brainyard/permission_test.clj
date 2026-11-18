@@ -565,7 +565,10 @@
     (testing "changing it asks the person every time, and their yes runs it"
       (reset! asked [])
       (let [r (call (c :auto-approve {:allowed true}) "bash"
-                    {:command "sed -i '' 's/\"x\"/\"y\"/' .brainyard/profile.edn"})]
+                    ;; -i.bak, which BSD's sed and GNU's both read as in place:
+                    ;; GNU's took -i '' as its script, and changed nothing on
+                    ;; Linux (byj-os7)
+                    {:command "sed -i.bak 's/\"x\"/\"y\"/' .brainyard/profile.edn"})]
         (is (not (refused? r)) (pr-str r))
         (is (= 1 (count @asked)) "asked once, though :auto-approve asks nothing else")
         (is (true? (:every-time? (first @asked))))
@@ -573,7 +576,7 @@
         (is (str/includes? (slurp f) "\"y\""))))
     (testing "their no, nobody to ask, or :deny-by-default refuses it, and the file is as it was"
       (let [before (slurp f)
-            line {:command "sed -i '' 's/\"y\"/\"z\"/' .brainyard/profile.edn"}]
+            line {:command "sed -i.bak 's/\"y\"/\"z\"/' .brainyard/profile.edn"}]
         (is (refused? (call (c :ask-each-time {:denied true :reason "no"}) "bash" line)))
         (is (refused? (call (c :auto-approve nil) "bash" line)) "headless")
         (is (refused? (call (c :deny-by-default {:allowed true}) "bash" line)))
