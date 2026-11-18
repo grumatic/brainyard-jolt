@@ -1458,9 +1458,15 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
                     (:tool-discovery? config) (into discovery/discovery-tools))
         ;; the run's MCP servers as they stand NOW (byj-gly.182): a box moves
         ;; while the run goes on, so its tools are added here, per build, and
-        ;; never kept in :base-tools — a child adds them again from the box
-        mcp-clients (merge mcp-clients (some-> mcp-box mcp/box-clients))
-        base-tools (into own-tools (some-> mcp-box mcp/box-tools))
+        ;; never kept in :base-tools — a child adds them again from the box.
+        ;; Read ONCE, and the clients, tools, version and servers starting all
+        ;; taken from that one reading: read apart, a server that finished
+        ;; starting between them left the ctx its tools from before and its
+        ;; version from after, so nothing waited for it or built again, and
+        ;; the session never had its tools (GitHub #1, provenance P-65)
+        box (some-> mcp-box deref)
+        mcp-clients (merge mcp-clients (some-> box mcp/box-clients))
+        base-tools (into own-tools (some-> box mcp/box-tools))
         reg (toolbox/registry base-tools)
         dir (toolbox/tools-dir (:project-dir config))
         authoring (when (:tool-authoring? config)
@@ -1470,7 +1476,7 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
         ;; a user tool calling a tool of a server still starting is early, not
         ;; malformed: it waits, and so does a turn's start (byj-gly.300)
         {:keys [skipped waiting]} (when (:user-tools? config)
-                                    (toolbox/load-user-tools! reg dir {:pending? (some-> mcp-box mcp/starting-tool?)}))
+                                    (toolbox/load-user-tools! reg dir {:pending? (some-> box mcp/starting-tool?)}))
         _ (when on-event
             (doseq [s skipped] (events/emit! on-event :tools/user-tool-skipped s))
             (doseq [w waiting] (events/emit! on-event :tools/user-tool-waiting w)))
@@ -1629,12 +1635,12 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
      :extra-hooks (vec extra-hooks)
      ;; the run's live MCP set; a session builds again when its version moves
      :mcp-box mcp-box
-     :mcp-version (some-> mcp-box deref :version)
+     :mcp-version (:version box)
      ;; the servers still starting that a user tool waits for (byj-gly.300),
      ;; and those whose tools an agent's own tool list names: a built
      ;; agent's first turn went on without its GitHub tools (byj-1wv.115.46)
      :mcp-waiting (not-empty (into (into (sorted-set) (comp (mapcat :waits-for) (keep mcp/server-of)) waiting)
-                                   (some->> mcp-box deref :starting seq (mcp/named-servers (:visible-tools config)))))
+                                   (some->> box :starting seq (mcp/named-servers (:visible-tools config)))))
      ;; the servers themselves, so a child can ask what is connected
      :mcp-clients mcp-clients
      ;; one budget, and one instance registry, for the whole tree of turns

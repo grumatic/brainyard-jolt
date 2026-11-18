@@ -270,6 +270,31 @@
         (is (str/includes? (get-in @b [:problems "broken"]) "broken")))
       (finally (mcp/disconnect-all! (mcp/box-clients b))))))
 
+(deftest a-server-that-finishes-starting-while-a-context-is-built-is-not-lost
+  ;; GitHub #1, byj-dyr: make-ctx read the box's tools, then its version and
+  ;; the servers starting, apart. A server that finished between them left
+  ;; the ctx its tools from before and its version from after, so the
+  ;; session never built again and never had its tools. Here the server
+  ;; finishes as the tools are read
+  (let [b (mcp/box)
+        spec (get-in stub [:mcp-servers "stub"])
+        tools-of mcp/box-tools]
+    (try
+      (let [ctx (with-redefs [mcp/box-tools (fn [x] (let [ts (tools-of x)] (mcp/start-server! b "stub" spec) ts))]
+                  (agent/make-ctx {:config {:working-dir "." :project-dir "."} :mcp-box b}))]
+        (is (= 1 (:version @b)) "the server started while the ctx was built")
+        (is (nil? (get @(:tools ctx) "mcp$stub$echo")) "the ctx has the box as it stood when it was read")
+        (is (= 0 (:mcp-version ctx))
+            "and the version of that same reading, behind the box's, so the session builds again before its turn")
+        (is (some? (get @(:tools (agent/make-ctx {:config {:working-dir "." :project-dir "."} :mcp-box b})) "mcp$stub$echo"))
+            "a ctx built again has the server's tools"))
+      (testing "a server starting when the box is read is one the ctx waits for, by the same reading"
+        (swap! b update :starting (fnil conj #{}) "later")
+        (let [ctx (with-redefs [mcp/box-tools (fn [x] (let [ts (tools-of x)] (swap! b update :starting disj "later") ts))]
+                    (agent/make-ctx {:config {:working-dir "." :project-dir "." :visible-tools ["mcp$later$*"]} :mcp-box b}))]
+          (is (= #{"later"} (set (:mcp-waiting ctx))))))
+      (finally (mcp/disconnect-all! (mcp/box-clients b))))))
+
 (deftest slash-mcp-manages-the-servers-and-their-tools
   (let [dir (str "target/mcp-test/slash-" (System/currentTimeMillis))
         _ (.mkdirs (java.io.File. dir ".brainyard"))

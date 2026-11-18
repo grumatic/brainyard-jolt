@@ -511,12 +511,23 @@
   [entry]
   (select-keys entry [:command :args :env :working-dir :timeout-ms :connect-timeout-ms :needs :read-only-tools :only-named?]))
 
-(defn box-clients [b] (:clients @b))
+(defn- as-of
+  "A box's state: `b` itself when it is one already read — a snapshot, so
+  that what is derived from it is of one moment (GitHub #1, byj-dyr) — else
+  what the box holds now."
+  [b]
+  (if (map? b) b @b))
+
+(defn box-clients
+  "The running servers' clients, of box `b` or a snapshot of it."
+  [b]
+  (:clients (as-of b)))
 
 (defn box-tools
-  "Every tool the running servers offer, server by server in name order."
+  "Every tool the running servers offer, server by server in name order, of
+  box `b` or a snapshot of it."
   [b]
-  (vec (mapcat (fn [[_ ts]] ts) (sort-by key (:tools @b)))))
+  (vec (mapcat (fn [[_ ts]] ts) (sort-by key (:tools (as-of b))))))
 
 (defn- changed [m] (update m :version inc))
 
@@ -528,10 +539,11 @@
 (defn starting-tool?
   "A fn of a tool name, true when it names a tool of a server in `b` that is
   still starting — a tool that is not there yet but is on its way, which a
-  user tool calling it waits for rather than being skipped (byj-gly.300)."
+  user tool calling it waits for rather than being skipped (byj-gly.300).
+  Given a snapshot, as it stood then."
   [b]
   (fn [tool-name]
-    (boolean (some->> (server-of tool-name) (contains? (:starting @b))))))
+    (boolean (some->> (server-of tool-name) (contains? (:starting (as-of b)))))))
 
 (defn named-servers
   "Those of `server-names` whose tools `globs` name — a tool of it by name

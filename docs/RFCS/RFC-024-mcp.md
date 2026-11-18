@@ -57,6 +57,18 @@ its handshake, while its tools were still being listed, and the turn that had
 waited saw no version to rebuild on (byj-gly.343, provenance P-37). A slash
 command does not wait.
 
+**A ctx reads the box once.** `make-ctx` takes one snapshot of the box and
+derives the clients, the tools, `:mcp-version` and the servers starting that
+`:mcp-waiting` names from it (`mcp/box-clients`, `box-tools` and
+`starting-tool?` take a snapshot as well as the box). Read apart, a server
+that finished starting between the reads left the ctx its tools from before
+and its version from after, with nothing starting: `await-mcp!` had nothing
+to wait for and `refresh-mcp!` saw no version move, so the session never had
+the server's tools — 7 of 8 sessions over ACP whose first prompt came right
+after `session/new`, with a server that answered in 25 ms (GitHub #1,
+byj-dyr). Read once, a server that finishes during the build leaves the box
+past the ctx's version, and the next turn builds again with its tools.
+
 ### Three things the transport insists on
 
 Each was measured against the reference server
@@ -289,6 +301,7 @@ Command: `mcp$servers` — what is connected and what it offers.
 | find says what is ready, needed or added; add starts a ready entry, adds a needy one disabled, adds your own; remove stops it and drops its hidden-tools globs; twice or unknown is refused. | `mcp-test/slash-mcp-finds-adds-and-removes` |
 | The picker offers the catalogue: Enter adds, ctrl-x removes a server and nothing else. | `tui-test/the-mcp-picker-offers-the-catalogue` |
 | A server starts, stops and restarts in the run's box, moving its version; a ctx built now binds its tools and keeps them out of `:base-tools`; one that will not start is kept as its problem. | `mcp-test/a-server-starts-and-stops-while-the-run-goes-on` |
+| A ctx's MCP tools, version and servers waited for are of one reading of the box: a server that finishes starting while a ctx is built leaves the ctx's version behind the box's, and one starting when the box is read is waited for. | `mcp-test/a-server-that-finishes-starting-while-a-context-is-built-is-not-lost` |
 | `/mcp` lists, details, starts, stops and restarts; a stopped server's tools leave the next turn's prompt; hide/show and enable/disable write the project config, and a disabled server stops. | `mcp-test/slash-mcp-manages-the-servers-and-their-tools` |
 | The picker folds a server's tools under it (→ opens, ← closes, a filter looks inside), each behind an indented bullet, and sends the row's `/mcp` line; ctrl-r restarts. | `tui-test/mcp-opens-a-picker-of-servers-and-their-tools` |
 | A server's tools become `mcp$<server>$<tool>`, and a name that cannot be an id is reported rather than dropped. | `mcp-test/a-server-becomes-tools` |
