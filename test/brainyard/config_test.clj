@@ -153,7 +153,7 @@
       (.mkdirs (.getParentFile f))
       (spit f "{:agent {:config {:max-iterations 4}")
       (let [{:keys [config problems]} (load :working-dir dir)]
-        (is (= 20 (:max-iterations config)) "the run carries on with the defaults")
+        (is (= 100 (:max-iterations config)) "the run carries on with the defaults")
         (is (some #(str/includes? % "unreadable EDN") problems)))))
   (testing "a missing file is silent"
     (is (empty? (:problems (load :working-dir (fresh-dir "empty")))))))

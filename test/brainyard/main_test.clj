@@ -495,7 +495,7 @@
             j (json/read-str out)]
         (is (= 0 exit))
         (is (= {:path (.getPath f) :exists true} (get-in j [:files :project])))
-        (is (= {:key "max-iterations" :family "loop" :type "integer" :default 20 :value 30 :source "project"
+        (is (= {:key "max-iterations" :family "loop" :type "integer" :default 100 :value 30 :source "project"
                 :doc "Iteration ceiling for one turn." :writable true :changed true :nextSession false}
                (item j "max-iterations")))
         (is (= ["default" "concise" "explanatory"] (:enum (item j "output-style"))))
@@ -535,9 +535,9 @@
       (let [r (json/read-str (:out (cfg "unset" "max-iterations" "--json")))]
         (is (= [true true 40] ((juxt :ok :unset :was) r))))
       (is (not (contains? (get-in (edn/read-string (slurp f)) [:agent :config]) :max-iterations)))
-      (is (= ["default" 20] ((juxt :source :value) (item (json/read-str (:out (cfg "--json"))) "max-iterations")))))
+      (is (= ["default" 100] ((juxt :source :value) (item (json/read-str (:out (cfg "--json"))) "max-iterations")))))
     (testing "without --json, as --print-config"
-      (is (re-find #"max-iterations\s+default\s+20" (:out (cfg)))))))
+      (is (re-find #"max-iterations\s+default\s+100" (:out (cfg)))))))
 
 (deftest a-command-byj-does-not-have-asked-for-as-data-is-refused-not-asked
   ;; byj-tyz: `byj deps -C DIR --json` on a byj without deps ran "deps" as a

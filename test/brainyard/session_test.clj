@@ -334,7 +334,7 @@
       (is (not (str/includes? (said 4) "abcdefghijklmnop"))))
     (testing "/config KEY shows one in full"
       (is (str/starts-with? (said 5) "max-iterations = 4"))
-      (is (str/includes? (said 5) "default 20"))
+      (is (str/includes? (said 5) "default 100"))
       (is (str/includes? (said 5) "family loop"))
       (is (str/includes? (said 5) "Iteration ceiling for one turn.")))
     (testing "and names what is neither"

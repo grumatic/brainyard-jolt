@@ -40,7 +40,7 @@
 (def config-items
   "key → {:type :default|:default-fn :doc :family}. `:type` drives coercion of
   strings from the environment and validation of values read from a file."
-  {:max-iterations {:family :loop :type "integer" :default 20 :doc "Iteration ceiling for one turn."}
+  {:max-iterations {:family :loop :type "integer" :default 100 :doc "Iteration ceiling for one turn."}
    ;; tier 0 (RFC-014): 64000 chars is ~16k tokens for ONE result — a sixth of a
    ;; small window; measured, a whole source file is ~28000 chars
    :max-output-chars {:family :context :type "integer" :default 16000 :doc "Cap on a tool result in the prompt."}
@@ -238,7 +238,7 @@
    :max-agent-call-depth {:family :agents :type "integer" :default 3 :doc "Max nesting depth for subagent (agent-call) recursion."}
    :max-subagents-per-session {:family :agents :type "integer" :default 8 :doc "Live subagent instances; at the cap, the least recently asked idle one is evicted."}
    :subagent-max-turns {:family :agents :type "integer" :default 32 :doc "Child turns (dispatches and follow-up asks) one session may spend."}
-   :subagent-max-iterations {:family :agents :type "integer" :default 12 :doc "Iteration ceiling for a child turn, unless its agent sets one."}
+   :subagent-max-iterations {:family :agents :type "integer" :default 100 :doc "Iteration ceiling for a child turn, unless its agent sets one."}
    :agent-roots {:family :paths :type "vector" :default nil
                  :doc "Directories to load agents from, replacing the defaults (project, ~/.brainyard)."}
    :builtin-agents? {:family :agents :type "boolean" :default true :doc "Include the agent roster shipped in resources."}

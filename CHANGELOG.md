@@ -6,6 +6,9 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A turn's iteration ceiling is 100**, brainyard's: `max-iterations` was
+  20 and `subagent-max-iterations` 12. A setting, an agent's own
+  `:max-iterations` and `-n N` still set it (byj-d8n).
 - **`byj deps`** (RFC-075): a project's dependencies — the projects it uses
   or is affected by, and what a session playing one role hands to one
   playing another — kept in `.brainyard/deps.edn` (committed) and

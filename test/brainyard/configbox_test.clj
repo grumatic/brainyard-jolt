@@ -220,10 +220,10 @@
     (testing "and what unsetting it would give back, which is not the same number"
       ;; byj-gly.86, found by running this agent on its own repository: launched
       ;; with -n 12, it set :max-iterations 30, then told the user "the default
-      ;; (12) applies again". The default is 20. 12 was the flag — the only
+      ;; (12) applies again". The default was 20. 12 was the flag — the only
       ;; number the command gave it, and it read that as the default.
       (is (= 12 (:value row)) "what is in force")
-      (is (= 20 (:default row)) "what unsetting would give back")
+      (is (= 100 (:default row)) "what unsetting would give back")
       (is (true? (:changed? row)) "so the keys this project actually differs on are visible"))
 
     (testing "and says plainly what cannot be changed, with the reason"

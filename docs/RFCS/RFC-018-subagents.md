@@ -461,7 +461,7 @@ Config (RFC-013): `:subagents?` (true — offer the roster at all),
 `:enable-subagent-calls` (true), `:max-agent-call-depth` (3),
 `:max-subagents-per-session` (8 live instances), `:subagent-max-turns` (32),
 `:agent-roots` (nil = the three above), `:builtin-agents?` (true),
-`:subagent-max-iterations` (12), `:max-listed-agents` (20),
+`:subagent-max-iterations` (100), `:max-listed-agents` (20),
 `:agent-tier-map` ({}), `:agent-lm-tiers` (RFC-005),
 `:agent-authoring?` (**false**), and set by the
 kernel rather than by a user: `:agent-depth`, `:agent-chain`,
