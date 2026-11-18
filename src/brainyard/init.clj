@@ -106,17 +106,21 @@
 
 (defn ignores-brainyard
   "How `text`, a .gitignore, ignores `.brainyard/`: `:current` when what is in
-  it is ignored but for the project's profile (`.brainyard/*`, then
-  `!.brainyard/profile.edn`), as /init writes it; `:whole` when the
-  directory is ignored whole, which keeps git from adding the profile
-  (byj-9ng); nil when it is not ignored."
+  it is ignored but for the project's profile and its dependencies' spec
+  (`.brainyard/*`, then `!.brainyard/profile.edn` and
+  `!.brainyard/deps.edn`), as /init writes it; `:profile-only` when the
+  spec is ignored too, as /init wrote it before RFC-075 (byj-bo8); `:whole`
+  when the directory is ignored whole, which keeps git from adding the
+  profile (byj-9ng); nil when it is not ignored."
   [text]
-  (let [t (str text)]
+  (let [t (str text)
+        except? (fn [f] (re-find (re-pattern (str "(?m)^\\s*!/?\\.brainyard/" f "\\s*$")) t))]
     (cond
       (re-find #"(?m)^\s*/?\.brainyard/?\s*$" t) :whole
-      (and (re-find #"(?m)^\s*/?\.brainyard/\*\s*$" t)
-           (re-find #"(?m)^\s*!/?\.brainyard/profile\.edn\s*$" t)) :current
-      (re-find #"(?m)^\s*/?\.brainyard/\*\s*$" t) :whole)))
+      (not (re-find #"(?m)^\s*/?\.brainyard/\*\s*$" t)) nil
+      (and (except? "profile\\.edn") (except? "deps\\.edn")) :current
+      (except? "profile\\.edn") :profile-only
+      :else :whole)))
 
 (defn ignores-brainyard?
   "Does `text`, a .gitignore, ignore `.brainyard/` as /init writes it?"
@@ -264,11 +268,12 @@
                 (line :beads (boolean (:beads? p)) "beads (.beads/)" (when (seq parts) (str/join "; " parts))
                       (str (mark (:beads? p)) " beads (.beads/)" (str/join "" (map #(str "; " %) parts)))))
               (let [d (case (:gitignore p)
-                        :current "but for its profile.edn"
-                        :whole "whole: git cannot add its profile.edn; /init writes .brainyard/* and !.brainyard/profile.edn"
+                        :current "but for its profile.edn and deps.edn"
+                        :profile-only "but for its profile.edn, not its deps.edn: /init adds !.brainyard/deps.edn"
+                        :whole "whole: git cannot add its profile.edn; /init writes .brainyard/*, !.brainyard/profile.edn and !.brainyard/deps.edn"
                         nil)]
                 (line :gitignore (boolean (:gitignored? p)) ".brainyard/ in .gitignore" d
-                      (str (mark (:gitignored? p)) " .brainyard/ in .gitignore" (case (:gitignore p) :current ", " :whole ", " "") d)))
+                      (str (mark (:gitignored? p)) " .brainyard/ in .gitignore" (when d ", ") d)))
               (let [d (if (seq (:build-files p)) (str/join ", " (:build-files p)) "no build files yet")]
                 (line :code nil "code" d (str "code: " d)))
               (let [d (case (:project-section p)
@@ -499,8 +504,8 @@
 
 (defn scaffold
   "Write the starting files into project `dir` (`init$scaffold`): AGENTS.md,
-  CLAUDE.md importing it, `.brainyard/` in .gitignore but for its profile —
-  each created when
+  CLAUDE.md importing it, `.brainyard/` in .gitignore but for its profile
+  and dependencies' spec — each created when
   absent; when present, only brainyard's marked blocks, the import line or the
   missing lines are written, after a snapshot. A second run writes nothing.
   `dry-run` plans and writes nothing. `{:writes :snapshot? :text}`."
@@ -1151,7 +1156,7 @@
     :effects #{:fs/read :process}
     :fn (fn [args _] (check config args))}
    {:name "init$scaffold" :kind :command
-    :description "Write a project's starting files: AGENTS.md, a CLAUDE.md that imports it, .brainyard/ in .gitignore but for its profile. Creates what is absent; in what exists, writes only brainyard's marked blocks, the import line or the missing lines, after a snapshot — never the person's text. A second run writes nothing."
+    :description "Write a project's starting files: AGENTS.md, a CLAUDE.md that imports it, .brainyard/ in .gitignore but for its profile and dependencies. Creates what is absent; in what exists, writes only brainyard's marked blocks, the import line or the missing lines, after a snapshot — never the person's text. A second run writes nothing."
     :input-schema [:map
                    [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
                    [:dry-run {:optional true} [:any {:desc "true: say what would be written, write nothing"}]]

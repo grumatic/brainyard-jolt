@@ -13,9 +13,10 @@
 ;;             line it writes now.
 [{:path "AGENTS.md" :kind :block :template "AGENTS.md"}
  {:path "CLAUDE.md" :kind :import :template "CLAUDE.md" :line "@AGENTS.md"}
- ;; .brainyard/ is this machine's, but for the project's profile, which is
- ;; committed (RFC-073). git cannot except a file inside a directory ignored
- ;; whole, so an earlier ".brainyard/" becomes ".brainyard/*" (byj-9ng)
- {:path ".gitignore" :kind :lines :header "# brainyard's per-project state (sessions, logs, config), but for its profile"
-  :lines [".brainyard/*" "!.brainyard/profile.edn"]
+ ;; .brainyard/ is this machine's, but for the project's profile (RFC-073)
+ ;; and its dependencies' spec (RFC-075, byj-bo8), which are committed. git
+ ;; cannot except a file inside a directory ignored whole, so an earlier
+ ;; ".brainyard/" becomes ".brainyard/*" (byj-9ng)
+ {:path ".gitignore" :kind :lines :header "# brainyard's per-project state (sessions, logs, config), but for its profile and dependencies"
+  :lines [".brainyard/*" "!.brainyard/profile.edn" "!.brainyard/deps.edn"]
   :replaces {".brainyard/" ".brainyard/*"}}]

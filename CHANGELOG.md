@@ -19,6 +19,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   stdin, refuses a schema problem, a cycle or a handoff naming no role,
   snapshots the old file and writes the new one in a stable order. Its
   shape is byj's contract, `contract/deps/deps.json`.
+- `/init`'s `.gitignore` excepts `.brainyard/deps.edn` beside the profile,
+  so the dependencies' spec can be committed; one an earlier `/init` wrote
+  gets the line from the next, and `/doctor` and `/init`'s check mark it ✗
+  until then.
 
 ## v0.3.20 — 2026-11-18
 

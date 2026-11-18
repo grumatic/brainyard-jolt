@@ -59,7 +59,8 @@ Two files under the project's `.brainyard/`:
 Ids are keywords. `self` names this project in a graph, so no project may
 take it; a provide's `:id` is unique within its project.
 
-`deps-local.edn`, this machine's, not committed:
+`deps-local.edn`, this machine's, not committed (`/init`'s `.gitignore`
+ignores what is in `.brainyard/` but for the profile and the spec, RFC-040):
 
 ```clojure
 {:bindings {:design ["<session id>" …]}
@@ -188,9 +189,4 @@ The shape is byj's contract, `contract/deps/deps.json` (RFC-070).
 | A write is held to the schema, refuses a cycle (a handoff's, or through another project's spec) and a dangling role, keeps the old file as a snapshot, and writes a stable order | `deps-test/a-write-is-held-to-the-schema-refuses-a-cycle-and-keeps-the-old-file` |
 | `byj deps --json` and `byj deps write` give and take JSON, and exit 1 on a refusal | `main-test/byj-deps-gives-the-dependencies-as-data-and-writes-them-whole` |
 | The report's shape is byj's contract | `contract-test/the-dependencies-are-byjs-contract` |
-
-## Known gaps
-
-- `/init` writes `.brainyard/*` and `!.brainyard/profile.edn` to
-  `.gitignore`, so the spec, meant to be committed, is ignored until a
-  `!.brainyard/deps.edn` line is added by hand (`byj-bo8`).
+| The spec is not ignored by the `.gitignore` `/init` writes, and the local file is; a `.gitignore` an earlier `/init` wrote gets the spec's exception from the next, and the check says so until then (`byj-bo8`, RFC-040) | `init-test/the-gitignore-keeps-brainyard-s-state-but-not-the-profile` |

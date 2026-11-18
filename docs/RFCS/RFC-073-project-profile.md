@@ -120,7 +120,8 @@ data (RFC-001). A profile names one and overrides what it wants.
 
 `.brainyard/profile.edn` is committed, so every clone and every agent has
 the same one. `/init`'s `.gitignore` ignores what is in `.brainyard/` but
-for it (`.brainyard/*`, `!.brainyard/profile.edn`; RFC-040, `byj-9ng`), and
+for it and the dependencies' spec (`.brainyard/*`, `!.brainyard/profile.edn`,
+`!.brainyard/deps.edn`; RFC-040, `byj-9ng`, RFC-075), and
 `/init` adds it to git, with `-f` for a `.gitignore` an earlier `/init`
 wrote, which ignored the directory whole.
 **No tool writes it on its own**, in any mode, and neither do Claude Code

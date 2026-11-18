@@ -126,7 +126,7 @@
     (tool! bin "codex" "echo 'codex-cli 0.159.2'")
     (spit (io/file project "AGENTS.md") "# Agent Instructions\n")
     (spit (io/file project "CLAUDE.md") "# Project instructions\n\n@AGENTS.md\n")
-    (spit (io/file project ".gitignore") "target/\n.brainyard/*\n!.brainyard/profile.edn\n")
+    (spit (io/file project ".gitignore") "target/\n.brainyard/*\n!.brainyard/profile.edn\n!.brainyard/deps.edn\n")
     (.mkdirs (io/file project ".beads"))
     (doseq [[root skill] [[".agents/skills" "beads"] [".claude/skills" "mine"]]]
       (.mkdirs (io/file project root skill))
@@ -161,7 +161,10 @@
         (is (= :whole (init/ignores-brainyard ".brainyard/\n!.brainyard/profile.edn\n")) "an exception under a directory ignored whole is none")
         (is (= :whole (init/ignores-brainyard ".brainyard/*\n")))
         (is (false? (init/ignores-brainyard? "/.brainyard\n"))))
-      (is (= :current (init/ignores-brainyard "/.brainyard/*\n!.brainyard/profile.edn\n"))))
+      (is (= :current (init/ignores-brainyard "/.brainyard/*\n!.brainyard/profile.edn\n!/.brainyard/deps.edn\n")))
+      (testing "but for the profile alone, as /init wrote it before RFC-075: the spec is ignored (byj-bo8)"
+        (is (= :profile-only (init/ignores-brainyard "/.brainyard/*\n!.brainyard/profile.edn\n")))
+        (is (false? (init/ignores-brainyard? ".brainyard/*\n!.brainyard/profile.edn\n")))))
     (testing "a required tool missing is said so"
       (is (= ["git" "bd"] (:missing-required (init/check {} {:dir project :path (fresh-dir "empty-bin")})))))))
 
@@ -176,21 +179,35 @@
       (let [project (fresh-dir "gitignore-new")]
         (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
         (init/scaffold {} {:dir project})
-        (is (str/ends-with? (slurp (io/file project ".gitignore")) "but for its profile\n.brainyard/*\n!.brainyard/profile.edn\n"))
+        (is (str/ends-with? (slurp (io/file project ".gitignore")) "but for its profile and dependencies\n.brainyard/*\n!.brainyard/profile.edn\n!.brainyard/deps.edn\n"))
         (is (ignored? project ".brainyard/sessions/x.edn"))
         (is (ignored? project ".brainyard/config.edn"))
         (is (ignored? project ".brainyard/loops/react.edn") "a project's loop stays this machine's")
-        (is (not (ignored? project ".brainyard/profile.edn")))))
+        (is (not (ignored? project ".brainyard/profile.edn")))
+        (is (not (ignored? project ".brainyard/deps.edn")) "the dependencies' spec is committed (RFC-075)")
+        (is (ignored? project ".brainyard/deps-local.edn") "and this machine's bindings are not")))
     (testing "an earlier /init's line becomes the one it writes now, with the exception after it, once"
       (let [project (fresh-dir "gitignore-old")]
         (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
         (spit (io/file project ".gitignore") "target/\n# brainyard's per-project state (sessions, logs, config)\n.brainyard/\n\n*.log\n")
         (init/scaffold {} {:dir project})
-        (is (= "target/\n# brainyard's per-project state (sessions, logs, config)\n.brainyard/*\n!.brainyard/profile.edn\n\n*.log\n"
+        (is (= "target/\n# brainyard's per-project state (sessions, logs, config)\n.brainyard/*\n!.brainyard/profile.edn\n!.brainyard/deps.edn\n\n*.log\n"
                (slurp (io/file project ".gitignore"))))
         (is (not (ignored? project ".brainyard/profile.edn")))
         (is (= :current (:gitignore (init/project-status project))))
-        (is (= :unchanged (:action (first (filter #(= ".gitignore" (:path %)) (init/plan-writes project))))) "a second run writes nothing")))))
+        (is (= :unchanged (:action (first (filter #(= ".gitignore" (:path %)) (init/plan-writes project))))) "a second run writes nothing")))
+    (testing "one /init wrote before RFC-075 gets the spec's exception, and says it needs it until then (byj-bo8)"
+      (let [project (fresh-dir "gitignore-profile-only")]
+        (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
+        (spit (io/file project ".gitignore") "target/\n.brainyard/*\n!.brainyard/profile.edn\n")
+        (is (= :profile-only (:gitignore (init/project-status project))))
+        (is (ignored? project ".brainyard/deps.edn"))
+        (let [l (some #(when (= :gitignore (:id %)) %) (init/project-checks (init/project-status project)))]
+          (is (= [false "but for its profile.edn, not its deps.edn: /init adds !.brainyard/deps.edn"] ((juxt :ok :detail) l))))
+        (init/scaffold {} {:dir project})
+        (is (= "target/\n.brainyard/*\n!.brainyard/deps.edn\n!.brainyard/profile.edn\n" (slurp (io/file project ".gitignore"))))
+        (is (not (ignored? project ".brainyard/deps.edn")))
+        (is (= :current (:gitignore (init/project-status project))))))))
 
 (deftest a-second-run-changes-nothing
   (let [project (fresh-dir "fresh")]

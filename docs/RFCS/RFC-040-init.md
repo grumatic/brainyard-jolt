@@ -130,8 +130,10 @@ another program's, which says itself how it is installed and signed in
 - what `bd setup claude --check` and `bd setup codex --check` say;
 - which skills are found (`skills/roots`);
 - how `.gitignore` lists `.brainyard/`: as `/init` writes it, ignored but
-  for the profile (`:current`), ignored whole (`:whole`), or not at all
-  (`ignores-brainyard`).
+  for the profile and the dependencies' spec (`:current`); but for the
+  profile alone, as `/init` wrote it before RFC-075 (`:profile-only`, a ✗
+  that says `/init` adds the spec's line, `byj-bo8`); ignored whole
+  (`:whole`); or not at all (`ignores-brainyard`).
 
 It also reports, for the plan to decide from (found by the simulation,
 RFC-041):
@@ -173,8 +175,10 @@ nothing.
 - **CLAUDE.md:** written as `@AGENTS.md` when it is absent. When it exists,
   the import is added if it is missing.
 - **`.gitignore`:** `.brainyard/*` and, after it, `!.brainyard/profile.edn`
-  are added if they are not there: brainyard's state is this machine's, but
-  for the project's profile, which is committed (RFC-073). An earlier
+  and `!.brainyard/deps.edn` are added if they are not there: brainyard's
+  state is this machine's, but for the project's profile (RFC-073) and its
+  dependencies' spec (RFC-075, `byj-bo8`), which are committed; the spec's
+  local file, `deps-local.edn`, stays ignored. An earlier
   `/init`'s `.brainyard/`, which ignores the directory whole, becomes
   `.brainyard/*`, since git cannot except a file inside a directory ignored
   whole, and `/init`'s own next step, `git add -- .brainyard/profile.edn …`,
