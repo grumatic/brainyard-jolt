@@ -93,28 +93,36 @@
   {"sessions" "session" "agents" "agent"})
 
 (defn- settle-command
-  "The command the parsed words come to. None named is `run`, a session, its
-  bare words the first turn's, as `claude \"q\"` (byj-4dx); `--prompt` makes
+  "The command the parsed words come to. None named is `run`, a session,
+  whose first question is `--with-question`'s (byj-gxh); `--prompt` makes
   `run` (named or not) `ask`, one question answered and done, as `claude -p`
   — whose `-p` is byj's, and brainyard's, `--provider`. `--attach` with no
   command named is `ask` too, the one command it means anything to, as when
-  `ask` was the default. A first word that names no command, given with
-  `--json`, which a session never takes, is a command this byj does not
-  have — a client probing for one — not a question: `:unknown-command`,
-  refused before a turn could start and a session be saved (byj-tyz)."
-  [{:keys [command command-named? prompt attach json first-word] :as opts}]
+  `ask` was the default.
+
+  A first bare word that names no command is a command this byj does not
+  have — a typo, or a client probing for one an older byj lacks — never a
+  question: `:unknown-command`, refused before a turn could start and a
+  session be saved (byj-tyz). Bare words were once a session's first turn
+  (byj-4dx), which made every such word a model's turn. `run` named takes
+  none either."
+  [{:keys [command command-named? prompt attach first-word words] :as opts}]
   (cond
     (and prompt (contains? #{nil :run :ask} command)) (assoc opts :command :ask)
     prompt (update opts :errors (fnil conj [])
                    (str "--prompt asks one question, not `" (name command) "`: byj --prompt TEXT"))
     (and attach (not command-named?)) (assoc opts :command :ask)
-    (and json first-word (not command-named?)) (assoc opts :command :run :unknown-command first-word)
+    (and first-word (not command-named?)) (assoc opts :command :run :unknown-command first-word)
+    (and (= :run command) (seq words))
+    (update opts :errors (fnil conj [])
+            (str "byj run takes its first question by --with-question, not as words: byj run --with-question "
+                 (pr-str (str/join " " words))))
     :else (update opts :command #(or % :run))))
 
 (defn parse-args
   "The command line as opts. The command is the first word that is neither an
-  option nor an option's value, when it names one; any other first word
-  starts the question, and the command is `run` (`settle-command`). So
+  option nor an option's value, when it names one; any other first word is
+  a command byj does not have (`settle-command`). So
   options stand before the command as well as after it — `byj -C DIR eval
   exam`, as `git -C DIR status` — where once only the first argument was
   read for it, and `byj -C DIR eval exam` asked the default model \"eval
@@ -132,6 +140,11 @@
           ("-n" "--max-iterations") (recur (rest more) (assoc opts :max-iterations (parse-long (first more))))
           ("-l" "--loop") (recur (rest more) (assoc opts :loop (first more)))
           ("-q" "--question") (recur (rest more) (update opts :questions conj (first more)))
+          ;; a session's first question (byj-gxh): bare words are a command
+          ;; byj does not have, never a question
+          "--with-question" (if (and (seq more) (not (str/blank? (first more))))
+                              (recur (rest more) (update opts :questions conj (first more)))
+                              (recur (rest more) (update opts :errors (fnil conj []) "--with-question needs the question: --with-question TEXT")))
           ;; one question, answered and done: run becomes ask (byj-4dx)
           "--prompt" (if (and (seq more) (not (str/blank? (first more))))
                        (recur (rest more) (-> opts (assoc :prompt true) (update :questions conj (first more))))
@@ -289,7 +302,8 @@
             (and (nil? (:command opts)) (command-names (command-aliases a a)))
             (recur more (assoc opts :command (keyword (command-aliases a a)) :command-named? true))
             :else
-            (recur more (cond-> (-> opts (update :command #(or % :run)) (update :questions conj a))
+            (recur more (cond-> (-> opts (update :command #(or % :run)) (update :questions conj a)
+                                    (update :words (fnil conj []) a))
                           ;; the word a command would have been (byj-tyz)
                           (nil? (:command opts)) (assoc :first-word a)))))))))
 
@@ -2279,11 +2293,16 @@
       ;; brainyard's layout: the commands, a command's, one subcommand's
       help (print (cli-help/text (help-words opts) (version/version-long)))
 
-      ;; a command this byj does not have, asked for as data (byj-tyz): said
-      ;; as data, never run as a question
+      ;; a command this byj does not have, never run as a question (byj-tyz,
+      ;; byj-gxh): as data with --json, for a client probing for one
       (:unknown-command opts)
-      (do (println (json/write-str {:error (str "unknown command " (:unknown-command opts))}))
-          (*exit* 1))
+      (let [w (:unknown-command opts)]
+        (if (:json opts)
+          (do (println (json/write-str {:error (str "unknown command " w)})) (*exit* 1))
+          (do (err-println (str "byj: unknown command " (pr-str w) " — byj -h lists the commands.\n"
+                                "A session's first question: byj --with-question " (pr-str (str/join " " (:words opts)))
+                                "; one question answered and done: byj --prompt " (pr-str (str/join " " (:words opts)))))
+              (*exit* 2))))
 
       ;; an option no command knows, before any command runs: once checked
       ;; only ahead of ask and run, so `byj --bogus agent` listed the agents

@@ -12,8 +12,8 @@
  :commands
  [{:name "run" :default? true
    :summary "Start an interactive session: full-screen, or --inline a line at a time (/help inside; the default)"
-   :usage "byj [run] [options] [QUESTION…]"
-   :options [:provider :model :working-dir :max-iterations :loop :inline :prompt
+   :usage "byj [run] [options] [--with-question TEXT]"
+   :options [:provider :model :working-dir :max-iterations :loop :inline :with-question :prompt
              :resume :resume-latest :resume-run :sessions :no-persist
              :serve :agent :label :leader :params :todo :verbose
              :permission-mode :ask :allow :deny :ask-effects :deny-effects :allow-path :no-path-permission
@@ -190,7 +190,8 @@
   :working-dir {:flags "-C, --working-dir DIR" :doc "the directory tools run in (default: cwd)"}
   :max-iterations {:flags "-n, --max-iterations N" :doc "the per-turn iteration ceiling (default 20)"}
   :loop {:flags "-l, --loop FILE" :doc "a behavior-tree EDN to run instead of the bundled one (ask: the react loop; run: the session loop)"}
-  :question {:flags "-q, --question TEXT" :doc "a question (repeatable; positional arguments also work)"}
+  :question {:flags "-q, --question TEXT" :doc "a question (repeatable; ask also takes it as words)"}
+  :with-question {:flags "--with-question TEXT" :doc "the session's first question (repeatable); bare words are a command, never a question"}
   :prompt {:flags "--prompt TEXT" :doc "answer TEXT and exit, as ask does, instead of starting a session (-p is --provider)"}
   :inline {:flags "-i, --inline" :doc "a line at a time instead of the full-screen renderer, the default wherever a terminal allows it (ctrl-c cancels a turn, ctrl-q quits)"}
   :print-tree {:flags "--print-tree" :doc "print the loop tree, :include nodes expanded, each loop said where it was found (the project's own, or bundled), and exit"}

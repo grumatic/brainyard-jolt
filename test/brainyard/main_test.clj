@@ -351,12 +351,13 @@
       (is (= {:command :turns :questions ["list"] :working-dir "/tmp/x"} (cmd "-C" "/tmp/x" "turns" "list")))
       (is (= {:command :run :questions [] :provider :mock :model "mock"} (cmd "-p" "mock" "-m" "mock" "run"))))
     (testing "an option's value is never taken for the command"
-      (is (= {:command :run :questions ["hi"] :model "ask"} (cmd "-m" "ask" "hi"))))
-    (testing "a question is still a question"
-      (is (= {:command :run :questions ["explain" "run"] :working-dir "/tmp/x"} (cmd "-C" "/tmp/x" "explain" "run")))
-      (is (= {:command :run :questions ["what" "is" "this"]} (cmd "what" "is" "this")))
-      (is (= {:command :ask :questions ["turns"]} (cmd "ask" "turns")) "ask named, the next word is its question")
-      (is (= {:command :run :questions ["eval" "exam"]} (cmd "eval" "exam")) "Share's commands are not byj's (RFC-070 D4)"))
+      (is (= {:command :ask :questions ["hi"] :model "ask"} (cmd "-m" "ask" "--prompt" "hi"))))
+    (testing "a word that names no command is one byj does not have, never a question (byj-gxh)"
+      (let [unknown #(:unknown-command (main/parse-args (vec %&)))]
+        (is (= "explain" (unknown "-C" "/tmp/x" "explain" "run")) "run, after it, is a word, not the command")
+        (is (= "what" (unknown "what" "is" "this")))
+        (is (= "eval" (unknown "eval" "exam")) "Share's commands are not byj's (RFC-070 D4)"))
+      (is (= {:command :ask :questions ["turns"]} (cmd "ask" "turns")) "ask named, the next word is its question"))
     (testing "nothing but options is run"
       (is (= :run (:command (main/parse-args ["-V"]))))
       (is (= :run (:command (main/parse-args [])))))))
@@ -365,9 +366,14 @@
 
 (deftest run-is-the-default-and-prompt-asks-one-question
   (let [cmd (fn [& args] (select-keys (main/parse-args (vec args)) [:command :questions :provider :errors]))]
-    (testing "byj alone is a session, and its words the first turn's, as `claude \"q\"`"
+    (testing "byj alone is a session; its first question is --with-question's, never bare words (byj-gxh)"
       (is (= {:command :run :questions []} (cmd)))
-      (is (= {:command :run :questions ["fix" "it"]} (cmd "fix" "it"))))
+      (is (= {:command :run :questions ["fix it"]} (cmd "--with-question" "fix it")))
+      (is (= {:command :run :questions ["fix it" "then this"]} (cmd "run" "--with-question" "fix it" "--with-question" "then this")))
+      (is (= "fix" (:unknown-command (main/parse-args ["fix" "it"]))) "a word that names no command is one byj does not have")
+      (is (= ["byj run takes its first question by --with-question, not as words: byj run --with-question \"fix it\""]
+             (:errors (cmd "run" "fix" "it"))))
+      (is (= ["--with-question needs the question: --with-question TEXT"] (:errors (cmd "--with-question")))))
     (testing "--prompt is ask: one question, answered and done, as `claude -p`"
       (is (= {:command :ask :questions ["hi"]} (cmd "--prompt" "hi")))
       (is (= {:command :ask :questions ["hi"]} (cmd "run" "--prompt" "hi")) "run named, --prompt still asks")
@@ -390,7 +396,7 @@
     (is (= {:command :session :questions ["list"]} (cmd "sessions" "list")))
     (is (= {:command :agent :questions ["explore"]} (cmd "agent" "explore")))
     (is (= {:command :agent :questions ["explore"]} (cmd "agents" "explore")))
-    (is (= {:command :run :questions ["what" "sessions"]} (cmd "what" "sessions")) "only as the command")))
+    (is (= "what" (:unknown-command (main/parse-args ["what" "sessions"]))) "only as the command")))
 
 (deftest the-help-is-the-commands-wherever-the-options-stand
   ;; byj-gly.436: the help read its command off the raw args, stopping at the
@@ -542,8 +548,14 @@
     (is (= 1 exit))
     (is (= {:error "unknown command nosuch"} (json/read-str out)))
     (is (not (.exists (io/file dir ".brainyard" "sessions"))) "no turn ran, no session was saved"))
-  (testing "a question with no --json, a named command's, --prompt's and -q's are questions still"
-    (is (nil? (:unknown-command (main/parse-args ["what" "is" "this"]))))
+  (testing "without --json, said on stderr, exit 2, and how to ask instead (byj-gxh)"
+    (let [{:keys [exit out err]} (run-main "-p" "mock" "what" "is" "this")]
+      (is (= 2 exit))
+      (is (= "" out))
+      (is (str/includes? err "unknown command \"what\""))
+      (is (str/includes? err "byj --with-question \"what is this\""))))
+  (testing "a named command's, --prompt's, --attach's and -q's are questions still"
+    (is (= :ask (:command (main/parse-args ["-A" "s1" "q"]))))
     (is (= [:run "nosuch"] ((juxt :command :unknown-command) (main/parse-args ["-C" "/tmp" "nosuch" "--json" "x"]))))
     (is (= [:ask nil] ((juxt :command :unknown-command) (main/parse-args ["ask" "what" "--json"]))))
     (is (= [:ask nil] ((juxt :command :unknown-command) (main/parse-args ["--prompt" "what" "--json"]))))

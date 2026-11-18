@@ -23,10 +23,15 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   so the dependencies' spec can be committed; one an earlier `/init` wrote
   gets the line from the next, and `/doctor` and `/init`'s check mark it ✗
   until then.
-- `byj WORD --json`, where WORD is no command, answers `{"error": "unknown
-  command WORD"}` and exits 1, where it ran WORD as a question — a model's
-  turn and a saved session for a client probing a command an older byj
-  lacks. Without `--json`, bare words are a question as before.
+- **A session's first question is `--with-question TEXT`**:
+  `byj --with-question "explain deps.edn"` where it was `byj "explain
+  deps.edn"`. A first word that names no command is now refused as an
+  unknown command — on stderr with how to ask instead, exit 2; with
+  `--json`, `{"error": "unknown command WORD"}`, exit 1 — where it was run
+  as a question: a typo, or a client probing a command an older byj lacks,
+  became a model's turn and a saved session. `byj run WORD…` is refused
+  too. `byj ask QUESTION…`, `--prompt`, `-q` and `--attach` are as they
+  were.
 
 ## v0.3.20 — 2026-11-18
 

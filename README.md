@@ -38,7 +38,7 @@ binary, the tag checked out for a checkout. `byj doctor` lists every copy on
 
 ```bash
 byj                                      # a session in the full-screen terminal view (byj run)
-byj "explain deps.edn"                   # a session whose first turn is that
+byj --with-question "explain deps.edn"   # a session whose first turn is that
 byj --prompt "How many .clj files are under src/?"   # one answer, then exit (byj ask "…")
 byj run -p claude-code -m sonnet -C /some/project -v
 printf 'q1\nq2\n' | byj run -p mock      # piped input works too
