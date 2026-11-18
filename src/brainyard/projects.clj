@@ -162,10 +162,11 @@
           (and in-origin? (re-find #"^url\s*=" t)) (some-> (subs t (inc (str/index-of t "="))) str/trim not-empty)
           :else (recur more in-origin?))))))
 
-(defn- read-git-remote
+(defn read-git-remote
   "The project's origin URL, read from its git config rather than asked of
   git: a registration is on every session's way in, and the field is only
-  information. nil on anything amiss."
+  information. nil on anything amiss. `brainyard.deps` reads it too, where a
+  record's `:git-remote` is nil or stale (byj-339)."
   [project-path]
   (try
     (when-let [gd (git-dir project-path)]

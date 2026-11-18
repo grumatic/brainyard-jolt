@@ -185,6 +185,24 @@
       (is (not (deps/same-repo? "git@github-work:o/other.git" "git@github.com:o/r.git")))
       (is (not (deps/same-repo? "git@github.com:o/r.git" nil))))))
 
+(deftest a-registered-project-is-found-by-its-origin-as-it-is-now
+  ;; byj-339: a record registered before its origin was set holds
+  ;; :git-remote nil, and one whose origin moved holds the old one
+  (binding [deps/*ssh-hostname* (constantly nil)]
+    (let [dir (tmp "live-here")
+          reg (repo! "live-reg")
+          _ (git! reg "remote" "add" "origin" "git@github.com:o/reg.git")
+          found (fn [rec] (deps/resolve-project dir {:git "https://github.com/o/reg"} [(merge {:path reg} rec)]))]
+      (is (= {:dir reg :resolved-by :registry} (found {:git-remote nil})) "recorded none")
+      (is (= {:dir reg :resolved-by :registry} (found {:git-remote "git@github.com:o/old.git"})) "recorded another")
+      (is (= {} (deps/resolve-project dir {:git "https://github.com/o/old"} [{:path reg :git-remote "git@github.com:o/old.git"}]))
+          "what the folder's origin is now wins over what was recorded")
+      (is (= {} (found {:git-remote nil :missing? true})) "a missing project is not found")
+      (let [bare (tmp "live-nogit")]
+        (is (= {:dir bare :resolved-by :registry}
+               (deps/resolve-project dir {:git "https://github.com/o/reg"} [{:path bare :git-remote "git@github.com:o/reg.git"}]))
+            "where there is no git config to read, the record's")))))
+
 (deftest what-does-not-fit-is-dropped-and-said
   (let [dir (tmp "lenient")
         f (io/file dir ".brainyard" "deps.edn")]

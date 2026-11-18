@@ -80,7 +80,10 @@ unreadable file reads as `{}` and one problem. An absent file is `{}`.
 By its `:path` when that is a directory (`resolvedBy` `path`); else the
 registry's project (RFC-074) whose origin is its `:git`, two spellings of
 one repository being one (`git@host:o/r.git`, `https://host/o/r`;
-`registry`); else nowhere. Its origin and head are git's, and it is the
+`registry`) — its origin as its folder's git config says it now, the
+`:git-remote` its record holds only where that cannot be read, since a
+record keeps what its last registration saw, nil before an origin was set
+(`byj-339`); else nowhere. Its origin and head are git's, and it is the
 `:git` when they name one repository, else `remote-mismatch`.
 
 An SSH URL's host — scp-style or `ssh://` — is the one `ssh -G HOST`
@@ -198,6 +201,7 @@ The shape is byj's contract, `contract/deps/deps.json` (RFC-070).
 | A project is found by its path or the registry's origin; its provides, commits since `:seen`, roles' sessions (a worktree's among them), gives and checks are as the model says | `deps-test/a-projects-dependencies-are-read-resolved-and-checked` |
 | What does not fit is dropped and said, a key at a time; an unreadable file is `{}` and a problem | `deps-test/what-does-not-fit-is-dropped-and-said` |
 | A write is held to the schema, refuses a cycle (a handoff's, or through another project's spec) and a dangling role, keeps the old file as a snapshot, and writes a stable order | `deps-test/a-write-is-held-to-the-schema-refuses-a-cycle-and-keeps-the-old-file` |
+| A registered project is found by its origin as its git config says it now, not the one its record holds | `deps-test/a-registered-project-is-found-by-its-origin-as-it-is-now` |
 | An origin through an SSH host alias is the forge's repository it resolves to, for the registry and for `remote-mismatch`; where ssh cannot say, owner and name match when one host is no known forge, never across two forges | `deps-test/an-ssh-host-alias-names-the-forge-it-stands-for` |
 | `byj deps --json` and `byj deps write` give and take JSON, and exit 1 on a refusal | `main-test/byj-deps-gives-the-dependencies-as-data-and-writes-them-whole` |
 | The report's shape is byj's contract | `contract-test/the-dependencies-are-byjs-contract` |

@@ -326,13 +326,19 @@
   "Where project `p` of the spec in `dir` is on this machine: `{:dir
   :resolved-by}` — by its `:path`, relative to `dir`, when that is a
   directory; else by the registry (`registry`, `projects/list-projects`'
-  rows), a project whose origin is `p`'s `:git`; else `{}`."
+  rows), a project whose origin is `p`'s `:git` — its origin as its git
+  config says it now, the one its record holds only where that cannot be
+  read (byj-339); else `{}`."
   [dir p registry]
   (let [by-path (when-let [path (not-empty (:path p))]
                   (let [f (io/file path) f (if (.isAbsolute f) f (io/file (str dir) path))]
                     (when (.isDirectory f) (canonical f))))
+        ;; a record's origin as its folder's git config says it now: the
+        ;; one registration wrote may be nil, or stale (byj-339)
         by-registry (when (and (not by-path) (not (str/blank? (:git p))))
-                      (some #(when (and (not (:missing? %)) (same-repo? (:git p) (:git-remote %))) (canonical (:path %)))
+                      (some #(when (and (not (:missing? %))
+                                        (same-repo? (:git p) (or (projects/read-git-remote (str (:path %))) (:git-remote %))))
+                               (canonical (:path %)))
                             (force registry)))]
     (cond by-path {:dir by-path :resolved-by :path}
           by-registry {:dir by-registry :resolved-by :registry}

@@ -30,7 +30,9 @@ nothing else.
 
 **It hands** a list of records to `byj projects`, and a path for a slug;
 and the records to `brainyard.deps`, which finds a project a spec names by
-its origin (RFC-075).
+its origin — read again from the project's git config
+(`read-git-remote`), a record's `:git-remote` being what its last
+registration saw (RFC-075, `byj-339`).
 
 ## Model
 
