@@ -11,6 +11,7 @@
             [brainyard.hooks :as hooks]
             [brainyard.json :as json]
             [brainyard.config :as config]
+            [brainyard.effect :as fx]
             [brainyard.permission :as permission]
             [brainyard.profile]
             [brainyard.project-loops :as project-loops]
@@ -921,6 +922,9 @@
 ;; push, a bead filed or closed, a decision written — in every mode
 (deftest the-gate-follows-the-projects-profile
   (let [dir (.getAbsolutePath (io/file (fresh-dir "profile-gate")))
+        ;; the commits a yes lets run are run: in a repository of the test's own,
+        ;; not the checkout above target/ with whatever is staged there (byj-978)
+        _ (fx/sh {:dir dir :out :string :err :string} "git" "init" "-q")
         f (io/file dir ".brainyard" "profile.edn")
         _ (io/make-parents f)
         profile! #(spit f (pr-str (merge {:profile/version 1} %)))
