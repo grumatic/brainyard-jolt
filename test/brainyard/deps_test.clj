@@ -154,6 +154,10 @@
           (is (= {:session "s-impl" :turn 1 :at "2026-11-18T00:00:00Z"} (:handed (first (:handoffs r)))))
           (is (empty? (check r "handoff-ready")))
           (is (empty? (check r "started-early")))))
+      (testing "a session going on from the handing role is not early (byj-ba5)"
+        (spit (io/file dir ".brainyard" "deps-local.edn")
+              (pr-str {:bindings {:design ["s-design" "s-wt" "s-impl"] :implement ["s-impl"]}}))
+        (is (empty? (check (report) "started-early"))))
       (testing "without bd, a bead give is not ready, and says why"
         (let [r (with-redefs [changes/rows (constantly [])] (deps/report dir {:registry [] :path-env bin}))]
           (is (= "bd is not on PATH" (:detail (second (:gives (first (:handoffs r))))))))))))

@@ -141,7 +141,7 @@ an entry for its pair; the latest is the one shown.
 | warn | `session-gone` | a bound session no longer exists |
 | wait | `not-ready` | a give is not ready |
 | info | `handoff-ready` | a handoff is ready and not handed |
-| warn | `started-early` | a `:to` session took turns while the handoff was not handed, or before it was: the receiving session's turns before the one it was handed in, another's kept turns that ended before `:at` |
+| warn | `started-early` | a `:to` session took turns while the handoff was not handed, or before it was: the receiving session's turns before the one it was handed in, another's kept turns that ended before `:at`; not a session that plays the `:from` role too, going on in turn (byj-ba5) |
 
 ### Writing
 

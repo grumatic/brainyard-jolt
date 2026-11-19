@@ -704,6 +704,7 @@
                      {:row {:from from :to to :gives gs :ready (every? :ready gs)
                             :handed (when handed {:session (:session handed) :turn (:turn handed) :at (some-> (:at handed) inst-ms iso)})}
                       :handed handed
+                      :from-ids (set (map :id from-s))
                       :to-s (keep found (bound to))}))
         checks (concat
                 (for [e (structural-errors dir spec registry)] (assoc e :level :error))
@@ -715,7 +716,7 @@
                             {:level :warn :kind :session-gone
                              :message (str (id-name id) "'s session " (:id s) " no longer exists")}))]
                   (assoc c :target {:role id}))
-                (for [{:keys [row handed to-s]} handoffs
+                (for [{:keys [row handed from-ids to-s]} handoffs
                       :let [{:keys [from to gives ready]} row t {:handoff [from to]}
                             hname (str (id-name from) " → " (id-name to))]
                       c (concat
@@ -723,7 +724,9 @@
                            {:level :wait :kind :not-ready :message (str hname ": " (id-name (:kind g)) " not ready — " (:detail g))})
                          (when (and ready (not handed))
                            [{:level :info :kind :handoff-ready :message (str hname " is ready to hand over")}])
-                         (for [s to-s :when (early? s handed turns)]
+                         ;; a session playing the handing role too goes on in turn (a role's
+                         ;; :session :upstream, byj-ba5): its turns before were that role's
+                         (for [s to-s :when (and (not (from-ids (:id s))) (early? s handed turns))]
                            {:level :warn :kind :started-early
                             :message (str hname ": " (:id s) " took turns "
                                           (if handed "before it was handed" "while it is not handed"))}))]
