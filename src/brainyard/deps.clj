@@ -75,7 +75,7 @@
    [:provides [:vec provide-schema]] [:affects [:vec :string]] [:seen :string]])
 
 (def ^:private role-schema
-  [:map {} [:title :string] [:does :string] [:worktree :bool]])
+  [:map {} [:title :string] [:does :string] [:worktree :bool] [:session [:enum :upstream :own]]])
 
 (def ^:private give-schema
   [:map {:required #{:kind}}

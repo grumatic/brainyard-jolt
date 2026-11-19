@@ -48,7 +48,7 @@ Two files under the project's `.brainyard/`:
                    :affects ["src/client.clj"]           ; paths here; information only
                    :seen "91fe655"}}                     ; its commit last reviewed; optional
  :roles {:design {:title "Design" :does "decisions and beads"}   ; each key optional
-         :implement {:worktree true}}
+         :implement {:session :own :worktree true}}   ; :upstream (the default) | :own
  :handoffs [{:from :design :to :implement
              :gives [{:kind :file :paths ["docs/decisions/*.md"]}   ; globs
                      {:kind :bead :id "x-1"}                        ; or {:kind :bead :parent "x"}
@@ -58,6 +58,13 @@ Two files under the project's `.brainyard/`:
 
 Ids are keywords. `self` names this project in a graph, so no project may
 take it; a provide's `:id` is unique within its project.
+
+A role's `:session` says which session whatever runs the roles in turn gives
+it (byj-ba5): `:upstream`, the default, the session of the role handing to
+it, so one session can play design, implement and review one after another;
+`:own`, a session of its own, in a new worktree when `:worktree`. Like
+`:worktree`, it is for that runner (the workbench's runs); nothing here acts
+on it.
 
 `deps-local.edn`, this machine's, not committed (`/init`'s `.gitignore`
 ignores what is in `.brainyard/` but for the profile and the spec, RFC-040):

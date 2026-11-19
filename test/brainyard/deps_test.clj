@@ -227,12 +227,14 @@
         f (io/file dir ".brainyard" "deps.edn")
         spec {"projects" {"other" {"path" other "kind" "upstream"
                                    "provides" [{"id" "api" "kind" "files" "paths" ["a.json"]}]}}
-              "roles" {"design" {"title" "설계"} "implement" {"worktree" true}}
+              "roles" {"design" {"title" "설계"} "implement" {"worktree" true "session" "own"}}
               "handoffs" [{"from" "design" "to" "implement" "gives" [{"kind" "bead" "parent" "x"}]}]}
         ;; as `byj deps write` has it from JSON
         js #(clojure.walk/keywordize-keys %)]
     (testing "refused, the file untouched"
       (is (= :schema (:stage (deps/write! dir :spec (js (assoc-in spec ["projects" "other" "kind"] "sideways")) {:registry []}))))
+      (is (= :schema (:stage (deps/write! dir :spec (js (assoc-in spec ["roles" "implement" "session"] "elsewhere")) {:registry []})))
+          "a role's :session is :upstream or :own (byj-ba5)")
       (is (= :check (:stage (deps/write! dir :spec (js (assoc spec "handoffs" [{"from" "design" "to" "nobody"}])) {:registry []}))))
       (let [r (deps/write! dir :spec (js (assoc spec "handoffs" [{"from" "design" "to" "implement"} {"from" "implement" "to" "design"}])) {:registry []})]
         (is (= :check (:stage r)))
@@ -246,7 +248,9 @@
                (str/index-of text ":roles") (str/index-of text ":handoffs")))
         (is (= {:path other :kind :upstream :provides [{:id :api :kind :files :paths ["a.json"]}]}
                (get-in (edn/read-string text) [:projects :other])))
-        (is (= [{:from :design :to :implement :gives [{:kind :bead :parent "x"}]}] (:handoffs (edn/read-string text))))))
+        (is (= [{:from :design :to :implement :gives [{:kind :bead :parent "x"}]}] (:handoffs (edn/read-string text))))
+        (is (= {:design {:title "설계"} :implement {:worktree true :session :own}} (:roles (edn/read-string text)))
+            "a role's :session kept, as a keyword (byj-ba5)")))
     (testing "a second write keeps the first as a snapshot"
       (let [before (slurp f)
             r (deps/write! dir :spec (js (assoc-in spec ["roles" "review"] {})) {:registry []})]
