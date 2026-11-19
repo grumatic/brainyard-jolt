@@ -1,0 +1,20 @@
+{:profile/version 1,
+ :preset :conservative,
+ :goal
+ "byj is brainyard's coding agent ported to jolt (Clojure on Chez Scheme, no JVM), with the loop as data: src/ holds only mechanism, and all behaviour lives in loop trees, predictor specs, prompts and per-project params loaded at run time. brainyard is the reference; intentional differences are recorded as divergences.",
+ :done
+ ["`jolt test:byj` passes"
+  "`divergences-test` and `contract-test` pass"
+  "`dev/cold-load.sh` loads every namespace"
+  "The affected RFC is updated in the same change"],
+ :goal-epic "byj-mnx",
+ :scope
+ {:in
+  ["Port brainyard subsystems faithfully to jolt, measured against brainyard by replaying logged requests"
+   "Keep behaviour in resources/brainyard (loops, predictors, prompts), not in src/"
+   "Replace JVM dependencies with jolt-native ones"
+   "Keep RFCs, divergences and the contract/ protocols current with the code"],
+  :out
+  ["Programs built on byj (services, evaluations, SDK applications); they live outside this repository and reach byj only through its protocols"
+   "Behaviour decided in src/ code"
+   "Releases (the maintainers' job)"]}}
