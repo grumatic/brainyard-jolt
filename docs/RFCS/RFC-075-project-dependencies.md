@@ -53,11 +53,25 @@ Two files under the project's `.brainyard/`:
              :gives [{:kind :file :paths ["docs/decisions/*.md"]}   ; globs
                      {:kind :bead :id "x-1"}                        ; or {:kind :bead :parent "x"}
                      {:kind :branch}
-                     {:kind :note}]}]}
+                     {:kind :note}]}]
+ :workflows {:feature {:title "Feature" :master :lead                ; each key optional
+                       :stages {:design {}                          ; plays the role design
+                                :fix {:role :implement :title "Fix"}}
+                       :links [{:from :design :to :fix :gives [{:kind :note}]}]}}}
 ```
 
 Ids are keywords. `self` names this project in a graph, so no project may
 take it; a provide's `:id` is unique within its project.
+
+`:workflows` (byj-dls) are named graphs of stages that a runner (the
+workbench's runs) takes a piece of work through. A stage plays a role, its
+id unless `:role` names one, so one role may play several stages; a link says
+what one stage hands the next, its gives as a handoff's; `:master` is the
+role that supervises a run. A workflow's links make no cycle, every stage
+plays a role in `:roles`, every link names two stages, and the master is a
+role: `write` refuses anything else. The report gives each workflow's links
+with their gives checked as a handoff's, from the sessions playing the from
+stage's role. The roles and `:handoffs` stay as the roles' dependencies.
 
 A role's `:session` says which session whatever runs the roles in turn gives
 it (byj-ba5): `:upstream`, the default, the session of the role handing to
@@ -191,7 +205,8 @@ byj deps write [--local] [-C DIR] [--json] < NEW.json
             changes [{commit subject at paths}]}]
  roles [{id sessions [{id exists title turnCount updatedAt}]}]
  handoffs [{from to gives [{kind ready detail items}] ready handed {session turn at}|null}]
- checks [{level kind target {project}|{role}|{handoff [from to]} message}]
+ workflows [{id links [{from to gives [{kind ready detail items}] ready}]}]
+ checks [{level kind target {project}|{role}|{handoff [from to]}|{workflow stage?|link?} message}]
  problems [{file key message}]}
 ```
 
@@ -208,6 +223,7 @@ The shape is byj's contract, `contract/deps/deps.json` (RFC-070).
 | A project is found by its path or the registry's origin; its provides, commits since `:seen`, roles' sessions (a worktree's among them), gives and checks are as the model says | `deps-test/a-projects-dependencies-are-read-resolved-and-checked` |
 | What does not fit is dropped and said, a key at a time; an unreadable file is `{}` and a problem | `deps-test/what-does-not-fit-is-dropped-and-said` |
 | A write is held to the schema, refuses a cycle (a handoff's, or through another project's spec) and a dangling role, keeps the old file as a snapshot, and writes a stable order | `deps-test/a-write-is-held-to-the-schema-refuses-a-cycle-and-keeps-the-old-file` |
+| A workflow's stage plays a role, its links name stages and make no cycle, its master is a role, or it is not written; its links' gives are reported as a handoff's | `deps-test/workflows-are-checked-written-and-reported` |
 | A registered project is found by its origin as its git config says it now, not the one its record holds | `deps-test/a-registered-project-is-found-by-its-origin-as-it-is-now` |
 | An origin through an SSH host alias is the forge's repository it resolves to, for the registry and for `remote-mismatch`; where ssh cannot say, owner and name match when one host is no known forge, never across two forges | `deps-test/an-ssh-host-alias-names-the-forge-it-stands-for` |
 | `byj deps --json` and `byj deps write` give and take JSON, and exit 1 on a refusal | `main-test/byj-deps-gives-the-dependencies-as-data-and-writes-them-whole` |

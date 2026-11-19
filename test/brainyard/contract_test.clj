@@ -210,7 +210,10 @@
                               :lost {:git "git@github.com:o/lost.git" :kind :reference}}
                    :roles {:design {:title "설계" :does "decisions and beads" :bogus 1} :implement {:worktree true :session :own}}
                    :handoffs [{:from :design :to :implement
-                               :gives [{:kind :file :paths ["docs/*.md"]} {:kind :bead :id "x-1"} {:kind :branch} {:kind :note}]}]}))
+                               :gives [{:kind :file :paths ["docs/*.md"]} {:kind :bead :id "x-1"} {:kind :branch} {:kind :note}]}]
+                   :workflows {:feature {:title "기능" :master :design
+                                         :stages {:design {} :build {:role :implement :title "Build"}}
+                                         :links [{:from :design :to :build :gives [{:kind :note}]}]}}}))
     (put! (deps/local-file dir) (pr-str {:bindings {:design [sid "gone-1"]}}))
     (put! (io/file dir ".brainyard" "sessions" sid "session.edn")
           (pr-str {:schema-version 1 :id sid :turn-count 1 :previous-turns [{:question "decide" :answer "done" :turn 1}]

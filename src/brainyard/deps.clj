@@ -9,7 +9,9 @@
   Two files under the project's `.brainyard/`:
 
   - `deps.edn`, the spec, committed: `{:schema-version 1 :projects {id
-    project} :roles {id role} :handoffs [handoff …]}`;
+    project} :roles {id role} :handoffs [handoff …] :workflows {id
+    workflow}}`, a workflow `{:title :does :master role :stages {id {:role
+    :title :does}} :links [handoff …]}` (byj-dls);
   - `deps-local.edn`, this machine's: `{:bindings {role [session-id …]}
     :handed [{:from :to :session :turn :at} …]}`.
 
@@ -84,12 +86,22 @@
 (def ^:private handoff-schema
   [:map {:required #{:from :to}} [:from :kw] [:to :kw] [:gives [:vec give-schema]]])
 
+;; a workflow (byj-dls): a graph of stages, each playing a role (its id, unless :role), linked by
+;; what one stage hands the next; :master the role supervising its runs
+(def ^:private stage-schema
+  [:map {} [:role :kw] [:title :string] [:does :string]])
+
+(def ^:private workflow-schema
+  [:map {} [:title :string] [:does :string] [:master :kw]
+   [:stages [:map-of stage-schema]] [:links [:vec handoff-schema]]])
+
 (def spec-schema
   [:map {}
    [:schema-version :int]
    [:projects [:map-of project-schema]]
    [:roles [:map-of role-schema]]
-   [:handoffs [:vec handoff-schema]]])
+   [:handoffs [:vec handoff-schema]]
+   [:workflows [:map-of workflow-schema]]])
 
 (def local-schema
   [:map {}
@@ -167,6 +179,21 @@
                          x))
                      xs)))
 
+(defn- tidy-gives
+  "Handoffs or a workflow's links `hs` at `path`, each give that names
+  nothing dropped and said: a file give needs its paths, a bead give its bead."
+  [hs path probs]
+  (when hs
+    (vec (map-indexed
+          (fn [i h]
+            (cond-> h
+              (:gives h)
+              (update :gives #(drop-where % (conj path i :gives) probs
+                                          (fn [{k :kind :as g}]
+                                            (cond (and (= :file k) (empty? (:paths g))) "a file give needs its :paths"
+                                                  (and (= :bead k) (str/blank? (or (:id g) (:parent g)))) "a bead give needs its :id or :parent"))))))
+          hs))))
+
 (defn- tidy-spec
   "What the schema cannot say of a spec: a project is not named self, a
   provide's id is unique within its project, a binary names its command and
@@ -194,18 +221,12 @@
                                                                            (and (= :files k) (empty? (:paths x))) "files need their :paths"
                                                                            :else (do (swap! seen conj pid) nil))))))))]))
                         ps)))))
-      (update :handoffs
-              (fn [hs]
-                (when hs
-                  (vec (map-indexed
-                        (fn [i h]
-                          (cond-> h
-                            (:gives h)
-                            (update :gives #(drop-where % [:handoffs i :gives] probs
-                                                        (fn [{k :kind :as g}]
-                                                          (cond (and (= :file k) (empty? (:paths g))) "a file give needs its :paths"
-                                                                (and (= :bead k) (str/blank? (or (:id g) (:parent g)))) "a bead give needs its :id or :parent"))))))
-                        hs)))))
+      (update :handoffs #(tidy-gives % [:handoffs] probs))
+      (update :workflows
+              (fn [ws]
+                (when ws
+                  (into {} (for [[id w] ws]
+                             [id (cond-> w (:links w) (update :links #(tidy-gives % [:workflows id :links] probs)))])))))
       (->> (remove (comp nil? val)) (into {}))))
 
 (defn clean-spec
@@ -497,13 +518,43 @@
             ring (if (pos? i) (into (subvec ring i) (subvec ring 0 i)) ring)]
         (mapv #(get @names %) (conj ring (first ring)))))))
 
+(defn stage-role
+  "The role stage `id` of a workflow plays: its `:role`, else its id."
+  [id stage]
+  (or (:role stage) id))
+
+(defn- workflow-errors
+  "What workflow `w` cannot be written with (byj-dls): a stage playing no
+  role, a link naming no stage, a master that is no role, a cycle of links."
+  [roles [w {:keys [master stages links]}]]
+  (let [ids (set (keys stages))
+        wname (id-name w)]
+    (concat
+     (when (and master (not (roles master)))
+       [{:kind :dangling :target {:workflow w}
+         :message (str "workflow " wname "'s master " (id-name master) " is not a role")}])
+     (for [[s st] (sort-by key stages)
+           :let [r (stage-role s st)]
+           :when (not (roles r))]
+       {:kind :dangling :target {:workflow w :stage s}
+        :message (str "workflow " wname "'s stage " (id-name s) " plays " (id-name r) ", which is not a role")})
+     (for [{:keys [from to]} links
+           s [from to]
+           :when (not (ids s))]
+       {:kind :dangling :target {:workflow w :link [from to]}
+        :message (str "workflow " wname "'s link " (id-name from) " → " (id-name to) " names " (id-name s) ", which is not a stage")})
+     (when-let [c (find-cycle (reduce (fn [g {:keys [from to]}] (update g from (fnil conj #{}) to)) {} links))]
+       [{:kind :cycle :target {:workflow w :link [(first c) (second c)]}
+         :message (str "workflow " wname "'s links go round: " (str/join " → " (map id-name c)))}]))))
+
 (defn structural-errors
   "What a spec cannot be written with: a cycle of handoffs or of projects,
-  and a handoff naming a role not in `:roles`. Each `{:kind :target
-  :message}`."
+  a handoff naming a role not in `:roles`, and a workflow's own (byj-dls).
+  Each `{:kind :target :message}`."
   [dir spec registry]
   (let [roles (set (keys (:roles spec)))]
     (concat
+     (mapcat #(workflow-errors roles %) (sort-by key (:workflows spec)))
      (when-let [c (handoff-cycle spec)]
        [{:kind :cycle :target {:handoff [(first c) (second c)]}
          :message (str "the handoffs go round: " (str/join " → " (map id-name c)))}])
@@ -706,6 +757,13 @@
                       :handed handed
                       :from-ids (set (map :id from-s))
                       :to-s (keep found (bound to))}))
+        ;; each workflow's links, their gives checked as a handoff's from the sessions playing the from stage's role (byj-dls)
+        workflows (for [[w {:keys [stages links]}] (sort-by key (:workflows spec))]
+                    {:id w
+                     :links (vec (for [{:keys [from to gives]} links
+                                       :let [from-s (keep found (bound (stage-role from (get stages from))))
+                                             gs (mapv #(give-row dir % from-s (assoc opts :files files :turns turns)) gives)]]
+                                   {:from from :to to :gives gs :ready (every? :ready gs)}))})
         checks (concat
                 (for [e (structural-errors dir spec registry)] (assoc e :level :error))
                 (mapcat :checks prows)
@@ -738,6 +796,7 @@
      :projects (json-value (mapv :row prows))
      :roles (json-value (vec roles))
      :handoffs (json-value (mapv :row handoffs))
+     :workflows (json-value (vec workflows))
      :checks (json-value (mapv (fn [c] (array-map :level (:level c) :kind (:kind c) :target (:target c) :message (:message c))) checks))
      :problems (vec (for [{:keys [file key message]} (concat spec-probs local-probs)]
                       {:file file :key key :message message}))}))
@@ -745,9 +804,9 @@
 ;; --- writing -------------------------------------------------------------------------
 
 (def ^:private key-order
-  [:schema-version :projects :roles :handoffs :bindings :handed
-   :name :id :kind :git :path :title :does :worktree :from :to
-   :command :version :paths :parent :provides :affects :seen :gives :session :turn :at])
+  [:schema-version :projects :roles :handoffs :workflows :bindings :handed
+   :name :id :kind :git :path :title :does :worktree :master :role :stages :from :to
+   :command :version :paths :parent :provides :affects :seen :gives :links :session :turn :at])
 
 (defn- key-rank [k] (let [i (.indexOf ^java.util.List key-order k)] (if (neg? i) (count key-order) i)))
 

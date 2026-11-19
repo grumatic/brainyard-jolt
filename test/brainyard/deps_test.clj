@@ -225,6 +225,40 @@
     (spit f "{:projects")
     (is (str/starts-with? (:message (first (:problems (deps/report dir {:registry []})))) "unreadable EDN"))))
 
+(deftest workflows-are-checked-written-and-reported
+  ;; byj-dls: several workflows, each a graph of stages playing roles, linked by their own gives
+  (let [dir (tmp "workflows")
+        js #(clojure.walk/keywordize-keys %)
+        spec {"roles" {"lead" {} "design" {} "implement" {} "review" {}}
+              "workflows" {"feature" {"title" "Feature" "master" "lead"
+                                      "stages" {"design" {} "fix" {"role" "implement" "title" "Fix"} "review" {}}
+                                      "links" [{"from" "design" "to" "fix" "gives" [{"kind" "note"}]}
+                                               {"from" "fix" "to" "review"}]}
+                           "docs" {"stages" {"design" {}}}}}
+        refused (fn [m] (deps/write! dir :spec (js m) {:registry []}))]
+    (testing "refused: a stage playing no role, a link to no stage, a master that is no role, a cycle"
+      (is (str/includes? (:error (refused (assoc-in spec ["workflows" "docs" "stages" "plan"] {})))
+                         "workflow docs's stage plan plays plan, which is not a role"))
+      (is (str/includes? (:error (refused (update-in spec ["workflows" "feature" "links"] conj {"from" "review" "to" "ship"})))
+                         "names ship, which is not a stage"))
+      (is (str/includes? (:error (refused (assoc-in spec ["workflows" "docs" "master"] "boss"))) "master boss is not a role"))
+      (is (str/includes? (:error (refused (update-in spec ["workflows" "feature" "links"] conj {"from" "review" "to" "design"})))
+                         "feature's links go round"))
+      (is (= :schema (:stage (refused (assoc-in spec ["workflows" "docs" "stages" "design" "bogus"] 1)))))
+      (is (not (.exists (deps/spec-file dir)))))
+    (testing "written in a stable order, read back, each link's gives reported"
+      (is (:ok (refused spec)))
+      (let [text (slurp (deps/spec-file dir))
+            w (get-in (edn/read-string text) [:workflows :feature])]
+        (is (< (str/index-of text ":roles") (str/index-of text ":workflows")) "after the roles")
+        (is (= {:title "Feature" :master :lead :stages {:design {} :fix {:role :implement :title "Fix"} :review {}}
+                :links [{:from :design :to :fix :gives [{:kind :note}]} {:from :fix :to :review}]}
+               w))
+        (let [r (deps/report dir {:registry []})]
+          (is (= [["docs" []] ["feature" [["design" "fix" false] ["fix" "review" true]]]]
+                 (mapv (fn [x] [(:id x) (mapv (juxt :from :to :ready) (:links x))]) (:workflows r))))
+          (is (empty? (filter #(= "error" (:level %)) (:checks r)))))))))
+
 (deftest a-write-is-held-to-the-schema-refuses-a-cycle-and-keeps-the-old-file
   (let [dir (tmp "write")
         other (tmp "other")
