@@ -44,7 +44,7 @@
 (def extensions
   "byj's extensions (RFC-053 'byj's extensions'), advertised at `initialize`
   and used only with a client that asked for them there."
-  ["tools" "hooks" "events" "predict" "live" "turns"])
+  ["tools" "hooks" "events" "predict" "live" "turns" "share"])
 
 (def default-hook-timeout-ms
   "How long a client's hook is waited for before its entry's failure rule
@@ -234,6 +234,39 @@
   (in-turn st sid {:sessionUpdate "agent_message_chunk" :content (text-block text)
                    :_meta {:brainyard {:notice (name kind)}}}))
 
+(declare json-safe)
+
+(defn- injected?
+  "Is the turn session `sid` runs one its session channel put in, not a
+  client's prompt? (byj-p2q)"
+  [st sid]
+  (boolean (some-> (get-in st [:sessions sid]) :state deref :current :channel?)))
+
+(defn- approve-fn
+  "A session's `:approve` (RFC-043 :approval :owner) as ACP's
+  `session/request_permission`: a share's viewer asks to put in a turn, and the
+  client allows it once or rejects it; unanswered in the time the channel
+  gives, it has expired (byj-p2q)."
+  [conn sid-box]
+  (fn [{:keys [text who timeout-ms]}]
+    (let [sid @sid-box
+          p (request! conn "session/request_permission"
+                      {:sessionId sid
+                       :toolCall {:toolCallId (str "inject-" (System/currentTimeMillis))
+                                  :title (str (or who "someone") " asks to run a turn: " (clip text 200))
+                                  :kind "other" :status "pending"
+                                  :rawInput {:text (str text) :from (str who)}
+                                  :_meta {:brainyard {:injected true}}}
+                       :options [{:optionId "allow-once" :name "Allow" :kind "allow_once"}
+                                 {:optionId "reject-once" :name "Reject" :kind "reject_once"}]})
+          answer (deref p (or timeout-ms 120000) ::expired)
+          outcome (when (map? answer) (get-in answer [:result :outcome]))]
+      (cond
+        (= ::expired answer) :expired
+        (:closed answer) nil
+        (= "allow-once" (when (= "selected" (:outcome outcome)) (:optionId outcome))) :approved
+        :else :rejected))))
+
 (defn- on-event
   "The session's events as `session/update`s: the answer field's chunks as
   the agent's message, the reasoning as its thoughts, a batch of tool calls
@@ -249,15 +282,35 @@
             live! #(update! conn sid (in-turn @st sid %))]
         (case event
           :session.turn/start
-          (swap! st assoc-in [:turn sid] (:turn data))
+          (do (swap! st assoc-in [:turn sid] (:turn data))
+              ;; a turn the session channel put in (another session, a script,
+              ;; a share's viewer): the client sent no prompt for it, so it is
+              ;; told the question, who put it in, and when it ends (byj-p2q)
+              (when (injected? @st sid)
+                (swap! st assoc-in [:streamed sid] false)
+                (live! (cond-> {:sessionUpdate "user_message_chunk" :content (text-block (:question data))}
+                         (:injected-by data) (assoc-in [:_meta :brainyard :injectedBy] (json-safe (:injected-by data)))))
+                (when (ext? conn)
+                  (notify! conn "_byj/turn" (cond-> {:sessionId sid :turn (:turn data) :state "started"}
+                                              (:injected-by data) (assoc :injectedBy (json-safe (:injected-by data))))))))
           :session/rewind
           ;; what a _byj/turns method answers with (byj-d8c.3)
           (swap! st assoc-in [:rewound sid] data)
           :session.turn/end
           ;; what session/prompt answers with: the turn, and what it changed
           ;; and no turn is running: what comes next is no turn's
-          (swap! st #(-> % (assoc-in [:ended sid] {:turn (get-in % [:turn sid]) :files-changed (:files-changed data)})
-                         (update :turn dissoc sid)))
+          (let [turn (get-in @st [:turn sid])]
+            (swap! st #(-> % (assoc-in [:ended sid] {:turn (get-in % [:turn sid]) :files-changed (:files-changed data)})
+                           (update :turn dissoc sid)))
+            ;; its answer, when it was not streamed as it was written: no
+            ;; session/prompt answers this turn to carry it
+            (when (and (injected? @st sid) (seq (str (:answer data))) (not (get-in @st [:streamed sid])))
+              (update! conn sid (cond-> {:sessionUpdate "agent_message_chunk" :content (text-block (:answer data))}
+                                  turn (assoc-in [:_meta :brainyard :turn] turn))))
+            (when (and (injected? @st sid) (ext? conn))
+              (notify! conn "_byj/turn" (cond-> {:sessionId sid :turn turn :state "ended"
+                                                 :terminatedBy (some-> (:terminated-by data) name)}
+                                          (some? (:files-changed data)) (assoc :filesChanged (:files-changed data))))))
           :agent.llm/chunk
           (case (some-> (:field data) name)
             "answer" (do (swap! st assoc-in [:streamed sid] true)
@@ -606,6 +659,12 @@
                       :mcp-servers (mcp-servers mcpServers)
                       :permission-mode (some-> (or (:permissionMode o) (:permission-mode defaults)) keyword)
                       :permission-fn (permission-fn conn sid-box effects-of)
+                      ;; the session channel (RFC-031), when the client asks
+                      ;; for it: a share's sidecar, another session or a
+                      ;; script puts turns in, which the client is told of
+                      ;; (byj-p2q)
+                      :channel? (boolean (:channel o))
+                      :approve (approve-fn conn sid-box)
                       :tools client-tools
                       :hooks client-hooks
                       :session-id @sid-box
@@ -905,6 +964,30 @@
    "session/prompt" prompt!
    "session/list" list-sessions
    "_byj/turns/list" turns-list
+   ;; a share of the session (RFC-043, byj-p2q): `/share ARGS` run between its
+   ;; turns — start [--target T] [--record], stop, pause, resume, kick USER,
+   ;; record on|off, or none for who watches — answered with what it said. Its
+   ;; sidecar is a background task of the session; the session must listen on
+   ;; its channel (session/new's _meta.brainyard.channel)
+   "_byj/share"
+   (fn [conn {:keys [sessionId args]}]
+     (let [s (session-of conn sessionId)
+           args (str/trim (str args))]
+       (when-not (:channel s)
+         (throw (rpc-error -32602 (str "session " sessionId " does not listen on its channel: open it with _meta.brainyard.channel true"))))
+       (when-not (re-matches #"[A-Za-z0-9:/_.,@ -]*" args)
+         (throw (rpc-error -32602 "args: /share's own words")))
+       ;; a turn the channel put in is answered there as it ends, a moment
+       ;; before the session waits again: that moment is waited out
+       (when (loop [n 0] (cond (not (sdk/running? s)) false (> n 40) true :else (do (Thread/sleep 50) (recur (inc n)))))
+         (throw (rpc-error -32602 (str "session " sessionId " is in the middle of a turn: try again when it ends"))))
+       (let [r (deref (sdk/command! s (str/trim (str "/share " args))) 60000 {:timeout true})
+             said (str/join "\n" (keep (fn [[_ t]] (not-empty (str t))) (:said r)))]
+         (cond
+           (:timeout r) (throw (rpc-error -32603 "/share did not answer in a minute"))
+           (:refused r) (throw (rpc-error -32602 (:refused r)))
+           (:closed r) (throw (rpc-error -32602 (str "session " sessionId " closed")))
+           :else {:message said}))))
    "_byj/turns/diff" turns-diff
    "_byj/turns/rewind"
    (fn [conn {:keys [sessionId turn end]}]

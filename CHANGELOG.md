@@ -6,6 +6,15 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A session `byj acp` holds can listen, and be shared** (RFC-053,
+  byj-p2q): `session/new`/`session/load` with `_meta.brainyard.channel`
+  open its session channel, so another session, a script or a share's
+  sidecar puts turns in; the client is told each such turn (the question
+  with `injectedBy`, its answer, `_byj/turn` started/ended) and asked to
+  allow a share viewer's turn that needs the owner (`session/request_permission`).
+  `_byj/share {sessionId args}` runs `/share` for it — start, stop, pause,
+  record — the sidecar a background task of the session. A workbench shares
+  the sessions it runs this way.
 - **A turn's iteration ceiling is 100**, brainyard's: `max-iterations` was
   20 and `subagent-max-iterations` 12. A setting, an agent's own
   `:max-iterations` and `-n N` still set it (byj-d8n).

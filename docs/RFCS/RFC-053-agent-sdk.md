@@ -186,7 +186,7 @@ print goes to standard error and the event log
 ### 4. byj's extensions
 
 Built (`byj-g5n.5`). Advertised as `agentCapabilities._meta.brainyard`
-`{protocol 1, extensions ["tools" "hooks" "events" "predict" "live" "turns"]}`. A client asks
+`{protocol 1, extensions ["tools" "hooks" "events" "predict" "live" "turns" "share"]}`. A client asks
 for them by sending `_meta.brainyard` with its `initialize`; one that does not
 is sent no `_byj/event` and no `_meta` on a prompt's answer. Session options,
 client tools and hooks are the client's own requests and need no asking.
@@ -261,6 +261,28 @@ a `_byj/live/event {attachId, sessionId, event, payload}` per event until
 `_byj/live/detach {attachId}` or the connection ends. A session is named by
 its id, a prefix or its label (`channel/find-session`). The extension is
 `live`; a client library does not require it.
+
+**A session that listens, and its share** (built, `byj-p2q`): `session/new`
+and `session/load` with `_meta.brainyard.channel` true open the session's
+channel (RFC-031, `ask.sock`), as a `byj run` session does when
+`:ask-channel-enabled?` allows it: another session, a script, or a share's
+sidecar (RFC-043) asks it, each request a turn the session takes when it
+waits, after the prompts the client queued. The client sent no prompt for
+such a turn, so it is told of it: a `user_message_chunk` with the question,
+`_meta.brainyard.injectedBy` naming who put it in (a person's `{user name
+role}`, a session's `{session}`), its answer as `agent_message_chunk` when it
+was not streamed, and, to a client that asked for the extensions,
+`_byj/turn {sessionId turn state injectedBy? terminatedBy? filesChanged?}`
+as it is `started` and `ended`. A share's viewer's turn under
+`:approval :owner` is the client's to allow: `session/request_permission`
+with a `toolCall` titled who asks and what, `_meta.brainyard.injected`,
+options Allow and Reject; unanswered within `:share-inject-approval-ms` it
+has expired, and the viewer is told so. `_byj/share {sessionId args}` runs
+`/share ARGS` between the session's turns — `start [--target T] [--record]`,
+`stop`, `pause`, `resume`, `kick USER`, `record on|off`, none for who watches
+— and answers `{message}` in its words; the sidecar is a background task of
+the session, ending with it. A session that does not listen is refused it.
+The extension is `share`.
 
 **A session's turns** (built, `byj-d8c.3`): what RFC-069 keeps of an open
 session's turns, and its operations, as data rather than slash commands
@@ -641,6 +663,7 @@ Planned:
 | A client hook is asked with the payload and its block stands; one that does not answer in time fails open, or closed when it says so; an event that is no hook point is refused. | `acp-test/a-client-hook-decides` |
 | `_byj/turns/*` list an open session's kept turns with their files, diff one, and rewind, undo a turn and undo a rewind as the session's own commands do — the work tree changed, the next turn told — answering with what changed; what cannot be done is refused in the command's words; a prompt that is a command is still refused. `session/new` with `forkBeforeTurn` cuts the conversation before that turn and puts the files back as it began, saying so in `_meta.brainyard.fork`, the session forked from told; `keepFiles` leaves them and tells the new session; `worktree` makes the fork in a new git worktree, the project's work tree and the session forked from left as they were; `forkBeforeTurn` without `forkFrom` is refused. The SDK's libraries expose them. | `acp-test/a-sessions-turns-are-listed-diffed-and-taken-back-over-acp`, `acp-test/a-session-is-forked-before-a-turn-over-acp`, `acp-test/a-session-is-forked-before-a-turn-into-a-worktree-of-its-own-over-acp`; `sdk/typescript/test/sdk.test.ts` "a session's turns are listed", `sdk/python/tests/test_sdk.py` `test_a_sessions_turns_are_listed_taken_back_and_forked_before` |
 | `session/new` with `worktree` and no `forkFrom` opens a new session in a new git worktree, a clean checkout: of HEAD on a new branch, of an existing branch as it is, or of a ref on a new branch named; the session is listed, kept and run there, not in the project; a branch checked out elsewhere, a ref that is not one and a value that is not `true` or an object are refused with no worktree left, and so is `worktree` on `session/load`. The SDK's libraries take it on `newSession`. | `acp-test/a-new-session-starts-in-a-worktree-of-its-own-over-acp`; `sdk/typescript/test/sdk.test.ts` "a session's turns are listed", `sdk/python/tests/test_sdk.py` `test_a_sessions_turns_are_listed_taken_back_and_forked_before` |
+| A session opened with `channel` listens on its channel and takes a turn put in there, the client told its question, who put it in, its answer and its start and end; a session not asked does not listen. `_byj/share` runs `/share` for a session that listens, its `start` the sidecar on the session's own socket, `stop` ending it; one that does not listen is refused. A viewer's turn under the owner's approval runs once the client allows it; rejected, the viewer is told so and no turn runs. | `acp-test/a-session-that-listens-is-told-of-the-turns-put-in-and-shares-through-share`, `acp-test/a-turn-a-viewer-puts-in-runs-once-the-owner-allows-it` |
 | `_byj/predict` runs an inline signature whose fields are JSON Schema; a field this cannot read is refused. | `acp-test/predict-over-the-wire` |
 | A fork is a new session, under the id the client chose, from a saved one's history, replayed before `session/new` answers; the original is left as it was; an id not in a session id's shape is refused. | `acp-test/a-fork-is-a-new-session-from-a-saved-one`, `sdk-test/a-session-is-forked-and-the-original-left-as-it-was`; both SDKs' "a session is forked" |
 | A live session the connection did not start is listed by its label, asked a question and answered, watched until detached; a session nobody runs is said so. | `acp-test/a-live-session-is-listed-asked-and-watched`; both SDKs' "a live session it did not start", against a real `byj run --serve` |

@@ -35,6 +35,7 @@
             [brainyard.schedule :as schedule]
             [brainyard.schema :as schema]
             [brainyard.changes :as changes]
+            [brainyard.channel :as channel]
             [brainyard.session :as session]
             [brainyard.worktree :as worktree]
             [brainyard.tasks :as tasks]
@@ -236,10 +237,13 @@
   when it ran one, else with what the session said."
   [state]
   (let [[{:keys [current]}] (swap-vals! state assoc :current nil)]
+    ;; a turn the session channel put in has no prompt to answer: the channel
+    ;; answers it (byj-p2q)
     (when-let [{:keys [reply result said]} current]
-      (deliver reply (cond-> {:said said}
-                       result (assoc :result result)
-                       (nil? result) (assoc :no-turn true))))))
+      (when reply
+        (deliver reply (cond-> {:said said}
+                         result (assoc :result result)
+                         (nil? result) (assoc :no-turn true)))))))
 
 (defn open-session
   "Open a session in `(:project-dir opts)` and start it on a thread of its
@@ -249,7 +253,13 @@
   history by then, `:session/resumed`), false if it ended first. See `base` for opts, and also:
   `:label`, `:commands?` (slash commands and `:<tool>` direct calls allowed
   in a prompt; false), `:on-said (fn [kind text])` (what the session says
-  beside its events: its answers, notices and errors).
+  beside its events: its answers, notices and errors), `:channel?` (listen on
+  the session channel, RFC-031, as a `byj run` session does: another session,
+  a script or a share's sidecar asks it, each request a turn taken when the
+  session is waiting, after the prompts queued here; byj-p2q), `:approve
+  (fn [{:keys [text from who timeout-ms]}])` (whether such a turn put in by a
+  share's viewer runs: `:approved`, `:rejected`, `:expired`, or nil when no
+  one is there to ask).
 
   The session is locked to this process while open, a fresh one as well as
   a resumed one (RFC-031); a session another live process holds is refused.
@@ -281,6 +291,19 @@
         ;; for `current-lm` (byj-66y)
         lm-box (atom nil)
         on-said (:on-said opts)
+        ;; the session channel, when asked for and :ask-channel-enabled? allows
+        ;; it (byj-p2q): one that could not listen is said, and the session
+        ;; runs without it
+        ch (when (and (:channel? opts) (:ask-channel-enabled? config true) persist?)
+             (let [c (channel/open! config id
+                                    {:label (:label opts)
+                                     :cancel! #(session/cancel-turn! cancellers)
+                                     :describe (fn []
+                                                 (let [lm (or @lm-box (:lm b))]
+                                                   {:provider (some-> (:provider lm) name) :model (:model lm)}))})]
+               (if-let [p (:problem c)]
+                 (do (problem! (:on-problem opts) p) nil)
+                 c)))
         ;; the viewer sees every event; the turn's end is also kept, for the
         ;; prompt the turn was answering
         b (update b :on-event (fn [bus]
@@ -303,6 +326,13 @@
                            (let [[q] queue]
                              (swap! state #(-> % (update :queue (comp vec rest)) (assoc :current q)))
                              (:text q))
+                           ;; a request on the session channel, after the
+                           ;; prompts queued here (byj-p2q)
+                           (and ch (channel/pending? ch))
+                           (if-let [{:keys [text from]} (channel/next-turn! ch)]
+                             (do (swap! state assoc :current {:text text :from from :channel? true})
+                                 text)
+                             (recur))
                            ;; a parked turn whose task finished (RFC-019), or a
                            ;; prompt of this session set to a time now due
                            :else
@@ -314,13 +344,19 @@
         done (promise)
         worker (Thread. (fn []
                           (try
-                            (session/run (assoc b :read-input read-input :emit emit :lm-box lm-box
-                                                :mcp-box mcp-box :cancellers cancellers
-                                                :wakeups wakeups :task-registry task-registry))
+                            (session/run (cond-> (assoc b :read-input read-input :emit emit :lm-box lm-box
+                                                        :mcp-box mcp-box :cancellers cancellers
+                                                        :wakeups wakeups :task-registry task-registry)
+                                           ch (assoc :channel ch)
+                                           ;; an injected turn the owner allows
+                                           ;; (RFC-043 :approval :owner), asked by
+                                           ;; the application (byj-p2q)
+                                           (:approve opts) (assoc :approve (:approve opts))))
                             (catch Throwable t
                               (problem! (:on-problem opts) (str "session " id " ended: " (ex-message t))))
                             (finally
                               (answer! state)
+                              (some-> ch channel/close!)
                               ;; prompts never taken: the session is gone
                               (doseq [q (:queue @state)] (deliver (:reply q) {:closed true}))
                               (mcp/stop-all! mcp-box)
@@ -336,7 +372,9 @@
      :state state :cancellers cancellers
      :permission-mode-box (:permission-mode-box b)
      :mcp-box mcp-box :ready ready :done done
-     :on-event (:on-event b)}))
+     :on-event (:on-event b)
+     ;; its session channel, when it listens (byj-p2q)
+     :channel ch}))
 
 (defn current-lm
   "The LM session `s` asks now: the one a resume took back from its save or

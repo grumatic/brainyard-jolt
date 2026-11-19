@@ -1161,3 +1161,94 @@
                                    [:error :message])
                            "<millis>-<8 hex>")))
       (finally (acp/end! (:conn c))))))
+
+(deftest a-session-that-listens-is-told-of-the-turns-put-in-and-shares-through-share
+  ;; byj-p2q: a session byj acp holds listens on its channel when the client asks,
+  ;; so another session, a script or a share's sidecar puts turns in, which the
+  ;; client is told of; `_byj/share` runs /share between its turns
+  (let [dir (fresh-dir "channel")
+        c (with-ext (client))
+        {:keys [sessionId]} (new-session c dir (script! dir [{:answer "put in, answered" :goal-achieved true}])
+                                         {:channel true})
+        path (get-in @(:state (:conn c)) [:sessions sessionId :channel :path])]
+    (try
+      (testing "the session listens on its channel, and lists itself live"
+        (is (string? path))
+        (is (.exists (io/file path)))
+        (is (some #(and (= sessionId (:session-id %)) (:live? %)) (channel/sessions {:project-dir dir :working-dir dir}))))
+      (testing "a turn put in over the channel is run and answered there"
+        (is (= {:status :ok :injected :turn :answer "put in, answered"}
+               (select-keys (channel/request! path {:op :inject :as :turn :text "from a script"} 20000)
+                            [:status :injected :answer]))))
+      (let [us (updates c sessionId)
+            turns (keep #(when (= "_byj/turn" (:method %)) (:params %)) @(:seen c))]
+        (testing "the client is told the question as the person's message"
+          (is (some #(and (= "user_message_chunk" (:sessionUpdate %)) (= "from a script" (get-in % [:content :text]))) us)))
+        (testing "and the answer as the agent's"
+          (is (some #(and (= "agent_message_chunk" (:sessionUpdate %)) (= "put in, answered" (get-in % [:content :text]))) us)))
+        (testing "and when the turn it sent no prompt for starts and ends"
+          (is (= ["started" "ended"] (mapv :state turns)))
+          (is (every? #(= sessionId (:sessionId %)) turns))))
+      (testing "_byj/share runs /share: with no share, who watches says so"
+        (let [r (call c "_byj/share" {:sessionId sessionId :args ""})]
+          (is (string? (get-in r [:result :message])) (pr-str r))))
+      (testing "_byj/share start starts the sidecar on the session's own channel"
+        (let [stub (doto (io/file dir "byj-share-stand-in")
+                     ;; a stand-in sidecar: says how it was started, then waits to be stopped
+                     (spit (str "#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/argv.txt\"\n"
+                                "trap 'exit 0' TERM INT\nwhile true; do sleep 0.2; done\n"))
+                     (.setExecutable true))
+              argv (io/file dir "argv.txt")
+              {shared :sessionId} (new-session c dir (script! dir [{:answer "x" :goal-achieved true}])
+                                               {:channel true :config {:builtin-agents? false :share-sidecar (.getPath stub)}})
+              sock (get-in @(:state (:conn c)) [:sessions shared :channel :path])]
+          (.delete argv)
+          (let [r (call c "_byj/share" {:sessionId shared :args "start --target link"})]
+            (is (string? (get-in r [:result :message])) (pr-str r)))
+          (is (loop [n 0] (cond (.exists argv) true (> n 100) false :else (do (Thread/sleep 50) (recur (inc n))))))
+          (let [words (str/split (str/trim (slurp argv)) #"\s+")]
+            (is (= ["run" "--socket" sock "--target" "link" "--session" shared] (take 7 words)) (pr-str words)))
+          (testing "and stop ends it"
+            (is (string? (get-in (call c "_byj/share" {:sessionId shared :args "stop"}) [:result :message]))))))
+      (testing "a session that does not listen is told why _byj/share cannot run"
+        (let [{other :sessionId} (new-session c dir (script! dir [{:answer "x" :goal-achieved true}]))]
+          (is (str/includes? (get-in (call c "_byj/share" {:sessionId other :args ""}) [:error :message]) "does not listen"))))
+      (testing "a session not asked to listen opens no channel: the two asked do"
+        (is (= 2 (count (filter #(:live? %) (channel/sessions {:project-dir dir :working-dir dir}))))))
+      (finally (acp/end! (:conn c))))))
+
+(deftest a-turn-a-viewer-puts-in-runs-once-the-owner-allows-it
+  ;; byj-p2q: RFC-043's :approval :owner, the owner being the client, asked
+  ;; through session/request_permission: allowed, the turn runs; rejected, the
+  ;; viewer is told so and nothing runs
+  (let [dir (fresh-dir "channel-approval")
+        choice (atom "allow-once")
+        asked (atom [])
+        c (with-ext (client :answer (fn [m]
+                                       (when (= "session/request_permission" (:method m))
+                                         (swap! asked conj (:params m))
+                                         {:outcome {:outcome "selected" :optionId @choice}}))))
+        {:keys [sessionId]} (new-session c dir (script! dir [{:answer "allowed, answered" :goal-achieved true}])
+                                         {:channel true})
+        path (get-in @(:state (:conn c)) [:sessions sessionId :channel :path])
+        put-in #(channel/request! path {:op :inject :as :turn :text % :approval :owner
+                                        :from {:user "u-1" :name "Kim"}} 20000)]
+    (try
+      (testing "allowed, the turn runs and is answered"
+        (is (= "allowed, answered" (:answer (put-in "may I?"))))
+        (let [q (first @asked)]
+          (is (= sessionId (:sessionId q)))
+          (is (str/includes? (get-in q [:toolCall :title]) "Kim"))
+          (is (str/includes? (get-in q [:toolCall :title]) "may I?"))
+          (is (= ["allow-once" "reject-once"] (mapv :optionId (:options q))))))
+      (testing "the client is told who put it in"
+        (is (some #(= "Kim" (get-in % [:_meta :brainyard :injectedBy :name]))
+                  (filter #(= "user_message_chunk" (:sessionUpdate %)) (updates c sessionId)))))
+      (testing "rejected, the viewer is told so and no turn runs"
+        (reset! choice "reject-once")
+        (let [before (count (filter #(= "_byj/turn" (:method %)) @(:seen c)))
+              r (put-in "and again?")]
+          (is (= :error (:status r)))
+          (is (str/includes? (str (:error r)) "rejected"))
+          (is (= before (count (filter #(= "_byj/turn" (:method %)) @(:seen c)))))))
+      (finally (acp/end! (:conn c))))))
