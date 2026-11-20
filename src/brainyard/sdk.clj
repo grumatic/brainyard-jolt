@@ -315,7 +315,9 @@
                (swap! state #(cond-> % (:current %) (update-in [:current :said] (fnil conj []) [kind text])))
                (when on-said (on-said kind text)))
         read-input (fn [_prompt]
-                     ;; waiting again: whatever was asked last is answered now
+                     ;; waiting again: whatever was asked last and not answered
+                     ;; at its turn's end (a command, which runs no turn) is
+                     ;; answered now
                      (answer! state)
                      (deliver ready true)
                      (loop []
@@ -346,7 +348,11 @@
                           (try
                             (session/run (cond-> (assoc b :read-input read-input :emit emit :lm-box lm-box
                                                         :mcp-box mcp-box :cancellers cancellers
-                                                        :wakeups wakeups :task-registry task-registry)
+                                                        :wakeups wakeups :task-registry task-registry
+                                                        ;; the prompt is answered once its turn's
+                                                        ;; answer is saved, not after the recap and
+                                                        ;; the judges that follow it (byj-2pr)
+                                                        :turn-answered (fn [_] (answer! state)))
                                            ch (assoc :channel ch)
                                            ;; an injected turn the owner allows
                                            ;; (RFC-043 :approval :owner), asked by

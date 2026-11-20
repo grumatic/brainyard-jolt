@@ -66,6 +66,36 @@
     (testing "closing released the lock"
       (is (not (.isFile (persist/lock-file (:config s) (:id s))))))))
 
+(deftest a-prompt-is-answered-when-its-turn-ends-not-after-the-recap
+  ;; byj-2pr: a recap whose model call hangs held an ACP client's turn open
+  ;; until the CLI's timeout
+  (let [dir (fresh-dir "answered-before-recap")
+        recapping (promise)
+        release (promise)
+        recap? (fn [msgs] (some #(str/includes? (str (:content %)) "`this-turn`") msgs))
+        s (open dir {:provider :mock :format :mock :model "mock"
+                     :responses (fn [msgs]
+                                  (if (recap? msgs)
+                                    (do (deliver recapping true)
+                                        (deref release 20000 nil)
+                                        (json/write-str {:recap "where it stands" :next-step ""}))
+                                    (reply {:answer "forty-two" :goal-achieved true})))}
+                :config {:builtin-agents? false :mcp-servers {}
+                         :recap? true :recap-after-ms 0})]
+    (try
+      (let [p (sdk/submit! s "what is six times seven?")]
+        (testing "the turn is recapped, and the prompt answered while the recap still runs"
+          (is (deref recapping 20000 false))
+          (let [r (deref p 20000 ::timeout)]
+            (is (= "forty-two" (get-in r [:result :answer])))
+            (is (not (realized? release)) "the recap had not finished")
+            (is (not (sdk/running? s)) "no prompt is being worked on")))
+        (testing "a prompt sent meanwhile waits for the recap, then is a turn of its own"
+          (let [p2 (sdk/submit! s "again")]
+            (deliver release true)
+            (is (= "forty-two" (get-in (deref p2 20000 ::timeout) [:result :answer]))))))
+      (finally (deliver release true) (is (sdk/close! s))))))
+
 (deftest a-prompt-that-is-not-a-question-is-refused
   (let [dir (fresh-dir "refused")
         s (open dir (scripted [(reply {:answer "ok"})]))]

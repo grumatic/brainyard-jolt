@@ -330,6 +330,13 @@ absent when byj keeps none (`byj-d8c.2`).
 `stopReason` is `end_turn`, `cancelled` or `max_turn_requests` (the iteration
 cap); a turn that failed is a JSON-RPC error, its answer in `data.detail`.
 
+**When it is answered** (`byj-2pr`): once the turn's answer is said and saved
+(`session/end-turn`, after the snapshot — the point at which a channel's asker
+is answered, RFC-031), not when the session waits again. The recap and the
+self-improvement judges that follow a turn are the session's: a recap's model
+call that hangs must not hold the client's turn open. A prompt sent while they
+run waits in the queue and starts when they finish.
+
 ### 5. Client libraries
 
 The TypeScript SDK first — most application code that would embed an agent — then Python, the same surface in
@@ -628,6 +635,7 @@ Planned:
 |---|---|
 | A session opened through the SDK is an ordinary session: a prompt is a turn answered with its result, its events reach the viewer, it is locked while open and leaves its snapshot under its own project — never the repository above it — and closing releases the lock. | `sdk-test/an-sdk-session-is-an-ordinary-session` |
 | `session/new` and `session/load` answer the provider and model the session runs on: the one asked for, and, loaded asking for none, the one it chose with `/model`, which `session/list` says too. | `acp-test/a-session-answers-the-provider-and-model-it-runs-on` |
+| A prompt is answered when its turn's answer is saved, while the recap after it still runs; a prompt sent meanwhile is a turn of its own once the recap ends. | `sdk-test/a-prompt-is-answered-when-its-turn-ends-not-after-the-recap` |
 | A slash command, a `:<tool>` call or an empty line is refused without `:commands?`; with it, a command runs and is answered with what it said. | `sdk-test/a-prompt-that-is-not-a-question-is-refused` |
 | What a session says beside its answer while it answers an ACP prompt reaches the client as it says it, an `agent_message_chunk` marked `_meta.brainyard.notice` with its kind, before the answer and once: a turn waiting for an MCP server its agent's tools name says so, and so do the servers changed; a turn after them that the servers did not move says nothing of them. Both SDKs give it as a `notice` message, never as the answer's text. | `acp-test/what-a-session-says-while-it-answers-reaches-the-client-as-a-notice`; both SDKs' "what the session says beside its answer is a notice" |
 | A client tool is shown to the model, called as the application's fn, and gated as any tool. | `sdk-test/a-client-tool-is-an-ordinary-tool` |

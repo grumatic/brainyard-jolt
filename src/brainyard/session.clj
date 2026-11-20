@@ -2799,7 +2799,12 @@
     ;; settles on the answer may end this process at once, as a closing or
     ;; crashing team leader does, and a member answered first was resumed
     ;; without its last turn (byj-4ps)
-    (some-> (:channel ctx) (channel/turn-ended! result))))
+    (some-> (:channel ctx) (channel/turn-ended! result))
+    ;; and to the front end that asked, at the same point: the recap and the
+    ;; judges after this node are the session's, not the turn's, and a
+    ;; recap's model call that hangs must not hold the asker's turn open
+    ;; (byj-2pr)
+    (when-let [f (:turn-answered ctx)] (f result))))
 
 (defn- this-turn
   "The turn that just ended as the recap reads it: the question, each tool it
@@ -3311,6 +3316,9 @@
     :cancellers  an atom the caller holds; while a turn runs it maps :turn to
                  a fn that cancels that turn alone (`cancel-turn!`)
     :channel     a `brainyard.channel` the front end opened, or nil (RFC-031)
+    :turn-answered (fn [result]) — called once a turn's answer is said and
+                 saved (`end-turn`), before the recap and the other nodes after
+                 it: where an SDK client's prompt is answered (byj-2pr)
     :approve     (fn [{:keys [text from who timeout-ms]}]) → :approved | :rejected
                  | :expired | nil — the person's answer to an injected turn
                  (RFC-043); nil where nobody can be asked
@@ -3385,6 +3393,8 @@
                        ;; the session channel, when a front end opened one:
                        ;; told when a turn starts and ends (RFC-031)
                        :channel (:channel opts)
+                       ;; told when a turn's answer is said and saved (byj-2pr)
+                       :turn-answered (:turn-answered opts)
                        :share-box share-box
                        :approve-answer (:approve-answer opts)
                        ;; the model this session is asking, once `/model` has
