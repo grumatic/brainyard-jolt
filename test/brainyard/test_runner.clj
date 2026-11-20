@@ -85,6 +85,7 @@
             [brainyard.worktree-test]
             [brainyard.claude-agent-test]
             [brainyard.codex-agent-test]
+            [brainyard.delegates-test]
             [brainyard.codex-usage-test]
             [brainyard.codex-provider-test]
             [brainyard.claude-reach-test]
@@ -183,6 +184,7 @@
     brainyard.worktree-test
     brainyard.claude-agent-test
     brainyard.codex-agent-test
+    brainyard.delegates-test
     brainyard.codex-usage-test
     brainyard.codex-provider-test
     brainyard.claude-reach-test

@@ -33,7 +33,11 @@
    [{:subs [{:name "list" :args "[--live] [--json]"
              :summary "this project's sessions: those that listen, then saved ones"}
             {:name "watch" :args "SESSION [--events E,…]"
-             :summary "a live session's events as they happen, one EDN line each"}]}]}
+             :summary "a live session's events as they happen, one EDN line each"}
+            {:name "delegates" :args "[--json]"
+             :summary "the Claude Code and Codex sessions this project's sessions delegated to, live or saved"}
+            {:name "attach" :args "ID [--json]"
+             :summary "a delegated session on byj's tmux server — a saved one started again — and the command that attaches to it"}]}]}
   {:name "programs"
    :summary "Measure predictors and review their optimization proposals (.brainyard/programs)"
    :subcommands

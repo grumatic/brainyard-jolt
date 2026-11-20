@@ -427,6 +427,40 @@
 
       :else {:error (str "no session " sid " here: give \"new\", or the id of one running here or saved")})))
 
+(defn reopen
+  "Delegation `sid` running on byj's tmux server, for the person to watch or
+  take over (byj-oer): one running there is left as it is; a saved one is
+  resumed there as `open` resumes one — in its record's folder, with the
+  settings it was delegated with (the publish guard, the permission mode, its
+  right to publish) — and waited for until Claude Code is up. Nothing is typed
+  to it: the person is the one who attaches. `{:session-id :tmux :started?}`
+  or `{:error}`: a delegation this project has no record of, a folder gone
+  (Claude Code resumes a session only in the folder it ran in), or a session
+  running outside byj's tmux server (resuming it would be a second process on
+  one session)."
+  [config sid]
+  (let [sid (str/trim (str sid))
+        r (read-record config sid)
+        h (home config)
+        dir (:dir r)
+        up {:session-id sid :tmux (host/tmux-name sid)}]
+    (cond
+      (nil? r) {:error (str "no Claude Code session " sid " was delegated in this project")}
+      (contains? (set (host/running)) sid) (assoc up :started? false)
+      (not (and dir (.isDirectory (io/file (str dir)))))
+      {:error (str "its folder " dir " is gone" (some->> (:stopped-why r) (str " — ")) ": Claude Code resumes a session only in the folder it ran in")}
+      ;; a session just stopped is still live while its process exits: given
+      ;; a moment to (provenance P-31), as `open` gives it
+      (let [live? #(some (fn [s] (= sid (:id s))) (cs/live (project config) h))]
+        (and (live?) (not= :gone (run (fx/poll-until 200 ::not-yet #(if (live?) ::not-yet :gone)) 5000))))
+      {:error (str "session " sid " is running outside byj's tmux server, so it is not resumed here (that would be a second process on one session)")}
+      :else
+      (let [s (host/start! (assoc (start-opts config sid dir {:publish (:publish r)}) :resume? true))
+            u (when-not (:error s) (run (host/ready sid {:home h :timeout-ms 30000}) 40000))]
+        (cond (:error s) s
+              (:error u) u
+              :else (assoc up :started? true))))))
+
 (defn await-turn
   "Wait until session `sid`'s turn is over, at most `timeout-ms`: where it
   stands (`host/await-settled`, `:settled` done | waiting | gone | timeout),

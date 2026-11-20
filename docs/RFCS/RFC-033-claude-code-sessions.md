@@ -134,6 +134,17 @@ a tmux server that is not the default, a start with `TMUX` set had gone to that
 server and the attach to the default one, which had no such session, and Enter
 did nothing (`byj-gly.306`).
 
+**byj's own tmux server** (`byj-6e6`, 2026-11-20). Every one of these tmux
+sessions — Claude Code's, Codex's (RFC-049), the rail's terminals — runs on a
+server of byj's own, `tmux -L byj -f /dev/null` (`agent-host/*tmux*`;
+`BYJ_TMUX_SOCKET` names another), not the person's default server. There they
+sat beside the person's own sessions, under the person's `~/.tmux.conf`, whose
+plugins acted on them: tmux-continuum saved them with the person's sessions,
+over the person's own restore point. With no config file the server keeps
+tmux's defaults — the prefix `ctrl-b`, a status line — whatever the person
+remapped; `tmux -L byj ls` lists what byj runs. A session started on the default
+server by an older byj is not seen: it is ended, and resumed again on byj's.
+
 A session running in this run's tmux is listed live and attachable whether or
 not Claude Code has written its own record yet — it has not while it starts —
 and leaves the saved group (`with-running`). Only this project's are added:
@@ -188,6 +199,7 @@ What this was written against is recorded above (2.1.282, 2.1.283).
 | ctrl+s on a live Claude Code row shares it through the relay (RFC-043), again stops it; the row says `shared ·` while it is; no other row offers it. | `tui-test/ctrl-s-shares-a-live-claude-code-session-and-the-row-says-so` |
 | ctrl+g on any row unfolds what its session changed under it — a brainyard row by its session, a Claude Code row with its own directory — and the mark still moves over rows only. | `tui-test/ctrl-g-unfolds-what-a-session-changed-under-its-row` |
 | A running tmux session is added to a project's list only when tmux started it in that directory or under it (a worktree) — not in one whose name merely starts the same — read as tmux 3.2 and 3.3 print a `-F` line too, a tab as `_` (`byj-gly.450`). | `claude-host-test/only-this-projects-running-sessions-are-listed`; `terminal-test/tmux-sessions-are-read-as-tmux-3-2-prints-them` |
+| byj's tmux sessions run on its own server, `tmux -L byj -f /dev/null`, never the person's default one (`byj-6e6`). | `delegates-test/byj-runs-them-on-a-tmux-server-of-its-own` |
 | Every tmux command of this layer — the start, the listing, a read of the screen, a key, the attach — runs in one environment without `TMUX`, so all reach one server. | `claude-host-test/every-tmux-command-reaches-one-server` |
 | A project's directory name is its canonical path with every non-alphanumeric character as `-`. | `claude-sessions-test/a-project-path-becomes-claude-codes-directory-name` |
 | The Claude Code rows: the new-session row first, then the live — marked when this run cannot open it — then the saved, with size and age. | `tui-test/claude-codes-sessions-are-rows-of-their-own` |

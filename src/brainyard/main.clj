@@ -21,6 +21,7 @@
             [brainyard.tools :as tools]
             [brainyard.config :as config]
             [brainyard.configbox :as configbox]
+            [brainyard.delegates :as delegates]
             [brainyard.deps :as deps]
             [brainyard.events :as events]
             [brainyard.launch :as launch]
@@ -526,6 +527,8 @@
 
 (defn- session-command
   "`byj session list [--live] [--json]` — brainyard's `cmd-sessions-list`,
+  and `delegates [--json]` and `attach ID [--json]`, a project's delegated
+  Claude Code and Codex sessions (`brainyard.delegates`, byj-oer) —
   its `by sessions` singular here (divergence `session-and-agent-are-singular`),
   with the saved sessions that never listened after those that did (divergence
   `session-list-shows-saved-sessions`)."
@@ -533,6 +536,27 @@
   (let [sub (or (first questions) "list")]
     (case sub
       "list" nil
+      ;; a project's delegated Claude Code and Codex sessions, for a program (byj-oer)
+      "delegates" (let [rows (delegates/rows config)]
+                    (if json
+                      (println (json/write-str rows))
+                      (if (empty? rows)
+                        (println "no delegated Claude Code or Codex sessions here")
+                        (doseq [{:keys [agent id live? dir-exists? state parent-session task]} rows]
+                          (println (format "%-6s %-36s %-7s %-8s %-24s %s" agent id
+                                           (cond live? "live" (not dir-exists?) "gone" :else "saved")
+                                           (or state "") (or parent-session "")
+                                           (let [t (str task)] (subs t 0 (min 60 (count t)))))))))
+                    (System/exit 0))
+      "attach" (let [id (second questions)
+                     r (if (str/blank? (str id))
+                         {:error "attach: give the id of a delegated session (byj session delegates)"}
+                         (delegates/attach config id))]
+                 (cond
+                   json (println (json/write-str r))
+                   (:error r) (err-println (str "error: " (:error r)))
+                   :else (println (str/join " " (:attach r))))
+                 (System/exit (if (:error r) 1 0)))
       "watch" (let [target (second questions)
                     s (channel/find-session (dissoc config :session-id) target
                                             " — `session list --live` names the live ones")]
@@ -543,7 +567,7 @@
                     (err-println (str "watching " (:session-id s) " — " (pr-str ack) " (ctrl-c stops)"))
                     @done
                     (System/exit 0))))
-      (do (err-println (str "session: unknown subcommand " (pr-str sub) " — list | watch SESSION")) (System/exit 2)))
+      (do (err-println (str "session: unknown subcommand " (pr-str sub) " — list | watch SESSION | delegates | attach ID")) (System/exit 2)))
     (if (not= "list" sub)
       nil
       (let [listened (channel/sessions config)

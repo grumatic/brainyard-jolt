@@ -26,8 +26,8 @@
                                :args ["-s" "workspace-write"] :prompt "-not a flag"}
                               ["CODEX_SANDBOX"])
         tail (drop-while #(not= "codex" %) argv)]
-    (is (= ["tmux" "new-session" "-d" "-s" "byj-cx-pending-1" "-x" "200" "-y" "50" "-c" "/p" "env" "-u" "CODEX_SANDBOX" "CODEX_HOME=/h"]
-           (take 15 argv))
+    (is (= (into ah/*tmux* ["new-session" "-d" "-s" "byj-cx-pending-1" "-x" "200" "-y" "50" "-c" "/p" "env" "-u" "CODEX_SANDBOX" "CODEX_HOME=/h"])
+           (take 19 argv))
         "a pane takes the tmux server's environment: the home is passed")
     (is (= ["codex" "-m" "gpt-x" "-s" "workspace-write" "--" "-not a flag"] tail)
         "the brief last, after --, as the person's own words")
@@ -101,15 +101,15 @@
   (testing "new: started under a pending name, then attached"
     (let [p (host/plan {:state :codex-new} plan-opts)]
       (is (= "byj-cx-pending-n1" (:id p)))
-      (is (= ["tmux" "new-session" "-d" "-s" "byj-cx-pending-n1"] (take 5 (:start p))))
+      (is (= (into ah/*tmux* ["new-session" "-d" "-s" "byj-cx-pending-n1"]) (take 9 (:start p))))
       (is (= ["codex"] (vec (drop-while #(not= "codex" %) (:start p)))))
-      (is (= ["tmux" "attach-session" "-t" "byj-cx-pending-n1"] (:attach p)))))
+      (is (= (into ah/*tmux* ["attach-session" "-t" "byj-cx-pending-n1"]) (:attach p)))))
   (testing "saved: resumed in a tmux session named for its thread"
     (let [p (host/plan {:state :codex-saved :session-id "t-old"} plan-opts)]
       (is (= ["codex" "resume" "t-old"] (vec (drop-while #(not= "codex" %) (:start p)))))
-      (is (= ["tmux" "attach-session" "-t" "byj-cx-t-old"] (:attach p)))))
+      (is (= (into ah/*tmux* ["attach-session" "-t" "byj-cx-t-old"]) (:attach p)))))
   (testing "live and running here: attached, nothing started"
-    (is (= {:id "t-live" :start nil :attach ["tmux" "attach-session" "-t" "byj-cx-t-live"]}
+    (is (= {:id "t-live" :start nil :attach (into ah/*tmux* ["attach-session" "-t" "byj-cx-t-live"])}
            (host/plan {:state :codex-live :session-id "t-live"} plan-opts))))
   (testing "live in another terminal: refused"
     (is (str/includes? (:refuse (host/plan {:state :codex-live :session-id "elsewhere"} plan-opts)) "another terminal")))

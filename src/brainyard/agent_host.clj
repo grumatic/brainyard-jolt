@@ -6,9 +6,10 @@
   Code's host (`claude-host`) and Codex's (`codex-host`), an adapter each
   (RFC-049 decision 5, byj-gly.430.3; RFC-033, RFC-039).
 
-  Each session runs in a detached tmux session of its own, named with the
-  adapter's prefix and the session's id, opened by `tmux attach` and left with
-  `ctrl-b d`. What is here knows nothing of any CLI: the tmux command and the
+  Each session runs in a detached tmux session of its own on byj's own tmux
+  server (`*tmux*`: `tmux -L byj`, byj-6e6), named with the adapter's prefix
+  and the session's id, opened by `tmux attach` and left with `ctrl-b d`.
+  What is here knows nothing of any CLI: the tmux command and the
   environment it runs in, a prefix's sessions, starting and stopping one, its
   screen and keys, and the two loops every driver runs — typing a line and
   confirming the session took it, and polling until a turn is over. What a
@@ -19,10 +20,21 @@
             [ebb.core :as m]
             [brainyard.effect :as fx]))
 
+(def socket-name
+  "The tmux server byj runs these sessions on: its own, `byj`, or the one
+  `BYJ_TMUX_SOCKET` names (byj-6e6). Not the person's default server, where
+  they sat beside the person's own sessions and under their `~/.tmux.conf`,
+  whose plugins (tmux-continuum) saved byj's sessions over the person's own
+  restore point."
+  (or (not-empty (str/trim (str (System/getenv "BYJ_TMUX_SOCKET")))) "byj"))
+
 (def ^:dynamic *tmux*
-  "The tmux command, as argv — a test binds `[\"tmux\" \"-L\" label]`, a server
-  of its own, so it never touches the person's."
-  ["tmux"])
+  "The tmux command, as argv: byj's own server (`socket-name`), started with no
+  config file (`-f /dev/null`, read only when the server starts), so tmux's
+  defaults hold there — prefix `C-b`, a status line — whatever the person's
+  `~/.tmux.conf` says (byj-6e6). A test binds `[\"tmux\" \"-L\" label]`, a server
+  of its own, so it never touches byj's."
+  ["tmux" "-L" socket-name "-f" "/dev/null"])
 
 (def field-sep
   "What parts the fields of a tmux `-F` format. Not a tab: tmux 3.2 and 3.3

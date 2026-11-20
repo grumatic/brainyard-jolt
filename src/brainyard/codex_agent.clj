@@ -246,6 +246,36 @@
       :else {:error (str "no Codex session " session " running here or saved: give \"new\" — "
                          "one in another terminal is not driven from here (session$send codex:" session " hands it a task)")})))
 
+(defn reopen
+  "Delegation `thread` running on byj's tmux server, for the person to watch
+  or take over (byj-oer), as claude-agent's `reopen`: one running there is left
+  as it is; a saved one is resumed there as `open` resumes one — in its
+  record's folder, in its sandbox, the publish guard its hook — and waited for
+  until Codex is up. Nothing is typed to it. `{:session-id :tmux :started?}` or
+  `{:error}`: no record, its folder gone, a thread another Codex holds (its
+  writer lock taken outside byj's tmux server), or no sandbox where one is
+  required."
+  [config thread]
+  (let [thread (str/trim (str thread))
+        r (read-record config thread)
+        h (home config)
+        dir (:dir r)
+        up {:session-id thread :tmux (host/tmux-name thread)}]
+    (cond
+      (nil? r) {:error (str "no Codex session " thread " was delegated in this project")}
+      (contains? (host/running) thread) (assoc up :started? false)
+      (not (and dir (.isDirectory (io/file (str dir)))))
+      {:error (str "its folder " dir " is gone" (some->> (:stopped-why r) (str " — ")) ": Codex resumes a thread in the folder it ran in")}
+      (cxs/live? h thread)
+      {:error (str "Codex thread " thread " is held by a Codex outside byj's tmux server, so it is not resumed here")}
+      :else
+      (let [sb (sandbox config)
+            s (if (:error sb) sb (host/start! (assoc (start-opts config dir (:mode sb) {}) :resume thread)))
+            u (when-not (:error s) (run (host/ready s {:home h :resume thread :timeout-ms 30000}) 40000))]
+        (cond (:error s) s
+              (:error u) u
+              :else (assoc up :started? true))))))
+
 (defn await-turn
   "Wait until session `sid`'s turn is over, at most `timeout-ms`: how it
   settled (`host/await-settled`: done | waiting | gone, or timeout), its

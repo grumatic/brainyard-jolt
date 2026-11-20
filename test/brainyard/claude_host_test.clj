@@ -20,13 +20,13 @@
 (deftest enter-on-a-row-plans-start-and-attach
   (testing "new: started with the id it is given, then attached"
     (is (= {:id "new-1"
-            :start ["tmux" "new-session" "-d" "-s" "byj-cc-new-1" "-c" "/p" "claude" "--session-id" "new-1"]
-            :attach ["tmux" "attach-session" "-t" "byj-cc-new-1"]}
+            :start (into ah/*tmux* ["new-session" "-d" "-s" "byj-cc-new-1" "-c" "/p" "claude" "--session-id" "new-1"])
+            :attach (into ah/*tmux* ["attach-session" "-t" "byj-cc-new-1"])}
            (host/plan {:state :claude-new} opts))))
   (testing "saved: resumed in a tmux session of its own, then attached"
-    (is (= ["claude" "--resume" "old-2"] (subvec (:start (host/plan {:state :claude-saved :session-id "old-2"} opts)) 7))))
+    (is (= ["claude" "--resume" "old-2"] (subvec (:start (host/plan {:state :claude-saved :session-id "old-2"} opts)) 11))))
   (testing "live and running here: attached, nothing started"
-    (is (= {:id "live-here" :start nil :attach ["tmux" "attach-session" "-t" "byj-cc-live-here"]}
+    (is (= {:id "live-here" :start nil :attach (into ah/*tmux* ["attach-session" "-t" "byj-cc-live-here"])}
            (host/plan {:state :claude-live :session-id "live-here"} opts))))
   (testing "live in another terminal: refused, with why"
     (is (str/includes? (:refuse (host/plan {:state :claude-live :session-id "elsewhere"} opts)) "another terminal")))
@@ -38,8 +38,8 @@
                                                                (assoc opts :tmux? false :claude "npx claude"))))))
   (testing "nested in tmux, the inner session's status line says how to detach it: the outer prefix twice (byj-on2)"
     (let [p (host/plan {:state :claude-live :session-id "live-here"} (assoc opts :nested-prefix "C-a"))]
-      (is (= ["tmux" "set-option" "-t" "byj-cc-live-here" "status-right-length" "90" ";"
-              "set-option" "-t" "byj-cc-live-here" "status-right" "detach: C-a C-a d  (nested — C-a d detaches your outer tmux)"]
+      (is (= (into ah/*tmux* ["set-option" "-t" "byj-cc-live-here" "status-right-length" "90" ";"
+              "set-option" "-t" "byj-cc-live-here" "status-right" "detach: C-a C-a d  (nested — C-a d detaches your outer tmux)"])
              (:hint p)))
       (is (nil? (:hint (host/plan {:state :claude-live :session-id "live-here"} opts))) "not nested: nothing to say"))))
 
@@ -87,16 +87,16 @@
                                :permission-mode "acceptEdits" :settings "/s.json" :args ["--effort" "low"]
                                :prompt "line one\nline two"}
                               ["CLAUDECODE" "CLAUDE_CODE_SESSION_ID"])]
-    (is (= ["tmux" "new-session" "-d" "-s" "byj-cc-s-1" "-x" "200" "-y" "50" "-c" "/w"
+    (is (= (into ah/*tmux* ["new-session" "-d" "-s" "byj-cc-s-1" "-x" "200" "-y" "50" "-c" "/w"
             "env" "-u" "CLAUDECODE" "-u" "CLAUDE_CODE_SESSION_ID"
             ;; a pane takes the tmux server's environment: told not to prompt
             "GCM_INTERACTIVE=never" "GIT_SSH_COMMAND=ssh -o BatchMode=yes" "GIT_TERMINAL_PROMPT=0"
             "SSH_ASKPASS_REQUIRE=never"
             "npx" "claude" "--session-id" "s-1" "--model" "haiku" "--permission-mode" "acceptEdits"
-            "--settings" "/s.json" "--effort" "low" "--" "line one\nline two"]
+            "--settings" "/s.json" "--effort" "low" "--" "line one\nline two"])
            argv)
         "the brief whole, as the last argument, past `--` so no option takes it")
-    (is (= ["claude" "--resume" "s-1"] (subvec (host/start-argv {:id "s-1" :dir "/w" :resume? true} []) 16))
+    (is (= ["claude" "--resume" "s-1"] (subvec (host/start-argv {:id "s-1" :dir "/w" :resume? true} []) 20))
         "resumed, no brief")))
 
 (deftest the-trust-dialog-is-read-from-the-screen

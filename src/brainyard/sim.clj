@@ -475,14 +475,14 @@
              {:pid (:pid p) :command (:command p) :port (str/join "," (distinct (:ports p)))})))))
 
 (defn claude-sessions-in
-  "Claude Code sessions agent$claude runs in tmux (the person's server, where
-  claude-host starts them: `byj-cc-<id>`) whose directory is under `dir` but
+  "Claude Code sessions agent$claude runs in tmux (byj's own server, where
+  claude-host starts them: `byj-cc-<id>`, byj-6e6) whose directory is under `dir` but
   is not `dir` itself — its worktrees: `[{:session :path}]`. After a stage,
   one whose worktree is gone outlived its work (mode B, byj-gly.315.5)."
   [dir]
   (let [root (.getCanonicalPath (io/file dir))
-        r (fx/sh {:out :string :err :string :env (dissoc (into {} (System/getenv)) "TMUX")}
-                 "tmux" "list-sessions" "-F" (ah/tmux-format "#{session_name}" "#{session_path}"))]
+        r (apply fx/sh {:out :string :err :string :env (dissoc (into {} (System/getenv)) "TMUX")}
+                 (conj ah/*tmux* "list-sessions" "-F" (ah/tmux-format "#{session_name}" "#{session_path}")))]
     (vec (for [l (str/split-lines (str (:out r)))
                :let [[n p] (ah/tmux-fields l 2)]
                :when (and (str/starts-with? (str n) "byj-cc-") p

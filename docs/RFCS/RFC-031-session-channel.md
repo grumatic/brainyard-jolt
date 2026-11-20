@@ -354,6 +354,10 @@ listen), `close!`, `handle` (one request's reply), `next-turn!`, `pending?`,
 takes `:close!` and `:label` for a headless session. `session/run` takes
 `:channel`.
 
+`byj session delegates` and `byj session attach ID` list and open a
+project's delegated Claude Code and Codex sessions — not sessions of this
+channel; RFC-039 "For a program" (`byj-oer`).
+
 ## Invariants
 
 | invariant | enforced by |

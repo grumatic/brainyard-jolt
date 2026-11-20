@@ -392,6 +392,13 @@ found by running it on 0.163:
   codex "What is 17*23?"` answered 391 in 10 s, 21,447 tokens in. A
   gpt-5.6-luna predictor call took 12,526 tokens in, priced at $0.0025.
 
+### For a program (`byj-oer`)
+
+A Codex delegation is listed by `byj session delegates` and opened by `byj
+session attach` as Claude Code's are (RFC-039 "For a program"): resumed, when
+saved, by `codex-agent/reopen` in its record's folder and sandbox, the publish
+guard its hook, on byj's own tmux server (RFC-033, `byj-6e6`).
+
 ## API
 
 | fn | contract |

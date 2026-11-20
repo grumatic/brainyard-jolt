@@ -399,6 +399,34 @@ throwaway repository; four runs, $0.27 in all, nothing asked for permission):
   `delegated earlier for byj-9, needs-person` — and `claude/plan` continues it
   for the same bead or work rather than starting over.
 
+### For a program: `byj session delegates`, `byj session attach` (`byj-oer`)
+
+A program built on byj (the workbench, brainyard-apps) shows a byj session's
+delegations under it and opens one in a terminal of its own, reaching byj only
+as a process (RFC-070). `brainyard.delegates` gives it:
+
+- **`byj session delegates --json`**: every delegation of the project, Claude
+  Code's and Codex's (RFC-049), newest first — `agent` (`"claude"`,
+  `"codex"`), `id`, `parent-session` (the byj session that delegated it, the
+  link the program draws), `dir` and `dir-exists?` (a worktree removed since),
+  `live?` (running on byj's tmux server, RFC-033), `tmux` (its tmux session),
+  `attach` (the argv that attaches a terminal to it) and the rest of its record:
+  `instance-id task state verdict round bead branch how permission-mode sandbox
+  publish published report cost-usd started-at updated-at stopped-why`.
+- **`byj session attach ID --json`**: the session running on byj's server and
+  its `attach` argv, `started?` when it was saved and has just been started
+  again — resumed as `open` resumes one (`claude-agent/reopen`,
+  `codex-agent/reopen`): in its record's folder, with the settings it was
+  delegated with (the publish guard, the permission mode or sandbox, its right
+  to publish), waited for until it is up, nothing typed to it. Refused, with
+  why: an id no record of the project names, a folder that is gone (the CLI
+  resumes a session only where it ran), or a session running outside byj's
+  server (a second process on one session). Without `--json` it prints the
+  attach command.
+
+The program runs the attach in its own terminal; detaching (`ctrl-b d`)
+leaves the session running, and the delegation, if it still drives it, goes on.
+
 Rendered (90×22, three delegated sessions and one of the person's own):
 
 ```
@@ -530,7 +558,9 @@ Checked live (haiku, so accept edits):
 `default-allow`, `allowed-in-session`,
 `publish-guard`, `delegation`, `with-delegations`,
 `records`, `read-record`,
-`records-dir`, `usage-cost`, `typed-chars`. `brainyard.agent`: the leaf
+`records-dir`, `usage-cost`, `typed-chars`, `reopen`. `brainyard.delegates`:
+`rows`, `attach`, `attach-argv`, `fields` (`byj session delegates`, `byj session
+attach`, `byj-oer`). `brainyard.agent`: the leaf
 `:mem/join`. `brainyard.tui`: `delegation-label`, `delegation-asks?`,
 `session-counts`. Config: `:claude-tools?`, `:claude-home`,
 `:claude-permission-mode`, `:claude-model`, `:claude-settings`, `:claude-max-rounds`,
@@ -572,6 +602,8 @@ Checked live (haiku, so accept edits):
 | The hand-off's clean-up stops the Claude Code session first when it is running, before its worktree and branch are removed. | `claude-agent-test/the-hand-off-stops-the-session-before-its-worktree-goes` |
 | A task that says publish starts the session with the right to, and the loop writes no pull request of its own. | `claude-agent-test/a-task-that-says-publish-has-the-session-publish` |
 | Told to publish, a session running without the right is stopped and resumed with it; one that has it is continued. | `claude-agent-test/the-commands-start-a-session-in-a-worktree-and-guide-it` |
+| A delegation is listed for a program with the byj session that delegated it, live on byj's server and how to attach; attaching to a live one starts nothing; a saved one is resumed on byj's server, not started anew; an unknown id is refused. | `delegates-test/a-delegation-is-listed-attached-and-started-again` |
+| A delegation whose folder is gone — Claude Code's or Codex's — is listed as such and not started again, with why. | `delegates-test/a-delegation-whose-folder-is-gone-is-not-started-again` |
 | How a delegation ended is noted on its bead — branch and pull request, not the report — and not where the project keeps no beads. | `claude-agent-test/how-it-ended-is-noted-on-its-bead` |
 | A delegated session starts with push and pull-request commands denied and the guard as its Bash hook, the project's own settings kept; read-only and local commands allowed, none that writes beyond the worktree, runs what follows it or destroys work, and none it denies; a project adds its own or drops the shipped ones. One told to publish is allowed pushing and opening its pull request, denied only merging, has no guard, and has a file of its own. Claude Code's attribution is hidden unless the settings or `:claude-attribution?` say otherwise. | `claude-agent-test/a-delegated-session-may-not-push-or-open-a-pull-request` |
 | The guard refuses a push or pull request anywhere in a command line — past git's options, after `&&`, in `sh -c`, behind a path, on a later line — and lets through what only resembles one; a line that merely mentions a push is refused; only Bash is read. | `claude-agent-test/the-guard-refuses-a-push-wherever-it-is-in-the-line` |
@@ -581,7 +613,11 @@ Checked live (haiku, so accept edits):
 
 ## Known gaps
 
-None open. A model Claude Code offers no auto mode for (haiku) runs a
+- Share's approval popup for an injected turn runs plain `tmux`, the default
+  server, so on a Claude Code session on byj's own server (RFC-033) it finds no
+  pane and the session asks for itself, as one outside tmux does (`byj-3at`).
+
+Otherwise none open. A model Claude Code offers no auto mode for (haiku) runs a
 delegation in `acceptEdits`: the shipped allow list passes read-only and local
 commands there (`byj-gly.292`), and anything else — a project's own test or
 build command — asks until the project names it in `:claude-allow`.
