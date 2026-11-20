@@ -211,11 +211,11 @@
        (g/press! 258) (g/frame!)
        (snap! "↓ in the rail")
        (g/press! 27) (g/frame!)                       ; esc: the keys back
-       (g/press! 20) (g/frame!)                       ; ctrl+t
-       (snap! "esc, then ctrl+t: the right rail")
-       (g/press! 20) (g/frame!)
+       (g/press! 18) (g/frame!)                       ; ctrl+r
+       (snap! "esc, then ctrl+r: the right rail")
+       (g/press! 18) (g/frame!)
        (type-line! "/left")
-       (snap! "ctrl+t closed it; /left opened the left, the keys in the input"))
+       (snap! "ctrl+r closed it; /left opened the left, the keys in the input"))
 
      (type-line! "/quit")
      (.join session-thread timeout-ms)

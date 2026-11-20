@@ -770,7 +770,7 @@
   [["/queue" "lines waiting for the turn to end; [cancel all|N]"]
    ;; the frame's rails (byj-gly.123): what you see, never the model's
    ["/left" "the left rail: open or close it (ctrl+l); [VIEW]"]
-   ["/right" "the right rail: open or close it (ctrl+t); [VIEW]"]])
+   ["/right" "the right rail: open or close it (ctrl+r); [VIEW]"]])
 
 (defn queue-command
   "What `/queue ARGS` says about `queue`, and the queue it leaves: `[text
@@ -3602,7 +3602,7 @@
   (r/-add-watch! c (fn [cell] (f (r/-value cell)))))
 
 (defn rail-key!
-  "ctrl+l or ctrl+t, for `side`: a closed rail opens with the keys; an open
+  "ctrl+l or ctrl+r, for `side`: a closed rail opens with the keys; an open
   one takes the keys; the rail that has them closes, and the keys go back to
   the input."
   [c side]
@@ -3857,7 +3857,7 @@
                           ;; a rail's keys and the keys in a rail (byj-gly.123),
                           ;; while nothing else is in front: an ask's letters and
                           ;; a picker's arrows come first
-                          (and (k/match? e ["ctrl+l" "ctrl+t"]) (nil? @(:gate c)) (nil? @(:picker c)))
+                          (and (k/match? e ["ctrl+l" "ctrl+r"]) (nil? @(:gate c)) (nil? @(:picker c)))
                           (rail-key! c (if (k/match? e "ctrl+l") :left :right))
                           (and @(:rail-focus c) (nil? @(:gate c)) (nil? @(:picker c)))
                           (rail-focused-key! c e)

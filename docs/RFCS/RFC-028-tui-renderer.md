@@ -668,12 +668,12 @@ Four things follow brainyard's renderer rather than the line one:
           something a person looks at, and if the model should see a diff, it
           is asked to run one, which it then sees.
   - **Keys.**
-    - ctrl+l is the left rail and ctrl+t the right. Each press goes one step:
+    - ctrl+l is the left rail and ctrl+r the right (ctrl+t until byj-0x0). Each press goes one step:
       a closed rail opens with the keys; an open one takes the keys; the one
       that has them closes.
     - These are the ctrl-letters nothing else here takes. The field takes
       a, d, e, k, u, w and v. tmux takes ctrl+b. Readline users press ctrl+p
-      and ctrl+n for history. ctrl+\ and ctrl+] decode as no key at all.
+      and ctrl+n for history; byj has no ctrl+r search. ctrl+\ and ctrl+] decode as no key at all.
     - In a rail: ↑↓ and pgup/pgdn move its mark, Enter acts on the marked
       item, and Esc gives the keys back. The footer says so.
     - Tab and shift+Tab move the mark to the next or previous section of the

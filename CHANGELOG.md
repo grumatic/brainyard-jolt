@@ -6,6 +6,8 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **The right rail is ctrl+r**, no longer ctrl+t; `/right` still opens and
+  closes it (byj-0x0).
 - **A session `byj acp` holds can listen, and be shared** (RFC-053,
   byj-p2q): `session/new`/`session/load` with `_meta.brainyard.channel`
   open its session channel, so another session, a script or a share's

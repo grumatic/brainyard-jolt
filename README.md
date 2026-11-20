@@ -58,7 +58,7 @@ printf 'q1\nq2\n' | byj run -p mock      # piped input works too
   `/claude`, `/codex`, `/team` and `/handover`, which hand the work to
   agents, to Claude Code or Codex, to a team of sessions or to another
   session.
-  - ctrl+l and ctrl+t open a rail on either side: the project's own agents,
+  - ctrl+l and ctrl+r open a rail on either side: the project's own agents,
     skills and tools, the window's sessions, its open issues, what it
     remembers and its self-improvement on the left; its files, changes,
     commits and branch graph, a live feed of the session's activity, and

@@ -3338,7 +3338,7 @@
       (is (= 24 (width :left)) "← narrows it"))
     (testing "the right rail, the other way, the left keeping its own"
       (g/press! 27) (g/press! 12) (g/press! 12) (g/frame!) ; esc; ctrl+l takes the keys, then closes it
-      (g/press! 20) (g/frame!)                        ; ctrl+t: the right rail
+      (g/press! 18) (g/frame!)                        ; ctrl+r: the right rail
       (is (= 34 (width :right)))
       (g/press! 260) (g/frame!)
       (is (= 36 (width :right)) "← widens it")
@@ -3378,7 +3378,7 @@
       (reset! (:press c) nil) (reset! (:selection c) nil))
     (testing "the right rail's, the other way, within bounds"
       (g/press! 12) (g/press! 12) (g/frame!)             ; ctrl+l takes the keys, then closes it
-      (g/press! 20) (g/frame!)                           ; ctrl+t: the right rail
+      (g/press! 18) (g/frame!)                           ; ctrl+r: the right rail
       (let [sep (str/last-index-of (line) "│")]
         (is (= 85 sep))
         (mouse! 0 sep 3 false)
@@ -3414,7 +3414,7 @@
       (is (nil? @acted))
       (is (= 1 (get-in @(:rails c) [:left :at]))))
     (testing "a click on a view's name in the header shows that view"
-      (g/press! 20) (g/frame!)                             ; ctrl+t: the right rail, [Files] Commits
+      (g/press! 18) (g/frame!)                             ; ctrl+r: the right rail, [Files] Commits
       (is (= 0 (get-in @(:rails c) [:right :view])))
       (click! (+ 86 8) 0)
       (is (= 1 (get-in @(:rails c) [:right :view])))
@@ -3478,7 +3478,7 @@
                                      :on-show #(swap! shown conj :source)}]}})
         c (:cells r)
         at #(select-keys (get @(:rails c) :right) [:view :at])]
-    (g/press! 20) (g/frame!)                          ; ctrl+t
+    (g/press! 18) (g/frame!)                          ; ctrl+r
     (is (= {:view 0 :at 0} (at)))
     (g/press! 9) (g/frame!)
     (is (= {:view 0 :at 0} (at)) "Tab in Files, which has no sections, stays")
@@ -3656,7 +3656,7 @@
 (deftest a-rail-with-no-room-draws-over-the-centre
   (let [r (mounted {:cols 70 :rows 12 :rails (rail-views (atom nil))})
         c (:cells r)]
-    (g/press! 20) (g/frame!)
+    (g/press! 18) (g/frame!)
     (is (= :right @(:rail-focus c)))
     (is (= 70 (:w @(:size c))) "the centre keeps its width under it")
     (is (str/includes? (first (scr/lines (:screen r))) "[Files] Commits"))
@@ -3719,7 +3719,7 @@
   (let [r (mounted {:cols 120 :rows 12 :permission-mode-box (atom :auto) :on-agents identity
                     :rails (rail-views (atom nil))})
         lines #(vec (scr/lines (:screen r)))]
-    (g/press! 20) (g/frame!)
+    (g/press! 18) (g/frame!)
     (is (str/includes? ((lines) 0) "│[Files] Commits") "the rail has its 34 columns")
     (is (every? #(<= (text/width (str/trimr %)) 120) (lines)))
     (is (str/includes? (last (lines)) "↑↓ · enter · tab sections · F/C views · ←→ width · esc returns") "the rail's keys stay")
@@ -3749,7 +3749,7 @@
         r (mounted {:cols 120 :rows 12 :permission-mode-box (atom :auto)
                     :rails {:right [(views "File") (views "Source") (views "Activity") (views "Terminal")]}})
         lines #(vec (scr/lines (:screen r)))]
-    (g/press! 20) (g/frame!)                          ; ctrl+t
+    (g/press! 18) (g/frame!)                          ; ctrl+r
     (is (= 85 (str/index-of ((lines) 0) "│")) "the separator where the rail's 34 columns put it")
     (is (every? #(<= (text/width (str/trimr %)) 120) (lines)))))
 
@@ -3760,7 +3760,7 @@
         r (mounted {:cols 140 :rows 12 :rails views})
         c (:cells r)]
     (type! "look at")
-    (g/press! 20) (g/frame!)
+    (g/press! 18) (g/frame!)
     (is (str/includes? (last (scr/lines (:screen r))) "@ mentions"))
     (g/press! (int \@)) (g/frame!)
     (is (= "look at @src/a.clj " @(:draft c)))

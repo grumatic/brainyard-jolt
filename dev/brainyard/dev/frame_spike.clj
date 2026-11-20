@@ -52,7 +52,7 @@
     (g/frame!)
     (tui/measure! r)
     ((:emit r) :you "what changed in the renderer today?")
-    ((:emit r) :answer "The frame has three slots now: a rail each side of the transcript, both hidden until ctrl+l or ctrl+t opens one. The centre keeps at least sixty columns; a rail with no room beside it draws over the centre instead.")
+    ((:emit r) :answer "The frame has three slots now: a rail each side of the transcript, both hidden until ctrl+l or ctrl+r opens one. The centre keeps at least sixty columns; a rail with no room beside it draws over the centre instead.")
     (g/frame!)
     (doseq [k keys] (g/press! k) (g/frame!))
     (g/frame!)
@@ -65,11 +65,11 @@
     (doseq [l lines] (println (str "│" (str/trimr l))))))
 
 (defn -main [& _]
-  (println "The three-slot frame on the real renderer. ctrl+l is the left rail, ctrl+t the right.")
+  (println "The three-slot frame on the real renderer. ctrl+l is the left rail, ctrl+r the right.")
   (doseq [cols [80 120 160]]
     (show cols 14 "both closed" [])
     (show cols 14 "left (ctrl+l)" [12])
-    (show cols 14 "right (ctrl+t)" [20])
+    (show cols 14 "right (ctrl+r)" [18])
     (show cols 14 "left, then right" [12 27 20]))
   (println)
   (System/exit 0))
