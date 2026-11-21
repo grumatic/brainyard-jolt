@@ -187,7 +187,8 @@ A wakeup is delivered as **an input line the front end injects**, so the session
 loop needs no new node: `tasks/ready-wakeup!` returns the resume turn once the
 task is terminal, and the reader hands it over exactly as if it had been typed.
 The turn's question IS the wakeup message, so it lands in history like any
-other, carrying the note the model left itself — and the request the turn
+other (and `byj acp` tells its client of it as of a turn put in on the
+session's channel, which no prompt asked for either: RFC-053, `byj-5rx`), carrying the note the model left itself — and the request the turn
 parked from, in full (byj-gly.389, divergence `a-wakeup-carries-its-request`).
 A woken turn reads earlier questions through the history, which cuts each to
 500 characters. A `/team` request's closing steps — check the answers, merge,

@@ -273,7 +273,11 @@ such a turn, so it is told of it: a `user_message_chunk` with the question,
 role}`, a session's `{session}`), its answer as `agent_message_chunk` when it
 was not streamed, and, to a client that asked for the extensions,
 `_byj/turn {sessionId turn state injectedBy? terminatedBy? filesChanged?}`
-as it is `started` and `ended`. A share's viewer's turn under
+as it is `started` and `ended`. A turn byj starts on its own while the
+session waits — a parked task's wakeup, a due scheduled prompt (RFC-019) —
+has no prompt either and is told the same way, with no `injectedBy`
+(`byj-5rx`); before, its calls and answer reached the client with no
+question, and a client showed them as the turn before's. A share's viewer's turn under
 `:approval :owner` is the client's to allow: `session/request_permission`
 with a `toolCall` titled who asks and what, `_meta.brainyard.injected`,
 options Allow and Reject; unanswered within `:share-inject-approval-ms` it
@@ -654,6 +658,7 @@ Planned:
 | A permission request reaches the client as `session/request_permission`, naming the call with byj's four answers, and its answer is the gate's; allow-always is remembered for the session. | `acp-test/a-prompt-is-the-clients-to-answer` |
 | `session/cancel` ends the running turn, the prompt answered `cancelled`. | `acp-test/a-cancel-ends-the-turn-cancelled` |
 | `session/load` replays the history before it answers; a session already open is refused. | `acp-test/a-session-is-loaded-with-its-history` |
+| A turn byj starts on its own while an ACP session waits (a due scheduled prompt, a parked task's wakeup) is told as one the client sent no prompt for: its question as a `user_message_chunk` naming its turn, its answer, and `_byj/turn` `started` and `ended`. | `acp-test/a-turn-byj-starts-on-its-own-is-told-as-one-the-client-sent-no-prompt-for` |
 | Every update of a live turn names its turn, beside what else its `_meta` says; its prompt's result says the turn, the files it changed and its checkpoint, one that changed nothing too. | `acp-test/a-live-turn-names-itself-and-says-what-it-changed` |
 | A loaded turn's first update says its checkpoint — its ref, the commits as it began and ended, the files it changed, none for a turn that changed nothing all the same — once; a turn whose refs are gone has none and is replayed all the same. | `acp-test/a-loaded-turn-says-what-a-rewind-of-it-goes-back-to`, `session-history-test/every-turn-is-put-together-from-what-the-session-left` |
 | A replayed call carries the start and duration its record kept, a live one's update byj's own, and a call recorded before neither | `acp-test/a-replayed-call-says-when-it-began-and-how-long-it-ran` |

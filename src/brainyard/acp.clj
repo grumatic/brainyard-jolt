@@ -237,10 +237,11 @@
 (declare json-safe)
 
 (defn- injected?
-  "Is the turn session `sid` runs one its session channel put in, not a
-  client's prompt? (byj-p2q)"
+  "Is the turn session `sid` runs one the client sent no prompt for: one its
+  session channel put in (byj-p2q), or one byj started on its own — a parked
+  task's wakeup, a due scheduled prompt (byj-5rx)?"
   [st sid]
-  (boolean (some-> (get-in st [:sessions sid]) :state deref :current :channel?)))
+  (boolean (some-> (get-in st [:sessions sid]) :state deref :current ((some-fn :channel? :woken?)))))
 
 (defn- approve-fn
   "A session's `:approve` (RFC-043 :approval :owner) as ACP's

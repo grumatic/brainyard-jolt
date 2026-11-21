@@ -336,12 +336,16 @@
                                  text)
                              (recur))
                            ;; a parked turn whose task finished (RFC-019), or a
-                           ;; prompt of this session set to a time now due
+                           ;; prompt of this session set to a time now due: no
+                           ;; one sent a prompt for it either, so it is marked
+                           ;; as a channel turn is, and an application is told
+                           ;; of it as of one (byj-5rx)
                            :else
                            (if-let [t (or (tasks/ready-wakeup! wakeups task-registry)
                                           (try (schedule/ready-turn! (or (:project-dir config) (:working-dir config) ".") (str id))
                                                (catch Throwable _ nil)))]
-                             t
+                             (do (swap! state assoc :current {:text t :woken? true})
+                                 t)
                              (do (Thread/sleep poll-ms) (recur)))))))
         done (promise)
         worker (Thread. (fn []

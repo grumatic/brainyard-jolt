@@ -13,6 +13,7 @@
             [brainyard.effect :as fx]
             [brainyard.json :as json]
             [brainyard.persist :as persist]
+            [brainyard.schedule :as schedule]
             [brainyard.sdk :as sdk]
             [brainyard.tools :as tools]
             [jolt.process :as p]))
@@ -1215,6 +1216,36 @@
           (is (str/includes? (get-in (call c "_byj/share" {:sessionId other :args ""}) [:error :message]) "does not listen"))))
       (testing "a session not asked to listen opens no channel: the two asked do"
         (is (= 2 (count (filter #(:live? %) (channel/sessions {:project-dir dir :working-dir dir}))))))
+      (finally (acp/end! (:conn c))))))
+
+(deftest a-turn-byj-starts-on-its-own-is-told-as-one-the-client-sent-no-prompt-for
+  ;; byj-5rx: a due scheduled prompt (as a parked task's wakeup, RFC-019) is a
+  ;; turn the session takes while it waits, no client prompt asking for it: the
+  ;; client is told its question and when it starts and ends, as of a channel's
+  ;; turn, else it shows the turn's calls and answer as the turn before's
+  (let [dir (fresh-dir "woken")
+        c (with-ext (client))
+        {:keys [sessionId]} (new-session c dir (script! dir [{:answer "asked, answered" :goal-achieved true}
+                                                             {:answer "due, answered" :goal-achieved true}]))]
+    (try
+      (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "asked"}]})
+      (schedule/add! dir {:prompt "the scheduled prompt" :at (System/currentTimeMillis) :session sessionId})
+      (let [turns #(keep (fn [m] (when (= "_byj/turn" (:method m)) (:params m))) @(:seen c))]
+        (is (loop [n 0] (cond (= ["started" "ended"] (mapv :state (turns))) true
+                              (> n 400) false
+                              :else (do (Thread/sleep 50) (recur (inc n)))))
+            (pr-str (turns)))
+        (testing "the question, as the person's message, numbered as the session's next turn"
+          (let [q (first (filter #(and (= "user_message_chunk" (:sessionUpdate %))
+                                       (= "the scheduled prompt" (get-in % [:content :text])))
+                                 (updates c sessionId)))]
+            (is (some? q))
+            (is (= 2 (get-in q [:_meta :brainyard :turn])))))
+        (testing "and the answer as the agent's"
+          (is (some #(and (= "agent_message_chunk" (:sessionUpdate %)) (= "due, answered" (get-in % [:content :text])))
+                    (updates c sessionId))))
+        (testing "and when it starts and ends, the session's turn 2"
+          (is (= [2 2] (mapv :turn (turns))))))
       (finally (acp/end! (:conn c))))))
 
 (deftest a-turn-a-viewer-puts-in-runs-once-the-owner-allows-it
