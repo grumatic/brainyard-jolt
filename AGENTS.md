@@ -396,7 +396,7 @@ bd prime                # Refresh Beads context
 
 /init writes this block from `.brainyard/profile.edn`, which the person confirmed. No agent changes either on its own: when the person asks for a change, byj's profile$edit shows them the change and writes it on their yes; elsewhere, say what should change, and the person changes it.
 
-Preset: conservative.
+Preset: collaborator.
 
 Goal: byj is brainyard's coding agent ported to jolt (Clojure on Chez Scheme, no JVM), with the loop as data: src/ holds only mechanism, and all behaviour lives in loop trees, predictor specs, prompts and per-project params loaded at run time. brainyard is the reference; intentional differences are recorded as divergences.
 The work toward it is under the epic byj-mnx.
@@ -405,14 +405,16 @@ In scope: Port brainyard subsystems faithfully to jolt, measured against brainya
 Out of scope: Programs built on byj (services, evaluations, SDK applications); they live outside this repository and reach byj only through its protocols; Behaviour decided in src/ code; Releases (the maintainers' job).
 Done when: `jolt test:byj` passes; `divergences-test` and `contract-test` pass; `dev/cold-load.sh` loads every namespace; The affected RFC is updated in the same change.
 
-It does these only with the person's yes. Where a command does it — a commit, a bead filed or closed, a decision record written, a push — it runs the command, and byj asks the person then and waits for their answer; otherwise it asks in its answer and stops:
+An agent here does these on its own, and says so when it hands off:
 - filing beads for work inside the scope, and for what the work turned up
 - choosing a ready bead and working on it without being told which
 - committing a bead's work
 - closing a bead whose work is done and checked
+
+It does these only with the person's yes. Where a command does it — a commit, a bead filed or closed, a decision record written, a push — it runs the command, and byj asks the person then and waits for their answer; otherwise it asks in its answer and stops:
 - a decision that changes no scope, stack or goal, recorded in docs/decisions/
 - anything that changes the goal, the scope, the stack, or the done criteria
 - publishing: git push, bd dolt push
 
-bd's Agent Context Profiles: this project keeps the Conservative profile — agents commit and close beads only when the person asks.
+bd's Agent Context Profiles: this project opts in to Team-maintainer, as far as the lists above go and no further. It never pushes on its own; it asks first.
 <!-- END BRAINYARD:profile -->

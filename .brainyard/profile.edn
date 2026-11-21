@@ -1,5 +1,5 @@
 {:profile/version 1,
- :preset :conservative,
+ :preset :collaborator,
  :goal
  "byj is brainyard's coding agent ported to jolt (Clojure on Chez Scheme, no JVM), with the loop as data: src/ holds only mechanism, and all behaviour lives in loop trees, predictor specs, prompts and per-project params loaded at run time. brainyard is the reference; intentional differences are recorded as divergences.",
  :done
