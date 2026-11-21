@@ -613,11 +613,10 @@ attach`, `byj-oer`). `brainyard.agent`: the leaf
 
 ## Known gaps
 
-- Share's approval popup for an injected turn runs plain `tmux`, the default
-  server, so on a Claude Code session on byj's own server (RFC-033) it finds no
-  pane and the session asks for itself, as one outside tmux does (`byj-3at`).
-
-Otherwise none open. A model Claude Code offers no auto mode for (haiku) runs a
-delegation in `acceptEdits`: the shipped allow list passes read-only and local
+None open. Share's approval popup for an injected turn finds a Claude Code
+session on byj's own tmux server (RFC-033) by its live record's session, on
+whichever of the person's servers has it (`byj-3at`, in Share's byj-share).
+A model Claude Code offers no auto mode for (haiku) runs a delegation in
+`acceptEdits`: the shipped allow list passes read-only and local
 commands there (`byj-gly.292`), and anything else — a project's own test or
 build command — asks until the project names it in `:claude-allow`.
