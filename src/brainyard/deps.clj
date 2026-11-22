@@ -34,6 +34,7 @@
             [brainyard.init :as init]
             [brainyard.json :as json]
             [brainyard.persist :as persist]
+            [brainyard.profile :as profile]
             [brainyard.projects :as projects]
             [brainyard.worktree :as worktree]))
 
@@ -81,7 +82,8 @@
 
 (def ^:private give-schema
   [:map {:required #{:kind}}
-   [:kind [:enum :file :bead :branch :note]] [:paths [:vec :string]] [:id :string] [:parent :string]])
+   [:kind [:enum :file :bead :issue :branch :note]] [:paths [:vec :string]] [:id :string] [:parent :string]
+   [:tracker (into [:enum] profile/tracker-kinds)]])
 
 (def ^:private handoff-schema
   [:map {:required #{:from :to}} [:from :kw] [:to :kw] [:gives [:vec give-schema]]])
@@ -191,7 +193,8 @@
               (update :gives #(drop-where % (conj path i :gives) probs
                                           (fn [{k :kind :as g}]
                                             (cond (and (= :file k) (empty? (:paths g))) "a file give needs its :paths"
-                                                  (and (= :bead k) (str/blank? (or (:id g) (:parent g)))) "a bead give needs its :id or :parent"))))))
+                                                  (and (= :bead k) (str/blank? (or (:id g) (:parent g)))) "a bead give needs its :id or :parent"
+                                                  (and (= :issue k) (str/blank? (or (:id g) (:parent g)))) "an issue give needs its :id or :parent"))))))
           hs))))
 
 (defn- tidy-spec
@@ -271,14 +274,23 @@
 
 (defn- git-line [dir & args] (some-> (:ok (apply git dir args)) str/trim not-empty))
 
-(defn- run
-  "`cmd` in `dir`, given up after a few seconds: `{:exit :out :err}`, or
-  `{:error}` when it could not run or did not finish."
-  [dir & cmd]
-  (let [r (fx/run!! (apply fx/process-task {:dir (str dir) :out :string :err :string :in ""} cmd) version-timeout-ms)]
+(defn- run-within
+  "`cmd` in `dir`, given up after `ms`: `{:exit :out :err}`, or `{:error}`
+  when it could not run or did not finish."
+  [ms dir & cmd]
+  (let [r (fx/run!! (apply fx/process-task {:dir (str dir) :out :string :err :string :in ""} cmd) ms)]
     (cond (:ok r) (let [{:keys [exit out err]} (:ok r)] {:exit exit :out (str out) :err (str err)})
           (:timeout r) {:error "no answer in time"}
           :else {:error (str (or (some-> (:err r) ex-message) "could not run"))})))
+
+(defn- run
+  "`cmd` in `dir`, given up after a few seconds."
+  [dir & cmd]
+  (apply run-within version-timeout-ms dir cmd))
+
+(def ^:private gh-timeout-ms
+  "gh asks GitHub, which a version's --version does not."
+  15000)
 
 (def known-forges
   "Hosts that are a forge's own name, never a person's SSH alias for one."
@@ -651,10 +663,93 @@
       (try {:ok (json/read-str (:out r))} (catch Throwable e {:error (str "bd said what is not JSON: " (ex-message e))}))
       {:error (str "bd " (first args) ": " (str/trim (str (or (not-empty (:err r)) (:out r) (:error r)))))})))
 
+(defn issue-tracker
+  "The tracker an issue give `g` is checked in (byj-ykq, #3), of `issues`,
+  the profile's `:issues`: its `:tracker`; GitHub for `#N`, `N` or
+  `owner/repo#N`; the one tracker the profile names, when it names one; Linear
+  or Jira for `KEY-123` when the profile names one of them only; else beads.
+  `{:tracker k}`, or `{:error}` for a `KEY-123` the profile's Linear and Jira
+  could both hold."
+  [g issues]
+  (let [id (str (or (:id g) (:parent g)))
+        named (vec (distinct (keep :tracker issues)))
+        keyed (filterv (set named) [:linear :jira])]
+    (cond
+      (:tracker g) {:tracker (:tracker g)}
+      (re-matches #"(?:[\w.-]+/[\w.-]+)?#\d+|\d+" id) {:tracker :github}
+      (= 1 (count named)) {:tracker (first named)}
+      (and (re-matches #"[A-Z][A-Z0-9_]*-\d+" id) (= 1 (count keyed))) {:tracker (first keyed)}
+      (re-matches #"[A-Z][A-Z0-9_]*-\d+" id) (if (seq keyed)
+                                                 {:error (str id " could be Linear's or Jira's: say its :tracker")}
+                                                 {:tracker :beads})
+      :else {:tracker :beads})))
+
+(defn- bead-row
+  "A bead give `g`, or an issue give in beads, as `kind`: the bead closed, or
+  every child of `:parent`, as bd says."
+  [kind dir g {:keys [bd-fn path-env]}]
+  (let [bd? (or bd-fn (init/on-path "bd" (or path-env (System/getenv "PATH"))))
+        bd-fn (or bd-fn (fn [d & args] (apply run d "bd" args)))
+        row (fn [m] (cond-> (assoc m :kind kind) (= :issue kind) (assoc :tracker :beads)))]
+    (if-not bd?
+      (row {:ready false :items (vec (remove nil? [(or (:id g) (:parent g))])) :detail "bd is not on PATH"})
+      (if-let [id (:id g)]
+        (let [r (bd-json bd-fn dir "show" id "--json")
+              st (some-> (:ok r) first :status)]
+          (row {:items [id] :ready (= "closed" st)
+                :detail (cond (:error r) (:error r) st (str id " is " st) :else (str "no bead " id))}))
+        (let [r (bd-json bd-fn dir "list" "--parent" (:parent g) "--all" "--json" "--limit" "0")
+              kids (vec (:ok r))
+              open (remove #(= "closed" (:status %)) kids)]
+          (row {:items (mapv :id kids)
+                :ready (boolean (and (:ok r) (seq kids) (empty? open)))
+                :detail (cond (:error r) (:error r)
+                              (empty? kids) (str (:parent g) " has no children")
+                              (seq open) (str (count open) " of " (count kids) " under " (:parent g) " not closed")
+                              :else (str "all " (count kids) " under " (:parent g) " closed"))}))))))
+
+(defn- github-row
+  "An issue give `g` in GitHub: the issue closed, as `gh issue view` says, in
+  the repository its id names (`owner/repo#N`), else the profile's
+  `:github-repo`, else the one gh finds from the project's remote."
+  [dir g issues {:keys [gh-fn path-env]}]
+  (let [id (str (or (:id g) (:parent g)))
+        [_ own n] (re-matches #"(?:([\w.-]+/[\w.-]+))?#?(\d+)" id)
+        repo (or own (some #(when (= :github (:tracker %)) (:github-repo %)) issues))
+        gh? (or gh-fn (init/on-path "gh" (or path-env (System/getenv "PATH"))))
+        gh-fn (or gh-fn (fn [d & args] (apply run-within gh-timeout-ms d "gh" args)))
+        row (fn [m] (merge {:kind :issue :tracker :github :items [id] :ready false} m))]
+    (cond
+      (:parent g) (row {:detail "a GitHub issue is given by its :id; :parent is beads'"})
+      (nil? n) (row {:detail (str id " is not a GitHub issue number")})
+      (not gh?) (row {:detail "gh is not on PATH"})
+      :else
+      (let [r (apply gh-fn dir "issue" "view" n "--json" "state" (when repo ["--repo" repo]))
+            st (when (and (= 0 (:exit r)) (not (str/blank? (:out r))))
+                 (try (some-> (json/read-str (:out r)) :state str/lower-case) (catch Throwable _ nil)))]
+        (row {:ready (= "closed" st)
+              :detail (if st
+                        (str id " is " st)
+                        (str "gh issue view: " (str/trim (str (or (not-empty (:err r)) (:out r) (:error r))))))})))))
+
+(defn- issue-row
+  "An issue give `g` (byj-ykq, #3), checked in the tracker that holds it
+  (`issue-tracker`): beads through bd, GitHub through gh; Linear and Jira,
+  which byj does not read yet, said as not checked."
+  [dir g opts]
+  (let [issues (force (:issues opts))
+        {:keys [tracker error]} (issue-tracker g issues)
+        id (or (:id g) (:parent g))]
+    (case tracker
+      :beads (bead-row :issue dir g opts)
+      :github (github-row dir g issues opts)
+      {:kind :issue :tracker tracker :items (vec (remove nil? [id])) :ready false
+       :detail (or error (str "byj does not read " (name tracker) " issues yet; " id " is not checked"))})))
+
 (defn- give-row
   "Give `g` of a handoff from the sessions `from` (found ones): `{:kind
-  :ready :detail :items}`."
-  [dir g from {:keys [bd-fn path-env files turns]}]
+  :ready :detail :items}`, and `:tracker` for an issue give."
+  [dir g from {:keys [files turns] :as opts}]
   (case (:kind g)
     :file (let [res (mapv path-glob->re (:paths g))
                 hit? (fn [p] (some #(re-matches % p) res))
@@ -666,24 +761,8 @@
                            (empty? from) "no session of its role to have written one"
                            (empty? changed) (str (count items) " file(s) match; no turn of its role's sessions changed one")
                            :else (str (count changed) " of them changed by its role's turns"))})
-    :bead (let [bd? (or bd-fn (init/on-path "bd" (or path-env (System/getenv "PATH"))))
-                bd-fn (or bd-fn (fn [d & args] (apply run d "bd" args)))]
-            (if-not bd?
-              {:kind :bead :ready false :items (vec (remove nil? [(or (:id g) (:parent g))])) :detail "bd is not on PATH"}
-              (if-let [id (:id g)]
-                (let [r (bd-json bd-fn dir "show" id "--json")
-                      st (some-> (:ok r) first :status)]
-                  {:kind :bead :items [id] :ready (= "closed" st)
-                   :detail (cond (:error r) (:error r) st (str id " is " st) :else (str "no bead " id))})
-                (let [r (bd-json bd-fn dir "list" "--parent" (:parent g) "--all" "--json" "--limit" "0")
-                      kids (vec (:ok r))
-                      open (remove #(= "closed" (:status %)) kids)]
-                  {:kind :bead :items (mapv :id kids)
-                   :ready (boolean (and (:ok r) (seq kids) (empty? open)))
-                   :detail (cond (:error r) (:error r)
-                                 (empty? kids) (str (:parent g) " has no children")
-                                 (seq open) (str (count open) " of " (count kids) " under " (:parent g) " not closed")
-                                 :else (str "all " (count kids) " under " (:parent g) " closed"))}))))
+    :bead (bead-row :bead dir g opts)
+    :issue (issue-row dir g opts)
     :branch (let [ds (for [s from :let [d (worktree/session-diff (:dir s))] :when (= :worktree (:kind d))] d)
                   ahead (filter #(pos? (or (:commits %) 0)) ds)]
               {:kind :branch :items (vec (distinct (map :branch ds)))
@@ -732,11 +811,13 @@
   bound to each role, each handoff's gives and whether they are ready, the
   checks and what reading dropped. opts: `:registry` (rows, default the
   person's), `:path-env` (PATH), `:bd-fn` (`(fn [dir & args] {:exit :out
-  :err})`, default running bd)."
+  :err})`, default running bd), `:gh-fn` (the same, for gh), `:issues` (the
+  trackers an issue give is looked for in, default the profile's `:issues`)."
   [dir & [opts]]
   (let [dir (canonical dir)
         registry (or (:registry opts) (delay (projects/list-projects (projects/projects-root))))
-        opts (assoc opts :registry registry)
+        issues (if (contains? opts :issues) (:issues opts) (delay (:issues (profile/read-profile dir))))
+        opts (assoc opts :registry registry :issues issues)
         sf (spec-file dir) lf (local-file dir)
         {spec :value spec-probs :problems} (read-spec dir)
         {local :value local-probs :problems} (read-local dir)

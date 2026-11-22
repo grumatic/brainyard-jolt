@@ -207,6 +207,72 @@
                (deps/resolve-project dir {:git "https://github.com/o/reg"} [{:path bare :git-remote "git@github.com:o/reg.git"}]))
             "where there is no git config to read, the record's")))))
 
+;; byj-ykq, #3: a give of an issue in whichever of the profile's trackers
+;; holds it, not only a bead in bd
+(deftest an-issue-give-is-checked-in-the-tracker-that-holds-it
+  (testing "the tracker: its own, a GitHub number, the profile's only one, a key Linear or Jira holds, else beads"
+    (let [t #(deps/issue-tracker %1 %2)]
+      (is (= {:tracker :linear} (t {:id "#4" :tracker :linear} [])))
+      (is (= {:tracker :github} (t {:id "#42"} [{:tracker :beads}])))
+      (is (= {:tracker :github} (t {:id "o/r#42"} [])))
+      (is (= {:tracker :github} (t {:id "42"} [{:tracker :beads} {:tracker :github}])))
+      (is (= {:tracker :beads} (t {:id "x-1"} [{:tracker :beads} {:tracker :github}])))
+      (is (= {:tracker :jira} (t {:id "x-1"} [{:tracker :jira}])) "the only one named")
+      (is (= {:tracker :linear} (t {:id "ENG-12"} [{:tracker :beads} {:tracker :linear}])))
+      (is (:error (t {:id "ENG-12"} [{:tracker :linear} {:tracker :jira}])) "both could hold it: said, not guessed")
+      (is (= {:tracker :beads} (t {:epic "x"} [])) "nothing named: beads, as a bead give")))
+  (let [dir (repo! "issues")
+        _ (spit (doto (io/file dir ".brainyard" "profile.edn") io/make-parents)
+                (pr-str {:profile/version 1 :issues [{:tracker :beads} {:tracker :github :github-repo "o/here"}]}))
+        _ (spit (deps/spec-file dir)
+                (pr-str {:roles {:a {} :b {}}
+                         :handoffs [{:from :a :to :b
+                                     :gives [{:kind :issue :id "#7"}
+                                             {:kind :issue :id "other/repo#8"}
+                                             {:kind :issue :id "x-1"}
+                                             {:kind :issue :parent "x-2"}
+                                             {:kind :issue :id "ENG-3" :tracker :linear}
+                                             {:kind :bead :id "x-1"}]}]}))
+        asked (atom [])
+        gh (fn [_ & args]
+             (swap! asked conj (vec args))
+             (case (nth args 2) "7" {:exit 0 :out "{\"state\":\"CLOSED\"}"} "8" {:exit 0 :out "{\"state\":\"OPEN\"}"}))
+        bd (fn [_ & args]
+             (case (first args)
+               "show" {:exit 0 :out "[{\"id\":\"x-1\",\"status\":\"closed\"}]"}
+               "list" {:exit 0 :out "[{\"id\":\"x-2.1\",\"status\":\"closed\"}]"}))
+        gives #(:gives (first (:handoffs (with-redefs [changes/rows (constantly [])]
+                                            (deps/report dir (merge {:registry [] :gh-fn gh :bd-fn bd} %))))))]
+    (testing "each in its tracker, the profile's :issues read for them"
+      (is (= [["issue" "github" true ["#7"] "#7 is closed"]
+              ["issue" "github" false ["other/repo#8"] "other/repo#8 is open"]
+              ["issue" "beads" true ["x-1"] "x-1 is closed"]
+              ["issue" "beads" true ["x-2.1"] "all 1 under x-2 closed"]
+              ["issue" "linear" false ["ENG-3"] "byj does not read linear issues yet; ENG-3 is not checked"]
+              ["bead" nil true ["x-1"] "x-1 is closed"]]
+             (mapv (juxt :kind :tracker :ready :items :detail) (gives {}))))
+      (is (= [["issue" "view" "7" "--json" "state" "--repo" "o/here"]
+              ["issue" "view" "8" "--json" "state" "--repo" "other/repo"]]
+             @asked)
+          "the profile's repository, unless the id names its own"))
+    (testing "a tracker byj cannot reach: not ready, and said which"
+      (let [bin (tmp "nobin")
+            [g7 _ x1] (gives {:gh-fn nil :bd-fn nil :path-env bin})]
+        (is (= [false "gh is not on PATH"] ((juxt :ready :detail) g7)))
+        (is (= [false "bd is not on PATH"] ((juxt :ready :detail) x1)))
+        (is (= [false "gh issue view: not logged in"]
+               ((juxt :ready :detail) (first (gives {:gh-fn (fn [& _] {:exit 1 :err "not logged in"})})))))))
+    (testing "written from JSON, its tracker a keyword"
+      (let [w (deps/write! dir :spec {"roles" {"a" {} "b" {}}
+                                      "handoffs" [{"from" "a" "to" "b" "gives" [{"kind" "issue" "id" "ENG-3" "tracker" "jira"}]}]} {})]
+        (is (:ok w) (pr-str w))
+        (is (= [{:kind :issue :id "ENG-3" :tracker :jira}]
+               (:gives (first (:handoffs (edn/read-string (slurp (deps/spec-file dir)))))))))
+      (is (= :schema
+             (:stage (deps/write! dir :spec {"roles" {"a" {} "b" {}}
+                                             "handoffs" [{"from" "a" "to" "b" "gives" [{"kind" "issue" "id" "#1" "tracker" "gitea"}]}]} {})))
+          "a tracker the profile cannot name is refused"))))
+
 (deftest what-does-not-fit-is-dropped-and-said
   (let [dir (tmp "lenient")
         f (io/file dir ".brainyard" "deps.edn")]

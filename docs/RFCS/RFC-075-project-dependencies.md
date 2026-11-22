@@ -52,6 +52,7 @@ Two files under the project's `.brainyard/`:
  :handoffs [{:from :design :to :implement
              :gives [{:kind :file :paths ["docs/decisions/*.md"]}   ; globs
                      {:kind :bead :id "x-1"}                        ; or {:kind :bead :parent "x"}
+                     {:kind :issue :id "#42"}                       ; in a tracker the profile names; :tracker optional
                      {:kind :branch}
                      {:kind :note}]}]
  :workflows {:feature {:title "Feature" :master :lead                ; each key optional
@@ -132,6 +133,21 @@ in a worktree keeps itself. A give is ready when:
   (RFC-069, `changes/rows`);
 - `:bead`: the bead, or every child of `:parent`, is closed, as bd says;
   not ready, and said, where there is no bd;
+- `:issue`: the issue is closed in the tracker that holds it, of those the
+  project's profile names in `:issues` (RFC-073; `byj-ykq`, #3). The
+  tracker is the give's `:tracker`; else GitHub for `#N`, `N` or
+  `owner/repo#N`; else the profile's one tracker when it names one; else
+  Linear or Jira for `KEY-123` when the profile names one of them only
+  (both: not ready, said, until `:tracker` says); else beads. In beads it
+  is a `:bead` give's check, `:parent` included, so a `:bead` give is an
+  issue give in beads and keeps its meaning. In GitHub, `gh issue view`'s
+  state, in the repository the id names, else the profile's
+  `:github-repo`, else the one gh finds from the project's remote; a GitHub
+  issue is given by its `:id`. An epic is an issue like any other. Linear
+  and Jira are not read yet (`byj-98t`): such a give is not ready, said as
+  not checked.
+  A tracker that cannot be reached (no `bd` or `gh`, gh not logged in) leaves
+  it not ready, saying which and why. Its row carries `tracker`;
 - `:branch`: a `:from` session's worktree branch has a commit its base has
   not;
 - `:note`: a `:from` session has finished a turn.
@@ -181,8 +197,10 @@ does not read as written (stage `verify`).
 - `version-ok? [text constraint]`, `git-key [url]`, `same-repo? [a b]`, `path-glob->re [glob]`, `find-cycle [edges]`.
 - `*ssh-hostname*` — the host ssh resolves an alias to (`ssh -G`), memoized; bound by a test.
 - `structural-errors [dir spec registry]` — the cycles and dangling roles.
+- `issue-tracker [g issues]` — the tracker an issue give is checked in, of
+  the profile's `:issues`: `{:tracker}` or `{:error}`.
 - `report [dir opts]` — `byj deps --json`'s map. opts: `:registry`,
-  `:path-env`, `:bd-fn`.
+  `:path-env`, `:bd-fn`, `:gh-fn`, `:issues` (default the profile's).
 - `write! [dir which m opts]` — `which` `:spec` or `:local`; `{:ok :file
   :snapshot}` or `{:error :stage}` (`input`, `schema`, `check`,
   `snapshot`, `write`, `verify`), with `:problems` for `schema`.
@@ -204,8 +222,8 @@ byj deps write [--local] [-C DIR] [--json] < NEW.json
             provides [{id kind ok detail}]
             changes [{commit subject at paths}]}]
  roles [{id sessions [{id exists title turnCount updatedAt}]}]
- handoffs [{from to gives [{kind ready detail items}] ready handed {session turn at}|null}]
- workflows [{id links [{from to gives [{kind ready detail items}] ready}]}]
+ handoffs [{from to gives [{kind tracker? ready detail items}] ready handed {session turn at}|null}]
+ workflows [{id links [{from to gives [{kind tracker? ready detail items}] ready}]}]
  checks [{level kind target {project}|{role}|{handoff [from to]}|{workflow stage?|link?} message}]
  problems [{file key message}]}
 ```
@@ -224,8 +242,13 @@ The shape is byj's contract, `contract/deps/deps.json` (RFC-070).
 | What does not fit is dropped and said, a key at a time; an unreadable file is `{}` and a problem | `deps-test/what-does-not-fit-is-dropped-and-said` |
 | A write is held to the schema, refuses a cycle (a handoff's, or through another project's spec) and a dangling role, keeps the old file as a snapshot, and writes a stable order | `deps-test/a-write-is-held-to-the-schema-refuses-a-cycle-and-keeps-the-old-file` |
 | A workflow's stage plays a role, its links name stages and make no cycle, its master is a role, or it is not written; its links' gives are reported as a handoff's | `deps-test/workflows-are-checked-written-and-reported` |
+| An issue give is checked in the tracker of the profile's that holds it — its own, GitHub's for a number, the profile's only one, Linear's or Jira's for a key, else beads — beads through bd and GitHub through gh in the profile's repository; Linear and Jira, and a tracker that cannot be reached, are not ready and say why; it is written with its tracker (`byj-ykq`, #3) | `deps-test/an-issue-give-is-checked-in-the-tracker-that-holds-it` |
 | A registered project is found by its origin as its git config says it now, not the one its record holds | `deps-test/a-registered-project-is-found-by-its-origin-as-it-is-now` |
 | An origin through an SSH host alias is the forge's repository it resolves to, for the registry and for `remote-mismatch`; where ssh cannot say, owner and name match when one host is no known forge, never across two forges | `deps-test/an-ssh-host-alias-names-the-forge-it-stands-for` |
 | `byj deps --json` and `byj deps write` give and take JSON, and exit 1 on a refusal | `main-test/byj-deps-gives-the-dependencies-as-data-and-writes-them-whole` |
 | The report's shape is byj's contract | `contract-test/the-dependencies-are-byjs-contract` |
 | The spec is not ignored by the `.gitignore` `/init` writes, and the local file is; a `.gitignore` an earlier `/init` wrote gets the spec's exception from the next, and the check says so until then (`byj-bo8`, RFC-040) | `init-test/the-gitignore-keeps-brainyard-s-state-but-not-the-profile` |
+
+## Known gaps
+
+- An issue give in Linear or Jira is not checked (`byj-98t`).

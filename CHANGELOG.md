@@ -6,6 +6,12 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A handoff or workflow link in `deps.edn` can give an issue**, not only a
+  bead: `{:kind :issue :id "#42"}` is ready when the issue is closed in the
+  tracker of the profile's `:issues` that holds it — GitHub through `gh` in
+  the profile's `:github-repo`, beads through `bd`; a `KEY-123` in Linear or
+  Jira is said as not checked yet, and `:tracker` names one outright.
+  `{:kind :bead …}` keeps its meaning (byj-ykq, #3).
 - **The profile says where the project's issues are kept, and the goal has
   no epic** (RFC-073, byj-yq9): `:issues [{:tracker :beads} {:tracker
   :github :github-repo "owner/name"} …]`, one tracker or several of

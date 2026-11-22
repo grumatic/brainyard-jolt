@@ -210,7 +210,9 @@
                               :lost {:git "git@github.com:o/lost.git" :kind :reference}}
                    :roles {:design {:title "설계" :does "decisions and beads" :bogus 1} :implement {:worktree true :session :own}}
                    :handoffs [{:from :design :to :implement
-                               :gives [{:kind :file :paths ["docs/*.md"]} {:kind :bead :id "x-1"} {:kind :branch} {:kind :note}]}]
+                               :gives [{:kind :file :paths ["docs/*.md"]} {:kind :bead :id "x-1"} {:kind :branch} {:kind :note}
+                                       ;; an issue in a tracker the profile names (byj-ykq, #3)
+                                       {:kind :issue :id "#7"}]}]
                    :workflows {:feature {:title "기능" :master :design
                                          :stages {:design {} :build {:role :implement :title "Build"}}
                                          :links [{:from :design :to :build :gives [{:kind :note}]}]}}}))
@@ -218,8 +220,9 @@
     (put! (io/file dir ".brainyard" "sessions" sid "session.edn")
           (pr-str {:schema-version 1 :id sid :turn-count 1 :previous-turns [{:question "decide" :answer "done" :turn 1}]
                    :conversation-title "decide" :created-at 1700000000000 :updated-at 1700000000000}))
-    (let [d (deps/report dir {:registry [] :path-env ""
-                              :bd-fn (fn [_ & _] {:exit 0 :out "[{\"id\":\"x-1\",\"status\":\"closed\"}]"})})]
+    (let [d (deps/report dir {:registry [] :path-env "" :issues [{:tracker :beads} {:tracker :github :github-repo "o/here"}]
+                              :bd-fn (fn [_ & _] {:exit 0 :out "[{\"id\":\"x-1\",\"status\":\"closed\"}]"})
+                              :gh-fn (fn [_ & _] {:exit 0 :out "{\"state\":\"OPEN\"}"})})]
       (held "deps/deps.json" (str (json/write-str (normal (json/read-str (json/write-str d)) top)) "\n")))))
 
 (deftest the-doctor-report-is-byjs-contract
