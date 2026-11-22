@@ -7,7 +7,6 @@
   "`divergences-test` and `contract-test` pass"
   "`dev/cold-load.sh` loads every namespace"
   "The affected RFC is updated in the same change"],
- :goal-epic "byj-mnx",
  :scope
  {:in
   ["Port brainyard subsystems faithfully to jolt, measured against brainyard by replaying logged requests"
@@ -17,4 +16,5 @@
   :out
   ["Programs built on byj (services, evaluations, SDK applications); they live outside this repository and reach byj only through its protocols"
    "Behaviour decided in src/ code"
-   "Releases (the maintainers' job)"]}}
+   "Releases (the maintainers' job)"]},
+ :issues [{:tracker :beads}]}

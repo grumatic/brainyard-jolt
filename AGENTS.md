@@ -399,7 +399,7 @@ bd prime                # Refresh Beads context
 Preset: collaborator.
 
 Goal: byj is brainyard's coding agent ported to jolt (Clojure on Chez Scheme, no JVM), with the loop as data: src/ holds only mechanism, and all behaviour lives in loop trees, predictor specs, prompts and per-project params loaded at run time. brainyard is the reference; intentional differences are recorded as divergences.
-The work toward it is under the epic byj-mnx.
+Issues are tracked in beads.
 
 In scope: Port brainyard subsystems faithfully to jolt, measured against brainyard by replaying logged requests; Keep behaviour in resources/brainyard (loops, predictors, prompts), not in src/; Replace JVM dependencies with jolt-native ones; Keep RFCs, divergences and the contract/ protocols current with the code.
 Out of scope: Programs built on byj (services, evaluations, SDK applications); they live outside this repository and reach byj only through its protocols; Behaviour decided in src/ code; Releases (the maintainers' job).
