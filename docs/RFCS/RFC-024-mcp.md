@@ -252,6 +252,13 @@ environment. So an entry names a token and config.edn never holds it — the
 config writer would refuse a secret-shaped value anyway. `mcp/missing` is what
 a spec needs that is not set.
 
+A stdio server's environment is the run's own, with the spec's `:env`
+(expanded) and the variables it `:needs` merged over it, a spec's value
+winning over the run's (`connect!`; jolt's `:env` replaces a process's whole
+environment, so the run's is passed in). A server reads `HOME`, `PATH`, a
+token or a variable a program built on byj set as the run has it, and a spec
+need name only what it adds or changes (`byj-xf4`, #2).
+
 `:mcp-servers` and `:mcp?` are read as a turn goes, like other keys (RFC-013):
 an edit starts what was added or enabled, stops what was removed or disabled,
 and restarts a running server whose spec changed (`apply-mcp-servers!`). The
@@ -297,6 +304,7 @@ Command: `mcp$servers` — what is connected and what it offers.
 | A registry server becomes a pinned npm/PyPI/OCI command or an `mcp-remote` endpoint, what it requires becomes `:needs`, and one it cannot start says why. | `mcp-test/a-registry-server-becomes-something-this-port-can-start` |
 | find searches the registry after the catalogue; add takes a hit by its short name, asks for the full name when two share one, adds it disabled with `:from`, and starts nothing. | `mcp-test/slash-mcp-searches-the-registry-and-adds-from-it-disabled` |
 | `${VAR}` and `${VAR:-default}` expand at start; a spec needs its `:needs` and every default-less `${VAR}`; what it needs is passed in. | `mcp-test/a-variable-is-expanded-when-a-server-starts` |
+| A started stdio server has the run's environment, the spec's `:env` and `:needs` over it, a spec's value winning. | `mcp-test/a-started-server-inherits-the-runs-environment-with-its-specs-over-it` |
 | The catalogue is a resource a project extends and overrides by name; its entries carry no machine's own path; add writes the spec, not the catalogue's words. | `mcp-test/the-catalogue-is-a-resource-a-project-can-extend` |
 | find says what is ready, needed or added; add starts a ready entry, adds a needy one disabled, adds your own; remove stops it and drops its hidden-tools globs; twice or unknown is refused. | `mcp-test/slash-mcp-finds-adds-and-removes` |
 | The picker offers the catalogue: Enter adds, ctrl-x removes a server and nothing else. | `tui-test/the-mcp-picker-offers-the-catalogue` |

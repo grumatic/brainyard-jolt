@@ -362,6 +362,33 @@
       (is (= {:args ["x t-1"] :env {"TOKEN" "t-1" "HDR" "Bearer t-1"} :needs ["TOKEN"]}
              (mcp/resolve-spec {:args ["x ${TOKEN}"] :env {"HDR" "Bearer ${TOKEN}"} :needs ["TOKEN"]} env-fn))))))
 
+;; byj-xf4, #2: a program built on byj sets a variable in byj's environment
+;; that a server it starts must see. connect! hands jolt's process the run's
+;; environment with the spec's over it, since jolt's :env replaces the whole
+;; environment; a connect! that passed only the spec's variables would cut a
+;; server off from HOME, PATH and every token, and expand's test above would
+;; not notice. A test cannot add to its own process's environment, so it reads
+;; one the process has.
+(deftest a-started-server-inherits-the-runs-environment-with-its-specs-over-it
+  (let [env-of (fn [spec n]
+                 (let [c (mcp/connect! "stub" (merge {:command "python3" :args ["test/fixtures/mcp/stub_server.py"]} spec))]
+                   (try (is (not (:error c)) (str (:error c)))
+                        (:result (mcp/call-tool c "env" {:name n}))
+                        (finally (mcp/disconnect! c)))))
+        home (System/getenv "HOME")]
+    (is (some? home) "the test process has HOME")
+    (testing "a spec that sets nothing: the server has the run's variables"
+      (is (= (str "=" home) (env-of {} "HOME"))))
+    (testing "a spec's :env is added, and wins over the run's"
+      (is (= "=spec-home" (env-of {:env {"HOME" "spec-home"}} "HOME")))
+      (is (= "=v" (env-of {:env {"BYJ_MCP_TEST_ONLY" "v"}} "BYJ_MCP_TEST_ONLY")))
+      (is (= "unset" (env-of {} "BYJ_MCP_TEST_ONLY")) "and is the spec's alone"))
+    (testing "a variable the spec :needs, found only in .env, is passed in as resolved"
+      (is (= "=from-dotenv"
+             (env-of (mcp/resolve-spec {:args ["test/fixtures/mcp/stub_server.py"] :needs ["BYJ_MCP_NEEDED"]}
+                                       {"BYJ_MCP_NEEDED" "from-dotenv"})
+                     "BYJ_MCP_NEEDED"))))))
+
 (deftest the-catalogue-is-a-resource-a-project-can-extend
   (let [dir (str "target/mcp-test/catalog-" (System/currentTimeMillis))
         bundled (mcp/catalog dir)]

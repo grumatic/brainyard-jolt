@@ -6,9 +6,11 @@
 
 Deliberately awkward in the ways a real server is: it emits an unsolicited
 notification before answering tools/list, offers a tool that reports an error
-through isError, and one whose name cannot be a tool id.
+through isError, and one whose name cannot be a tool id. It also answers `env`,
+a variable of its own environment, which it does not list: the tests count the
+tools it lists (byj-xf4, #2).
 """
-import sys, json
+import os, sys, json
 
 TOOLS = [
     {"name": "echo", "description": "Echo the message.",
@@ -54,6 +56,11 @@ for line in sys.stdin:
         elif name == "boom":
             send({"jsonrpc": "2.0", "id": rid,
                   "result": {"content": [{"type": "text", "text": "the thing went wrong"}], "isError": True}})
+        elif name == "env":
+            # the environment the server was started with (byj-xf4, #2)
+            v = os.environ.get(str(args.get("name")))
+            send({"jsonrpc": "2.0", "id": rid,
+                  "result": {"content": [{"type": "text", "text": "unset" if v is None else "=" + v}]}})
         elif name == "write-thing":
             send({"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": "wrote " + str(args.get("path"))}]}})
         else:
