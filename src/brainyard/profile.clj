@@ -34,6 +34,10 @@
   [project-dir]
   (io/file (str project-dir) ".brainyard" "profile.edn"))
 
+(def trackers
+  "The issue trackers a profile's `:issues` can name."
+  [:beads :github :linear :jira])
+
 (defn profile-schema
   "The malli form a profile file is checked against, from `spec` (`presets`):
   a closed map, so a misspelled key is a problem rather than ignored."
@@ -45,7 +49,17 @@
      [:goal {:optional true} :string]
      [:scope {:optional true} [:map {:closed true} [:in {:optional true} strings] [:out {:optional true} strings]]]
      [:done {:optional true} strings]
+     ;; the older spelling of [:issues :epic] with beads; ignored when :issues is given
      [:goal-epic {:optional true} :string]
+     ;; where the project's issues are kept, and the epic (beads, Jira), milestone
+     ;; (GitHub) or project (Linear) the work toward the goal is under
+     [:issues {:optional true} [:map {:closed true}
+                                [:tracker (into [:enum] trackers)]
+                                [:epic {:optional true} :string]
+                                [:github-repo {:optional true} :string]
+                                [:linear-team {:optional true} :string]
+                                [:jira-site {:optional true} :string]
+                                [:jira-project {:optional true} :string]]]
      [:autonomy {:optional true} [:map-of (into [:enum] (map :id axes)) (into [:enum] levels)]]
      [:stop {:optional true} [:map {:closed true}
                               [:failures {:optional true} pos-int?]
@@ -112,6 +126,25 @@
   [profile axis]
   (get-in profile [:autonomy axis]))
 
+(defn tracker
+  "The issue tracker `profile` names: its `[:issues :tracker]`, else
+  `:beads` for an older profile that names a `:goal-epic`; nil when it says
+  none."
+  [profile]
+  (let [i (:issues profile)]
+    (if (map? i) (:tracker i) (when (:goal-epic profile) :beads))))
+
+(defn goal-epic
+  "The beads epic the work toward `profile`'s goal is under, which /drive
+  works under: `[:issues :epic]` when the tracker is beads, else an older
+  profile's `:goal-epic` when it says no `:issues`; nil for another tracker,
+  whose epic, milestone or project is no bead."
+  [profile]
+  (let [i (:issues profile)]
+    (not-empty (str (if (map? i)
+                      (when (= :beads (:tracker i)) (:epic i))
+                      (:goal-epic profile))))))
+
 ;; --- AGENTS.md's block (RFC-073 "Where agents read it", byj-71w.3) ------------------------
 
 (def block-name
@@ -137,13 +170,28 @@
   [profile]
   (if (= :act (level profile :git/commit)) :team-maintainer :conservative))
 
+(defn- issues-line
+  "The block's line saying where the project's issues are kept, from
+  `issues` (the profile's `:issues`) and `words` (block.edn's `:issues`):
+  the tracker, its place, and what the work toward the goal is under."
+  [{:keys [tracker epic] :as issues} words]
+  (let [given #(not-empty (str/trim (str (get issues %))))]
+    (str (get-in words [:tracker tracker])
+         (str/join (for [k [:github-repo :linear-team :jira-site :jira-project]
+                         :let [v (given k)]
+                         :when v]
+                     (fill (get-in words [:where k]) {k v})))
+         (when (given :epic) (fill (get-in words [:epic tracker]) {:epic (str/trim epic)}))
+         ".")))
+
 (defn render
   "The AGENTS.md block that shows `profile`, a resolved one (`read-profile`),
   from its marker line to its end marker. The same profile renders the same
   block, so a block that differs was changed by hand (`block-state`)."
   ([profile] (render profile (presets) (block-words)))
   ([profile spec words]
-   (let [{:keys [goal goal-epic scope done stop preset]} profile
+   (let [{:keys [goal goal-epic issues scope done stop preset]} profile
+         issues (when (map? issues) issues)
          axes (:axes spec)
          by-level (group-by #(level profile (:id %)) axes)
          items #(str/join "; " %)
@@ -152,9 +200,11 @@
          [(:title words)
           (:source words)
           (fill (:preset words) {:preset (name preset)})
-          (when (or goal goal-epic)
+          (when (or goal goal-epic issues)
             (para (when goal (fill (:goal words) {:goal (str/trim goal)}))
-                  (when goal-epic (fill (:goal-epic words) {:goal-epic goal-epic}))))
+                  (if issues
+                    (issues-line issues (:issues words))
+                    (when goal-epic (fill (:goal-epic words) {:goal-epic goal-epic})))))
           (when (or (seq (:in scope)) (seq (:out scope)) (seq done))
             (para (when (seq (:in scope)) (fill (:in words) {:items (items (:in scope))}))
                   (when (seq (:out scope)) (fill (:out words) {:items (items (:out scope))}))

@@ -99,6 +99,13 @@
       (testing "the next one, once that is claimed; then nothing ready"
         (is (= "t-3" (:bead (drive/next-bead cfg {} {}))))
         (is (str/includes? (:stopped (drive/next-bead cfg {} {})) "Nothing is ready under t-1")))))
+  (testing "the epic of the profile's :issues with beads (byj-yq9); none under another tracker's"
+    (let [{:keys [bin cfg]} (setup "next-issues" {:preset :collaborator :issues {:tracker :beads :epic "t-1"}})]
+      (is (= "t-2" (:bead (drive/next-bead cfg {} {}))))
+      (is (some #(str/includes? % "ready --json --limit 20 --exclude-label human --parent t-1") (calls bin))))
+    (let [{:keys [bin cfg]} (setup "next-linear" {:preset :collaborator :issues {:tracker :linear :epic "Workbench"}})]
+      (drive/next-bead cfg {} {})
+      (is (not-any? #(str/includes? % "--parent") (calls bin)) "a Linear project is no bead's parent")))
   (testing "conservative: the person picks the work"
     (let [{:keys [cfg]} (setup "ask-work" {:preset :conservative :goal-epic "t-1"})
           asked (atom nil)]

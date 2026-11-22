@@ -105,6 +105,44 @@
         (is (str/includes? bare "keeps the Conservative profile"))
         (is (not (str/includes? bare "**Conservative (default)**")) "not bd's own words, which say its default")))))
 
+;; byj-yq9: the profile says where the project's issues are kept
+(deftest the-profile-says-its-issue-tracker
+  (let [ok {:profile/version 1 :preset :collaborator :goal "A workspace."}
+        problems #(:problems (profile/resolve-profile (assoc ok :issues %)))]
+    (testing "a tracker, its epic and its place hold"
+      (is (nil? (problems {:tracker :beads :epic "mp-1"})))
+      (is (nil? (problems {:tracker :github :epic "v1" :github-repo "acme/web"})))
+      (is (nil? (problems {:tracker :linear :epic "Workbench" :linear-team "ENG"})))
+      (is (nil? (problems {:tracker :jira :epic "ABC-1" :jira-site "acme.atlassian.net" :jira-project "ABC"}))))
+    (testing "a tracker it does not know, none, or a key it does not know is a problem"
+      (is (some #(str/starts-with? % ":issues") (problems {:tracker :trello})))
+      (is (some #(str/starts-with? % ":issues") (problems {:epic "mp-1"})))
+      (is (some #(str/starts-with? % ":issues") (problems {:tracker :beads :board "x"}))))
+    (testing "the beads epic /drive works under: the issues' with beads, else the older :goal-epic"
+      (is (= "mp-1" (profile/goal-epic {:issues {:tracker :beads :epic "mp-1"}})))
+      (is (= "mp-1" (profile/goal-epic {:goal-epic "mp-1"})) "an older profile")
+      (is (= "mp-2" (profile/goal-epic {:goal-epic "mp-1" :issues {:tracker :beads :epic "mp-2"}})) ":issues wins")
+      (is (nil? (profile/goal-epic {:issues {:tracker :linear :epic "Workbench"}})) "a Linear project is no bead")
+      (is (nil? (profile/goal-epic {:goal-epic "mp-1" :issues {:tracker :jira}})))
+      (is (nil? (profile/goal-epic {:issues {:tracker :beads}})))
+      (is (nil? (profile/goal-epic {}))))
+    (testing "the tracker named, beads for an older profile with an epic"
+      (is (= :github (profile/tracker {:issues {:tracker :github}})))
+      (is (= :beads (profile/tracker {:goal-epic "mp-1"})))
+      (is (nil? (profile/tracker {}))))
+    (testing "AGENTS.md's block says the tracker, its place and what the work is under"
+      (let [line #(profile/render (profile/resolve-profile (assoc ok :issues %)))]
+        (is (str/includes? (line {:tracker :beads :epic "mp-1"}) "Issues are tracked in beads; the work toward it is under the epic mp-1."))
+        (is (str/includes? (line {:tracker :beads}) "\nIssues are tracked in beads.\n"))
+        (is (str/includes? (line {:tracker :github :epic "v1" :github-repo "acme/web"})
+                           "Issues are tracked in GitHub Issues (acme/web); the work toward it is under the milestone v1."))
+        (is (str/includes? (line {:tracker :linear :epic "Workbench" :linear-team "ENG"})
+                           "Issues are tracked in Linear (team ENG); the work toward it is under the project Workbench."))
+        (is (str/includes? (line {:tracker :jira :epic "ABC-1" :jira-site "acme.atlassian.net" :jira-project "ABC"})
+                           "Issues are tracked in Jira at acme.atlassian.net, project ABC; the work toward it is under the epic ABC-1."))
+        (is (not (str/includes? (line {:tracker :beads :epic "mp-1"}) "The work toward it is under the epic"))
+            "not the older sentence too")))))
+
 (deftest the-block-is-checked-against-the-data-never-read-for-it
   (let [p (profile/resolve-profile {:profile/version 1 :preset :autopilot})
         b (profile/render p)

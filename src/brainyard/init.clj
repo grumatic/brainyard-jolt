@@ -780,14 +780,17 @@
   .gitignore an earlier /init wrote, which ignores `.brainyard/` whole),
   AGENTS.md's profile block, and — with
   beads — the epic toward the goal and its first issues, each after the one
-  before, the epic named as the profile's `:goal-epic`. Asked every time,
+  before. With beads the profile says so, `:issues {:tracker :beads}`, and
+  the epic filed is its `:epic`. Asked every time,
   in every mode, as installing is; headless nothing is written and the draft
   is shown. With `profile$edit` (`edit-profile`), the profile's only
   writer: the profile's tripwire keeps every other tool from it, and each
   writes only what the person said yes to. `{:text :written?}`."
   [config ctx & [{:keys [dir epic issues path] :as args}]]
   (let [dir (or (not-empty (str dir)) (:project-dir config) (:working-dir config) ".")
-        data (draft-profile args)
+        bd (on-path "bd" (or path (System/getenv "PATH")))
+        beads? (and bd (.isDirectory (io/file dir ".beads")))
+        data (cond-> (draft-profile args) beads? (assoc :issues {:tracker :beads}))
         ;; each "title — what it must do": the title and the bead's description
         issues (vec (for [l (take 8 (draft-lines issues))
                           :let [[t d] (map str/trim (str/split l #"\s+[—–-]{1,2}\s+" 2))]]
@@ -796,8 +799,6 @@
         resolved (profile/resolve-profile data)
         problems (:problems resolved)
         block (profile/render resolved)
-        bd (on-path "bd" (or path (System/getenv "PATH")))
-        beads? (and bd (.isDirectory (io/file dir ".beads")))
         filing? (and beads? (not (str/blank? epic)))
         missing (draft-missing args beads?)]
     (if-let [no (ask-person ctx {:type :tool-use :action :call :tool "init$profile" :pattern "init$profile"
@@ -824,7 +825,7 @@
                                   (conj acc id))
                               acc))
                           [] issues))
-            data (cond-> data epic-id (assoc :goal-epic epic-id))
+            data (cond-> data epic-id (assoc-in [:issues :epic] epic-id))
             f (profile/profile-file dir)
             agents (io/file dir "AGENTS.md")]
         (io/make-parents f)
@@ -860,8 +861,14 @@
   kept. `autonomy`'s `axis level` lines are set over the profile's own, and
   `axis preset` drops one, so the preset's stands. A preset, axis or level
   this byj does not know is refused, not dropped: the person would be asked
-  about a change that is not the one meant."
-  [data {:keys [goal in out done preset autonomy goal-epic]}]
+  about a change that is not the one meant.
+
+  The issues: `tracker` sets `[:issues :tracker]`, and an older profile's
+  `:goal-epic` becomes its `:epic` with beads, or goes with another tracker.
+  `goal-epic` is `[:issues :epic]` once the profile has `:issues`, else the
+  older `:goal-epic`; `github-repo`, `linear-team`, `jira-site` and
+  `jira-project` are `:issues`' own, and need a tracker said."
+  [data {:keys [goal in out done preset autonomy goal-epic tracker] :as args}]
   (let [spec (profile/presets)
         axes (set (map :id (:axes spec)))
         levels (set (:levels spec))
@@ -871,8 +878,33 @@
                   [l (some-> a not-empty keyword) (some-> lvl not-empty str/lower-case keyword)]))
         bad-axis (first (for [[l a lvl] lines
                               :when (not (and (axes a) (or (levels lvl) (= :preset lvl))))]
-                          l))]
+                          l))
+        tracker-kw (some-> (given tracker) str/lower-case keyword)
+        places (into {} (for [k [:github-repo :linear-team :jira-site :jira-project]
+                              :let [v (given (get args k))]
+                              :when v]
+                          [k v]))
+        issues? (or tracker-kw (map? (:issues data)))
+        with-issues (fn [d]
+                      (cond-> d
+                        tracker-kw (-> (assoc-in [:issues :tracker] tracker-kw)
+                                       (as-> d (if-let [old (and (= :beads tracker-kw) (nil? (get-in d [:issues :epic]))
+                                                                 (not-empty (str (:goal-epic d))))]
+                                                 (assoc-in d [:issues :epic] old)
+                                                 d))
+                                       (dissoc :goal-epic))
+                        (given goal-epic) (as-> d (if issues?
+                                                    (assoc-in d [:issues :epic] (given goal-epic))
+                                                    (assoc d :goal-epic (given goal-epic))))
+                        (seq places) (update :issues merge places)))]
     (cond
+      (and tracker-kw (not (some #{tracker-kw} profile/trackers)))
+      {:refused (str "no tracker " (given tracker) "; the trackers are "
+                     (str/join ", " (map name profile/trackers)))}
+      (and (seq places) (not issues?))
+      {:refused (str "the profile says no issue tracker: say it (tracker: "
+                     (str/join ", " (map name profile/trackers)) ") with "
+                     (str/join ", " (map name (keys places))))}
       (and preset-kw (not (contains? (:presets spec) preset-kw)))
       {:refused (str "no preset " (given preset) "; the presets are "
                      (str/join ", " (map name (keys (:presets spec)))))}
@@ -887,7 +919,7 @@
                (seq (draft-lines out)) (assoc-in [:scope :out] (draft-lines out))
                (seq (draft-lines done)) (assoc :done (draft-lines done))
                preset-kw (assoc :preset preset-kw)
-               (given goal-epic) (assoc :goal-epic (given goal-epic))
+               true with-issues
                (seq lines) (as-> d (reduce (fn [d [_ a lvl]]
                                              (if (= :preset lvl)
                                                (update d :autonomy dissoc a)
@@ -920,7 +952,10 @@
                     (if (> (rank b) (rank a)) "  (more on its own)" "  (less on its own)")))]
     (vec (concat (keep identity [(field "Goal" [:goal]) (field "In scope" [:scope :in])
                                  (field "Out of scope" [:scope :out]) (field "Done when" [:done])
-                                 (field "The goal's epic" [:goal-epic]) (field "Preset" [:preset])])
+                                 (field "The goal's epic" [:goal-epic]) (field "Issue tracker" [:issues :tracker])
+                                 (field "The work is under" [:issues :epic]) (field "GitHub repository" [:issues :github-repo])
+                                 (field "Linear team" [:issues :linear-team]) (field "Jira site" [:issues :jira-site])
+                                 (field "Jira project" [:issues :jira-project]) (field "Preset" [:preset])])
                  (when (seq axes) [(str "How far an agent goes on its own:\n" (str/join "\n" axes))])))))
 
 (defn edit-profile
@@ -979,7 +1014,7 @@
   should say, and the model, not the person, writes the EDN (byj-8b3)."
   [config]
   [{:name "profile$edit" :kind :command
-    :description "Change this project's profile (.brainyard/profile.edn: its goal, scope, done criteria, preset, how far an agent goes on its own, the goal's epic) as the person asks you to. Pass only what changes; a field left out is kept. The person is shown each change and asked, every time; it is written, with AGENTS.md's profile block, only on their yes. Call it only for a change the person asked for — never to give yourself more room. Read the profile first with read-file. A project with no profile gets one from /init."
+    :description "Change this project's profile (.brainyard/profile.edn: its goal, scope, done criteria, preset, how far an agent goes on its own, its issue tracker and the goal's epic) as the person asks you to. Pass only what changes; a field left out is kept. The person is shown each change and asked, every time; it is written, with AGENTS.md's profile block, only on their yes. Call it only for a change the person asked for — never to give yourself more room. Read the profile first with read-file. A project with no profile gets one from /init."
     :input-schema [:map
                    [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
                    [:goal {:optional true} [:string {:desc "what the project is for, replacing the goal"}]]
@@ -988,7 +1023,12 @@
                    [:done {:optional true} [:string {:desc "done criteria, one a line, replacing the list"}]]
                    [:preset {:optional true} [:string {:desc "conservative, collaborator or autopilot"}]]
                    [:autonomy {:optional true} [:string {:desc "\"axis level\" one a line (e.g. git/commit ask), set over the preset; \"axis preset\" drops one"}]]
-                   [:goal-epic {:optional true} [:string {:desc "the bead id of the epic the work toward the goal is under"}]]]
+                   [:tracker {:optional true} [:string {:desc "where the project's issues are kept: beads, github, linear or jira"}]]
+                   [:goal-epic {:optional true} [:string {:desc "what the work toward the goal is under: with beads an epic's bead id, GitHub a milestone, Linear a project, Jira an epic key"}]]
+                   [:github-repo {:optional true} [:string {:desc "GitHub: the repository, owner/name (else its origin remote)"}]]
+                   [:linear-team {:optional true} [:string {:desc "Linear: the team key"}]]
+                   [:jira-site {:optional true} [:string {:desc "Jira: the site, e.g. acme.atlassian.net"}]]
+                   [:jira-project {:optional true} [:string {:desc "Jira: the project key"}]]]
     :output-schema [:map [:text :string] [:written? :any]]
     :effects #{:fs/write :process}
     :fn (fn [args ctx] (edit-profile config ctx args))}])

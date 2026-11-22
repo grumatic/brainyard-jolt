@@ -6,6 +6,12 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **The profile says where the project's issues are kept** (RFC-073,
+  byj-yq9): `:issues {:tracker :beads|:github|:linear|:jira :epic …}`, with
+  a tracker's place (`:github-repo`, `:linear-team`, `:jira-site`,
+  `:jira-project`) when given. `/init` writes it with beads, `profile$edit`
+  sets it, AGENTS.md's block says it, and `/drive` works under its epic with
+  beads. `:goal-epic` is still read when a profile has no `:issues`.
 - **The right rail is ctrl+r**, no longer ctrl+t; `/right` still opens and
   closes it (byj-0x0).
 - **A session `byj acp` holds can listen, and be shared** (RFC-053,

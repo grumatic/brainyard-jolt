@@ -679,6 +679,7 @@
         (is (str/includes? (:text r) "not yet"))
         (is (str/includes? (:text r) "Preset: collaborator.")))
       (is (str/includes? (:display @asked) "Goal: A small web workspace.") "the person sees the block")
+      (is (str/includes? (:display @asked) "Issues are tracked in beads.") "and that the issues are kept in beads")
       (is (str/includes? (:display @asked) "and file the epic \"Mini playground\" with its first issues, in order:\n- server shell\n- terminal"))
       (is (false? (:written? (init/write-profile {} {} draft))))
       (is (not (.exists f)))
@@ -688,7 +689,8 @@
             calls (str/split-lines (slurp (io/file bin "bd.log")))
             p (init/project-status project)]
         (is (:written? r))
-        (is (= "t-1" (:goal-epic (edn/read-string (slurp f)))) "the epic is the goal's")
+        (is (= {:tracker :beads :epic "t-1"} (:issues (edn/read-string (slurp f))))
+            "the tracker is beads, and the epic the goal's (byj-yq9)")
         (is (= :collaborator (get-in p [:profile :preset])))
         (is (= :current (get-in p [:profile :block])) "AGENTS.md shows it")
         (is (some #(str/starts-with? % "create --silent --title Mini playground --type epic") calls))
@@ -766,6 +768,28 @@
           "push is never the agent's, whoever asks")
       (is (str/includes? (:text (edit (ctx {:allowed true}) {:autonomy "deploy act"})) "is not `axis level`"))
       (is (str/includes? (:text (edit (ctx {:allowed true}) {:goal-epic "w-9"})) "what it says already"))
+      (is (empty? @asked)))
+    (testing "the issue tracker (byj-yq9): an older :goal-epic becomes beads' epic, or goes with another tracker"
+      (spit f (pr-str before))
+      (reset! asked [])
+      (edit (ctx {:allowed true}) {:tracker "beads"})
+      (let [data (edn/read-string (slurp f))]
+        (is (= {:tracker :beads :epic "w-1"} (:issues data)))
+        (is (not (contains? data :goal-epic)))
+        (is (str/includes? (:display (first @asked)) "Issue tracker:\n  was: (none)\n  now: beads"))
+        (is (str/includes? (slurp (io/file project "AGENTS.md")) "Issues are tracked in beads; the work toward it is under the epic w-1.")))
+      (edit (ctx {:allowed true}) {:goal-epic "w-9"})
+      (is (= {:tracker :beads :epic "w-9"} (:issues (edn/read-string (slurp f)))) "the epic is now the issues'")
+      (spit f (pr-str before))
+      (edit (ctx {:allowed true}) {:tracker "Jira" :goal-epic "ABC-1" :jira-site "acme.atlassian.net" :jira-project "ABC"})
+      (let [data (edn/read-string (slurp f))]
+        (is (= {:tracker :jira :epic "ABC-1" :jira-site "acme.atlassian.net" :jira-project "ABC"} (:issues data)))
+        (is (not (contains? data :goal-epic)) "a bead id is not Jira's")))
+    (testing "an issue tracker it does not know, or a place with none said, is refused before anyone is asked"
+      (spit f (pr-str before))
+      (reset! asked [])
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:tracker "trello"})) "no tracker trello; the trackers are beads, github, linear, jira"))
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:linear-team "ENG"})) "says no issue tracker"))
       (is (empty? @asked)))
     (testing "`axis preset` drops the profile's own level"
       (spit f (pr-str (assoc before :autonomy {:git/commit :ask})))

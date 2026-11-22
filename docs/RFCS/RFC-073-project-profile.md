@@ -77,11 +77,26 @@ an agent commits on its own.
  :scope    {:in  ["server shell" "terminal over a WebSocket" "file tree and editor"]
             :out ["authentication" "deployment"]}
  :done     ["npm test passes" "every bead under the goal's epic is closed"]
- :goal-epic "mp-3kd"                     ; the epic /drive works under
+ :issues   {:tracker :beads              ; where the issues are kept: :beads :github :linear :jira
+            :epic "mp-3kd"}              ; what the work is under; with beads, the epic /drive works under
  :autonomy {:issue/create   :act         ; overrides of the preset, if any
             :decision/local :ask}
  :stop     {:failures 3 :usd 5.0 :issues-per-run 10}}
 ```
+
+`:issues` says where the project's issues are kept (`byj-yq9`): its
+`:tracker`, one of `:beads`, `:github`, `:linear` and `:jira`, and what the
+work toward the goal is under, `:epic` — with beads an epic's bead id, on
+GitHub a milestone, in Linear a project, in Jira an epic key. A tracker's
+place is optional: `:github-repo` (`owner/name`, else the origin remote),
+`:linear-team` (the team key), `:jira-site` and `:jira-project`. It is a
+closed map, so an unknown tracker or key is a problem. Credentials are no
+part of it: the profile is committed. `:goal-epic`, a beads epic's id, is
+its older spelling, still read when there is no `:issues`, and ignored when
+there is. `/drive` works beads: it works under `profile/goal-epic` — the
+epic of `:issues` with beads, else `:goal-epic` — and under no epic with
+another tracker. AGENTS.md's block says the tracker in one line, "Issues
+are tracked in beads; the work toward it is under the epic mp-3kd."
 
 Each **axis** of `:autonomy` is `:act` (do it, and say so at handoff),
 `:ask` (propose it and wait for the person), or `:never`.
@@ -192,7 +207,8 @@ channel, as `init$install` asks (RFC-040): the block as AGENTS.md would show
 it, and the epic and issues it would file. It asks every time, in every
 mode; headless, it writes nothing and shows the draft. On a yes it files the
 epic and its issues with bd, each after the one before, names the epic as
-`:goal-epic`, writes `profile.edn`, adds it to git with `-f`, and writes
+`:issues`' `:epic` — with beads the draft already says `:issues {:tracker
+:beads}`, and the block shown says so — writes `profile.edn`, adds it to git with `-f`, and writes
 AGENTS.md's block. On a no it writes nothing and shows the draft; to change
 it, the person runs `/init` again saying what should differ. `init$profile`
 and `profile$edit` ("Changed as the person asks") are the profile's only
@@ -290,7 +306,7 @@ errs toward holding: `git -C x log --grep commit y` matches
 1. **`drive$next`** stops the run when the project has no profile or no
    beads, when a `:stop` limit is reached — failures in a row, the run's
    spend, beads filed since it began (`bd list --created-after`) — or when
-   nothing is ready under `:goal-epic` (`bd ready --parent`), passing over
+   nothing is ready under the goal's epic (`profile/goal-epic`, `bd ready --parent`), passing over
    a bead labelled `human` (step 5). Otherwise it
    takes the first ready bead that is not an epic; with `:issue/work :ask`
    the person is asked first, through the turn's permission channel, as
@@ -359,6 +375,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | `profile/read-profile` | the project's profile resolved, with `:file`; nil without one (built) |
 | `profile/resolve-profile` | a profile's preset merged under it, its ceilings applied, and `:problems`; a profile that does not match the schema keeps its goal, scope and done criteria to show, its autonomy the default preset's whole, and no stop limits (built) |
 | `profile/level` | the level a profile sets an axis to (built) |
+| `profile/trackers`, `profile/tracker`, `profile/goal-epic` | the trackers `:issues` can name; the one a profile names (beads for an older `:goal-epic`); the beads epic /drive works under, nil for another tracker (built) |
 | `profile/profile-schema` | the malli form a profile is checked against, closed (built) |
 | `profile/render` | the AGENTS.md block for a resolved profile, marker to marker, in `block.edn`'s words; the same profile renders the same block (built) |
 | `profile/block-state` | `:current`, `:stale`, `:missing` or `:orphan`: AGENTS.md's block against the data's rendering, never read for what it says (built) |
@@ -373,7 +390,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | `init$profile`, `init/write-profile` | the draft shown to the person and, on a yes, written with its epic and issues (built) |
 | `init/draft-profile` | a draft as `profile.edn` holds it: blanks left out, unknown presets and axis levels dropped (built) |
 | `profile$edit`, `init/edit-profile`, `init/profile-commands`; config `:profile-tools?` (true) | the profile changed as the person asks, shown and written on their yes, asked every time (built) |
-| `init/profile-edit`, `init/profile-changes` | what the fields given make of a profile, or why not; what changes, as the person reads it (built) |
+| `init/profile-edit`, `init/profile-changes` | what the fields given make of a profile, or why not; what changes, as the person reads it; `tracker` and each tracker's place set `:issues`, and an older `:goal-epic` becomes beads' `:epic` or goes with another tracker (built) |
 | `/drive`, `agent$drive`, `brainyard/loops/drive.edn` | the drive loop (built) |
 | `drive$next`, `drive$check`, `drive$settle`, `drive$report` (`brainyard.drive`) | its mechanism, registered by `:drive-tools?`, which `agent$drive`'s config sets (built) |
 | predictor `drive/judge`; `resources/brainyard/drive/words.edn` | the judgement of a bead's turn; every word the loop puts together (built) |
@@ -396,6 +413,8 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | `profile$edit` changes only what was given, shows each change and every axis that moves, writes the profile and AGENTS.md's block only on the person's yes, asked every time; a no, nobody to ask, an unknown preset or axis, an axis above its ceiling or no change writes nothing | `init-test/the-profile-changes-as-the-person-asks-only-on-their-yes`, `init-test/every-session-has-profile-edit` |
 | `/init` drafts a profile when the person says what the project is for, and its answer and check say what was written | `init-test/the-init-loop-drafts-the-profile-when-the-person-says-what-the-project-is-for` |
 | A draft with no preset, epic or first issues is drafted once more, and what it still lacks is said in the question before the person's yes | `init-test/a-draft-missing-its-preset-or-epic-is-drafted-again-and-said` |
+| `:issues` names one of the four trackers and only its own keys; the beads epic /drive works under is its `:epic` with beads, an older profile's `:goal-epic` without it, and none with another tracker; AGENTS.md's block says the tracker, its place and what the work is under | `profile-test/the-profile-says-its-issue-tracker`, `drive-test/the-next-bead-or-why-the-run-stops` |
+| `profile$edit` sets the issue tracker and its place, and refuses an unknown tracker, or a place with no tracker said | `init-test/the-profile-changes-as-the-person-asks-only-on-their-yes` |
 | `:decision/scope` and `:git/push` are never `:act` | `profile-test/no-profile-raises-an-axis-above-its-ceiling` |
 | A profile that does not match grants only the default preset | `profile-test/a-profile-that-does-not-match-grants-only-the-default` |
 | Every preset sets every axis, and the presets are the three decided | `profile-test/the-presets-are-data-and-name-every-axis` |
