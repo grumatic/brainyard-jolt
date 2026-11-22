@@ -10,21 +10,18 @@
 
  :preset "Preset: {preset}."
  :goal "Goal: {goal}"
- :goal-epic "The work toward it is under the epic {goal-epic}."
- ;; where the issues are kept (the profile's :issues): the tracker, its
- ;; place, and what the work toward the goal is under, in one line
- :issues {:tracker {:beads "Issues are tracked in beads"
-                    :github "Issues are tracked in GitHub Issues"
-                    :linear "Issues are tracked in Linear"
-                    :jira "Issues are tracked in Jira"}
+ ;; where the issues are kept (the profile's :issues, byj-yq9): each tracker
+ ;; and its place, in one line. :goal-epic is deprecated and never said.
+ :issues {:line "Issues are tracked in {trackers}."
+          :and " and "
+          :tracker {:beads "beads"
+                    :github "GitHub Issues"
+                    :linear "Linear"
+                    :jira "Jira"}
           :where {:github-repo " ({github-repo})"
                   :linear-team " (team {linear-team})"
                   :jira-site " at {jira-site}"
-                  :jira-project ", project {jira-project}"}
-          :epic {:beads "; the work toward it is under the epic {epic}"
-                 :github "; the work toward it is under the milestone {epic}"
-                 :linear "; the work toward it is under the project {epic}"
-                 :jira "; the work toward it is under the epic {epic}"}}
+                  :jira-project ", project {jira-project}"}}
  :in "In scope: {items}."
  :out "Out of scope: {items}."
  :done "Done when: {items}."

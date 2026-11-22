@@ -6,12 +6,17 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
-- **The profile says where the project's issues are kept** (RFC-073,
-  byj-yq9): `:issues {:tracker :beads|:github|:linear|:jira :epic …}`, with
-  a tracker's place (`:github-repo`, `:linear-team`, `:jira-site`,
-  `:jira-project`) when given. `/init` writes it with beads, `profile$edit`
-  sets it, AGENTS.md's block says it, and `/drive` works under its epic with
-  beads. `:goal-epic` is still read when a profile has no `:issues`.
+- **The profile says where the project's issues are kept, and the goal has
+  no epic** (RFC-073, byj-yq9): `:issues [{:tracker :beads} {:tracker
+  :github :github-repo "owner/name"} …]`, one tracker or several of
+  `:beads`, `:github`, `:linear` and `:jira`, each with its place
+  (`:github-repo`, `:linear-team`, `:jira-site`, `:jira-project`) and a
+  `:name` to tell two of one kind apart. `/init` writes it (beads, and
+  GitHub with a github.com remote) and files its first issues under no epic,
+  `profile$edit` replaces it whole, and AGENTS.md's block says it in one
+  line. `:goal-epic` is deprecated: an older profile still loads, nothing
+  reads it, `/drive` works the project's ready beads, and `profile$edit`
+  drops it when it writes.
 - **The right rail is ctrl+r**, no longer ctrl+t; `/right` still opens and
   closes it (byj-0x0).
 - **A session `byj acp` holds can listen, and be shared** (RFC-053,

@@ -76,27 +76,29 @@ an agent commits on its own.
  :goal     "A small web workspace with a Terminal section first."
  :scope    {:in  ["server shell" "terminal over a WebSocket" "file tree and editor"]
             :out ["authentication" "deployment"]}
- :done     ["npm test passes" "every bead under the goal's epic is closed"]
- :issues   {:tracker :beads              ; where the issues are kept: :beads :github :linear :jira
-            :epic "mp-3kd"}              ; what the work is under; with beads, the epic /drive works under
+ :done     ["npm test passes" "every bead toward the goal is closed"]
+ :issues   [{:tracker :beads}            ; where the issues are kept, one tracker or several:
+            {:tracker :github            ;   :beads :github :linear :jira, each with its place
+             :github-repo "acme/web"}]
  :autonomy {:issue/create   :act         ; overrides of the preset, if any
             :decision/local :ask}
  :stop     {:failures 3 :usd 5.0 :issues-per-run 10}}
 ```
 
-`:issues` says where the project's issues are kept (`byj-yq9`): its
-`:tracker`, one of `:beads`, `:github`, `:linear` and `:jira`, and what the
-work toward the goal is under, `:epic` — with beads an epic's bead id, on
-GitHub a milestone, in Linear a project, in Jira an epic key. A tracker's
-place is optional: `:github-repo` (`owner/name`, else the origin remote),
-`:linear-team` (the team key), `:jira-site` and `:jira-project`. It is a
-closed map, so an unknown tracker or key is a problem. Credentials are no
-part of it: the profile is committed. `:goal-epic`, a beads epic's id, is
-its older spelling, still read when there is no `:issues`, and ignored when
-there is. `/drive` works beads: it works under `profile/goal-epic` — the
-epic of `:issues` with beads, else `:goal-epic` — and under no epic with
-another tracker. AGENTS.md's block says the tracker in one line, "Issues
-are tracked in beads; the work toward it is under the epic mp-3kd."
+`:issues` says where the project's issues are kept (`byj-yq9`): a vector,
+one map a tracker, so a project that keeps its issues in more than one
+place names each. A tracker's `:tracker` is one of `:beads`, `:github`,
+`:linear` and `:jira`; its place is optional: `:github-repo`
+(`owner/name`, else the origin remote), `:linear-team` (the team key),
+`:jira-site` and `:jira-project`; `:name` tells two of one kind apart. Each
+map is closed, so an unknown tracker or key is a problem. Credentials are no
+part of it: the profile is committed. The goal has no epic: `:goal-epic`, a
+beads epic's id the work was under, is deprecated — an older profile that
+names it still loads, and nothing reads it (`profile/trackers` names the
+trackers, in order). `/drive` works the project's ready beads.
+AGENTS.md's block says the trackers in one line, each with its place and
+the last joined with "and": "Issues are tracked in beads and GitHub Issues
+(acme/web)."
 
 Each **axis** of `:autonomy` is `:act` (do it, and say so at handoff),
 `:ask` (propose it and wait for the person), or `:never`.
@@ -194,22 +196,22 @@ how much agents should do on their own, or ask for a profile; a bare `/init`
 drafts none. After the check, scaffold and beads, `agent$init` then runs a
 predictor, `init/profile`: from the person's words and `init$survey` (when
 the draft ran) it drafts the goal, scope, done criteria, a preset, any axis
-the person set apart from it, the goal's epic and its first issues, in
-order (`byj-71w.4`). A draft with no preset it knows, no epic or no
-first issues is a reply that slipped, not what the person said: the tree
-drafts once more (`:init/draft-whole?`), and what is still missing then
-`init$profile`'s question says — the default preset standing, no epic or
-issues filed — so a yes is to what will be written (`init/draft-missing`,
-`byj-kti`).
+the person set apart from it, and its first issues, in order
+(`byj-71w.4`). A draft with no preset it knows or no first issues is a
+reply that slipped, not what the person said: the tree drafts once more
+(`:init/draft-whole?`), and what is still missing then `init$profile`'s
+question says — the default preset standing, no issues filed — so a yes is
+to what will be written (`init/draft-missing`, `byj-kti`).
 
 `init$profile` shows the draft to the person through the turn's permission
 channel, as `init$install` asks (RFC-040): the block as AGENTS.md would show
-it, and the epic and issues it would file. It asks every time, in every
-mode; headless, it writes nothing and shows the draft. On a yes it files the
-epic and its issues with bd, each after the one before, names the epic as
-`:issues`' `:epic` — with beads the draft already says `:issues {:tracker
-:beads}`, and the block shown says so — writes `profile.edn`, adds it to git with `-f`, and writes
-AGENTS.md's block. On a no it writes nothing and shows the draft; to change
+it, and the issues it would file. It asks every time, in every mode;
+headless, it writes nothing and shows the draft. On a yes it files the
+issues with bd, each after the one before and under no epic — the draft
+already says where the issues are kept, `:issues [{:tracker :beads}]` with
+beads and `{:tracker :github}` too with a github.com origin remote, and the
+block shown says so — writes `profile.edn`, adds it to git with `-f`, and
+writes AGENTS.md's block. On a no it writes nothing and shows the draft; to change
 it, the person runs `/init` again saying what should differ. `init$profile`
 and `profile$edit` ("Changed as the person asks") are the profile's only
 writers, and each writes only what the person said yes to; no model turn of
@@ -219,7 +221,7 @@ every other tool from the file.
 ### Changed as the person asks
 
 A person who wants the goal, the scope, the done criteria, the preset, an
-axis or the goal's epic changed says so in the session, and the model
+axis or the issue trackers changed says so in the session, and the model
 calls `profile$edit` with only what changes (`byj-8b3`). Before it, the
 refusal told the model to have the person change the file, and editing
 EDN by hand is more than most people can do: a session that asked for the
@@ -227,9 +229,12 @@ project's renaming was handed a line of EDN to change itself.
 
 `profile$edit` reads the profile as the file holds it and sets each field
 given over it: the goal, the in-scope, out-of-scope and done lists whole,
-the goal's epic, the preset, and `axis level` lines over the profile's own
-levels (`axis preset` drops one). A blank field is kept, so a model's
-empty arguments change nothing. A preset, axis or level it does not know,
+the issue trackers whole (`issues`, an EDN vector; `[]` drops them), the
+preset, and `axis level` lines over the profile's own levels (`axis preset`
+drops one). A profile it writes loses a deprecated `:goal-epic`, and the
+person is told so. A blank field is kept, so a model's
+empty arguments change nothing. A preset, axis, level or tracker it does not know, issues that are not a
+vector of trackers,
 a profile that would not hold — an axis above its ceiling, `:git/push
 :act` included — or a change to nothing is refused before anyone is
 asked. Otherwise the person is shown each field that changes, old then
@@ -306,7 +311,7 @@ errs toward holding: `git -C x log --grep commit y` matches
 1. **`drive$next`** stops the run when the project has no profile or no
    beads, when a `:stop` limit is reached — failures in a row, the run's
    spend, beads filed since it began (`bd list --created-after`) — or when
-   nothing is ready under the goal's epic (`profile/goal-epic`, `bd ready --parent`), passing over
+   nothing is ready in the project's beads (`bd ready`), passing over
    a bead labelled `human` (step 5). Otherwise it
    takes the first ready bead that is not an epic; with `:issue/work :ask`
    the person is asked first, through the turn's permission channel, as
@@ -347,8 +352,7 @@ errs toward holding: `git -C x log --grep commit y` matches
    It reports the turn's spend as a tool's (`:usage-cost-usd`), so the
    run's usage counts every bead's turn.
 
-**`drive$report`** answers with a line per step, why the run stopped, and
-what is still open under the epic.
+**`drive$report`** answers with a line per step and why the run stopped.
 
 **A claim is released when its run ends** (`byj-2pv`). `bd ready` leaves a
 claimed bead out, so a bead a run claimed and did not settle was passed
@@ -375,7 +379,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | `profile/read-profile` | the project's profile resolved, with `:file`; nil without one (built) |
 | `profile/resolve-profile` | a profile's preset merged under it, its ceilings applied, and `:problems`; a profile that does not match the schema keeps its goal, scope and done criteria to show, its autonomy the default preset's whole, and no stop limits (built) |
 | `profile/level` | the level a profile sets an axis to (built) |
-| `profile/trackers`, `profile/tracker`, `profile/goal-epic` | the trackers `:issues` can name; the one a profile names (beads for an older `:goal-epic`); the beads epic /drive works under, nil for another tracker (built) |
+| `profile/tracker-kinds`, `profile/trackers` | the trackers `:issues` can name; the ones a profile names, in order (a deprecated `:goal-epic` names none) (built) |
 | `profile/profile-schema` | the malli form a profile is checked against, closed (built) |
 | `profile/render` | the AGENTS.md block for a resolved profile, marker to marker, in `block.edn`'s words; the same profile renders the same block (built) |
 | `profile/block-state` | `:current`, `:stale`, `:missing` or `:orphan`: AGENTS.md's block against the data's rendering, never read for what it says (built) |
@@ -386,11 +390,11 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | `permission/project-profile` | the project's profile as the gate reads it, at every call (built) |
 | `permission/profile-lets-line?`; `presets.edn` `:gates` `:with` | whether a line is one the profile lets the agent run on its own, so not classified; each axis's companions (built) |
 | `permission/profile-command-rule`, `permission/profile-path-rule` | where a profile holds a command line or a write: `{:axis :level …}` for an axis not at `:act` (built) |
-| predictor `init/profile` | the draft `/init` shows: goal, in, out, done, preset, autonomy, epic, issues (built) |
-| `init$profile`, `init/write-profile` | the draft shown to the person and, on a yes, written with its epic and issues (built) |
+| predictor `init/profile` | the draft `/init` shows: goal, in, out, done, preset, autonomy, issues (built) |
+| `init$profile`, `init/write-profile` | the draft shown to the person and, on a yes, written with its issue trackers and its first issues filed (built) |
 | `init/draft-profile` | a draft as `profile.edn` holds it: blanks left out, unknown presets and axis levels dropped (built) |
 | `profile$edit`, `init/edit-profile`, `init/profile-commands`; config `:profile-tools?` (true) | the profile changed as the person asks, shown and written on their yes, asked every time (built) |
-| `init/profile-edit`, `init/profile-changes` | what the fields given make of a profile, or why not; what changes, as the person reads it; `tracker` and each tracker's place set `:issues`, and an older `:goal-epic` becomes beads' `:epic` or goes with another tracker (built) |
+| `init/profile-edit`, `init/profile-changes` | what the fields given make of a profile, or why not; what changes, as the person reads it; `issues` replaces `:issues` whole, each tracker shown on its own line, and a deprecated `:goal-epic` is dropped (built) |
 | `/drive`, `agent$drive`, `brainyard/loops/drive.edn` | the drive loop (built) |
 | `drive$next`, `drive$check`, `drive$settle`, `drive$report` (`brainyard.drive`) | its mechanism, registered by `:drive-tools?`, which `agent$drive`'s config sets (built) |
 | predictor `drive/judge`; `resources/brainyard/drive/words.edn` | the judgement of a bead's turn; every word the loop puts together (built) |
@@ -409,12 +413,12 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | The person's line reaches the agent its command stands for word for word, and only that agent | `agents-test/the-person-s-typed-line-reaches-the-agent-their-command-stands-for` |
 | An attended agent's call never detaches | `tasks-test/what-never-detaches`, `agents-test/the-shipped-roster` |
 | A git command that records or reads the profile as it is passes the tripwire; a write does not; the person's yes at a hold is told to the model | `permission-test/a-projects-profile-is-written-by-no-tool`, `permission-test/the-gate-follows-the-projects-profile` |
-| The profile is written only on the person's yes, with the epic and issues they were shown; a no or nobody to ask writes and files nothing | `init-test/init-writes-the-profile-only-on-the-persons-yes` |
+| The profile is written only on the person's yes, with the issues they were shown, filed under no epic; a no or nobody to ask writes and files nothing | `init-test/init-writes-the-profile-only-on-the-persons-yes` |
 | `profile$edit` changes only what was given, shows each change and every axis that moves, writes the profile and AGENTS.md's block only on the person's yes, asked every time; a no, nobody to ask, an unknown preset or axis, an axis above its ceiling or no change writes nothing | `init-test/the-profile-changes-as-the-person-asks-only-on-their-yes`, `init-test/every-session-has-profile-edit` |
 | `/init` drafts a profile when the person says what the project is for, and its answer and check say what was written | `init-test/the-init-loop-drafts-the-profile-when-the-person-says-what-the-project-is-for` |
-| A draft with no preset, epic or first issues is drafted once more, and what it still lacks is said in the question before the person's yes | `init-test/a-draft-missing-its-preset-or-epic-is-drafted-again-and-said` |
-| `:issues` names one of the four trackers and only its own keys; the beads epic /drive works under is its `:epic` with beads, an older profile's `:goal-epic` without it, and none with another tracker; AGENTS.md's block says the tracker, its place and what the work is under | `profile-test/the-profile-says-its-issue-tracker`, `drive-test/the-next-bead-or-why-the-run-stops` |
-| `profile$edit` sets the issue tracker and its place, and refuses an unknown tracker, or a place with no tracker said | `init-test/the-profile-changes-as-the-person-asks-only-on-their-yes` |
+| A draft with no preset or first issues is drafted once more, and what it still lacks is said in the question before the person's yes | `init-test/a-draft-missing-its-preset-or-issues-is-drafted-again-and-said` |
+| `:issues` is a vector of trackers, each one of the four with only its own keys and no epic; a deprecated `:goal-epic` still loads and nothing reads it, `/drive` included; AGENTS.md's block says every tracker and its place in one line | `profile-test/the-profile-says-its-issue-trackers`, `drive-test/the-next-bead-or-why-the-run-stops` |
+| `profile$edit` replaces the issue trackers whole and drops a deprecated `:goal-epic`, and refuses an unknown tracker, a tracker not named, or issues that are not a vector | `init-test/the-profile-changes-as-the-person-asks-only-on-their-yes` |
 | `:decision/scope` and `:git/push` are never `:act` | `profile-test/no-profile-raises-an-axis-above-its-ceiling` |
 | A profile that does not match grants only the default preset | `profile-test/a-profile-that-does-not-match-grants-only-the-default` |
 | Every preset sets every axis, and the presets are the three decided | `profile-test/the-presets-are-data-and-name-every-axis` |
@@ -423,7 +427,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | An axis at `:ask` asks the person in every mode, `:auto-approve` included, never the classifier; refused headless and in `:deny-by-default`; `:never` refuses unasked; `:act` holds nothing | `permission-test/the-gate-follows-the-projects-profile` |
 | A line made only of `:act` axes' commands and their companions, with no redirection, is not put to the `:auto` classifier; anything else in it, and every other check of the gate, still applies | `permission-test/a-line-the-profile-lets-run-is-not-classified` |
 | Through byj's hook, Claude Code asks what the profile asks about, and Codex is refused it | `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
-| `/drive` works only under a profile and beads, only the goal epic's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
+| `/drive` works only under a profile and beads, the project's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
 | `drive$check` names installed dependencies among the uncommitted, and stops naming them once `.gitignore` does | `drive-test/installed-dependencies-are-said-as-such` |
 | A bead is closed by `/drive` only as `:issue/close` says, and a retry, a question or a stop is a line of the run's log | `drive-test/settling-a-bead-as-the-profile-says` |
 | A retry's brief carries what the last turn ended saying and which of the bead's turns it is | `drive-test/a-retry-goes-on-from-where-the-last-turn-got-to`, `drive-test/drive-sets-aside-a-bead-it-cannot-finish-and-goes-on` |

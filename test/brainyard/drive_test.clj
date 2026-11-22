@@ -85,29 +85,29 @@
       (io/make-parents f)
       (spit f (pr-str {:profile/version 1}))
       (is (str/includes? (:stopped (drive/next-bead {:project-dir dir :bd-path (fresh-dir "no-beads-bin")} {} {})) "beads"))))
-  (testing "collaborator: the first ready bead under the goal's epic, claimed, with its brief"
-    (let [{:keys [bin cfg]} (setup "next" {:preset :collaborator :goal "A workspace." :goal-epic "t-1"})
+  (testing "collaborator: the project's first ready bead, claimed, with its brief"
+    (let [{:keys [bin cfg]} (setup "next" {:preset :collaborator :goal "A workspace." :issues [{:tracker :beads}]})
           r (drive/next-bead cfg {} {})]
       (is (false? (:stop r)))
       (is (= "t-2" (:bead r)))
       (is (str/starts-with? (:brief r) "Work on bead t-2: server shell"))
       (is (str/includes? (:brief r) "toward this project's goal (A workspace.)"))
       (is (some #(= "update t-2 --claim" %) (calls bin)))
-      (is (some #(str/includes? % "ready --json --limit 20 --exclude-label human --parent t-1") (calls bin)) "under the goal's epic, a bead set aside passed over")
+      (is (some #(str/ends-with? % "ready --json --limit 20 --exclude-label human") (calls bin)) "the project's beads, a bead set aside passed over")
       (is (re-find #"^\d{4}-" (:since r)) "the run's start, for counting beads filed")
       (is (re-matches #"[0-9a-f]{40}" (:head r)))
       (testing "the next one, once that is claimed; then nothing ready"
         (is (= "t-3" (:bead (drive/next-bead cfg {} {}))))
-        (is (str/includes? (:stopped (drive/next-bead cfg {} {})) "Nothing is ready under t-1")))))
-  (testing "the epic of the profile's :issues with beads (byj-yq9); none under another tracker's"
-    (let [{:keys [bin cfg]} (setup "next-issues" {:preset :collaborator :issues {:tracker :beads :epic "t-1"}})]
+        (is (str/includes? (:stopped (drive/next-bead cfg {} {})) "Nothing is ready: every bead of the project")))))
+  (testing "the goal has no epic (byj-yq9): an older profile's :goal-epic is ignored, and no tracker narrows the beads"
+    (let [{:keys [bin cfg]} (setup "next-old" {:preset :collaborator :issues [{:tracker :beads}]})]
       (is (= "t-2" (:bead (drive/next-bead cfg {} {}))))
-      (is (some #(str/includes? % "ready --json --limit 20 --exclude-label human --parent t-1") (calls bin))))
-    (let [{:keys [bin cfg]} (setup "next-linear" {:preset :collaborator :issues {:tracker :linear :epic "Workbench"}})]
-      (drive/next-bead cfg {} {})
-      (is (not-any? #(str/includes? % "--parent") (calls bin)) "a Linear project is no bead's parent")))
+      (is (not-any? #(str/includes? % "--parent") (calls bin))))
+    (let [{:keys [bin cfg]} (setup "next-linear" {:preset :collaborator :issues [{:tracker :beads} {:tracker :linear :linear-team "ENG"}]})]
+      (is (= "t-2" (:bead (drive/next-bead cfg {} {}))))
+      (is (not-any? #(str/includes? % "--parent") (calls bin)))))
   (testing "conservative: the person picks the work"
-    (let [{:keys [cfg]} (setup "ask-work" {:preset :conservative :goal-epic "t-1"})
+    (let [{:keys [cfg]} (setup "ask-work" {:preset :conservative :issues [{:tracker :beads}]})
           asked (atom nil)]
       (is (str/includes? (:stopped (drive/next-bead cfg {:permission-fn (fn [r] (reset! asked r) {:denied true})} {}))
                          "You did not want t-2 worked on next"))
@@ -115,12 +115,12 @@
       (is (= "t-2" (:bead (drive/next-bead cfg {:permission-fn (fn [_] {:allowed true})} {}))))
       (is (str/includes? (:stopped (drive/next-bead cfg {} {})) "You did not want t-3") "nobody to ask: not worked")))
   (testing "the profile's limits"
-    (let [{:keys [cfg]} (setup "limits" {:preset :collaborator :goal-epic "t-1" :stop {:failures 2 :usd 1.5}})]
+    (let [{:keys [cfg]} (setup "limits" {:preset :collaborator :issues [{:tracker :beads}] :stop {:failures 2 :usd 1.5}})]
       (is (str/includes? (:stopped (drive/next-bead cfg {} {:failures 2})) "2 attempts in a row"))
       (is (str/includes? (:stopped (drive/next-bead cfg {} {:usage {:cost 1.6}})) "$1.5 spent"))
       (is (false? (:stop (drive/next-bead cfg {} {:failures 1 :usage {:cost 0.2}}))))))
   (testing "a retry works the same bead again, saying what it lacked"
-    (let [{:keys [cfg]} (setup "retry" {:preset :collaborator :goal-epic "t-1"})
+    (let [{:keys [cfg]} (setup "retry" {:preset :collaborator :issues [{:tracker :beads}]})
           r (drive/next-bead cfg {} {:retry "t-3" :retry-note "the work is not committed"})]
       (is (= "t-3" (:bead r)))
       (is (str/starts-with? (:brief r) "Bead t-3 (terminal) is not finished: the work is not committed")))))
@@ -128,7 +128,7 @@
 ;; byj-dw0: four turns each on two beads, every one starting over from the
 ;; brief, each running out of iterations where the last had
 (deftest a-retry-goes-on-from-where-the-last-turn-got-to
-  (let [{:keys [bin cfg]} (setup "retry-progress" {:preset :collaborator :goal-epic "t-1"})
+  (let [{:keys [bin cfg]} (setup "retry-progress" {:preset :collaborator :issues [{:tracker :beads}]})
         r (drive/next-bead cfg {} {:retry "t-3" :retry-note "the browser check is not finished" :attempts 1
                                    :retry-progress "The reject flow is checked; cleaning up the throwaway session."})]
     (is (str/includes? (:brief r) "This is turn 2 of the 3 /drive gives a bead."))
@@ -139,10 +139,10 @@
     (testing "a bead set aside for the person is passed over"
       (spit (io/file bin "b" "t-2.labels") "human\n")
       (is (= "t-3" (:bead (drive/next-bead cfg {} {}))))
-      (is (some #(str/includes? % "ready --json --limit 20 --exclude-label human --parent t-1") (calls bin))))))
+      (is (some #(str/ends-with? % "ready --json --limit 20 --exclude-label human") (calls bin))))))
 
 (deftest the-check-says-what-the-turn-left
-  (let [{:keys [dir cfg]} (setup "check" {:preset :collaborator :goal-epic "t-1"})
+  (let [{:keys [dir cfg]} (setup "check" {:preset :collaborator :issues [{:tracker :beads}]})
         head (str/trim (:out (fx/sh {:dir dir :out :string :err :string} "git" "rev-parse" "HEAD")))
         git #(apply fx/sh {:dir dir :out :string :err :string} "git" "-c" "user.name=t" "-c" "user.email=t@x.invalid" %&)]
     (spit (io/file dir "server.js") "x\n")
@@ -163,7 +163,7 @@
 ;; byj-ctw: under conservative the judge read "uncommitted work is expected"
 ;; and called three beads done with their work uncommitted
 (deftest under-conservative-a-finished-bead-is-still-committed-with-the-persons-yes
-  (let [{:keys [dir cfg]} (setup "check-ask" {:preset :conservative :goal-epic "t-1"})
+  (let [{:keys [dir cfg]} (setup "check-ask" {:preset :conservative :issues [{:tracker :beads}]})
         head (str/trim (:out (fx/sh {:dir dir :out :string :err :string} "git" "rev-parse" "HEAD")))]
     (spit (io/file dir "server.js") "x\n")
     (let [t (:text (drive/check-bead cfg {:bead "t-2" :head head}))]
@@ -174,7 +174,7 @@
 ;; byj-3py: a conservative run ended with node_modules/ untracked, and the
 ;; judge called the beads done
 (deftest installed-dependencies-are-said-as-such
-  (let [{:keys [dir cfg]} (setup "deps" {:preset :collaborator :goal-epic "t-1"})
+  (let [{:keys [dir cfg]} (setup "deps" {:preset :collaborator :issues [{:tracker :beads}]})
         head (str/trim (:out (fx/sh {:dir dir :out :string :err :string} "git" "rev-parse" "HEAD")))]
     (.mkdirs (io/file dir "node_modules" "ws"))
     (spit (io/file dir "node_modules" "ws" "index.js") "x")
@@ -187,7 +187,7 @@
 
 (deftest settling-a-bead-as-the-profile-says
   (testing "collaborator: done closes it, on its own"
-    (let [{:keys [bin cfg]} (setup "settle" {:preset :collaborator :goal-epic "t-1"})
+    (let [{:keys [bin cfg]} (setup "settle" {:preset :collaborator :issues [{:tracker :beads}]})
           r (drive/settle cfg {} {:bead "t-2" :title "server shell" :status "done" :summary "built and tested"
                                   :failures 2 :log "" :work-usage {:cost 0.25}})]
       (is (some #(str/starts-with? % "close t-2 --reason /drive: built and tested") (calls bin)))
@@ -198,7 +198,7 @@
                                                      :bead-status "closed" :log "a"}))
                          "a\n✓ t-3 terminal — s (closed in its turn)"))))
   (testing "conservative: the person is asked before it closes"
-    (let [{:keys [bin cfg]} (setup "settle-ask" {:preset :conservative :goal-epic "t-1"})
+    (let [{:keys [bin cfg]} (setup "settle-ask" {:preset :conservative :issues [{:tracker :beads}]})
           r (drive/settle cfg {:permission-fn (fn [_] {:denied true :reason "not yet"})}
                           {:bead "t-2" :title "server shell" :status "done" :summary "s"})]
       (is (not-any? #(str/starts-with? % "close") (calls bin)))
@@ -216,7 +216,7 @@
                          "t-2 cannot go on: node is missing")))))
 
 (deftest a-bead-whose-turns-are-spent-is-set-aside-for-the-person
-  (let [{:keys [bin cfg]} (setup "set-aside" {:preset :collaborator :goal-epic "t-1"})
+  (let [{:keys [bin cfg]} (setup "set-aside" {:preset :collaborator :issues [{:tracker :beads}]})
         _ (drive/next-bead cfg {} {})
         args {:bead "t-2" :title "server shell" :status "retry" :summary "the browser check ran out of steps"
               :failures 4 :log "a" :work "Checked two of three; stopping the dev server."}]
@@ -242,7 +242,7 @@
 ;; byj-2pv: a run cancelled in a bead's turn left it claimed, and every
 ;; later /drive said nothing was ready while it was still open
 (deftest a-claim-a-run-never-settled-is-released
-  (let [{:keys [bin dir cfg]} (setup "claims" {:preset :collaborator :goal-epic "t-1"})
+  (let [{:keys [bin dir cfg]} (setup "claims" {:preset :collaborator :issues [{:tracker :beads}]})
         cfg (assoc cfg :session-id "s-1")
         claims #(let [f (drive/claims-file dir)] (if (.isFile f) (read-string (slurp f)) {}))
         first-run (drive/next-bead cfg {} {})]
@@ -269,7 +269,7 @@
         (is (str/includes? (:log (drive/next-bead cfg {} {})) "↺ t-3 terminal — released"))))))
 
 (deftest a-run-that-ends-on-a-question-releases-its-bead
-  (let [{:keys [bin dir cfg]} (setup "claims-end" {:preset :collaborator :goal-epic "t-1"})
+  (let [{:keys [bin dir cfg]} (setup "claims-end" {:preset :collaborator :issues [{:tracker :beads}]})
         cfg (assoc cfg :session-id "s-1")
         r (drive/next-bead cfg {} {})
         s (drive/settle cfg {} {:bead "t-2" :title "server shell" :status "ask" :question "Which port?" :summary "needs a port"})
@@ -286,7 +286,7 @@
 (deftest drive-works-the-goals-beads-until-nothing-is-ready
   ;; each bead a turn of the ReAct loop (the mock answers at once), judged
   ;; done, closed as collaborator allows, until nothing is ready
-  (let [{:keys [bin dir]} (setup "loop" {:preset :collaborator :goal-epic "t-1"})
+  (let [{:keys [bin dir]} (setup "loop" {:preset :collaborator :issues [{:tracker :beads}]})
         judged (atom 0)
         r (agent/ask "Work through this project's goal."
                      {:lm {:provider :mock :format :mock
@@ -301,15 +301,15 @@
     (is (= 2 @judged) "one judgement a bead")
     (is (some #(str/starts-with? % "close t-2") (calls bin)))
     (is (some #(str/starts-with? % "close t-3") (calls bin)))
-    (is (str/includes? (:answer r) "/drive under t-1:\n✓ t-2 server shell — done and checked (closed)\n✓ t-3 terminal — done and checked (closed)"))
-    (is (str/includes? (:answer r) "Stopped: Nothing is ready under t-1"))
-    (is (str/includes? (:answer r) "Still open under t-1: nothing"))
+    (is (str/includes? (:answer r) "/drive:\n✓ t-2 server shell — done and checked (closed)\n✓ t-3 terminal — done and checked (closed)"))
+    (is (str/includes? (:answer r) "Stopped: Nothing is ready: every bead of the project"))
+    (is (not (str/includes? (:answer r) "Still open under")) "the goal has no epic to say what is open under (byj-yq9)")
     (is (not (.isFile (drive/claims-file dir))) "every claim settled")))
 
 (deftest drive-sets-aside-a-bead-it-cannot-finish-and-goes-on
   ;; t-2's turns never finish: three turns, each brief after the first
   ;; carrying what the last ended saying, then set aside; t-3 is worked
-  (let [{:keys [bin dir]} (setup "loop-aside" {:preset :collaborator :goal-epic "t-1"})
+  (let [{:keys [bin dir]} (setup "loop-aside" {:preset :collaborator :issues [{:tracker :beads}]})
         briefs (atom [])
         r (agent/ask "Work through this project's goal."
                      {:lm {:provider :mock :format :mock
@@ -335,6 +335,5 @@
     (is (some #(str/starts-with? % "close t-3") (calls bin)))
     (is (str/includes? (:answer r) "⏸ t-2 server shell — ran out of steps; set aside after 3 turns"))
     (is (str/includes? (:answer r) "✓ t-3 terminal — done and checked (closed)"))
-    (is (str/includes? (:answer r) "Stopped: Nothing is ready under t-1"))
-    (is (str/includes? (:answer r) "Still open under t-1: t-2 server shell"))
+    (is (str/includes? (:answer r) "Stopped: Nothing is ready: every bead of the project"))
     (is (not (.isFile (drive/claims-file dir))) "the bead set aside is no longer recorded")))

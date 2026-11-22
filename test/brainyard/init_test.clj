@@ -389,7 +389,7 @@
          (str/includes? sys "Draft this project's profile")
          (do (swap! seen conj :profile) {:reasoning "r" :goal "A small web workspace." :in "- server shell\n- terminal"
                                            :out "" :done "npm test passes" :preset "collaborator" :autonomy ""
-                                           :epic "Mini playground" :issues "1. server shell\n2. terminal"})
+                                           :issues "1. server shell\n2. terminal"})
          (str/includes? sys "Write the section of AGENTS.md")
          (do (swap! seen conj :draft) {:reasoning "r" :notes "## This project\n\nA demo. Test with `make test`."
                                          :examples "run make test and fix what fails\nexplain the Makefile\nadd a lint target"})
@@ -661,13 +661,13 @@
   (is (= {:profile/version 1} (init/draft-profile {:preset "maximal"})) "a preset it does not know: the default's"))
 
 (deftest init-writes-the-profile-only-on-the-persons-yes
-  ;; byj-71w.4: drafted, shown, and written with its epic only on a yes
+  ;; byj-71w.4: drafted, shown, and written with its first issues only on a yes
   (let [bin (fresh-dir "bin-profile")
         project (fresh-dir "profile-yes")
         f (io/file project ".brainyard" "profile.edn")
         asked (atom nil)
         draft {:dir project :path bin :goal "A small web workspace." :in "server shell" :done "npm test passes"
-               :preset "collaborator" :epic "Mini playground" :issues "server shell — a page, and GET /api/health answering ok\nterminal"}
+               :preset "collaborator" :issues "server shell — a page, and GET /api/health answering ok\nterminal"}
         ctx (fn [answer] {:permission-fn (fn [req] (reset! asked req) answer)})]
     (stateful-bd bin)
     (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
@@ -680,25 +680,27 @@
         (is (str/includes? (:text r) "Preset: collaborator.")))
       (is (str/includes? (:display @asked) "Goal: A small web workspace.") "the person sees the block")
       (is (str/includes? (:display @asked) "Issues are tracked in beads.") "and that the issues are kept in beads")
-      (is (str/includes? (:display @asked) "and file the epic \"Mini playground\" with its first issues, in order:\n- server shell\n- terminal"))
+      (is (str/includes? (:display @asked) "and file its first issues in beads, in order:\n- server shell\n- terminal"))
+      (is (not (re-find #"file the epic|under the epic" (:display @asked))) "the goal has no epic (byj-yq9)")
       (is (false? (:written? (init/write-profile {} {} draft))))
       (is (not (.exists f)))
       (is (not (.exists (io/file bin "bd.log"))) "nor any bead filed"))
-    (testing "a yes: the profile, its block, the epic and its issues in order"
+    (testing "a yes: the profile, its block, and its first issues in order"
       (let [r (init/write-profile {} (ctx {:allowed true}) draft)
             calls (str/split-lines (slurp (io/file bin "bd.log")))
             p (init/project-status project)]
         (is (:written? r))
-        (is (= {:tracker :beads :epic "t-1"} (:issues (edn/read-string (slurp f))))
-            "the tracker is beads, and the epic the goal's (byj-yq9)")
+        (is (= [{:tracker :beads}] (:issues (edn/read-string (slurp f))))
+            "the issues are kept in beads, and no epic is named (byj-yq9)")
         (is (= :collaborator (get-in p [:profile :preset])))
         (is (= :current (get-in p [:profile :block])) "AGENTS.md shows it")
-        (is (some #(str/starts-with? % "create --silent --title Mini playground --type epic") calls))
-        (is (some #(str/starts-with? % "create --silent --title terminal --type task --priority 1 --parent t-1") calls))
-        (is (some #(= "dep add t-3 t-2" %) calls) "each after the one before")
-        (is (some #(str/includes? % "--title server shell --type task --priority 1 --parent t-1 --description a page, and GET /api/health answering ok") calls)
+        (is (not-any? #(str/includes? % "--type epic") calls) "no epic is filed")
+        (is (not-any? #(str/includes? % "--parent") calls) "nor anything under one")
+        (is (some #(str/starts-with? % "create --silent --title terminal --type task --priority 1") calls))
+        (is (some #(= "dep add t-2 t-1" %) calls) "each after the one before")
+        (is (some #(str/includes? % "--title server shell --type task --priority 1 --description a page, and GET /api/health answering ok") calls)
             "what the person said of a part is its bead's description")
-        (is (str/includes? (:text r) "t-1 Mini playground\n  t-2 server shell\n  t-3 terminal"))
+        (is (str/includes? (:text r) "Its first issues, filed in beads:\n  t-1 server shell\n  t-2 terminal"))
         (is (str/includes? (:out (fx/sh {:dir project :out :string :err :string} "git" "status" "--porcelain"))
                            "A  .brainyard/profile.edn")
             "added to git though .gitignore ignores .brainyard/")
@@ -730,7 +732,7 @@
     (spit f (pr-str before))
     (let [ask {:goal "Brainyard Apps: web apps on byj, the workbench first."
                :done "the workbench runs on byj acp\nnpm run typecheck passes"
-               :goal-epic "w-9" :out "" :autonomy ""}]
+               :out "" :autonomy ""}]
       (testing "a no, or nobody to ask: the file as it was, and the change said"
         (let [r (edit (ctx {:denied true :reason "not yet"}) ask)]
           (is (false? (:written? r)))
@@ -741,17 +743,18 @@
         (is (= "profile$edit" tool))
         (is (true? every-time?) "asked every time, never answered from an always")
         (is (str/includes? display "Goal:\n  was: A web workspace.\n  now: Brainyard Apps"))
-        (is (str/includes? display "The goal's epic:\n  was: w-1\n  now: w-9"))
+        (is (str/includes? display "The goal's epic (deprecated, ignored): w-1 is dropped")
+            "a profile written here loses a deprecated :goal-epic (byj-yq9)")
         (is (not (str/includes? display "In scope")) "what is not given is kept, and not shown"))
       (testing "a yes: what was asked, the rest kept, and AGENTS.md's block with it"
         (let [r (edit (ctx {:allowed true}) ask)
               data (edn/read-string (slurp f))]
           (is (:written? r))
-          (is (= (assoc before :goal (:goal ask) :goal-epic "w-9"
-                        :done ["the workbench runs on byj acp" "npm run typecheck passes"])
+          (is (= (-> before (dissoc :goal-epic)
+                     (assoc :goal (:goal ask) :done ["the workbench runs on byj acp" "npm run typecheck passes"]))
                  data))
           (is (= :current (get-in (init/project-status project) [:profile :block])))
-          (is (str/includes? (slurp (io/file project "AGENTS.md")) "under the epic w-9"))
+          (is (not (str/includes? (slurp (io/file project "AGENTS.md")) "under the epic")))
           (is (str/includes? (:out (fx/sh {:dir project :out :string :err :string} "git" "status" "--porcelain"))
                              "A  .brainyard/profile.edn")))))
     (testing "the preset and an axis: each axis that moves is said, and which way"
@@ -767,29 +770,34 @@
       (is (str/includes? (:text (edit (ctx {:allowed true}) {:autonomy "git/push act"})) "ceiling")
           "push is never the agent's, whoever asks")
       (is (str/includes? (:text (edit (ctx {:allowed true}) {:autonomy "deploy act"})) "is not `axis level`"))
-      (is (str/includes? (:text (edit (ctx {:allowed true}) {:goal-epic "w-9"})) "what it says already"))
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:goal (:goal (edn/read-string (slurp f)))})) "what it says already"))
       (is (empty? @asked)))
-    (testing "the issue tracker (byj-yq9): an older :goal-epic becomes beads' epic, or goes with another tracker"
+    (testing "the issue trackers (byj-yq9): the whole list replaced, each said on its own line, a :goal-epic dropped"
       (spit f (pr-str before))
       (reset! asked [])
-      (edit (ctx {:allowed true}) {:tracker "beads"})
-      (let [data (edn/read-string (slurp f))]
-        (is (= {:tracker :beads :epic "w-1"} (:issues data)))
+      (edit (ctx {:allowed true}) {:issues "[{:tracker :beads} {:tracker :github :github-repo \"acme/web\"}]"})
+      (let [data (edn/read-string (slurp f))
+            d (:display (first @asked))]
+        (is (= [{:tracker :beads} {:tracker :github :github-repo "acme/web"}] (:issues data)))
         (is (not (contains? data :goal-epic)))
-        (is (str/includes? (:display (first @asked)) "Issue tracker:\n  was: (none)\n  now: beads"))
-        (is (str/includes? (slurp (io/file project "AGENTS.md")) "Issues are tracked in beads; the work toward it is under the epic w-1.")))
-      (edit (ctx {:allowed true}) {:goal-epic "w-9"})
-      (is (= {:tracker :beads :epic "w-9"} (:issues (edn/read-string (slurp f)))) "the epic is now the issues'")
-      (spit f (pr-str before))
-      (edit (ctx {:allowed true}) {:tracker "Jira" :goal-epic "ABC-1" :jira-site "acme.atlassian.net" :jira-project "ABC"})
-      (let [data (edn/read-string (slurp f))]
-        (is (= {:tracker :jira :epic "ABC-1" :jira-site "acme.atlassian.net" :jira-project "ABC"} (:issues data)))
-        (is (not (contains? data :goal-epic)) "a bead id is not Jira's")))
-    (testing "an issue tracker it does not know, or a place with none said, is refused before anyone is asked"
+        (is (str/includes? d "Issue trackers:\n  was: (none)\n  now:\n    beads\n    github github-repo acme/web"))
+        (is (str/includes? d "The goal's epic (deprecated, ignored): w-1 is dropped"))
+        (is (str/includes? (slurp (io/file project "AGENTS.md")) "Issues are tracked in beads and GitHub Issues (acme/web).")))
+      (reset! asked [])
+      (edit (ctx {:allowed true}) {:issues "[{:tracker :jira :name \"ops\" :jira-site \"acme.atlassian.net\" :jira-project \"ABC\"}]"})
+      (is (= [{:tracker :jira :name "ops" :jira-site "acme.atlassian.net" :jira-project "ABC"}] (:issues (edn/read-string (slurp f)))))
+      (is (str/includes? (:display (first @asked)) "now:\n    jira name ops jira-site acme.atlassian.net jira-project ABC"))
+      (edit (ctx {:allowed true}) {:issues "[]"})
+      (is (not (contains? (edn/read-string (slurp f)) :issues)) "[] drops them"))
+    (testing "issue trackers that cannot be are refused before anyone is asked"
       (spit f (pr-str before))
       (reset! asked [])
-      (is (str/includes? (:text (edit (ctx {:allowed true}) {:tracker "trello"})) "no tracker trello; the trackers are beads, github, linear, jira"))
-      (is (str/includes? (:text (edit (ctx {:allowed true}) {:linear-team "ENG"})) "says no issue tracker"))
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:issues "[{:tracker :trello}]"})) "no tracker :trello; the trackers are beads, github, linear, jira"))
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:issues "[{:linear-team \"ENG\"}]"})) "names its :tracker"))
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:issues "{:tracker :beads}"})) "not a vector of trackers"))
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:issues "[{:tracker :beads"})) "issues is not EDN"))
+      (is (str/includes? (:text (edit (ctx {:allowed true}) {:issues "[{:tracker :beads :epic \"w-1\"}]"})) "would not hold")
+          "the goal has no epic: the schema refuses it")
       (is (empty? @asked)))
     (testing "`axis preset` drops the profile's own level"
       (spit f (pr-str (assoc before :autonomy {:git/commit :ask})))
@@ -812,14 +820,14 @@
     (is (str/includes? (slurp (io/file project "AGENTS.md")) "<!-- BEGIN BRAINYARD:profile -->"))
     (is (str/includes? (:answer r) "✓ profile: collaborator") "and the check after says so")))
 
-(deftest a-draft-missing-its-preset-or-epic-is-drafted-again-and-said
-  ;; byj-8ap, byj-kti: haiku's draft once came back with no preset, epic or
+(deftest a-draft-missing-its-preset-or-issues-is-drafted-again-and-said
+  ;; byj-8ap, byj-kti: haiku's draft once came back with no preset or
   ;; issues, and was written so on the person's yes
-  (testing "the loop drafts once more when the draft has no preset, epic or issues"
+  (testing "the loop drafts once more when the draft has no preset or issues"
     (let [project (fresh-dir "agent-init-redraft")
           drafts (atom [{:reasoning "r" :goal "A small web workspace." :in "server shell"}
                         {:reasoning "r" :goal "A small web workspace." :in "server shell" :done "npm test passes"
-                         :preset "autopilot" :epic "Mini playground" :issues "server shell — a page"}])
+                         :preset "autopilot" :issues "server shell — a page"}])
           steps (atom [])
           r (agent/ask "/init A small web workspace; decide the small things."
                        {:lm {:provider :mock :format :mock
@@ -848,12 +856,12 @@
       (.mkdirs (io/file project ".beads"))
       (let [r (init/write-profile {} {:permission-fn (fn [req] (reset! asked (:display req)) {:allowed true})}
                                   {:dir project :path bin :goal "A small web workspace." :in "server shell"})]
-        (is (str/includes? @asked "The draft has no preset: the default, conservative, stands; no epic: no goal epic or issues are filed, and /drive has nothing to work on. To change that, say no and run /init again saying it."))
+        (is (str/includes? @asked "The draft has no preset: the default, conservative, stands; no first issues: none are filed, and /drive has nothing to work on. To change that, say no and run /init again saying it."))
         (is (str/includes? (:text r) "The draft had no preset")))
-      (is (= [] (init/draft-missing {:preset "collaborator" :epic "E" :issues "a — b"} true)))
-      (is (= ["no first issues: the epic is filed with none under it"]
-             (init/draft-missing {:preset "collaborator" :epic "E" :issues ""} true)))
-      (is (= [] (init/draft-missing {:preset "autopilot"} false)) "no beads: no epic to file"))))
+      (is (= [] (init/draft-missing {:preset "collaborator" :issues "a — b"} true)))
+      (is (= ["no first issues: none are filed, and /drive has nothing to work on"]
+             (init/draft-missing {:preset "collaborator" :issues ""} true)))
+      (is (= [] (init/draft-missing {:preset "autopilot"} false)) "no beads: no issues to file"))))
 
 (deftest byj-init-says-what-to-do-next
   ;; byj-gly.337.4: the model-free entry point ends as /init does

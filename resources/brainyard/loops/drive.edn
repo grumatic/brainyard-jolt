@@ -3,8 +3,8 @@
 ;; stop where it says to ask.
 ;;
 ;;   the next bead, or why to stop      → drive$next (mechanism: the profile's
-;;                                         limits, bd ready under the goal's
-;;                                         epic, the person asked when the
+;;                                         limits, bd ready of the project,
+;;                                         the person asked when the
 ;;                                         profile says so, the bead claimed)
 ;;   the bead's work                    → a ReAct turn (loops/react.edn) in a
 ;;                                         scope of its own, asked the brief

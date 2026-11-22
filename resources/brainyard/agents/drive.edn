@@ -8,7 +8,7 @@
 ;; turn's is, under the same permission gate and the profile's holds on it
 ;; (RFC-012); the drive$* commands are what its :config turns on.
 {:description
- "Works through this project's goal under its profile (.brainyard/profile.edn, which /init writes on the person's yes): picks the next ready bead under the goal's epic, works it in a turn of its own, checks the work tree and the bead, closes it as the profile allows, and goes on — asking the person only where the profile says to, and stopping at the profile's limits, on a question, or when nothing is ready. Ends with each bead's outcome and what is still open. Takes minutes to hours."
+ "Works through this project's goal under its profile (.brainyard/profile.edn, which /init writes on the person's yes): picks the next ready bead of the project's beads, works it in a turn of its own, checks the work tree and the bead, closes it as the profile allows, and goes on — asking the person only where the profile says to, and stopping at the profile's limits, on a question, or when nothing is ready. Ends with each bead's outcome. Takes minutes to hours."
 
  :instruction-resource "brainyard/prompts/agents/drive.md"
 

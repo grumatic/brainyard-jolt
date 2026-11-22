@@ -90,21 +90,21 @@
 
 (deftest fields-written-in-tags-inside-another-are-lifted-out
   ;; haiku's profile draft ended its JSON inside "in": "…400</in>\n<out>…</out>
-  ;; \n<preset>autopilot</preset>…", and the profile was written with no preset,
-  ;; epic or issues (byj-8ap)
+  ;; \n<preset>autopilot</preset>…", and the profile was written with no preset
+  ;; or issues (byj-8ap)
   (let [s (:signature (predictor/load-predictor "init/profile" []))
         norm #(sig/normalize-outputs s (json/read-str %))
         out (norm (json/write-str {:reasoning "r" :goal "g"
-                                   :in "Server shell\nFiles: a path outside answers 400</in>\n<out>Authentication\nDeployment</out>\n<done>npm test passes</done>\n<preset>autopilot</preset>\n<autonomy></autonomy>\n<epic>Workspace</epic>\n<issues>Server shell — a page\nFiles — list and read</issues>\n"}))]
+                                   :in "Server shell\nFiles: a path outside answers 400</in>\n<out>Authentication\nDeployment</out>\n<done>npm test passes</done>\n<preset>autopilot</preset>\n<autonomy></autonomy>\n<issues>Server shell — a page\nFiles — list and read</issues>\n"}))]
     (is (= "Server shell\nFiles: a path outside answers 400" (:in out)))
     (is (= {:out "Authentication\nDeployment" :done "npm test passes" :preset "autopilot"
-            :autonomy "" :epic "Workspace" :issues "Server shell — a page\nFiles — list and read"}
-           (select-keys out [:out :done :preset :autonomy :epic :issues])))
+            :autonomy "" :issues "Server shell — a page\nFiles — list and read"}
+           (select-keys out [:out :done :preset :autonomy :issues])))
     (testing "a field the reply gave is never overwritten, and a string without its own closing tag is left as it came"
-      (is (= {:in "a</in><epic>X</epic>" :epic "E"}
-             (select-keys (norm (json/write-str {:reasoning "r" :in "a</in><epic>X</epic>" :epic "E"})) [:in :epic])))
-      (is (= "use <epic>X</epic> here"
-             (:in (norm (json/write-str {:reasoning "r" :in "use <epic>X</epic> here"}))))))))
+      (is (= {:in "a</in><preset>X</preset>" :preset "E"}
+             (select-keys (norm (json/write-str {:reasoning "r" :in "a</in><preset>X</preset>" :preset "E"})) [:in :preset])))
+      (is (= "use <preset>X</preset> here"
+             (:in (norm (json/write-str {:reasoning "r" :in "use <preset>X</preset> here"}))))))))
 
 (deftest a-reply-is-held-to-its-schema
   ;; the JSON Schema said so, and nothing checked it (byj-gly.203)

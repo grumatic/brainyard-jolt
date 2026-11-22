@@ -136,7 +136,7 @@
   "The next step (`drive$next`): stop with why when the project has no
   profile, beads is not there, the profile's limits are reached — failures
   in a row, spend, beads filed since the run began — or nothing is ready
-  under the goal's epic; else the bead to work on, claimed, with its brief.
+  in the project's beads; else the bead to work on, claimed, with its brief.
   A bead the last step left unfinished (`:retry`) is worked again, with
   what was missing, what its last turn ended saying (`:retry-progress`) and
   which of its turns this is (`:attempts` before it); a bead labelled as
@@ -157,7 +157,6 @@
         first-step? (str/blank? (str (:since args)))
         since (or (not-empty (str (:since args)))
                   (str (java.time.Instant/ofEpochMilli (System/currentTimeMillis))))
-        epic (profile/goal-epic p)
         retry (not-empty (str (:retry args)))
         attempts (or (num-of (:attempts args)) 0)
         head (str/trim (:out (run dir "git" "rev-parse" "HEAD")))
@@ -184,11 +183,10 @@
                                     :n (inc attempts) :max (bead-attempts config)
                                     :progress (or (not-empty (str/trim (str (:retry-progress args)))) (:no-progress w))})})
         :else
-        (let [ready (json-out (apply run dir bd "ready" "--json" "--limit" "20" "--exclude-label" (:set-aside-label w)
-                                     (when epic ["--parent" epic])))
+        (let [ready (json-out (run dir bd "ready" "--json" "--limit" "20" "--exclude-label" (:set-aside-label w)))
               b (first (remove #(= "epic" (:issue_type %)) ready))]
           (cond
-            (nil? b) (stop (fill (get-in w [:stops :nothing-ready]) {:under (if epic (str " under " epic) "")}))
+            (nil? b) (stop (get-in w [:stops :nothing-ready]))
             (= :never (profile/level p :issue/work)) (stop (get-in w [:stops :work-never]))
             :else
             (let [no (when (= :ask (profile/level p :issue/work))
@@ -322,15 +320,13 @@
       cost (assoc :usage-cost-usd cost))))
 
 (defn report
-  "The run's answer (`drive$report`): each step's line, why it stopped, and
-  what is still open under the goal's epic. A bead this run claimed and did
+  "The run's answer (`drive$report`): each step's line and why it stopped.
+  A bead this run claimed and did
   not settle — a question or a stop ended the run, or a limit did — is
   released first, so the next run finds it ready (byj-2pv)."
   [config args]
   (let [dir (dir-of config args)
-        p (profile/read-profile dir)
         bd (bd-path config args)
-        epic (profile/goal-epic p)
         since (str (:since args))
         released (when (and bd (not (str/blank? since)))
                    (release! dir bd (for [[id c] (read-claims dir)
@@ -338,22 +334,17 @@
                                                      (= (str (:session-id config)) (str (:session c))))]
                                       id)
                              (:released-end (words))))
-        open (when (and bd epic)
-               (json-out (run dir bd "list" "--parent" epic "--status" "open,in_progress,blocked" "--json")))
         log (str/trim (str/join "\n" (remove str/blank? (cons (str (:log args)) released))))]
-    {:text (str "/drive" (when epic (str " under " epic)) ":\n"
+    {:text (str "/drive:\n"
                 (if (str/blank? log) "no bead was worked on." log)
-                "\n\nStopped: " (let [s (str/trim (str (:stopped args)))] (if (str/blank? s) "the step limit was reached." s))
-                (when epic
-                  (str "\n\nStill open under " epic ": "
-                       (if (seq open) (str/join ", " (map #(str (:id %) " " (:title %)) open)) "nothing"))))}))
+                "\n\nStopped: " (let [s (str/trim (str (:stopped args)))] (if (str/blank? s) "the step limit was reached." s)))}))
 
 (defn commands
   "The `drive$*` commands (RFC-073)."
   [config]
   (let [any-arg (fn [k desc] [k {:optional true} [:any {:desc desc}]])]
     [{:name "drive$next" :kind :command
-      :description "/drive's next step: the next ready bead under the goal's epic, claimed, with its brief — or why the run stops (no profile, the profile's limits, nothing ready, the person said no)."
+      :description "/drive's next step: the next ready bead of the project's beads, claimed, with its brief — or why the run stops (no profile, the profile's limits, nothing ready, the person said no)."
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :failures "failures in a row so far")
                      (any-arg :usage "the run's usage so far") (any-arg :since "when the run began")
                      (any-arg :retry "a bead to work again") (any-arg :retry-note "what it lacked")
@@ -382,7 +373,7 @@
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (settle config ctx args))}
      {:name "drive$report" :kind :command
-      :description "/drive's answer: each step, why it stopped, and what is still open under the goal's epic; a bead the run claimed and did not settle is released."
+      :description "/drive's answer: each step and why it stopped; a bead the run claimed and did not settle is released."
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :log "the run's log") (any-arg :stopped "why it stopped")
                      (any-arg :since "when the run began")]
       :output-schema [:map [:text :string]]

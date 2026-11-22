@@ -18,7 +18,6 @@
   - autopilot: as collaborator, and it also makes and records decisions that change no scope, stack or goal.
   Pick the one the person's words describe (\"commit as you go\", \"don't ask me about each step\" → collaborator; \"decide the details yourself\" → autopilot). Scope changes and pushes are always the person's, in every preset.
 - autonomy: only what the person explicitly set apart from the preset, one a line as \"axis level\" — the axes are issue/create, issue/work, git/commit, issue/close, decision/local, decision/scope, git/push and the levels never, ask, act. Empty otherwise.
-- epic: the title of the epic the work toward the goal goes under, a few words.
 - issues: the first issues to work on toward the goal, in the order to do them, one a line as \"title — what it must do\": a title of a few words, then, after a dash, everything the person said of that part, in their words and with every detail they gave — paths, formats, status codes, names. The person's own list when they gave one, in their order. At most eight."
  :inputs
  [[:request {:desc "What /init was asked, perhaps in its caller's words"} :string]
@@ -31,5 +30,4 @@
   [:done {:desc "Done criteria, one a line"} :string]
   [:preset {:desc "conservative, collaborator or autopilot"} :string]
   [:autonomy {:desc "Axis levels the person set apart from the preset, \"axis level\" one a line, or empty"} :string]
-  [:epic {:desc "The goal's epic title"} :string]
   [:issues {:desc "The first issues, in order, one a line as \"title — what it must do\""} :string]]}
