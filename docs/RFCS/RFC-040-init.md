@@ -207,7 +207,11 @@ nothing.
   `BRAINYARD:profile`, after the project's section and before brainyard's,
   rendered from the file on every run (`profile/render`). The check says
   whether AGENTS.md shows it (`profile-status`): a block that differs is
-  written again, never read back.
+  written again, never read back. It says too, as a problem, a tracker the
+  profile keeps its issues in and the project has not: beads with no
+  `.beads/`, GitHub with no `:github-repo` and no github.com remote; Linear
+  and Jira are not looked for, a credential being what reaches them
+  (`byj-5im`).
 
 The manifest names each file's kind of write: `:block`, `:import` or
 `:lines`. Only blocks whose name starts with `BRAINYARD` are brainyard's;
@@ -684,6 +688,7 @@ All of them are planned. Nothing enforces them until their beads are built.
 | Invariant | Enforced by |
 |---|---|
 | The check changes nothing and needs no network or model: not a file in the project is written, and bd is asked only to check. A missing tool is reported with its install hint, never installed. | `init-test/the-check-only-reads` |
+| The profile's line is a ✗ for a tracker its `:issues` name that the project has not set up: beads without `.beads/`, GitHub without `:github-repo` or a github.com remote. | `init-test/the-check-says-a-tracker-the-profile-names-and-the-project-has-not` |
 | The check says a `deps.edn`'s problems and its projects' errors and warnings, nothing without one, and runs neither bd nor gh for it. | `init-test/the-check-says-the-dependencies-trouble`, `deps-test/a-projects-dependencies-are-read-resolved-and-checked` |
 | The check reports the build files there are, whether the project section is drafted, a placeholder or absent, and which of /init's files are uncommitted. | `init-test/the-check-says-what-the-planner-decides-from` |
 | A tool is found on PATH by a scan, its version read with its own flag; a missing one carries the install hints for the platform; every requirement names its command, need, purpose and a macOS hint. | `init-test/a-tool-is-found-with-its-version-or-said-how-to-install` |

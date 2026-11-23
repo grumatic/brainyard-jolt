@@ -628,6 +628,35 @@
         (is (= :stated (:git-profile p)))
         (is (not (str/includes? (:text (init/next-text p)) "Say whether agents here commit")))))))
 
+(deftest the-check-says-a-tracker-the-profile-names-and-the-project-has-not
+  ;; byj-5im: a profile naming beads where there is no .beads/, or GitHub
+  ;; with no :github-repo and no github.com remote, was marked ✓
+  (let [project (fresh-dir "tracker-check")
+        f (io/file project ".brainyard" "profile.edn")
+        profile! #(spit f (pr-str {:profile/version 1 :preset :collaborator :goal "A demo." :issues %}))
+        status #(:profile (init/project-status project))
+        line #(some (fn [c] (when (= :profile (:id c)) c)) (init/project-checks (init/project-status project)))]
+    (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
+    (io/make-parents f)
+    (profile! [{:tracker :beads} {:tracker :github} {:tracker :linear :linear-team "ENG"}])
+    (init/scaffold {} {:dir project})
+    (is (= ["it keeps the issues in beads, and beads is not set up here (no .beads/): /init sets it up"
+            "it keeps the issues in GitHub, and names no :github-repo with no github.com remote here"]
+           (:problems (status)))
+        "Linear is not looked for: what reaches it is a credential")
+    (is (false? (:ok (line))))
+    (is (str/includes? (:text (line)) "— it keeps the issues in beads, and beads is not set up here"))
+    (testing "set up: beads there, and GitHub's repository named or the origin github.com's"
+      (.mkdirs (io/file project ".beads"))
+      (fx/sh {:dir project :out :string :err :string} "git" "remote" "add" "origin" "git@github.com:o/demo.git")
+      (is (nil? (:problems (status))))
+      (is (true? (:ok (line))))
+      (fx/sh {:dir project :out :string :err :string} "git" "remote" "remove" "origin")
+      (is (= 1 (count (:problems (status)))))
+      (profile! [{:tracker :beads} {:tracker :github :github-repo "o/demo"}])
+      (init/scaffold {} {:dir project})
+      (is (nil? (:problems (status)))))))
+
 (deftest the-check-says-the-dependencies-trouble
   ;; byj-g6o: a deps.edn's problems and its projects' trouble are said with
   ;; the rest of the project's setup, in /init's check and byj doctor

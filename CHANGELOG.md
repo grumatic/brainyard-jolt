@@ -6,6 +6,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`/init`'s check marks the profile ✗ when the project has not set up a
+  tracker the profile names.** That is beads with no `.beads/`, or GitHub
+  with no `:github-repo` and no github.com remote. Linear and Jira are not
+  checked, since the profile holds no credential for them (byj-5im).
 - **`/init`'s check and `byj doctor` report a project's dependencies.**
   When `.brainyard/deps.edn` is there, a line says what reading it
   dropped and the errors and warnings of its projects: one not on this

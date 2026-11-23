@@ -183,18 +183,38 @@
   ;; what /init writes in a project, for saying which of it is uncommitted
   ["AGENTS.md" "CLAUDE.md" ".gitignore" ".claude/skills" ".brainyard/profile.edn"])
 
+(declare github-origin?)
+
+(defn- tracker-problems
+  "What of profile `p`'s issue trackers is not set up in project `dir`
+  (byj-5im): beads with no `.beads/`, GitHub with no `:github-repo` and no
+  github.com remote. Linear and Jira are not looked for: what reaches them
+  is a credential, and the profile holds none."
+  [dir p]
+  (vec (for [{:keys [tracker github-repo]} (when (sequential? (:issues p)) (:issues p))
+             :let [msg (case tracker
+                         :beads (when-not (.isDirectory (io/file dir ".beads"))
+                                  "it keeps the issues in beads, and beads is not set up here (no .beads/): /init sets it up")
+                         :github (when-not (or (not (str/blank? github-repo)) (github-origin? dir))
+                                   "it keeps the issues in GitHub, and names no :github-repo with no github.com remote here")
+                         nil)]
+             :when msg]
+         msg)))
+
 (defn profile-status
   "Where project `dir`'s profile stands (RFC-073): nil without one or a
   block of one, else `{:preset :trackers :problems :block}`, `:block`
-  being `profile/block-state` of AGENTS.md and `:trackers`
-  `profile/trackers`."
+  being `profile/block-state` of AGENTS.md, `:trackers`
+  `profile/trackers`, and `:problems` what reading it found and its
+  trackers not set up here (`tracker-problems`)."
   [dir]
   (let [p (profile/read-profile dir)
-        state (profile/block-state p (slurp-if (io/file dir "AGENTS.md")))]
+        state (profile/block-state p (slurp-if (io/file dir "AGENTS.md")))
+        problems (concat (:problems p) (when p (tracker-problems dir p)))]
     (when state
       (cond-> {:block state}
         p (assoc :preset (:preset p) :trackers (profile/trackers p))
-        (seq (:problems p)) (assoc :problems (:problems p))))))
+        (seq problems) (assoc :problems (vec problems))))))
 
 (defn project-status
   "What project `dir` has for brainyard: `{:dir :git? :agents-md? :claude-md?

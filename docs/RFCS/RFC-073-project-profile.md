@@ -95,9 +95,12 @@ map is closed, so an unknown tracker or key is a problem. Credentials are no
 part of it: the profile is committed. The goal has no epic: `:goal-epic`, a
 beads epic's id the work was under, is deprecated — an older profile that
 names it still loads, and nothing reads it (`profile/trackers` names the
-trackers, in order). `/drive` works the project's ready beads. `byj deps`
-checks an issue a workflow link gives in the tracker of these that holds
-it, GitHub's in its `:github-repo` (RFC-075, `byj-ykq`).
+trackers, in order). `/drive` works the project's ready beads. `/init`'s
+check says a tracker named here that the project has not set up — beads
+without `.beads/`, GitHub without `:github-repo` or a github.com remote
+(RFC-040, `byj-5im`). `byj deps` checks an issue a workflow link gives in
+the tracker of these that holds it, GitHub's in its `:github-repo`
+(RFC-075, `byj-ykq`).
 AGENTS.md's block says the trackers in one line, each with its place and
 the last joined with "and": "Issues are tracked in beads and GitHub Issues
 (acme/web)."
