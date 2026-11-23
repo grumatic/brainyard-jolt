@@ -112,7 +112,23 @@
         (let [r (answer s "/history")]
           (is (:no-turn r))
           (is (some #(str/includes? (second %) "no turns yet") (:said r))))
+        (testing "but /quit and /exit: the application ends the session (byj-6sd)"
+          (is (= "not run: /quit — the application that opened this session ends it" (:refused (answer s "/quit"))))
+          (is (str/starts-with? (:refused (answer s "/exit now")) "not run: /exit"))
+          (is (:no-turn (answer s "/history")) "and it is still there"))
         (finally (sdk/close! s))))))
+
+;; byj-6sd: a session whose loop ended without close! (a /quit typed before
+;; it was refused) queued the next prompt for no one, and its sender waited
+;; for ever
+(deftest a-session-whose-loop-ended-refuses-what-is-sent-after
+  (let [dir (fresh-dir "ended")
+        s (open dir (scripted [(reply {:answer "ok"})]) :commands? true)]
+    (try
+      (swap! (:state s) update :queue conj {:text "/quit" :reply (promise)})
+      (is (deref (:done s) 10000 false) "its loop ended")
+      (is (= "the session is closed" (:refused (deref (sdk/submit! s "anything") 5000 ::timeout))))
+      (finally (sdk/close! s)))))
 
 (deftest a-client-tool-is-an-ordinary-tool
   (let [dir (fresh-dir "tool")

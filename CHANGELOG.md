@@ -6,6 +6,14 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`/quit` and `/exit` no longer stall an ACP or SDK session.** Typed in a
+  session an application opened, they ended it under the application, and
+  every prompt sent after waited for ever. The application ends its
+  sessions, so they are refused there; and a session that ends any other way
+  refuses what is sent after it (byj-6sd).
+- **`session/prompt`'s answer says the model the session asks now**
+  (`_meta.brainyard.lm`), a command's too: a client shows the model `/model
+  NAME` switched to (byj-11o).
 - **`/drive` works a profile's GitHub issues as well as its beads.** It
   goes through the trackers in the order the profile's `:issues` lists
   them. From GitHub it takes the oldest open issue that no one is

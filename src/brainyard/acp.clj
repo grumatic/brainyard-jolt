@@ -834,7 +834,10 @@
       ;; its notices went out as it said them; anything else it said, now
       (do (doseq [[k t] (:said r) :when (and (not (#{:info :error} k)) (seq (str t)))]
             (update! conn sessionId {:sessionUpdate "agent_message_chunk" :content (text-block t)}))
-          {:stopReason "end_turn"})
+          ;; the model it runs on now: a command (/model NAME) may have
+          ;; switched it (byj-11o)
+          (cond-> {:stopReason "end_turn"}
+            (ext? conn) (assoc :_meta {:brainyard {:lm (lm-json (sdk/current-lm s))}})))
       :else
       (let [{:keys [answer terminated-by usage] :as result} (:result r)]
         (when (= :loop-error terminated-by)
@@ -854,6 +857,7 @@
           (cond-> {:stopReason (stop-reason result)}
             (ext? conn)
             (assoc :_meta {:brainyard (cond-> {:answer answer
+                                               :lm (lm-json (sdk/current-lm s))
                                                :terminatedBy (some-> terminated-by name)
                                                :iterations (:iterations result)
                                                :goalAchieved (:goal-achieved result)

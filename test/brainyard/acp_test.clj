@@ -310,14 +310,16 @@
   ;; session runs on — one made elsewhere, or one /model changed
   (let [dir (fresh-dir "lm")
         c (client)
-        _ (call c "initialize" {:protocolVersion 1})
+        _ (call c "initialize" {:protocolVersion 1 :_meta {:brainyard {}}})
         model (script! dir [{:answer "first answer"}])
         r (new-session c dir model {:commands true})
         sessionId (:sessionId r)]
     (is (= {:provider "mock" :model model :label (str "mock/" model)} (get-in r [:_meta :brainyard :lm]))
         "the one asked for")
     (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "first question"}]})
-    (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "/model mock/another"}]})
+    (testing "a prompt's answer says the model, as a command left it (byj-11o)"
+      (let [r (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "/model mock/another"}]})]
+        (is (= {:provider "mock" :model "another" :label "mock/another"} (get-in r [:result :_meta :brainyard :lm])))))
     (call c "session/close" {:sessionId sessionId})
     (testing "loaded asking for none, it runs on the model it chose, and says so"
       (let [r (call c "session/load" {:sessionId sessionId :cwd dir :mcpServers []

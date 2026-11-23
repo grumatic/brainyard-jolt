@@ -365,6 +365,9 @@
                             (catch Throwable t
                               (problem! (:on-problem opts) (str "session " id " ended: " (ex-message t))))
                             (finally
+                              ;; ended, however it ended: a prompt sent after
+                              ;; is refused, never queued for no one (byj-6sd)
+                              (swap! state assoc :closed? true)
                               (answer! state)
                               (some-> ch channel/close!)
                               ;; prompts never taken: the session is gone
@@ -398,8 +401,8 @@
   "Why `text` is not taken as a prompt, or nil: an empty one; a slash command
   or a `:<tool>` direct call where the session was not opened with
   `:commands?` (the session channel's rule, RFC-031 — an application may open
-  one with it, since unlike a peer it owns the process); a full queue; a
-  closed session."
+  one with it, since unlike a peer it owns the process); `/quit` and `/exit`,
+  since the application ends the session; a full queue; a closed session."
   [{:keys [state commands?]} text]
   (let [t (str/trim (str text))]
     (cond
@@ -407,6 +410,11 @@
       (str/blank? t) "empty prompt"
       (and (not commands?) (re-find #"^[/:]" t))
       (str "not run: " t " — a slash command or a direct tool call needs a session opened with commands allowed")
+      ;; the application that opened the session ends it (`close!`, ACP's
+      ;; session/close); typed, it ended the loop under it, and the
+      ;; application went on sending prompts to a session gone (byj-6sd)
+      (re-find #"^/(?:quit|exit)(?:\s|$)" t)
+      (str "not run: " (first (str/split t #"\s")) " — the application that opened this session ends it")
       (>= (count (:queue @state)) max-queue) (str "input queue is full (max " max-queue ")"))))
 
 (defn submit!

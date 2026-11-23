@@ -154,7 +154,7 @@ client                                   byj acp
                                      ←   _byj/event {sessionId, event, payload}      (when asked for)
                                      →   {stopReason end_turn, _meta.brainyard{answer, terminatedBy,
                                           iterations, goalAchieved, nextUserPrompt, usage, costUsd,
-                                          turn, filesChanged, checkpoint}}
+                                          lm, turn, filesChanged, checkpoint}}
   session/cancel {sessionId}             (notification; pending prompts answered cancelled)
   EOF on stdin                           every turn cancelled, every session closed, exit 0
 ```
@@ -330,7 +330,10 @@ for a client that asked: `answer`, `terminatedBy`, `iterations`,
 it ran as `byj turns list` numbers it, `turn`, how many files it changed,
 `filesChanged`, and its checkpoint as a loaded turn says it, `checkpoint
 {ref before after filesChanged}` — what a rewind of it goes back to,
-absent when byj keeps none (`byj-d8c.2`).
+absent when byj keeps none (`byj-d8c.2`). And the model the session asks
+now, `lm {provider model label}` as `session/new` says it: a line that ran
+no turn is answered with it too, since `/model NAME` switches it, and a client
+showing the model follows it from there (`byj-11o`).
 `stopReason` is `end_turn`, `cancelled` or `max_turn_requests` (the iteration
 cap); a turn that failed is a JSON-RPC error, its answer in `data.detail`.
 
@@ -495,7 +498,7 @@ notice). `brainyard.main` keeps its old names for them.
 | `current-lm session` | the LM the session asks now: the one a resume took back from its save or `/model` switched to (the session's `:lm-box`), else the one it was opened with (`byj-66y`) |
 | `submit! session text` | a promise of the answer: `{:result turn-result :said […]}` once the turn ran and the session waits again; `{:no-turn true :said …}`; `{:refused reason}` at once; `{:closed true}` |
 | `prompt session text` | `submit!` as a Task |
-| `refusal session text` | why a line is not taken: closed, empty, a slash command or `:<tool>` direct call without `:commands?`, a full queue (10) |
+| `refusal session text` | why a line is not taken: closed, empty, a slash command or `:<tool>` direct call without `:commands?`, `/quit` or `/exit` (the application ends the session, byj-6sd), a full queue (10) |
 | `running?`, `cancel!`, `set-mode!`, `close!` | is a prompt being worked on; cancel the running turn; the permission mode from now on; end it — turn cancelled, queued prompts answered `{:closed true}`, lock released, MCP stopped |
 | `predict opts` | `predictor/run` on a `:predictor` id or an inline `:signature`, in a project, no session |
 
@@ -508,7 +511,11 @@ Decided while building it:
   unless `:commands?`: the channel's rule (RFC-031), decided before the line
   is queued rather than by the session tree, which knows a channel and not
   an SDK client. `/<tool> args`, which the tree would take as a turn, is
-  refused with them; `:commands? true` lets it through.
+  refused with them; `:commands? true` lets it through, but for `/quit` and
+  `/exit`: the application that opened the session ends it (`close!`, ACP's
+  `session/close`). Typed, they ended the loop under it, and the prompts the
+  application sent after were queued for no one (`byj-6sd`). A session whose
+  loop ends however it ends is closed: a line sent after is refused.
 - **An SDK session opens no session channel**: it is reached through its
   application. The other direction — an application reaching a session it
   did not start — is the `live` extension.
@@ -638,9 +645,10 @@ Planned:
 | invariant | enforced by |
 |---|---|
 | A session opened through the SDK is an ordinary session: a prompt is a turn answered with its result, its events reach the viewer, it is locked while open and leaves its snapshot under its own project — never the repository above it — and closing releases the lock. | `sdk-test/an-sdk-session-is-an-ordinary-session` |
-| `session/new` and `session/load` answer the provider and model the session runs on: the one asked for, and, loaded asking for none, the one it chose with `/model`, which `session/list` says too. | `acp-test/a-session-answers-the-provider-and-model-it-runs-on` |
+| `session/new` and `session/load` answer the provider and model the session runs on: the one asked for, and, loaded asking for none, the one it chose with `/model`, which `session/list` says too; a prompt's answer says it as a command left it. | `acp-test/a-session-answers-the-provider-and-model-it-runs-on` |
 | A prompt is answered when its turn's answer is saved, while the recap after it still runs; a prompt sent meanwhile is a turn of its own once the recap ends. | `sdk-test/a-prompt-is-answered-when-its-turn-ends-not-after-the-recap` |
-| A slash command, a `:<tool>` call or an empty line is refused without `:commands?`; with it, a command runs and is answered with what it said. | `sdk-test/a-prompt-that-is-not-a-question-is-refused` |
+| A slash command, a `:<tool>` call or an empty line is refused without `:commands?`; with it, a command runs and is answered with what it said, but for `/quit` and `/exit`, which the application's `close!` does. | `sdk-test/a-prompt-that-is-not-a-question-is-refused` |
+| A session whose loop ended, however it ended, refuses a line sent after it as closed: none waits for an answer that never comes. | `sdk-test/a-session-whose-loop-ended-refuses-what-is-sent-after` |
 | What a session says beside its answer while it answers an ACP prompt reaches the client as it says it, an `agent_message_chunk` marked `_meta.brainyard.notice` with its kind, before the answer and once: a turn waiting for an MCP server its agent's tools name says so, and so do the servers changed; a turn after them that the servers did not move says nothing of them. Both SDKs give it as a `notice` message, never as the answer's text. | `acp-test/what-a-session-says-while-it-answers-reaches-the-client-as-a-notice`; both SDKs' "what the session says beside its answer is a notice" |
 | A client tool is shown to the model, called as the application's fn, and gated as any tool. | `sdk-test/a-client-tool-is-an-ordinary-tool` |
 | A shared agent is read from its card, asked over A2A with the token as a bearer, answered from a completed task with its context and cost, streamed as its working text then the answer, continued in its context, and each refusal is an error of its own kind. | `sdk/typescript` `test/remote.test.ts`, `sdk/python` `tests/test_remote.py` (an endpoint shaped as an A2A gateway's answers) |
