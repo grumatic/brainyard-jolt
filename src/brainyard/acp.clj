@@ -187,6 +187,29 @@
   [{:keys [ref before after files-changed]}]
   {:ref ref :before before :after after :filesChanged files-changed})
 
+(defn- replay-call!
+  "One recorded call `t` replayed as a completed or failed `tool_call` with
+  id `id`, its `_meta.brainyard` `(brainyard-meta)`; then the calls of the
+  subagents it ran (`:children`, session-history's), each marked as a live
+  one is — `subagent {id name}`, `parentToolCallId` this call's id — and
+  theirs under them (byj-cux)."
+  [conn sid effects-of turn id {:keys [name args result error? children]} brainyard-meta]
+  (update! conn sid {:sessionUpdate "tool_call" :toolCallId id
+                     :title (call-title name args)
+                     :kind (tool-kind (effects-of name) name)
+                     :status (if error? "failed" "completed")
+                     :rawInput (if (map? args) args {})
+                     :content [{:type "content" :content (text-block (clip result 4000))}]
+                     :_meta {:brainyard (brainyard-meta)}})
+  (doseq [{:keys [agent steps]} children
+          [k step] (map-indexed vector steps)
+          [i t] (map-indexed vector (:tools step))]
+    (replay-call! conn sid effects-of turn (str id "/" agent "-" k "-" i) t
+                  #(cond-> {:turn turn
+                            :subagent {:id agent :name (first (str/split (str agent) #"/" 2))}
+                            :parentToolCallId id}
+                     (:started-at t) (call-timing (:started-at t) (:duration-ms t))))))
+
 (defn- replay-turns!
   "A loaded session's history (`session-history/turns`) as `session/update`s, every
   turn from its first, each update naming its turn in `_meta.brainyard.turn`
@@ -211,14 +234,9 @@
       (doseq [[k step] (map-indexed vector steps)]
         (when-let [t (not-empty (str (:thought step)))]
           (up! {:sessionUpdate "agent_thought_chunk" :content (text-block t)}))
-        (doseq [[i {:keys [name args result error? started-at duration-ms]}] (map-indexed vector (:tools step))]
-          (update! conn sid {:sessionUpdate "tool_call" :toolCallId (str "turn-" turn "-" k "-" i)
-                             :title (call-title name args)
-                             :kind (tool-kind (effects-of name) name)
-                             :status (if error? "failed" "completed")
-                             :rawInput (if (map? args) args {})
-                             :content [{:type "content" :content (text-block (clip result 4000))}]
-                             :_meta {:brainyard (meta (call-timing {:turn turn} started-at duration-ms))}})))
+        (doseq [[i t] (map-indexed vector (:tools step))]
+          (replay-call! conn sid effects-of turn (str "turn-" turn "-" k "-" i) t
+                        #(meta (call-timing {:turn turn} (:started-at t) (:duration-ms t))))))
       (when-not (str/blank? (str answer))
         (up! {:sessionUpdate "agent_message_chunk" :content (text-block answer)})))))
 

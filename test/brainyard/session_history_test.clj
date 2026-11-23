@@ -82,3 +82,43 @@
     (is (nil? (:checkpoint (nth (sh/turns {:project-dir dir :working-dir dir} id) 2)))
         "a turn whose ref is gone has none, and is still there")
     (is (= [] (sh/turns {:project-dir dir :working-dir dir} "1794746057066-ffffffff")) "a session that left nothing")))
+
+(deftest a-subagents-turn-is-put-under-the-call-that-ran-it
+  ;; byj-cux: what a loaded session replays of its subagents, as a live turn
+  ;; sends it (byj-wmm)
+  (let [dir (fresh-dir "children")
+        id "1794746057066-0000beef"
+        f (io/file dir ".brainyard" "sessions" id "trajectory.edn")
+        rec (fn [m] (str (pr-str (merge {:v 3 :success true} m)) "\n"))]
+    (io/make-parents f)
+    (spit f (str
+             ;; a grandchild, then its caller the child, then the session's turn: each written as it ends
+             (rec {:question "deeper" :agent "explore/blue-fox-2" :owner "explore/red-cat-1" :turn 1
+                   :iterations [{:n 1 :channel "tool" :tools [{:name "read-file" :args {:path "b.md"} :result "B"}]}]})
+             (rec {:question "read a.md" :agent "explore/red-cat-1" :owner "root" :turn 1
+                   :iterations [{:n 1 :channel "tool" :tools [{:name "read-file" :args {:path "a.md"} :result "A"}
+                                                             {:name "agent$explore" :args {:question "deeper"}
+                                                              :result "{:answer \"B\" :subagent-id \"explore/blue-fox-2\"}"}]}]})
+             (rec {:question "look" :turn 1
+                   :iterations [{:n 1 :channel "tool" :tools [{:name "list-dir" :args {:path "."} :result "a.md"}
+                                                             {:name "agent$explore" :args {:question "read a.md"}
+                                                              :result "{:answer \"A\" :subagent-id \"explore/red-cat-1\"}"}]}
+                                {:n 2 :channel "answer" :answer "done"}]})
+             (rec {:question "again" :turn 2
+                   :iterations [{:n 1 :channel "tool" :tools [{:name "agent-registry$ask" :args {:id "explore/red-cat-1" :question "and?"}
+                                                             :result "{:answer \"nothing\"}"}]}]})
+             (rec {:question "and?" :agent "explore/red-cat-1" :owner "root" :turn 2
+                   :iterations [{:n 1 :channel "tool" :tools [{:name "list-dir" :args {:path "."} :result "a.md b.md"}]}]})))
+    (let [[t1 t2] (sh/turns {:project-dir dir :working-dir dir} id)
+          [ls dispatch] (:tools (first (:steps t1)))
+          child (first (:children dispatch))
+          [read-a deeper] (:tools (first (:steps child)))]
+      (is (= ["look" "again"] [(:question t1) (:question t2)]) "the session's own turns only")
+      (is (nil? (:children ls)) "a call that ran no subagent")
+      (is (= "explore/red-cat-1" (:agent child)) "the dispatch, by the instance its result names")
+      (is (= "a.md" (get-in read-a [:args :path])))
+      (is (= "explore/blue-fox-2" (:agent (first (:children deeper)))) "and the child's child under the child's call")
+      (testing "a later turn's ask of the same instance holds that turn's record"
+        (let [ask (first (:tools (first (:steps t2))))]
+          (is (= ["list-dir"] (map :name (:tools (first (:steps (first (:children ask)))))))))))))
+

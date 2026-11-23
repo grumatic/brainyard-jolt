@@ -21,8 +21,9 @@
 
   `turns` puts them together: each turn once, numbered as `byj turns list`
   numbers it, with what each source knows of it, and the checkpoint the
-  turn refs keep of it — what a rewind goes back to (byj-d8c.1). Reads
-  only."
+  turn refs keep of it — what a rewind goes back to (byj-d8c.1). A call
+  that ran a subagent holds that subagent's turn as `:children`, from the
+  subagent's own record (byj-cux). Reads only."
   (:require [clojure.string :as str]
             [brainyard.changes :as changes]
             [brainyard.persist :as persist]
@@ -67,6 +68,46 @@
                           (when (seq (:tools it)) [{:tools (:tools it)}]))]
          step)))
 
+(defn- runs-child?
+  "Did call `tool` run subagent instance `id`: a dispatch whose result names
+  it (`:subagent-id`), or an `agent-registry$ask` of it (its `:id`)."
+  [{:keys [args result]} id]
+  (or (str/includes? (str result) (str ":subagent-id " (pr-str id)))
+      (= id (str (get (if (map? args) args {}) :id)))))
+
+(defn- agent-of
+  "The agent an instance id is of: `explore` for `explore/red-cat-1`."
+  [id]
+  (first (str/split (str id) #"/" 2)))
+
+(declare with-children)
+
+(defn- child-node
+  "A subagent's record as a client is shown it under the call that ran it:
+  its instance, and its own steps with its children under theirs."
+  [rec recs]
+  {:agent (:agent rec) :steps (with-children (steps rec) (:agent rec) recs)})
+
+(defn- with-children
+  "STEPS, the turn of caller `owner` (`root`, or an instance), with each
+  call that ran a subagent holding that subagent's turn as `:children`
+  (byj-cux): `recs` are the turn's subagent records, in order. A call claims
+  the first record of `owner`'s it names (`runs-child?`), else the first of
+  its agent (`agent$<agent>`): a dispatch that kept no instance."
+  [steps owner recs]
+  (let [mine (atom (vec (filter #(= (str owner) (str (:owner %))) recs)))
+        take! (fn [pred] (when-let [r (first (filter pred @mine))]
+                           (swap! mine (fn [rs] (vec (remove #(identical? % r) rs))))
+                           r))]
+    (vec (for [step steps]
+           (if-let [tools (:tools step)]
+             (assoc step :tools
+                    (vec (for [t tools
+                               :let [r (or (take! #(runs-child? t (:agent %)))
+                                           (take! #(= (str (:name t)) (str "agent$" (agent-of (:agent %))))))]]
+                           (cond-> t r (assoc :children [(child-node r recs)])))))
+             step)))))
+
 (defn checkpoint
   "A turn's checkpoint as a client is told it: its ref, the work tree's
   commits as it began and ended, and how many files it changed — from
@@ -90,9 +131,12 @@
         prev (when-not (:problem snap)
                (remove (fn [[_ e]] (:compacted e))
                        (persist/numbered (:previous-turns snap) (:turn-count snap 0))))
+        ;; each turn's subagent records (byj-pzb numbers them by the session
+        ;; turn they ran in), put under the calls that ran them (byj-cux)
+        kids (group-by :turn (filter #(and (:owner %) (pos-int? (:turn %))) records))
         from-records (for [[n r] (numbered-records records subjects)]
                        [n {:turn n :question (:question r) :answer (trajectory/record-answer r)
-                           :steps (steps r) :terminated-by (:terminated-by r)}])
+                           :steps (with-children (steps r) "root" (get kids n)) :terminated-by (:terminated-by r)}])
         from-prev (for [[n e] prev]
                     [n {:turn n :question (:question e) :answer (:answer e) :steps []
                         :terminated-by (:terminated-by e)}])

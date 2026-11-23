@@ -1336,5 +1336,19 @@
           (is (= 1 (count (done (:toolCallId child)))))
           (is (= sub (get-in (first (done (:toolCallId child))) [:_meta :brainyard :subagent]))))
         (testing "the child's answer is not the session's message"
-          (is (= ["parent answer"] (keep #(when (= "agent_message_chunk" (:sessionUpdate %)) (get-in % [:content :text])) us)))))
+          (is (= ["parent answer"] (keep #(when (= "agent_message_chunk" (:sessionUpdate %)) (get-in % [:content :text])) us))))
+        (testing "loaded again, the session replays the child's call under its own, marked as it was sent live (byj-cux)"
+          (acp/end! (:conn c))
+          (let [c2 (client)
+                _ (call c2 "initialize" {:protocolVersion 1})
+                _ (call c2 "session/load" {:sessionId sessionId :cwd dir :mcpServers []
+                                           :_meta {:brainyard {:provider "mock" :model model}}})
+                [p2 c2-child] (filter #(= "tool_call" (:sessionUpdate %)) (updates c2 sessionId))]
+            (acp/end! (:conn c2))
+            (is (= "agent$explore" (:title p2)))
+            (is (nil? (get-in p2 [:_meta :brainyard :subagent])))
+            (is (= "read-file a.md" (:title c2-child)))
+            (is (= sub (get-in c2-child [:_meta :brainyard :subagent])))
+            (is (= (:toolCallId p2) (get-in c2-child [:_meta :brainyard :parentToolCallId])))
+            (is (= 1 (get-in c2-child [:_meta :brainyard :turn]))))))
       (finally (acp/end! (:conn c))))))
