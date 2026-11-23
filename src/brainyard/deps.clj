@@ -31,11 +31,11 @@
             [clojure.walk :as walk]
             [brainyard.changes :as changes]
             [brainyard.effect :as fx]
-            [brainyard.init :as init]
             [brainyard.json :as json]
             [brainyard.persist :as persist]
             [brainyard.profile :as profile]
             [brainyard.projects :as projects]
+            [brainyard.which :as which]
             [brainyard.worktree :as worktree]))
 
 (def schema-version
@@ -410,7 +410,7 @@
       :binary (let [exe (if (str/includes? command "/")
                           (let [f (io/file command) f (if (.isAbsolute f) f (io/file (str (or pdir ".")) command))]
                             (when (and (.isFile f) (.canExecute f)) (.getAbsolutePath f)))
-                          (init/on-path command (or path-env (System/getenv "PATH"))))]
+                          (which/on-path command (or path-env (System/getenv "PATH"))))]
                 (cond
                   (nil? exe) (assoc base :ok false :detail (str command " is not on PATH"))
                   (str/blank? version) (assoc base :ok true :detail exe)
@@ -688,7 +688,7 @@
   "A bead give `g`, or an issue give in beads, as `kind`: the bead closed, or
   every child of `:parent`, as bd says."
   [kind dir g {:keys [bd-fn path-env]}]
-  (let [bd? (or bd-fn (init/on-path "bd" (or path-env (System/getenv "PATH"))))
+  (let [bd? (or bd-fn (which/on-path "bd" (or path-env (System/getenv "PATH"))))
         bd-fn (or bd-fn (fn [d & args] (apply run d "bd" args)))
         row (fn [m] (cond-> (assoc m :kind kind) (= :issue kind) (assoc :tracker :beads)))]
     (if-not bd?
@@ -716,7 +716,7 @@
   (let [id (str (or (:id g) (:parent g)))
         [_ own n] (re-matches #"(?:([\w.-]+/[\w.-]+))?#?(\d+)" id)
         repo (or own (some #(when (= :github (:tracker %)) (:github-repo %)) issues))
-        gh? (or gh-fn (init/on-path "gh" (or path-env (System/getenv "PATH"))))
+        gh? (or gh-fn (which/on-path "gh" (or path-env (System/getenv "PATH"))))
         gh-fn (or gh-fn (fn [d & args] (apply run-within gh-timeout-ms d "gh" args)))
         row (fn [m] (merge {:kind :issue :tracker :github :items [id] :ready false} m))]
     (cond
@@ -881,6 +881,35 @@
      :checks (json-value (mapv (fn [c] (array-map :level (:level c) :kind (:kind c) :target (:target c) :message (:message c))) checks))
      :problems (vec (for [{:keys [file key message]} (concat spec-probs local-probs)]
                       {:file file :key key :message message}))}))
+
+;; --- health ---------------------------------------------------------------------------
+
+(defn health
+  "What `/init`'s check and `byj doctor` say of the project's dependencies
+  (byj-g6o): nil without a `deps.edn`, else `{:projects :problems :errors
+  :warnings}` — how many projects the spec names, what reading either file
+  dropped, and the error and warning messages of `report`'s checks of the
+  spec's structure and its projects (on this machine, their provides there,
+  their origin, their commits since `:seen`). It reads no session and checks
+  no give, so it runs neither bd nor gh: what is ready to hand over is
+  `byj deps`'s. opts as `report`'s `:registry` and `:path-env`."
+  [dir & [opts]]
+  (when (.isFile (spec-file dir))
+    (let [dir (canonical dir)
+          registry (or (:registry opts) (delay (projects/list-projects (projects/projects-root))))
+          opts (assoc opts :registry registry)
+          {spec :value spec-probs :problems} (read-spec dir)
+          {local-probs :problems} (read-local dir)
+          checks (concat (for [e (structural-errors dir spec registry)] (assoc e :level :error))
+                         (for [[id p] (sort-by key (:projects spec))
+                               c (:checks (project-row dir id p opts))]
+                           c))
+          said (fn [level] (vec (for [c checks :when (= level (:level c))] (:message c))))]
+      {:projects (count (:projects spec))
+       :problems (vec (for [{:keys [file key message]} (concat spec-probs local-probs)]
+                        (str (.getName (io/file (str file))) (when key (str " " key)) ": " message)))
+       :errors (said :error)
+       :warnings (said :warn)})))
 
 ;; --- writing -------------------------------------------------------------------------
 

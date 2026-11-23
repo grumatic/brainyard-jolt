@@ -628,6 +628,24 @@
         (is (= :stated (:git-profile p)))
         (is (not (str/includes? (:text (init/next-text p)) "Say whether agents here commit")))))))
 
+(deftest the-check-says-the-dependencies-trouble
+  ;; byj-g6o: a deps.edn's problems and its projects' trouble are said with
+  ;; the rest of the project's setup, in /init's check and byj doctor
+  (let [project (fresh-dir "deps-check")
+        f (io/file project ".brainyard" "deps.edn")
+        check #(some (fn [c] (when (= :deps (:id c)) c)) (init/project-checks (init/project-status project)))]
+    (init/scaffold {} {:dir project})
+    (is (nil? (check)) "no deps.edn, no line")
+    (io/make-parents f)
+    (spit f (pr-str {:schema-version 1 :projects {:core {:path "../no-such-core" :kind :upstream :bogus 1}}}))
+    (let [c (check)]
+      (is (false? (:ok c)))
+      (is (= "✗ dependencies (.brainyard/deps.edn) — deps.edn projects.core.bogus: unknown key; core is not on this machine: no directory ../no-such-core (byj deps says more)"
+             (:text c)))
+      (is (str/includes? (init/report-text {:tools [] :project (init/project-status project)}) (:text c))))
+    (spit f (pr-str {:schema-version 1}))
+    (is (= {:ok true :text "✓ dependencies (.brainyard/deps.edn): 0 projects"} (select-keys (check) [:ok :text])))))
+
 (deftest init-writes-the-profiles-block-and-the-check-holds-it-to-the-data
   ;; byj-71w.3: the block is a rendering of .brainyard/profile.edn, never
   ;; its source; a block that differs is said, and /init writes it again

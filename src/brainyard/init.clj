@@ -18,10 +18,12 @@
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
+            [brainyard.deps :as deps]
             [brainyard.effect :as fx]
             [brainyard.json :as json]
             [brainyard.profile :as profile]
-            [brainyard.skills :as skills]))
+            [brainyard.skills :as skills]
+            [brainyard.which :as which]))
 
 ;; --- the machine ---------------------------------------------------------------------------
 
@@ -39,13 +41,9 @@
 
 (defn on-path
   "The absolute path of executable `cmd` on `path` (default this process's
-  PATH), or nil: a scan of the directories, running nothing."
-  ([cmd] (on-path cmd (System/getenv "PATH")))
-  ([cmd path]
-   (some (fn [d]
-           (let [f (io/file d cmd)]
-             (when (and (not (str/blank? d)) (.isFile f) (.canExecute f)) (.getAbsolutePath f))))
-         (str/split (str path) #":"))))
+  PATH), or nil: `brainyard.which/on-path`."
+  ([cmd] (which/on-path cmd))
+  ([cmd path] (which/on-path cmd path)))
 
 (def version-timeout-ms
   "How long a tool is given to say its version: one that hangs (asking for a
@@ -207,7 +205,8 @@
   `:project-section` where AGENTS.md's drafted section stands; `:git-profile`
   whether AGENTS.md says how its agents treat git (`git-profile`); `:profile`
   the project's profile and whether AGENTS.md shows it (`profile-status`,
-  RFC-073); `:uncommitted`
+  RFC-073); `:deps` its dependencies' trouble, nil without a `deps.edn`
+  (`deps/health`, RFC-075, byj-g6o); `:uncommitted`
   what of /init's files git has not committed (byj-gly.315.8, .10)."
   [dir & [{:keys [bd codex?]}]]
   (let [d (io/file dir)
@@ -236,6 +235,7 @@
      :project-section (project-section (slurp-if (io/file d "AGENTS.md")))
      :git-profile (git-profile (slurp-if (io/file d "AGENTS.md")))
      :profile (profile-status d)
+     :deps (deps/health d)
      :uncommitted (let [r (fx/sh {:dir (str d) :out :string :err :string}
                                  "sh" "-c" (str "git status --porcelain -- " (str/join " " init-paths) " 2>/dev/null"))]
                     (vec (remove str/blank? (map #(str/trim (str %)) (str/split-lines (str (:out r)))))))}))
@@ -298,6 +298,16 @@
                                 (when (seq problems) (str " — " (str/join "; " problems))))]
                   (line :profile ok "profile" (not-empty (str/replace more #"^(: |; | — )" ""))
                         (str (mark ok) " profile" more))))
+              ;; byj-g6o: the dependencies' own trouble, said where the
+              ;; project's other setup is; `byj deps` says the rest
+              (when-let [{:keys [projects problems errors warnings]} (:deps p)]
+                (let [ok (empty? (concat problems errors))
+                      said (concat problems errors warnings)
+                      d (if (seq said)
+                          (str (str/join "; " said) " (byj deps says more)")
+                          (str projects (if (= 1 projects) " project" " projects")))]
+                  (line :deps ok "dependencies (.brainyard/deps.edn)" d
+                        (str (mark ok) " dependencies (.brainyard/deps.edn)" (if (seq said) " — " ": ") d))))
               (when (seq (:uncommitted p))
                 (let [d (str/join ", " (map #(str/replace % #"^\S+\s+" "") (:uncommitted p)))]
                   (line :uncommitted nil "left uncommitted" d (str "left uncommitted: " d))))

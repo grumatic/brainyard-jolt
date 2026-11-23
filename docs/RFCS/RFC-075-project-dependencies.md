@@ -201,6 +201,11 @@ does not read as written (stage `verify`).
   the profile's `:issues`: `{:tracker}` or `{:error}`.
 - `report [dir opts]` — `byj deps --json`'s map. opts: `:registry`,
   `:path-env`, `:bd-fn`, `:gh-fn`, `:issues` (default the profile's).
+- `health [dir opts]` — `/init`'s check's and `byj doctor`'s line (RFC-040,
+  `byj-g6o`): nil without a `deps.edn`, else `{:projects :problems :errors
+  :warnings}`, the reading problems and the error and warning messages of
+  the structure's and the projects' checks; no role, session or give, so
+  neither bd nor gh runs. opts: `:registry`, `:path-env`.
 - `write! [dir which m opts]` — `which` `:spec` or `:local`; `{:ok :file
   :snapshot}` or `{:error :stage}` (`input`, `schema`, `check`,
   `snapshot`, `write`, `verify`), with `:problems` for `schema`.

@@ -133,7 +133,13 @@ another program's, which says itself how it is installed and signed in
   for the profile and the dependencies' spec (`:current`); but for the
   profile alone, as `/init` wrote it before RFC-075 (`:profile-only`, a ✗
   that says `/init` adds the spec's line, `byj-bo8`); ignored whole
-  (`:whole`); or not at all (`ignores-brainyard`).
+  (`:whole`); or not at all (`ignores-brainyard`);
+- when `.brainyard/deps.edn` is there, the dependencies' trouble
+  (`deps/health`, RFC-075): what reading it and `deps-local.edn` dropped,
+  and the errors and warnings of its structure and its projects — a ✗ for
+  a problem or an error, warnings said on a ✓, the count of projects when
+  there is nothing to say. Roles, sessions and what a handoff gives are
+  left to `byj deps`: checking a give runs bd or gh (`byj-g6o`).
 
 It also reports, for the plan to decide from (found by the simulation,
 RFC-041):
@@ -490,7 +496,7 @@ the text alike (`session/doctor-data`):
 |---|---|
 | `tools` | each requirement: `{name, need (required, feature, optional), available, version, path, for, install}`, with `url` when it names one and `signedIn` for a tool that says how to ask |
 | `missingRequired` | the required tools that are missing, by name |
-| `project` | `{dir, checks}`: the Project section's lines in order, each `{id, ok, label, detail, text}` (`init/project-checks`). `ok` is true or false for a ✓ or ✗ line and null for a note; `id` is one of `git`, `agents-md`, `claude-md`, `beads`, `gitignore`, `code`, `project-section`, `profile`, `uncommitted`, `skills`; `text` is the line as printed |
+| `project` | `{dir, checks}`: the Project section's lines in order, each `{id, ok, label, detail, text}` (`init/project-checks`). `ok` is true or false for a ✓ or ✗ line and null for a note; `id` is one of `git`, `agents-md`, `claude-md`, `beads`, `gitignore`, `code`, `project-section`, `profile`, `deps`, `uncommitted`, `skills`; `text` is the line as printed |
 | `loops` | `{overrides, attachments}` (`project-loops/report`), null when the project holds no loop of its own and attaches nothing |
 | `installed` | each copy of byj on PATH (`update/install-lines`): `{name, version, path, origin, runsByName, text}`, a shadowed copy with `shadowedBy` and `hint` (how its owner updates or removes it), and `running` when the running byj is not the one that runs by name |
 | `checkout` | the source checkout this run is from, or null |
@@ -647,7 +653,7 @@ again on that project, `byj init` added the link
 - Event `:session/suggestion` `{:next-user-prompt}`: a suggestion from a
   call the person made between turns.
 - Also in `brainyard.init`: `check`, `tool-status`, `project-status`, `profile-status`,
-  `project-checks`, `report-text`, `on-path`, `version-of`, `platform`, `requirements`,
+  `project-checks`, `report-text`, `on-path` (`brainyard.which`'s, so `brainyard.deps` needs no `brainyard.init`), `version-of`, `platform`, `requirements`,
   `imports-agents-md?`, `ignores-brainyard`, `ignores-brainyard?`, `templates`, `marked-blocks`,
   `set-block`, `project-block`, `skill-links`, `plan-writes`, `apply-writes!`, `scaffold`,
   `beads`, `remove-beads-blocks`, `survey`, `survey-files`, `install`.
@@ -678,6 +684,7 @@ All of them are planned. Nothing enforces them until their beads are built.
 | Invariant | Enforced by |
 |---|---|
 | The check changes nothing and needs no network or model: not a file in the project is written, and bd is asked only to check. A missing tool is reported with its install hint, never installed. | `init-test/the-check-only-reads` |
+| The check says a `deps.edn`'s problems and its projects' errors and warnings, nothing without one, and runs neither bd nor gh for it. | `init-test/the-check-says-the-dependencies-trouble`, `deps-test/a-projects-dependencies-are-read-resolved-and-checked` |
 | The check reports the build files there are, whether the project section is drafted, a placeholder or absent, and which of /init's files are uncommitted. | `init-test/the-check-says-what-the-planner-decides-from` |
 | A tool is found on PATH by a scan, its version read with its own flag; a missing one carries the install hints for the platform; every requirement names its command, need, purpose and a macOS hint. | `init-test/a-tool-is-found-with-its-version-or-said-how-to-install` |
 | A tool whose entry says how to ask (`:signed-in`) is said signed in or not; an optional one missing is never a failure; none of byj's requirements names a program built on byj (`byj-ahf.7`). | `init-test/a-tool-that-says-how-to-ask-is-checked-signed-in` |

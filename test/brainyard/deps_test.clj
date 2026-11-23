@@ -158,6 +158,19 @@
         (spit (io/file dir ".brainyard" "deps-local.edn")
               (pr-str {:bindings {:design ["s-design" "s-wt" "s-impl"] :implement ["s-impl"]}}))
         (is (empty? (check (report) "started-early"))))
+      (testing "its health, for /init's check and byj doctor: the projects' trouble, no session and no give (byj-g6o)"
+        (let [ran (atom [])
+              h (deps/health dir {:registry [{:path reg :git-remote "git@github.com:o/reg.git"}]
+                                  :path-env bin :bd-fn (fn [& a] (swap! ran conj a) {:exit 1}) :gh-fn (fn [& a] (swap! ran conj a) {:exit 1})})]
+          (is (= 3 (:projects h)))
+          (is (= [] (:problems h)))
+          (is (some #(str/starts-with? % "nowhere is not on this machine") (:errors h)))
+          (is (= 3 (count (filter #(str/starts-with? % "up provides ") (:errors h)))) "gone, new-tool and absent")
+          (is (some #(str/starts-with? % "up's origin is https://github.com/o/elsewhere.git") (:warnings h)))
+          (is (some #(str/starts-with? % "up has 1 commit(s) since") (:warnings h)))
+          (is (not-any? #(re-find #"session|role|hand" %) (concat (:errors h) (:warnings h))) "roles and handoffs are byj deps's")
+          (is (empty? @ran) "neither bd nor gh is run"))
+        (is (nil? (deps/health (tmp "no-spec"))) "no deps.edn, nothing to say"))
       (testing "without bd, a bead give is not ready, and says why"
         (let [r (with-redefs [changes/rows (constantly [])] (deps/report dir {:registry [] :path-env bin}))]
           (is (= "bd is not on PATH" (:detail (second (:gives (first (:handoffs r))))))))))))
@@ -287,7 +300,9 @@
                ["projects.a.provides.0" "files need their :paths; left out"]
                ["handoffs.0" "needs to; left out"]}
              (set (map (juxt :key :message) (:problems r)))))
-      (is (every? #(= (.getPath f) (:file %)) (:problems r))))
+      (is (every? #(= (.getPath f) (:file %)) (:problems r)))
+      (is (some #{"deps.edn projects.a.bogus: unknown key"} (:problems (deps/health dir {:registry []})))
+          "and /init's check says it, by the file's name"))
     (spit f "{:projects")
     (is (str/starts-with? (:message (first (:problems (deps/report dir {:registry []})))) "unreadable EDN"))))
 

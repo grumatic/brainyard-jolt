@@ -6,6 +6,12 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`/init`'s check and `byj doctor` report a project's dependencies.**
+  When `.brainyard/deps.edn` is there, a line says what reading it
+  dropped and the errors and warnings of its projects: one not on this
+  machine, a provide missing or at the wrong version, an origin that
+  differs, commits since `:seen`. It is ✗ on a problem or an error. Roles,
+  sessions and handoffs stay with `byj deps` (byj-g6o).
 - **`/drive` no longer works beads in a project whose profile keeps its
   issues elsewhere.** When the profile's `:issues` name GitHub, Linear or
   Jira and not beads, the run stops and names those trackers. A profile
