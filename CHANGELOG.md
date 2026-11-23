@@ -6,6 +6,16 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A new shipped agent, `agent$general-purpose`**, for a whole task that
+  no specialist fits: research, analysis, writing, a change across files, a
+  chain of tool calls. It is brainyard's `react-agent` under that name: the
+  ReAct loop with every tool its caller has except itself. Its instruction
+  tells it to break the goal into ordered steps (a `todo$` checklist for a
+  long task) and to pick a tool for each step, whether the shell, files,
+  MCP servers, skills or the other agents. It checks every result, and on
+  an error or a surprise finds the cause and revises the plan until the
+  goal is met. It answers with the outcome, how that was checked, and what
+  is left (byj-63b).
 - **A handoff or workflow link in `deps.edn` can give an issue**, not only a
   bead: `{:kind :issue :id "#42"}` is ready when the issue is closed in the
   tracker of the profile's `:issues` that holds it — GitHub through `gh` in

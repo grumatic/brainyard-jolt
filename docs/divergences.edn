@@ -277,6 +277,9 @@
  {:id "plan-agent-has-no-dossier"
   :brainyard "agent/common/plan_agent.clj (a dossier every turn, read back by todo-agent and exec-agent via plan$read-dossier)"
   :test "brainyard.agents-test/the-shipped-roster"}
+ {:id "general-purpose-is-brainyards-react-agent"
+  :brainyard "agent/common/react_agent.clj react-agent (coact's loop and roster, :code-channel? false, a three-line overlay instruction)"
+  :test "brainyard.agents-test/the-general-purpose-agent-has-every-tool-but-itself"}
 
  {:id "set-f1-is-nameable"
   :brainyard "agent/common/programs.clj metrics (exact-match, schema-valid, graph-extract-f1)"

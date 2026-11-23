@@ -1,0 +1,30 @@
+;; agent$general-purpose (RFC-018, byj-63b): brainyard's `react-agent`
+;; (`common/react_agent.clj`) — the tool-only coact-derived agent with the
+;; whole shared roster — under the name a caller looks for when no specialist
+;; fits (divergence `general-purpose-is-brainyards-react-agent`).
+;;
+;; No :loop: it runs the bundled ReAct loop, as brainyard's react-agent runs
+;; coact's with the code channel off. Its instruction replaces the ReAct
+;; instruction for its turns, so it opens with brainyard's react-agent
+;; overlay word for word and adds the working discipline that makes it worth
+;; dispatching: plan the goal into steps, pick a tool per step, check each
+;; result, and revise the plan on an error or a surprise until the goal is met.
+{:description
+ "Takes a whole task with a goal — research, analysis, writing, a change across files, a chain of tool calls — when no specialist fits. Breaks the goal into ordered steps, picks the tool each step needs (shell, files, MCP servers, skills, other agents), checks every result, and on an error or a surprise finds the cause and revises the plan until the goal is met. Answers with the outcome, how it was checked, and anything left for a person to decide."
+
+ :instruction-resource "brainyard/prompts/agents/general-purpose.md"
+
+ ;; every tool the session has — brainyard's react-agent advertises the whole
+ ;; shared roster — but not itself: a task it cannot finish goes back to its
+ ;; caller, not into another copy of it
+ :deny-tools ["agent$general-purpose"]
+
+ ;; brainyard's :agent-tier-map has no react-agent entry, so its dispatch
+ ;; runs at the default :standard; stated here, with the whole window open:
+ ;; a caller may ask for :deep, and a mechanical task for :light
+ :tier :standard
+ :max-tier :deep
+
+ ;; no :max-iterations: :subagent-max-iterations (100) is the cap, since a
+ ;; general task's length is not known in advance
+ }

@@ -124,7 +124,7 @@
         (is (= "builtin" (:dropped (first shadowed))))))
     (testing "the built-in roster loads on its own — see the-shipped-roster for what is in it"
       (let [{:keys [agents problems]} (agents/load-agents {:working-dir "/nonexistent" :project-dir "/nonexistent"})]
-        (is (= ["claude" "codex" "drive" "edit" "explore" "init" "plan"] (map :name agents)))
+        (is (= ["claude" "codex" "drive" "edit" "explore" "general-purpose" "init" "plan"] (map :name agents)))
         (is (empty? problems))))))
 
 ;; --- an agent is a tool -----------------------------------------------------------
@@ -205,6 +205,26 @@
       (is (not (agents/visible? {:visible-tools ["read-file"]} "bash")))
       (is (not (agents/visible? {:hidden-tools ["bash"]} "bash")))
       (is (agents/visible? {} "anything")))))
+
+(deftest the-general-purpose-agent-has-every-tool-but-itself
+  (let [dir (fresh-dir "general-purpose")
+        r (run [(dispatch-reply "general-purpose" {:question "tidy the notes and say what changed"})
+                (reply {:answer "tidied"})
+                (reply {:answer "done"})]
+               :config (only dir :builtin-agents? true :max-iterations 5))
+        [parent child] (:prompts r)]
+    (testing "the caller is offered it"
+      (is (str/includes? parent "`agent$general-purpose`")))
+    (testing "its instruction replaces the ReAct instruction, opening with brainyard's react-agent overlay"
+      (is (str/includes? child "You are a GENERAL-PURPOSE agent"))
+      (is (str/includes? child agent/react-instruction)))
+    (testing "the child has the session's tools, writing and the shell among them, and the other agents"
+      (is (str/includes? child "- `bash`"))
+      (is (str/includes? child "- `write-file`"))
+      (is (str/includes? child "`agent$explore`")))
+    (testing "but not itself: a task it cannot finish goes back to its caller"
+      (is (not (str/includes? child "`agent$general-purpose`"))))
+    (is (= "tidied" (:answer (subagent-result r))))))
 
 (deftest a-child-turn-is-isolated
   (let [dir (fresh-dir "isolation")
@@ -742,7 +762,7 @@
   (let [{:keys [agents problems]} (agents/load-agents {:working-dir "/nonexistent" :project-dir "/nonexistent"})
         by-name (into {} (map (juxt :name identity)) agents)]
     (is (empty? problems))
-    (is (= #{"explore" "plan" "edit" "claude" "codex" "init" "drive"} (set (keys by-name)))
+    (is (= #{"explore" "plan" "edit" "general-purpose" "claude" "codex" "init" "drive"} (set (keys by-name)))
         "no bead-keeper: it is this repository's own agent, not every project's (byj-gly.316); nor Share's, which byj-share setup installs (RFC-070 D4)")
 
     (testing "agent$init is its own loop, and its commands are all it calls (RFC-040)"
@@ -760,6 +780,16 @@
         (is (true? (:attended? a)) "it asks the person as it works: waited on, never detached")
         (is (true? (:attended? (by-name "init"))))
         (is (true? (:attended? (agents/agent-tool a (fn [& _])))) "and its tool says so")))
+
+    (testing "agent$general-purpose is brainyard's react-agent: the ReAct loop, every tool but itself (byj-63b)"
+      (let [a (by-name "general-purpose")]
+        (is (nil? (:loop a)) "the bundled ReAct loop")
+        (is (nil? (:tools a)) "the session's whole palette")
+        (is (= ["agent$general-purpose"] (:deny-tools a)))
+        (is (nil? (:max-iterations a)) ":subagent-max-iterations is its cap")
+        (is (= [:standard nil :deep] [(:tier a) (:min-tier a) (:max-tier a)]))
+        (is (str/starts-with? (:instruction a) agent/react-instruction)
+            "its instruction replaces the ReAct one, so it opens with brainyard's react-agent overlay")))
 
     (testing "agent$codex is its own loop, and its commands are all it calls (RFC-049, byj-gly.430.6)"
       (let [a (by-name "codex")]

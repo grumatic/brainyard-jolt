@@ -831,6 +831,20 @@ lost is the record: brainyard leaves a parsed artifact on disk for a later agent
 to read, and here the same facts go in the answer, which is what this port's
 callers read anyway (`byj-gly.41`).
 
+<!-- divergence: general-purpose-is-brainyards-react-agent -->
+**brainyard's `react-agent` is shipped as `general-purpose`, with a working
+discipline.** brainyard's `react-agent` is the tool-only agent dispatched with
+the whole shared roster when no specialist fits: coact's loop with the code
+channel off, and an instruction of three lines over coact's. Here it is
+`agent$general-purpose`, named for what a caller is choosing it for rather
+than for its loop, which every byj turn already runs. Its instruction keeps
+brainyard's overlay word for word and adds a working discipline that byj's
+ReAct instruction does not carry: plan the goal into checked steps
+(`todo$create` for a long one), pick a tool per step, compare each result
+with what was expected, and on an error or a surprise find the cause and
+revise the plan rather than repeat the call. It has every tool its caller has
+but itself (`byj-63b`).
+
 <!-- divergence: plan-agent-has-no-dossier -->
 **The plan specialist writes a plan, not a dossier.** brainyard's `plan-agent`
 emits a machine-readable dossier every turn — even when it refuses — whose

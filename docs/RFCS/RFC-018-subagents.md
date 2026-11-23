@@ -497,7 +497,8 @@ session's trajectory, so the agent page can rebuild the tree, byj-gly.298.1),
 | A dispatch runs at its tier's model, reports the choice even when the table is empty, and never forwards the tier to the child. | `agents-test/a-dispatch-runs-at-its-tier` |
 | `:enable-subagent-calls false` registers no `agent$*` tool and puts no roster in the prompt. | `agents-test/the-kill-switch` |
 | The roster costs one line per agent in the prompt, whatever the instructions weigh. | `agents-test/the-prompt-cost-is-bounded` |
-| The shipped roster is explore, plan, edit, claude, codex, init and drive — no bead-keeper. This repository's own `beads` is a project agent under `.brainyard/agents/`, with its instruction beside it, holding its shell to `bd` and refusing to invent a tracker. | `agents-test/the-shipped-roster`, `agents-test/this-repositorys-bead-keeper` |
+| The shipped roster is explore, plan, edit, general-purpose, claude, codex, init and drive — no bead-keeper. This repository's own `beads` is a project agent under `.brainyard/agents/`, with its instruction beside it, holding its shell to `bd` and refusing to invent a tracker. | `agents-test/the-shipped-roster`, `agents-test/this-repositorys-bead-keeper` |
+| `general-purpose` runs the ReAct loop with every tool its caller has but itself, under an instruction that opens with brainyard's `react-agent` overlay. | `agents-test/the-general-purpose-agent-has-every-tool-but-itself`, `agents-test/the-shipped-roster` |
 | Cancelling the parent turn cancels the child's LLM call. | `cancellation-test/a-cancelled-turn-stops-its-subagent` |
 | A dispatch returns a handle; asking it again runs the same instance, which sees its own previous turns and nobody else's. | `agents-test/an-instance-stays-alive-and-remembers` |
 | The hint claims the lifetime the run actually has: a session's instance outlives the turn, a one-shot `ask`'s does not, and a child inherits the registry it was handed. | `agents-test/a-hint-does-not-promise-what-the-run-cannot-keep` |
@@ -532,14 +533,22 @@ session's trajectory, so the agent page can rebuild the tree, byj-gly.298.1),
   background task and the caller gets the marker (RFC-019). Inside a subagent
   nothing detaches, because its turn would end before it could collect the
   result — brainyard's rule and ours.
-- **The shipped roster is five agents**: `explore`, `plan`, `edit`, `claude`
-  and `init`, each costing the prompt one line (575 characters for the two
-  added in `byj-gly.41`, which is the roster block working as designed).
+- **The shipped roster is eight agents**: `explore`, `plan`, `edit`,
+  `general-purpose`, `claude`, `codex`, `init` and `drive`, each costing the
+  prompt one line (575 characters for the two added in `byj-gly.41`, which is
+  the roster block working as designed).
   `claude` (RFC-039) and `init` (RFC-040) are loops of their own, whose
   `claude$*` and `init$*` commands are registered only for their turns.
   `codex` (RFC-049) is one too, and so is `drive` (RFC-073), whose loop
   runs each bead as a ReAct turn with every tool but itself, and whose
   `drive$*` commands are its own.
+  `general-purpose` is brainyard's `react-agent`: no loop of its own, the
+  bundled ReAct loop with every tool its caller has but itself, at the
+  `:subagent-max-iterations` cap, and an instruction that opens with
+  `react-agent`'s overlay and adds a discipline — plan the goal into checked
+  steps, pick a tool per step, and on an error or a surprise find the cause
+  and revise the plan — for a whole task no specialist fits (`byj-63b`,
+  divergence `general-purpose-is-brainyards-react-agent`).
 - **The person's line reaches the agent their command stands for.** In a
   turn a typed command became (`/init`, `/drive`), the dispatch of the
   agent named for it seeds the child's memory with the line as typed,
