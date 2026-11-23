@@ -134,7 +134,8 @@
 
 (defn next-bead
   "The next step (`drive$next`): stop with why when the project has no
-  profile, beads is not there, the profile's limits are reached — failures
+  profile, its profile names issue trackers and not beads (`:issues`,
+  `profile/trackers`), beads is not there, the profile's limits are reached — failures
   in a row, spend, beads filed since the run began — or nothing is ready
   in the project's beads; else the bead to work on, claimed, with its brief.
   A bead the last step left unfinished (`:retry`) is worked again, with
@@ -167,6 +168,11 @@
     (assoc
       (cond
         (nil? p) (stop (get-in w [:stops :no-profile]))
+        ;; the profile says where the issues are kept: one naming trackers
+        ;; and not beads is not driven through beads (byj-y0u); one naming
+        ;; none is, as before :issues
+        (let [ts (profile/trackers p)] (and (seq ts) (not (some #{:beads} ts))))
+        (stop (fill (get-in w [:stops :not-beads]) {:trackers (str/join ", " (map name (profile/trackers p)))}))
         (or (nil? bd) (not (.isDirectory (io/file dir ".beads")))) (stop (get-in w [:stops :no-bd]))
         (and (:failures limits) (>= failures (:failures limits)))
         (stop (fill (get-in w [:stops :failures]) {:n failures}))

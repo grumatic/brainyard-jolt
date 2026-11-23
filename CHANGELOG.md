@@ -6,6 +6,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`/drive` no longer works beads in a project whose profile keeps its
+  issues elsewhere.** When the profile's `:issues` name GitHub, Linear or
+  Jira and not beads, the run stops and names those trackers. A profile
+  that names no tracker is still driven through beads. `/init` offers
+  `/drive` only when the profile keeps its issues in beads, and both now
+  say "the project's ready beads", since the goal no longer has an epic
+  (byj-y0u).
 - **A new shipped agent, `agent$general-purpose`**, for a whole task that
   no specialist fits: research, analysis, writing, a change across files, a
   chain of tool calls. It is brainyard's `react-agent` under that name: the

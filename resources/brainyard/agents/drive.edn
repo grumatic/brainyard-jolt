@@ -1,7 +1,8 @@
 ;; agent$drive (RFC-073 "The drive loop", byj-71w.6): /drive. Works through
-;; the project's goal one bead at a time — the next ready bead under the
-;; profile's epic, worked in a ReAct turn of its own, checked, judged, and
-;; closed as the profile says — and stops where the profile says to ask.
+;; the project's goal one bead at a time — the next ready bead of the
+;; project's beads, when the profile keeps its issues there, worked in a
+;; ReAct turn of its own, checked, judged, and closed as the profile says —
+;; and stops where the profile says to ask.
 ;;
 ;; Its loop is brainyard/loops/drive.edn. Each bead's turn is the bundled
 ;; ReAct loop with every tool the session has, so the work is done as any

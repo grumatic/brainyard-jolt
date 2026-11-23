@@ -513,6 +513,18 @@
         (is (not (str/includes? (:text n) "a fourth")) "three at most")
         (is (not (str/includes? (:text n) "review my uncommitted changes")))
         (is (= "explain how src/server.js routes requests" (:prompt n)))))
+    (testing "/drive is offered with a profile and beads, only when the profile keeps the issues in beads or names no tracker (byj-y0u)"
+      (let [f (io/file project ".brainyard" "profile.edn")
+            profile! #(spit f (pr-str (merge {:profile/version 1 :preset :collaborator :goal "A demo."} %)))]
+        (io/make-parents f)
+        (profile! {})
+        (is (contains? (ids) :drive) "no tracker named: beads, as before :issues")
+        (profile! {:issues [{:tracker :beads} {:tracker :github}]})
+        (is (contains? (ids) :drive))
+        (is (str/includes? (:text (next!)) "/drive works through the project's ready beads") "no epic: the goal has none")
+        (profile! {:issues [{:tracker :github}]})
+        (is (not (contains? (ids) :drive)) "the issues are kept in GitHub: /drive would not work them")
+        (.delete f)))
     (testing "an entry is shown only when every fact it names holds; none shown is no text"
       (is (= {:prompt "" :text ""} (init/next-text {} {:steps [{:id :x :when #{:beads} :text "x"}]}))))))
 
@@ -628,7 +640,7 @@
     (is (not (str/includes? (agents) "BRAINYARD:profile")))
     (io/make-parents f)
     (spit f (pr-str {:profile/version 1 :preset :collaborator :goal "A workspace."}))
-    (is (= {:block :missing :preset :collaborator} (status)))
+    (is (= {:block :missing :preset :collaborator :trackers []} (status)))
     (is (str/includes? (init/report-text {:tools [] :project (init/project-status project)})
                        "✗ profile: collaborator (.brainyard/profile.edn) — AGENTS.md does not show it; /init writes its block"))
     (init/scaffold {} {:dir project})

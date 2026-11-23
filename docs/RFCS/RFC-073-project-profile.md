@@ -310,8 +310,10 @@ errs toward holding: `git -C x log --grep commit y` matches
 `brainyard/loops/drive.edn` (`byj-71w.6`). It repeats a step, at most
 `:drive-max-steps` (20) times, until one says to stop:
 
-1. **`drive$next`** stops the run when the project has no profile or no
-   beads, when a `:stop` limit is reached — failures in a row, the run's
+1. **`drive$next`** stops the run when the project has no profile, when
+   the profile names issue trackers and not beads (`profile/trackers`; one
+   naming none is driven through beads, as before `:issues`), when it has
+   no beads, when a `:stop` limit is reached — failures in a row, the run's
    spend, beads filed since it began (`bd list --created-after`) — or when
    nothing is ready in the project's beads (`bd ready`), passing over
    a bead labelled `human` (step 5). Otherwise it
@@ -368,8 +370,10 @@ left: one of this session, whose turns run one at a time, or one whose
 process is gone. Another live session's claim is left; its run may still
 be working. Each release is a line of the log. bd releases only its own
 actor's claim, so a bead someone has taken since is left to them. The person steps in at the questions
-the profile names and nowhere else. With a profile and beads, `/init`'s
-next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
+the profile names and nowhere else. With a profile and beads, and the profile
+keeping its issues in beads or naming no tracker, `/init`'s next steps
+offer `/drive` first (`init/next-steps.edn` `:drive`,
+`init-test/next-steps-follow-what-the-project-has`).
 
 ## API (proposed)
 
@@ -430,7 +434,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | An axis at `:ask` asks the person in every mode, `:auto-approve` included, never the classifier; refused headless and in `:deny-by-default`; `:never` refuses unasked; `:act` holds nothing | `permission-test/the-gate-follows-the-projects-profile` |
 | A line made only of `:act` axes' commands and their companions, with no redirection, is not put to the `:auto` classifier; anything else in it, and every other check of the gate, still applies | `permission-test/a-line-the-profile-lets-run-is-not-classified` |
 | Through byj's hook, Claude Code asks what the profile asks about, and Codex is refused it | `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
-| `/drive` works only under a profile and beads, the project's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
+| `/drive` works only under a profile and beads, not where the profile keeps the issues in trackers that leave beads out, the project's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
 | `drive$check` names installed dependencies among the uncommitted, and stops naming them once `.gitignore` does | `drive-test/installed-dependencies-are-said-as-such` |
 | A bead is closed by `/drive` only as `:issue/close` says, and a retry, a question or a stop is a line of the run's log | `drive-test/settling-a-bead-as-the-profile-says` |
 | A retry's brief carries what the last turn ended saying and which of the bead's turns it is | `drive-test/a-retry-goes-on-from-where-the-last-turn-got-to`, `drive-test/drive-sets-aside-a-bead-it-cannot-finish-and-goes-on` |
@@ -569,4 +573,5 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-None open.
+- `/drive` works beads only: a profile whose `:issues` name GitHub, Linear
+  or Jira and not beads stops the run saying so (`byj-m6f`).

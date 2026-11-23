@@ -187,14 +187,15 @@
 
 (defn profile-status
   "Where project `dir`'s profile stands (RFC-073): nil without one or a
-  block of one, else `{:preset :problems :block}`, `:block` being
-  `profile/block-state` of AGENTS.md."
+  block of one, else `{:preset :trackers :problems :block}`, `:block`
+  being `profile/block-state` of AGENTS.md and `:trackers`
+  `profile/trackers`."
   [dir]
   (let [p (profile/read-profile dir)
         state (profile/block-state p (slurp-if (io/file dir "AGENTS.md")))]
     (when state
       (cond-> {:block state}
-        p (assoc :preset (:preset p))
+        p (assoc :preset (:preset p) :trackers (profile/trackers p))
         (seq (:problems p)) (assoc :problems (:problems p))))))
 
 (defn project-status
@@ -1096,6 +1097,9 @@
       (and code? (= :placeholder (:project-section p))) (conj :draft-pending)
       (seq (:uncommitted p)) (conj :uncommitted)
       (:beads? p) (conj :beads)
+      ;; /drive works beads only where the profile keeps the issues there,
+      ;; or names no tracker (byj-y0u)
+      (let [ts (get-in p [:profile :trackers])] (or (empty? ts) (some #{:beads} ts))) (conj :beads-tracked)
       (:onboarding? p) (conj :onboarding)
       (= :unstated (:git-profile p)) (conj :git-unstated)
       true (conj (if (get-in p [:profile :preset]) :profile :no-profile)))))

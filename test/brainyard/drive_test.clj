@@ -85,6 +85,15 @@
       (io/make-parents f)
       (spit f (pr-str {:profile/version 1}))
       (is (str/includes? (:stopped (drive/next-bead {:project-dir dir :bd-path (fresh-dir "no-beads-bin")} {} {})) "beads"))))
+  (testing "a profile that keeps the issues elsewhere is not driven through beads (byj-y0u)"
+    (let [{:keys [bin cfg]} (setup "elsewhere" {:preset :collaborator :issues [{:tracker :github} {:tracker :linear}]})
+          r (drive/next-bead cfg {} {})]
+      (is (true? (:stop r)))
+      (is (= "The profile keeps this project's issues in github, linear, not beads, and /drive works through beads only so far."
+             (:stopped r)))
+      (is (empty? (calls bin)) "no bead is asked for, let alone claimed"))
+    (let [{:keys [cfg]} (setup "no-tracker" {:preset :collaborator})]
+      (is (= "t-2" (:bead (drive/next-bead cfg {} {}))) "a profile naming no tracker: beads, as before :issues")))
   (testing "collaborator: the project's first ready bead, claimed, with its brief"
     (let [{:keys [bin cfg]} (setup "next" {:preset :collaborator :goal "A workspace." :issues [{:tracker :beads}]})
           r (drive/next-bead cfg {} {})]

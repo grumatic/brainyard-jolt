@@ -39,6 +39,7 @@
                        :never "the profile has no agent commit: uncommitted work is expected"}}
 
  :stops {:no-profile "This project has no profile: /init drafts one when you tell it what the project is for."
+         :not-beads "The profile keeps this project's issues in {trackers}, not beads, and /drive works through beads only so far."
          :no-bd "bd is not installed, or beads is not set up here: /drive works through beads."
          :nothing-ready "Nothing is ready: every bead of the project is done, blocked or claimed."
          :work-never "The profile has no agent pick its own work (:issue/work :never)."
