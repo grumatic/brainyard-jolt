@@ -210,6 +210,18 @@
                             :parentToolCallId id}
                      (:started-at t) (call-timing (:started-at t) (:duration-ms t))))))
 
+(defn- recap-update
+  "Turn `turn`'s recap as a client is told it (byj-s5h): an
+  `agent_message_chunk` of the words the full-screen UI shows under the
+  turn, marked `_meta.brainyard.notice` `recap`, with the recap itself in
+  `_meta.brainyard.recap {recap nextStep}`."
+  [turn {:keys [recap next-step]}]
+  {:sessionUpdate "agent_message_chunk"
+   :content (text-block (str "recap: " recap (when (seq next-step) (str " " next-step))))
+   :_meta {:brainyard (cond-> {:notice "recap"
+                               :recap (cond-> {:recap recap} (seq next-step) (assoc :nextStep next-step))}
+                        turn (assoc :turn turn))}})
+
 (defn- replay-turns!
   "A loaded session's history (`session-history/turns`) as `session/update`s, every
   turn from its first, each update naming its turn in `_meta.brainyard.turn`
@@ -217,12 +229,13 @@
   thought, each tool call with its result — one `tool_call`, already
   completed or failed, its id `turn-N-S-I`, with its `startedAt` and
   `durationMs` when the record kept them (byj-53r) — and the answer
-  (byj-lie). A turn byj keeps a checkpoint of says it on its first update,
+  (byj-lie), then, to a client that asked for byj's extensions, its recap
+  (byj-s5h). A turn byj keeps a checkpoint of says it on its first update,
   `_meta.brainyard.checkpoint {ref before after filesChanged}`: what a
   rewind of it goes back to (byj-d8c.1); one with none can be taken back
   to no more."
   [conn sid effects-of turns]
-  (doseq [{:keys [turn question answer steps checkpoint]} turns]
+  (doseq [{:keys [turn question answer steps checkpoint recap]} turns]
     (let [first? (atom true)
           ;; the turn's first update, whatever it is, carries its checkpoint
           meta #(cond-> %
@@ -238,7 +251,10 @@
           (replay-call! conn sid effects-of turn (str "turn-" turn "-" k "-" i) t
                         #(meta (call-timing {:turn turn} (:started-at t) (:duration-ms t))))))
       (when-not (str/blank? (str answer))
-        (up! {:sessionUpdate "agent_message_chunk" :content (text-block answer)})))))
+        (up! {:sessionUpdate "agent_message_chunk" :content (text-block answer)}))
+      ;; and its recap, after its answer as it came live (byj-s5h)
+      (when (and recap (ext? conn))
+        (update! conn sid (recap-update turn recap))))))
 
 (defn- in-turn
   "Update `u` naming the turn session `sid` is in, from the connection's
@@ -351,6 +367,16 @@
                 (when (ext? conn)
                   (notify! conn "_byj/turn" (cond-> {:sessionId sid :turn (:turn data) :state "started"}
                                               (:injected-by data) (assoc :injectedBy (json-safe (:injected-by data))))))))
+          :session.turn/recap
+          ;; after the prompt was answered (byj-2pr), so told on its own,
+          ;; naming its turn (byj-s5h)
+          (when (and (not who) (ext? conn))
+            (update! conn sid (recap-update (:turn data) data)))
+          :session/suggestion
+          ;; what a command run between turns (/init) thinks is asked next:
+          ;; its prompt's answer says it (byj-s5h)
+          (when-not who
+            (swap! st assoc-in [:suggestion sid] (not-empty (str/trim (str (:next-user-prompt data))))))
           :session/rewind
           ;; what a _byj/turns method answers with (byj-d8c.3)
           (swap! st assoc-in [:rewound sid] data)
@@ -769,7 +795,12 @@
              ;; its own saved model, the one asked for, byj acp's -p/-m, or
              ;; :default-lm — read once it is up, a resume having chosen
              ;; (byj-66y)
-             :_meta {:brainyard {:lm (lm-json (sdk/current-lm s))}}}
+             :_meta {:brainyard (cond-> {:lm (lm-json (sdk/current-lm s))}
+                                  ;; what the model thought would be asked next,
+                                  ;; which a resume offers again (byj-s5h)
+                                  resume (as-> m (if-let [p (some-> (persist/read-session (:config s) sid) :next-user-prompt str/trim not-empty)]
+                                                   (assoc m :nextUserPrompt p)
+                                                   m)))}}
       ;; the worktree it was opened in (byj-z0z): `cwd` is where it is
       ;; loaded and listed from
       (:worktree s) (assoc-in [:_meta :brainyard :worktree]
@@ -821,6 +852,7 @@
                  (catch clojure.lang.ExceptionInfo e (throw (rpc-error -32602 (str "outputSchema: " (ex-message e)))))))
         text (prompt-text prompt)
         _ (swap! (:state conn) #(-> % (assoc-in [:streamed sessionId] false) (update :ended dissoc sessionId)
+                                    (update :suggestion dissoc sessionId)
                                     (assoc-in [:prompting sessionId] true)))
         r (try (deref (sdk/submit! s text))
                (finally (swap! (:state conn) update :prompting dissoc sessionId)))
@@ -837,7 +869,10 @@
           ;; the model it runs on now: a command (/model NAME) may have
           ;; switched it (byj-11o)
           (cond-> {:stopReason "end_turn"}
-            (ext? conn) (assoc :_meta {:brainyard {:lm (lm-json (sdk/current-lm s))}})))
+            (ext? conn) (assoc :_meta {:brainyard (cond-> {:lm (lm-json (sdk/current-lm s))}
+                                                    ;; what a command thinks is asked next (/init's)
+                                                    (get-in @(:state conn) [:suggestion sessionId])
+                                                    (assoc :nextUserPrompt (get-in @(:state conn) [:suggestion sessionId])))})))
       :else
       (let [{:keys [answer terminated-by usage] :as result} (:result r)]
         (when (= :loop-error terminated-by)

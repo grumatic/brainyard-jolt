@@ -636,3 +636,23 @@
       (is (= ["x"] (persist/take-notes! c "s-live")))
       (persist/unlock! c "s-live"))
     (is (= ["s1"] (map :id (remove :problem (persist/summaries c)))) "a note is not a session")))
+
+;; byj-s5h: a client loading a session shows each turn's recap under it
+(deftest each-turns-recap-is-kept-by-its-turn
+  (let [dir (fresh-dir "recaps")
+        c (config dir)
+        t (fn [n] {:question (str "q" n) :answer (str "a" n) :turn n})
+        recaps {1 {:recap "r1"} 3 {:recap "r3" :next-step "then 4"}}]
+    (persist/save! c "s1" {:turn-count 3 :previous-turns [(t 1) (t 2) (t 3)] :recaps recaps})
+    (let [snap (persist/read-session c "s1")]
+      (is (nil? (:problem snap)))
+      (is (= recaps (:recaps snap)))
+      (is (= recaps (:recaps (persist/restore snap))) "a resume keeps them, so its next save does too"))
+    (testing "a fork keeps those of the turns it keeps"
+      (persist/fork! c "s1" "s2" {:before-turn 3})
+      (is (= {1 {:recap "r1"}} (:recaps (persist/read-session c "s2")))))
+    (testing "the newest are kept"
+      (persist/save! c "s1" {:turn-count 3 :previous-turns [] :recaps (into {} (for [n (range 1 (+ 6 persist/recaps-kept))] [n {:recap (str n)}]))})
+      (let [kept (:recaps (persist/read-session c "s1"))]
+        (is (= persist/recaps-kept (count kept)))
+        (is (= (+ 5 persist/recaps-kept) (key (last (sort-by key kept)))))))))

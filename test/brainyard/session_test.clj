@@ -252,6 +252,10 @@
       (is (= 2 (count recaps)))
       (is (= {:turn 1 :recap "We read the notes." :next-step "Nothing is pending."}
              (select-keys (second (first recaps)) [:turn :recap :next-step]))))
+    (testing "and kept by its turn, for a client loading the session (byj-s5h)"
+      (is (= {1 {:recap "We read the notes." :next-step "Nothing is pending."}
+              2 {:recap "We read the notes." :next-step "Nothing is pending."}}
+             (:recaps final))))
     (testing "and names the conversation: lowercase, hyphens, five words at most"
       (is (= "read-the-notes-and-summarise" (:conversation-title (second (first recaps)))))
       (is (= "read-the-notes-and-summarise" (:conversation-title final))))

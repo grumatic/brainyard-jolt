@@ -107,6 +107,9 @@
    [:brainyard-version {:optional true} [:maybe :string]]
    [:model {:optional true} [:maybe :string]]
    [:next-user-prompt {:optional true} [:maybe :string]]
+   ;; each turn's recap, by its number, the last `recaps-kept`: a client
+   ;; loading the session shows them under their turns (byj-s5h)
+   [:recaps {:optional true} [:maybe [:map-of :int [:map [:recap [:maybe :string]] [:next-step {:optional true} [:maybe :string]]]]]]
    ;; the session this one was forked from (byj-g5n.12), and the turn it
    ;; was cut before when it was (RFC-069)
    [:forked-from {:optional true} [:maybe :string]]
@@ -141,10 +144,19 @@
   answer."
   500)
 
+(def recaps-kept
+  "How many turns' recaps a snapshot keeps, the newest: a recap is a few
+  lines, and a long session's oldest are what a client scrolls past."
+  200)
+
+(defn- kept-recaps [recaps]
+  (when (seq recaps)
+    (into (sorted-map) (take-last recaps-kept (sort-by key recaps)))))
+
 (defn save!
   "Write the session's snapshot. Returns the file, or nil when it could not be
   written — persistence must never take a session down with it."
-  [config id {:keys [turn-count usage previous-turns question transcript conversation-title model last-result]}]
+  [config id {:keys [turn-count usage previous-turns question transcript conversation-title model last-result recaps]}]
   (try
     (let [f (session-file config id)
           existing (when (.isFile f) (try (edn/read-string (slurp f)) (catch Throwable _ nil)))]
@@ -179,6 +191,8 @@
                      :next-user-prompt (if last-result
                                          (not-empty (str/trim (str (:next-user-prompt last-result))))
                                          (:next-user-prompt existing))
+                     ;; each turn's recap (byj-s5h)
+                     :recaps (kept-recaps recaps)
                      ;; kept across saves: where a fork came from
                      :forked-from (:forked-from existing)
                      :forked-before-turn (:forked-before-turn existing)})
@@ -218,7 +232,8 @@
                :transcript (subvec tr 0 cut)
                :turn-count (dec k)
                :last-question (:question (peek kept))
-               :next-user-prompt nil)))))
+               :next-user-prompt nil
+               :recaps (not-empty (into (sorted-map) (filter #(< (key %) k)) (:recaps snap))))))))
 
 (defn fork!
   "A new session `new-id` that starts where `from-id` stands — or stood
@@ -528,7 +543,7 @@
   written before the transcript was kept restores with none."
   [snapshot]
   (merge {:transcript []}
-         (select-keys snapshot [:previous-turns :turn-count :usage :transcript :conversation-title :model])))
+         (select-keys snapshot [:previous-turns :turn-count :usage :transcript :conversation-title :model :recaps])))
 
 (defn describe
   "One line for the user: what was resumed, and how far it got.

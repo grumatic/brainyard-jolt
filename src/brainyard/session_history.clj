@@ -117,7 +117,7 @@
 
 (defn turns
   "Session `id`'s turns, ascending: `{:turn :question :answer :steps
-  :terminated-by :checkpoint}`, each from the first source that has it —
+  :terminated-by :checkpoint :recap}`, each from the first source that has it —
   the trajectory, then the snapshot's last turns, then the turn refs,
   which know only the question. `:checkpoint` (`checkpoint`) is there while
   byj keeps the turn's refs (RFC-069): not for one begun outside git, with
@@ -146,4 +146,7 @@
          ;; the later source wins: records, then the snapshot, then the refs
          (reduce (fn [m [n t]] (if (pos-int? n) (assoc m n t) m)) (sorted-map))
          vals
-         (mapv #(if-let [c (kept (:turn %))] (assoc % :checkpoint c) %)))))
+         (mapv #(cond-> %
+                  (kept (:turn %)) (assoc :checkpoint (kept (:turn %)))
+                  ;; its recap, as the snapshot keeps it (byj-s5h)
+                  (get (:recaps snap) (:turn %)) (assoc :recap (get (:recaps snap) (:turn %))))))))

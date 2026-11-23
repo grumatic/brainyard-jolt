@@ -2878,7 +2878,11 @@
             title (conversation-title (:conversation-title outputs))]
         (when title (swap! st-memory assoc :conversation-title title))
         (when-not (str/blank? (str recap next-step))
-          (swap! st-memory assoc :recap {:recap recap :next-step next-step})
+          (swap! st-memory #(-> %
+                                (assoc :recap {:recap recap :next-step next-step})
+                                ;; by turn, for a client loading the session (byj-s5h)
+                                (update :recaps assoc turn-count
+                                        (cond-> {:recap recap} (seq next-step) (assoc :next-step next-step)))))
           (record! ctx :recap (str "recap: " recap (when (seq next-step) (str " " next-step))))
           ;; the turn's snapshot was written before this existed
           (snapshot! ctx)

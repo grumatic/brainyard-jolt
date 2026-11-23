@@ -6,6 +6,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **An ACP client gets each turn's recap and the next prompt.** The recap
+  the full-screen UI shows under a turn (`recap: …`) is sent when it is
+  written, as a notice marked `recap` with its turn, and a loaded session
+  replays each turn's recap after its answer: the snapshot keeps them by turn
+  (`:recaps`, the newest 200). `session/load` answers the next prompt the
+  last turn suggested, `_meta.brainyard.nextUserPrompt`, and a direct tool
+  call whose result suggests one says it in its prompt's answer (byj-s5h).
 - **`/quit` and `/exit` no longer stall an ACP or SDK session.** Typed in a
   session an application opened, they ended it under the application, and
   every prompt sent after waited for ever. The application ends its

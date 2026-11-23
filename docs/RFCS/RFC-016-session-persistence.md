@@ -84,6 +84,12 @@ so a resume offers it again (`byj-gly.280.4`). A save with no turn since the
 resume (a resume, then `/quit`) keeps the one it resumed with, and a turn that
 offered none clears it (`persist-test/a-suggestion-outlives-a-save-with-no-turn`).
 
+`:recaps` keeps each turn's recap (`session/recap`) by the turn's number,
+`{N {:recap :next-step}}`, the newest `persist/recaps-kept` (200). A client
+loading the session shows each one under its turn (`byj-s5h`). A resume
+restores them, so its next save keeps them too, and a fork keeps only those of
+the turns it keeps.
+
 **The directories are absolute.** A snapshot is read by a later process, which
 may start anywhere; `:working-dir "."` would restore to that process's cwd
 rather than the session's. `persist/save!` canonicalises both as it writes
@@ -293,6 +299,7 @@ someone with three and then shows them one (`byj-gly.75`).
 | A resume hands the front end what was said, the last answer included even when the session never reached `/quit`, before its resume line, with each tool iteration's thought before its calls and the last next-user-prompt; the snapshot keeps only the newest entries. | `persist-test/a-resume-says-again-what-was-said` |
 | The inline front end prints a resumed session's history on a terminal and not into a pipe, and passes every event on. | `main-test/an-inline-resume-prints-what-was-said-on-a-terminal-only` |
 | A resume line names what the session remembers whenever that differs from what it ran. | `persist-test/the-resume-line-does-not-promise-turns-that-are-gone` |
+| Each turn's recap is kept by its turn, the newest `recaps-kept`; a resume restores them and a fork keeps those of the turns it keeps. | `persist-test/each-turns-recap-is-kept-by-its-turn`, `session-test/a-long-turn-ends-with-a-recap` |
 | A model `/model` switched to is saved with the session, at once, and a resume asks it again through the `:lm-box`; a session that never switched resumes on the run's own. | `persist-test/a-switched-model-is-resumed` |
 | A snapshot holds the turns, counts and usage, keeps its creation time across saves, and never stores the rendered history. | `persist-test/a-snapshot-is-the-session-and-nothing-live` |
 | A session is saved when it starts, and one with nothing to bring back is removed when it ends; one a stopped process left is kept a day, then removed — never an `ask`'s record, one a live process holds, or this run's own; `--resume` never picks one. | `persist-test/a-session-is-saved-when-it-starts-and-leaves-nothing-when-it-ends-with-no-turn`, `persist-test/a-session-that-never-ran-a-turn-is-kept-a-day-then-removed`, `acp-test/saved-sessions-are-listed-for-an-editor-to-import` |

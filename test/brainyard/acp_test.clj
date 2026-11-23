@@ -1354,3 +1354,41 @@
             (is (= (:toolCallId p2) (get-in c2-child [:_meta :brainyard :parentToolCallId])))
             (is (= 1 (get-in c2-child [:_meta :brainyard :turn]))))))
       (finally (acp/end! (:conn c))))))
+
+;; byj-s5h: the full-screen UI shows a turn's recap under it and offers the
+;; next prompt in the empty input; over ACP neither reached the client
+(deftest a-recap-and-the-next-prompt-reach-the-client-live-and-on-load
+  (let [dir (fresh-dir "recap")
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1 :_meta {:brainyard {}}})
+        model (script! dir [{:answer "first answer" :goal-achieved true :next-user-prompt "now the tests?"}
+                            {:answer "second answer" :goal-achieved true :next-user-prompt "push it?"}])
+        {:keys [sessionId]} (new-session c dir model)]
+    (doseq [q ["first question" "second question"]]
+      (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text q}]}))
+    (testing "a recap, told on its own after its prompt was answered, names its turn and is marked a recap"
+      (let [on-event (#'acp/on-event (:conn c) (atom sessionId) (constantly #{}) false dir)]
+        (on-event :session.turn/recap {:turn 2 :recap "We read the notes." :next-step "Run the tests."})
+        (let [u (last (updates c sessionId))]
+          (is (= "agent_message_chunk" (:sessionUpdate u)))
+          (is (= "recap: We read the notes. Run the tests." (get-in u [:content :text])))
+          (is (= {:notice "recap" :turn 2 :recap {:recap "We read the notes." :nextStep "Run the tests."}}
+                 (get-in u [:_meta :brainyard]))))))
+    (call c "session/close" {:sessionId sessionId})
+    ;; the recaps the session kept, as a long session's turns would have them
+    (let [f (persist/session-file {:project-dir dir} sessionId)
+          snap (read-string (slurp f))]
+      (spit f (pr-str (assoc snap :recaps {1 {:recap "We read the notes."} 2 {:recap "We wrote the answer." :next-step "Push it."}}))))
+    (let [r (call c "session/load" {:sessionId sessionId :cwd dir :mcpServers []
+                                    :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false}}}})
+          us (drop-while #(not= "first question" (get-in % [:content :text])) (updates c sessionId))
+          said (map (juxt #(get-in % [:content :text]) #(get-in % [:_meta :brainyard :turn]) #(get-in % [:_meta :brainyard :notice]))
+                    (filter #(= "agent_message_chunk" (:sessionUpdate %)) us))]
+      (try
+        (testing "a load replays each turn's recap after its answer"
+          (is (= [["first answer" 1 nil] ["recap: We read the notes." 1 "recap"]
+                  ["second answer" 2 nil] ["recap: We wrote the answer. Push it." 2 "recap"]]
+                 said)))
+        (testing "and answers the next prompt the last turn offered"
+          (is (= "push it?" (get-in r [:result :_meta :brainyard :nextUserPrompt]))))
+        (finally (acp/end! (:conn c)))))))
