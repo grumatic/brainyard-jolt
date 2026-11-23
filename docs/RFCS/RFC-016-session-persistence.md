@@ -70,6 +70,15 @@ snapshot is rewritten after every turn and an entry can be a whole answer, so
 it keeps a screenful and then some rather than the whole window. A snapshot
 written before this key existed restores with an empty transcript.
 
+**A session is saved when it starts** (byj-y6a), its snapshot `:turn-count 0`, not
+only after its first turn: a client lists it (ACP's `session/list`) and loads it
+after its process stopped, before it has run a turn. One with nothing to bring
+back — no turn, no model switched to, no name — is removed when it ends
+(`close`), so a run started and quit leaves nothing; one a stopped process left
+is kept a day for its client to open again, then removed when byj lists or
+prunes (`persist/prune-empty!`), never a one-shot `ask`'s record and never one a
+live process holds. `--resume` without an id never picks one.
+
 `:next-user-prompt` is the last turn's suggestion of what to ask next, trimmed,
 so a resume offers it again (`byj-gly.280.4`). A save with no turn since the
 resume (a resume, then `/quit`) keeps the one it resumed with, and a turn that
@@ -286,6 +295,7 @@ someone with three and then shows them one (`byj-gly.75`).
 | A resume line names what the session remembers whenever that differs from what it ran. | `persist-test/the-resume-line-does-not-promise-turns-that-are-gone` |
 | A model `/model` switched to is saved with the session, at once, and a resume asks it again through the `:lm-box`; a session that never switched resumes on the run's own. | `persist-test/a-switched-model-is-resumed` |
 | A snapshot holds the turns, counts and usage, keeps its creation time across saves, and never stores the rendered history. | `persist-test/a-snapshot-is-the-session-and-nothing-live` |
+| A session is saved when it starts, and one with nothing to bring back is removed when it ends; one a stopped process left is kept a day, then removed — never an `ask`'s record, one a live process holds, or this run's own; `--resume` never picks one. | `persist-test/a-session-is-saved-when-it-starts-and-leaves-nothing-when-it-ends-with-no-turn`, `persist-test/a-session-that-never-ran-a-turn-is-kept-a-day-then-removed`, `acp-test/saved-sessions-are-listed-for-an-editor-to-import` |
 | The directories it stores are absolute and canonical, whatever the caller passed. | `persist-test/a-stored-directory-is-absolute` |
 | A fork is a new id whose turns go on from the original's history and whose snapshot names it; the original's snapshot is unchanged; a session that is not there is no fork. | `sdk-test/a-session-is-forked-and-the-original-left-as-it-was`, `acp-test/a-fork-is-a-new-session-from-a-saved-one` |
 | A fork cut before turn K holds what came before K and names the turn; one that cannot be cut there is refused (RFC-069). | `persist-test/a-fork-is-cut-before-a-turn` |

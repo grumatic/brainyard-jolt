@@ -859,20 +859,21 @@
       {})))
 
 (defn- list-sessions
-  "ACP's `session/list`: the project's saved sessions, newest first — what
-  `byj run --resume` lists, less a snapshot that cannot be read and a session
-  that never ran a turn, which has nothing to bring back. byj keeps sessions
-  per project, so the list is `cwd`'s, or the directory byj runs in. The
-  cursor is the next page's offset."
+  "ACP's `session/list`: the project's saved sessions, newest first, less a
+  snapshot that cannot be read. A session is saved when it starts, so one
+  that has not run a turn yet is listed too (byj-y6a); one that never did and
+  that no process has held for a day is removed first (`persist/prune-empty!`).
+  byj keeps sessions per project, so the list is `cwd`'s, or the directory
+  byj runs in. The cursor is the next page's offset."
   [conn {:keys [cwd cursor]}]
   (let [cwd (if (str/blank? (str cwd)) (System/getProperty "user.dir") cwd)
         from (if (str/blank? (str cursor))
                0
                (or (some-> (re-matches #"\d+" (str cursor)) parse-long)
                    (throw (rpc-error -32602 (str "not a cursor this agent gave: " cursor)))))
+        _ (persist/prune-empty! {:project-dir cwd})
         all (->> (persist/summaries {:project-dir cwd})
-                 (remove :problem)
-                 (filter #(pos? (or (:turn-count %) 0))))
+                 (remove :problem))
         page (->> all (drop from) (take list-page))]
     ;; session/delete names a session alone; the project is the one it was listed in
     (swap! (:state conn) update :listed merge (zipmap (map :id page) (repeat cwd)))

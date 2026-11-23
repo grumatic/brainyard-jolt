@@ -185,6 +185,61 @@
         (let [r (run-session dir ["q" "/quit"] :resume "torn" :session-id "torn2")]
           (is (= 1 (:turn-count r)) "fresh, not refused"))))))
 
+(deftest a-session-is-saved-when-it-starts-and-leaves-nothing-when-it-ends-with-no-turn
+  ;; byj-y6a: a client lists a session before its first turn, and a run
+  ;; started and quit leaves no session behind
+  (let [dir (fresh-dir "saved-at-start")
+        c (config dir)
+        seen (atom nil)
+        in (atom [(fn [] (reset! seen (persist/read-session c "s1")) "/quit")])]
+    (session/run {:lm {:provider :mock :format :mock :responses (fn [_] (reply {:answer "a"}))}
+                  :config c
+                  :read-input (fn [_] (let [[x] (swap-vals! in #(vec (rest %)))] (when-let [f (first x)] (f))))
+                  :emit (fn [_ _])
+                  :out (atom [])})
+    (is (= 0 (:turn-count @seen)) "its snapshot is there before the first input")
+    (is (not (.exists (persist/session-dir c "s1"))) "and gone when it ends with none")
+    (testing "one that ran a turn is kept"
+      (run-session dir ["what is here?" "/quit"] :session-id "s2")
+      (is (= 1 (:turn-count (persist/read-session c "s2")))))
+    (testing "a resume of a session that ran turns does not save over it at the start"
+      (run-session dir ["/quit"] :resume "s2" :session-id "s2")
+      (is (= 1 (:turn-count (persist/read-session c "s2")))))))
+
+(deftest a-session-that-never-ran-a-turn-is-kept-a-day-then-removed
+  ;; byj-y6a: what a process stopped before a session's first turn leaves —
+  ;; never a one-shot ask's record, nor one held by a live process
+  (let [dir (fresh-dir "prune-empty")
+        c (config dir :session-id "current")
+        day (* 24 60 60 1000)
+        now (System/currentTimeMillis)
+        stale (fn [id] (doseq [f (file-seq (persist/session-dir c id))] (.setLastModified f (- now (* 2 day)))))]
+    (persist/save! c "fresh-empty" {:turn-count 0 :previous-turns []})
+    (persist/save! c "old-empty" {:turn-count 0 :previous-turns []})
+    (spit (persist/session-file c "old-empty") (pr-str (assoc (persist/read-session c "old-empty") :updated-at (- now (* 2 day)))))
+    (persist/save! c "old-with-a-turn" {:turn-count 1 :previous-turns []})
+    (spit (persist/session-file c "old-with-a-turn") (pr-str (assoc (persist/read-session c "old-with-a-turn") :updated-at (- now (* 2 day)))))
+    ;; a lock and nothing else: a process killed before it saved anything
+    (spit (doto (persist/lock-file c "lock-only") io/make-parents) (pr-str {:pid "999999" :at 0}))
+    (stale "lock-only")
+    ;; a one-shot ask's record: a trajectory, no snapshot
+    (spit (doto (io/file (persist/session-dir c "ask-record") "trajectory.edn") io/make-parents) "{}")
+    (stale "ask-record")
+    (persist/save! c "current" {:turn-count 0 :previous-turns []})
+    (spit (persist/session-file c "current") (pr-str (assoc (persist/read-session c "current") :updated-at (- now (* 2 day)))))
+    (is (persist/empty-session? c "lock-only"))
+    (is (not (persist/empty-session? c "ask-record")))
+    (is (= #{"old-empty" "lock-only"} (set (persist/prune-empty! c))))
+    (let [left (set (map #(.getName %) (.listFiles (persist/sessions-dir c))))]
+      (is (contains? left "fresh-empty") "a day to be opened again")
+      (is (contains? left "old-with-a-turn") "it ran a turn: prune!'s, by age")
+      (is (contains? left "ask-record") "a record, not a session")
+      (is (contains? left "current") "this run's own"))
+    (is (= "old-with-a-turn" (persist/latest-id c)) "never an empty one, though newer: --resume has nothing to bring back from it")
+    (testing "one where the person switched the model has something to bring back"
+      (persist/save! c "switched" {:turn-count 0 :previous-turns [] :model "anthropic/claude-sonnet-5"})
+      (is (not (persist/empty-session? c "switched"))))))
+
 (deftest a-resumes-notes-are-said-not-kept
   ;; byj-gly.286: each resume's notes were recorded, so the next resume replayed
   ;; them — "↻ resumed" twice and more; and they were said before the history,

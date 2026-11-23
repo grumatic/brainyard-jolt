@@ -284,7 +284,8 @@
 (defn latest-id
   "The most recently updated session, or nil."
   [config]
-  (:id (first (remove :problem (summaries config)))))
+  ;; one that never ran a turn has nothing to bring back (byj-y6a)
+  (:id (first (remove #(or (:problem %) (zero? (or (:turn-count %) 0))) (summaries config)))))
 
 ;; --- locking ----------------------------------------------------------------------
 
@@ -408,6 +409,8 @@
 (defn tasks-dir [config]
   (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" "tasks"))
 
+(declare prune-empty!)
+
 (defn prune!
   "Remove old session, transcript and task directories. Returns {:removed [ids]}.
 
@@ -426,10 +429,11 @@
         roots [[(sessions-dir config) session-opts]
                [(transcripts-dir config) opts]
                [(tasks-dir config) task-opts]]]
-    {:removed (vec (for [[root o] roots
-                         dir (prunable config root o)
-                         :when (delete-tree! root dir)]
-                     (.getName dir)))}))
+    {:removed (into (prune-empty! config)
+                    (for [[root o] roots
+                          dir (prunable config root o)
+                          :when (delete-tree! root dir)]
+                      (.getName dir)))}))
 
 (defn delete!
   "Delete a saved session at someone's word — its directory and its
@@ -444,6 +448,75 @@
       :else (do (delete-tree! (sessions-dir config) dir)
                 (delete-tree! (transcripts-dir config) (io/file (transcripts-dir config) (str id)))
                 true))))
+
+;; --- sessions that never ran a turn (byj-y6a) ---------------------------------------
+
+(def ^:private empty-session-entries
+  ;; what a session that never ran a turn has in its directory: its snapshot
+  ;; (written when it starts), its lock, its channel's meta and socket
+  #{"session.edn" "lock.edn" "meta.edn" "ask.sock"})
+
+(def empty-session-ttl-ms
+  "How long a session that never ran a turn is kept once no process holds it:
+  a day, so one opened before its process stopped (a workbench restarted) is
+  still there to open, and no longer, so they do not pile up."
+  (* 24 60 60 1000))
+
+(defn empty-session?
+  "Has session `id` nothing to bring back? Its snapshot says no turn, and
+  nothing the person chose in it — a model switched to, a name — or it has
+  no snapshot and nothing but what a live session keeps. Never the record a
+  one-shot `ask` leaves (a trajectory), which `prune!` budgets."
+  [config id]
+  (let [dir (session-dir config id)
+        names (set (map #(.getName ^java.io.File %) (or (.listFiles dir) [])))]
+    (boolean
+     (and (.isDirectory dir)
+          (every? empty-session-entries names)
+          (if (contains? names "session.edn")
+            (let [snap (read-session config id)]
+              (and (not (:problem snap)) (zero? (or (:turn-count snap) 0))
+                   (nil? (:model snap)) (str/blank? (str (:conversation-title snap)))))
+            true)))))
+
+(defn- held-by-a-live-process?
+  "Is `id` held by a live process, this one included (`holder` leaves this
+  process out)? `own` is this process's pid, asked once by the caller."
+  [config id own]
+  (let [f (lock-file config id)]
+    (when (.isFile f)
+      (let [{:keys [pid]} (try (edn/read-string (slurp f)) (catch Throwable _ nil))]
+        (boolean (and pid (or (= (str pid) own) (alive? pid))))))))
+
+(defn remove-empty!
+  "Remove session `id` when it never ran a turn and no other process holds it:
+  what a session that ends with no turn leaves (byj-y6a). True when removed."
+  [config id]
+  (when (and (empty-session? config id) (nil? (holder config id)))
+    (delete-tree! (sessions-dir config) (session-dir config id))
+    (delete-tree! (transcripts-dir config) (io/file (transcripts-dir config) (str id)))
+    true))
+
+(defn prune-empty!
+  "Remove the sessions that never ran a turn, are held by no live process, and
+  were last touched more than `empty-session-ttl-ms` ago (byj-y6a): what a
+  process stopped before its session's first turn leaves. Never this run's own.
+  Returns the ids removed."
+  ([config] (prune-empty! config (System/currentTimeMillis)))
+  ([config now]
+   (let [root (sessions-dir config)
+         own (own-pid)]
+     (vec (for [^java.io.File d (when (.isDirectory root) (.listFiles root))
+                :let [id (.getName d)]
+                :when (and (.isDirectory d)
+                           (not= id (str (:session-id config)))
+                           (empty-session? config id)
+                           (not (held-by-a-live-process? config id own))
+                           (> (- now (or (:updated-at (when (resumable? d) (read-session config id))) (.lastModified d)))
+                              empty-session-ttl-ms)
+                           (delete-tree! root d))]
+            (do (delete-tree! (transcripts-dir config) (io/file (transcripts-dir config) id))
+                id))))))
 
 ;; --- resume ---------------------------------------------------------------------
 

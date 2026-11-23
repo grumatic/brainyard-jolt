@@ -187,15 +187,20 @@
   [ctx event]
   (hooks/fire! ctx event {:session-id (:session-id (:config ctx)) :session (session-view ctx)}))
 
-(declare restore-or-start!)
+(declare restore-or-start! snapshot!)
 
 (defn ^{:reads #{} :writes #{:ended :history-context :previous-turns :transcript :turn-count :usage
                               :skill-distill-tally :skill-distill-candidates :console-activity :resumed-from}}
   init
   "Start empty, or from the snapshot `:resume` names (RFC-016), then tell the
   hooks which it was (byj-gly.334)."
-  [{:keys [st-memory] :as ctx}]
+  [{:keys [st-memory config] :as ctx}]
   (restore-or-start! ctx)
+  ;; saved from the start, not from its first turn (byj-y6a): a client lists
+  ;; it, and loads it after its process stopped, before it has run a turn
+  (when (and (:persist-session? config) (:session-id config) (not (:resumed-from @st-memory))
+             (not (.isFile (persist/session-file config (:session-id config)))))
+    (snapshot! ctx))
   (fire-session! ctx (if (:resumed-from @st-memory) :agent.session/resumed :agent.session/created)))
 
 (defn- restore-or-start!
@@ -3249,7 +3254,11 @@
                                 (str/join "; " (map :why procs)))))))
   (snapshot! ctx)
   (when (:persist-session? config)
-    (persist/unlock! config (:session-id config)))
+    (persist/unlock! config (:session-id config))
+    ;; one that ends with no turn leaves nothing: it has nothing to bring back,
+    ;; and a run started and quit would leave a session each time (byj-y6a)
+    (when (zero? (or (:turn-count (mem ctx)) 0))
+      (persist/remove-empty! config (:session-id config))))
   (events/emit! ctx :session/closed (select-keys (mem ctx) [:turn-count :usage])))
 
 (defn ^{:reads #{:input :previous-turns :turn-count :usage :console-activity} :writes #{:ended :history-context :previous-turns :console-activity}}

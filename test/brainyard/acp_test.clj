@@ -452,21 +452,24 @@
     (try
       (is (= {} (get-in r [:agentCapabilities :sessionCapabilities :list])))
       (let [{:keys [sessions nextCursor]} (:result (call c "session/list" {:cwd dir}))]
-        (testing "newest first, each as ACP's SessionInfo; one that never ran a turn is not there"
-          (is (= [b a] (mapv :sessionId sessions)))
-          (is (not-any? #(= idle (:sessionId %)) sessions))
+        (testing "newest first, each as ACP's SessionInfo; one that has not run a turn yet is there too (byj-y6a)"
+          (is (= [idle b a] (mapv :sessionId sessions)))
+          (is (= 0 (get-in (first sessions) [:_meta :brainyard :turnCount])))
           (is (every? #(= dir (:cwd %)) sessions))
-          (is (= "the first question" (:title (second sessions))))
-          (is (re-matches #"\d{4}-\d\d-\d\dT.*Z" (str (:updatedAt (first sessions)))))
-          (is (= 1 (get-in (first sessions) [:_meta :brainyard :turnCount])))
+          (is (= "the first question" (:title (nth sessions 2))))
+          (is (re-matches #"\d{4}-\d\d-\d\dT.*Z" (str (:updatedAt (second sessions)))))
+          (is (= 1 (get-in (second sessions) [:_meta :brainyard :turnCount])))
           (is (nil? nextCursor))))
       (testing "a page at a time, the cursor the next page's"
-        (with-redefs [acp/list-page 1]
+        (with-redefs [acp/list-page 2]
           (let [p1 (:result (call c "session/list" {:cwd dir}))
                 p2 (:result (call c "session/list" {:cwd dir :cursor (:nextCursor p1)}))]
-            (is (= [b] (mapv :sessionId (:sessions p1))))
+            (is (= [idle b] (mapv :sessionId (:sessions p1))))
             (is (= [a] (mapv :sessionId (:sessions p2))))
             (is (nil? (:nextCursor p2))))))
+      (testing "closed with no turn, it is gone, and no longer listed"
+        (call c "session/close" {:sessionId idle})
+        (is (= [b a] (mapv :sessionId (:sessions (:result (call c "session/list" {:cwd dir})))))))
       (testing "a cursor this agent did not give is refused"
         (is (= -32602 (get-in (call c "session/list" {:cwd dir :cursor "x"}) [:error :code]))))
       (testing "a listed session loads"
