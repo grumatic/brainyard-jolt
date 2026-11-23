@@ -349,6 +349,8 @@
                   :doc "Register the drive$* commands, which /drive's loop works a project's goal with (RFC-073). agent$drive's own config turns them on for its turn; off elsewhere."}
    :bd-path {:type "string" :default nil :family :agents
              :doc "The PATH /drive looks bd up on; the process's PATH when unset. A test points it at a stand-in."}
+   :gh-path {:type "string" :default nil :family :agents
+             :doc "The PATH /drive looks gh up on, for a profile that keeps its issues in GitHub; the process's PATH when unset. A test points it at a stand-in."}
    :drive-max-steps {:type "integer" :default 20 :family :agents
                      :doc "How many steps — a bead's turn, or a retry of one — one /drive run takes at most, whatever the profile's own limits (RFC-073)."}
    :drive-bead-attempts {:type "integer" :default 3 :family :agents

@@ -1,13 +1,17 @@
 ;; The words /drive puts together (RFC-073 "The drive loop", byj-71w.6):
 ;; the brief each bead's turn is asked, and what drive$check and the report
-;; say. brainyard.drive fills {name} from the bead and the profile; what a
-;; model reads is here, not in src/.
-{:brief "Work on bead {id}: {title}\n\n{description}\n\nThis is one step of /drive, toward this project's goal{goal}. Do this bead's work and check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what the person decides: keep to it. Where it says to ask before a commit, a bead filed or closed, a decision record or a push, run the command or write the file — byj asks the person then and waits for their answer. Put a question in your answer only for a change of goal, scope, stack or done criteria, or a decision the profile does not let you make. End by saying what you did, how you checked it, and anything left."
+;; say. brainyard.drive fills {name} from the bead or GitHub issue and the
+;; profile — {kind} and {Kind} from :kinds — what a model reads is here, not
+;; in src/.
+{:kinds {:beads {:kind "bead" :Kind "Bead"}
+         :github {:kind "GitHub issue" :Kind "GitHub issue"}}
+
+ :brief "Work on {kind} {id}: {title}\n\n{description}\n\nThis is one step of /drive, toward this project's goal{goal}. Do its work and check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what the person decides: keep to it. Where it says to ask before a commit, a bead filed or closed, a decision record or a push, run the command or write the file — byj asks the person then and waits for their answer. Put a question in your answer only for a change of goal, scope, stack or done criteria, or a decision the profile does not let you make. End by saying what you did, how you checked it, and anything left."
 
  ;; a bead's next turn, after drive/judge said retry: the turn starts from a
  ;; fresh memory, so what the last one ended saying ({progress}) is carried,
  ;; or each turn redoes the last one's setup and runs out where it did (byj-dw0)
- :retry "Bead {id} ({title}) is not finished: {why}\n\nThis is turn {n} of the {max} /drive gives a bead. The last turn ended saying:\n\n{progress}\n\nGo on from where it got to: what it did is in the work tree and the bead, so look at what is there rather than doing it again, then do what is missing and check it, keeping to AGENTS.md's profile as before. If what is missing cannot be done in this turn either, say what stands in the way. End by saying what you did and how you checked it."
+ :retry "{Kind} {id} ({title}) is not finished: {why}\n\nThis is turn {n} of the {max} /drive gives a bead. The last turn ended saying:\n\n{progress}\n\nGo on from where it got to: what it did is in the work tree and the {kind}, so look at what is there rather than doing it again, then do what is missing and check it, keeping to AGENTS.md's profile as before. If what is missing cannot be done in this turn either, say what stands in the way. End by saying what you did and how you checked it."
  :no-progress "(nothing)"
 
  ;; a bead that had its :drive-bead-attempts turns without finishing: set
@@ -17,8 +21,14 @@
  :set-aside-label "human"
  :set-aside-note "/drive set this bead aside after {n} turns that did not finish it. The last was judged: {why}\n\nIt ended saying:\n\n{progress}\n\nIts claim is released and it is labelled human, which /drive passes over. To have /drive take it up again: bd label remove {id} human"
  :set-aside "set aside after {n} turns, for you (bd human list; bd label remove {id} human to drive it again)"
+ ;; a GitHub repository without the label gets it, so described
+ :set-aside-label-description "needs a person: /drive set it aside"
 
- ;; a bead /drive claimed and never settled, released so it is ready again
+ ;; a GitHub issue's own words, where they differ from a bead's (byj-m6f)
+ :github {:set-aside-note "/drive set this issue aside after {n} turns that did not finish it. The last was judged: {why}\n\nIt ended saying:\n\n{progress}\n\nIt is no longer assigned and is labelled human, which /drive passes over. To have /drive take it up again: gh issue edit {number} --remove-label human"
+          :set-aside "set aside after {n} turns, for you (labelled human; gh issue edit {number} --remove-label human to drive it again)"}
+
+ ;; a bead or issue /drive claimed and never settled, released so it is ready again
  ;; (byj-2pv): left by a run cancelled or gone in its turn, at the next
  ;; run's start; or by this run, ended on a question, a stop or a limit
  :released-left "released: claimed by a /drive run that ended in its turn"
@@ -39,12 +49,13 @@
                        :never "the profile has no agent commit: uncommitted work is expected"}}
 
  :stops {:no-profile "This project has no profile: /init drafts one when you tell it what the project is for."
-         :not-beads "The profile keeps this project's issues in {trackers}, not beads, and /drive works through beads only so far."
+         :not-driven "The profile keeps this project's issues in {trackers}, and /drive works through beads and GitHub issues only so far."
          :no-bd "bd is not installed, or beads is not set up here: /drive works through beads."
-         :nothing-ready "Nothing is ready: every bead of the project is done, blocked or claimed."
+         :no-gh "gh is not installed: /drive works GitHub issues through it."
+         :nothing-ready "Nothing is ready: every {what} of the project is done, blocked or claimed."
          :work-never "The profile has no agent pick its own work (:issue/work :never)."
          :work-declined "You did not want {id} worked on next."
-         :failures "{n} attempts in a row did not finish a bead: the profile's limit."
+         :failures "{n} attempts in a row did not finish one: the profile's limit."
          :usd "${n} spent: the profile's limit."
-         :issues "{n} beads filed in this run: the profile's limit."
+         :issues "{n} issues filed in this run: the profile's limit."
          :steps "The run's step limit ({n}) was reached."}}

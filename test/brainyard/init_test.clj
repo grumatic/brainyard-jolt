@@ -513,7 +513,7 @@
         (is (not (str/includes? (:text n) "a fourth")) "three at most")
         (is (not (str/includes? (:text n) "review my uncommitted changes")))
         (is (= "explain how src/server.js routes requests" (:prompt n)))))
-    (testing "/drive is offered with a profile and beads, only when the profile keeps the issues in beads or names no tracker (byj-y0u)"
+    (testing "/drive is offered where the profile keeps the issues where it works them: beads here, or GitHub (byj-y0u, byj-m6f)"
       (let [f (io/file project ".brainyard" "profile.edn")
             profile! #(spit f (pr-str (merge {:profile/version 1 :preset :collaborator :goal "A demo."} %)))]
         (io/make-parents f)
@@ -521,9 +521,11 @@
         (is (contains? (ids) :drive) "no tracker named: beads, as before :issues")
         (profile! {:issues [{:tracker :beads} {:tracker :github}]})
         (is (contains? (ids) :drive))
-        (is (str/includes? (:text (next!)) "/drive works through the project's ready beads") "no epic: the goal has none")
+        (is (str/includes? (:text (next!)) "/drive works through the project's ready issues") "no epic: the goal has none")
         (profile! {:issues [{:tracker :github}]})
-        (is (not (contains? (ids) :drive)) "the issues are kept in GitHub: /drive would not work them")
+        (is (contains? (ids) :drive) "the issues are kept in GitHub: /drive works them through gh (byj-m6f)")
+        (profile! {:issues [{:tracker :linear}]})
+        (is (not (contains? (ids) :drive)) "in Linear: /drive would not work them")
         (.delete f)))
     (testing "an entry is shown only when every fact it names holds; none shown is no text"
       (is (= {:prompt "" :text ""} (init/next-text {} {:steps [{:id :x :when #{:beads} :text "x"}]}))))))

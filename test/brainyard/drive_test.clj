@@ -47,6 +47,40 @@
     (.setExecutable f true)
     (.mkdirs (io/file bin "b"))))
 
+(defn- fake-gh
+  "A gh in `bin` keeping issues as files under `bin`/g/<n> (state, title,
+  assignee, body, a line each; labels and comments in <n>.labels and
+  <n>.comments), the repository's labels in `bin`/labels: issue list, view,
+  edit (assignees, a label the repository has), close and comment, and
+  label create, as /drive calls them, every call logged to `bin`/gh.log."
+  [bin]
+  (let [f (io/file bin "gh")]
+    (spit f (str "#!/bin/bash\nd='" bin "'; echo \"$*\" >> \"$d/gh.log\"\n"
+                 "field() { sed -n \"${2}p\" \"$d/g/$1\"; }\n"
+                 "labels() { printf '['; s=''; for l in $(cat \"$d/g/$1.labels\" 2>/dev/null); do printf '%s{\"name\":\"%s\"}' \"$s\" \"$l\"; s=','; done; printf ']'; }\n"
+                 "who() { a=$(field $1 3); if [ -n \"$a\" ]; then printf '[{\"login\":\"%s\"}]' \"$a\"; else printf '[]'; fi; }\n"
+                 "row() { printf '{\"number\":%s,\"state\":\"%s\",\"title\":\"%s\",\"body\":\"%s\",\"assignees\":%s,\"labels\":%s}' \"$1\" \"$(field $1 1)\" \"$(field $1 2)\" \"$(field $1 4)\" \"$(who $1)\" \"$(labels $1)\"; }\n"
+                 "set_line() { sed -i.bak \"${2}s/.*/$3/\" \"$d/g/$1\"; }\n"
+                 "case \"$1 $2\" in\n"
+                 "  'issue list') if [[ \"$*\" == *--search* ]]; then echo '[]'; else printf '['; s=''; for n in $(ls \"$d/g\" | grep -v '[.]' | sort -n); do if [ \"$(field $n 1)\" = OPEN ]; then printf '%s' \"$s\"; row $n; s=','; fi; done; echo ']'; fi;;\n"
+                 "  'issue view') row $3; echo;;\n"
+                 "  'issue edit') case \"$4\" in\n"
+                 "      --add-assignee) set_line $3 3 me;;\n"
+                 "      --remove-assignee) set_line $3 3 '';;\n"
+                 "      --add-label) if grep -qx \"$5\" \"$d/labels\" 2>/dev/null; then echo \"$5\" >> \"$d/g/$3.labels\"; else echo \"could not add label: '$5' not found\" >&2; exit 1; fi;;\n"
+                 "    esac;;\n"
+                 "  'label create') echo \"$3\" >> \"$d/labels\";;\n"
+                 "  'issue close') set_line $3 1 CLOSED;;\n"
+                 "  'issue comment') printf '%s\\n' \"$5\" >> \"$d/g/$3.comments\";;\n"
+                 "esac\n"))
+    (.setExecutable f true)
+    (.mkdirs (io/file bin "g"))))
+
+(defn- issue! [bin n state title assignee]
+  (spit (io/file bin "g" (str n)) (str state "\n" title "\n" assignee "\nwhat it asks\n")))
+
+(defn- gh-calls [bin] (let [f (io/file bin "gh.log")] (if (.isFile f) (str/split-lines (slurp f)) [])))
+
 (defn- bead! [bin id status type title parent]
   (spit (io/file bin "b" id) (str status "\n" type "\n" title "\n" parent "\n")))
 
@@ -71,10 +105,11 @@
   (let [bin (fresh-dir (str name "-bin"))
         dir (project name profile)]
     (fake-bd bin)
+    (fake-gh bin)
     (bead! bin "t-1" "open" "epic" "Mini playground" "")
     (bead! bin "t-2" "open" "task" "server shell" "t-1")
     (bead! bin "t-3" "open" "task" "terminal" "t-1")
-    {:bin bin :dir dir :cfg {:project-dir dir :working-dir dir :bd-path bin}}))
+    {:bin bin :dir dir :cfg {:project-dir dir :working-dir dir :bd-path bin :gh-path bin}}))
 
 (deftest the-next-bead-or-why-the-run-stops
   (testing "no profile, or no beads: nothing to drive"
@@ -85,13 +120,14 @@
       (io/make-parents f)
       (spit f (pr-str {:profile/version 1}))
       (is (str/includes? (:stopped (drive/next-bead {:project-dir dir :bd-path (fresh-dir "no-beads-bin")} {} {})) "beads"))))
-  (testing "a profile that keeps the issues elsewhere is not driven through beads (byj-y0u)"
-    (let [{:keys [bin cfg]} (setup "elsewhere" {:preset :collaborator :issues [{:tracker :github} {:tracker :linear}]})
+  (testing "a profile that keeps the issues where /drive does not work them is not driven (byj-y0u)"
+    (let [{:keys [bin cfg]} (setup "elsewhere" {:preset :collaborator :issues [{:tracker :linear} {:tracker :jira}]})
           r (drive/next-bead cfg {} {})]
       (is (true? (:stop r)))
-      (is (= "The profile keeps this project's issues in github, linear, not beads, and /drive works through beads only so far."
+      (is (= "The profile keeps this project's issues in linear, jira, and /drive works through beads and GitHub issues only so far."
              (:stopped r)))
-      (is (empty? (calls bin)) "no bead is asked for, let alone claimed"))
+      (is (empty? (calls bin)) "no bead is asked for, let alone claimed")
+      (is (empty? (gh-calls bin))))
     (let [{:keys [cfg]} (setup "no-tracker" {:preset :collaborator})]
       (is (= "t-2" (:bead (drive/next-bead cfg {} {}))) "a profile naming no tracker: beads, as before :issues")))
   (testing "collaborator: the project's first ready bead, claimed, with its brief"
@@ -288,6 +324,71 @@
     (is (not (.isFile (drive/claims-file dir))))
     (is (= "t-2" (:bead (drive/next-bead cfg {} {}))) "the next run finds it ready")))
 
+(deftest a-profile-that-keeps-its-issues-in-github-is-driven-through-gh
+  ;; byj-m6f: the open issues no one is assigned, oldest first, claimed by
+  ;; assigning them to gh's user, checked, closed and set aside through gh
+  (let [github (fn [name & [entry more]]
+                 (let [{:keys [bin] :as s} (setup name (merge {:preset :collaborator
+                                                                :issues [(merge {:tracker :github} entry)]}
+                                                               more))]
+                   (issue! bin 1 "OPEN" "taken" "someone")
+                   (issue! bin 2 "OPEN" "the login page" "")
+                   (issue! bin 3 "CLOSED" "done long ago" "")
+                   (issue! bin 4 "OPEN" "set aside" "")
+                   (spit (io/file bin "g" "4.labels") "human\n")
+                   s))]
+    (testing "the oldest open issue no one is assigned and no one set aside, claimed, with its brief"
+      (let [{:keys [bin cfg]} (github "gh-next")
+            r (drive/next-bead cfg {} {})]
+        (is (= "#2" (:bead r)))
+        (is (str/starts-with? (:brief r) "Work on GitHub issue #2: the login page\n\nwhat it asks"))
+        (is (some #{"issue edit 2 --add-assignee @me"} (gh-calls bin)))
+        (is (empty? (calls bin)) "bd is not asked: the profile keeps no beads")))
+    (testing "the profile's repository, when it names one"
+      (let [{:keys [bin cfg]} (github "gh-repo" {:github-repo "o/web"})]
+        (is (= "#2" (:bead (drive/next-bead cfg {} {}))))
+        (is (every? #(str/ends-with? % "--repo o/web") (gh-calls bin)))))
+    (testing "what the turn left, its status as gh says it"
+      (let [{:keys [cfg]} (github "gh-check")]
+        (drive/next-bead cfg {} {})
+        (is (str/starts-with? (:text (drive/check-bead cfg {:bead "#2"})) "GitHub issue #2: in_progress"))))
+    (testing "done: closed through gh, with the summary"
+      (let [{:keys [bin cfg dir]} (github "gh-done")]
+        (drive/next-bead cfg {} {})
+        (let [r (drive/settle cfg {} {:bead "#2" :title "the login page" :status "done" :summary "built and tested"})]
+          (is (some #{"issue close 2 --comment /drive: built and tested"} (gh-calls bin)))
+          (is (str/ends-with? (:log r) "✓ #2 the login page — built and tested (closed)"))
+          (is (not (.isFile (drive/claims-file dir)))))))
+    (testing "its turns spent: unassigned, labelled human — the label made where the repository has none — and a comment"
+      (let [{:keys [bin cfg]} (github "gh-aside")
+            _ (drive/next-bead cfg {} {})
+            r (drive/settle cfg {} {:bead "#2" :title "the login page" :status "retry" :summary "tests fail"
+                                    :attempts 2 :work "Got to the form."})]
+        (is (= ["issue edit 2 --remove-assignee @me" "issue edit 2 --add-label human"
+                "label create human --description needs a person: /drive set it aside" "issue edit 2 --add-label human"]
+               (filterv #(re-find #"remove-assignee|add-label|label create" %) (gh-calls bin))))
+        (is (= "human" (str/trim (slurp (io/file bin "g" "2.labels")))))
+        (is (str/includes? (slurp (io/file bin "g" "2.comments")) "To have /drive take it up again: gh issue edit 2 --remove-label human"))
+        (is (str/includes? (:log r) "⏸ #2 the login page — tests fail; set aside after 3 turns, for you (labelled human; gh issue edit 2 --remove-label human to drive it again)"))
+        (is (= "#5" (do (issue! bin 5 "OPEN" "next" "") (:bead (drive/next-bead cfg {} {}))))
+            "and the next is worked, the set-aside one passed over")))
+    (testing "a claim the run did not settle is released through gh"
+      (let [{:keys [bin cfg]} (github "gh-release")
+            {:keys [since]} (drive/next-bead cfg {} {})]
+        (is (str/includes? (:text (drive/report cfg {:since since :stopped "a question"}))
+                           "↺ #2 the login page — released: the run ended before it was finished"))
+        (is (some #{"issue edit 2 --remove-assignee @me"} (gh-calls bin)))))
+    (testing "the profile's order: beads first where it names them first, GitHub when beads has nothing ready"
+      (let [{:keys [bin cfg]} (github "gh-order" nil {:issues [{:tracker :beads} {:tracker :github}]})]
+        (is (= "t-2" (:bead (drive/next-bead cfg {} {}))))
+        (is (= "t-3" (:bead (drive/next-bead cfg {} {}))))
+        (is (= "#2" (:bead (drive/next-bead cfg {} {}))))
+        (is (empty? (filter #(str/includes? % "--repo") (gh-calls bin))) "no repository named: gh takes the origin's")))
+    (testing "without gh, said"
+      (let [{:keys [cfg]} (github "gh-none")]
+        (is (= "gh is not installed: /drive works GitHub issues through it."
+               (:stopped (drive/next-bead (assoc cfg :gh-path (fresh-dir "gh-none-path")) {} {}))))))))
+
 (deftest the-drive-loop-is-sound
   (is (nil? (:problems (flow/check-tree-name "brainyard/loops/drive.edn"
                                              (flow/ctx-opts (agent/make-ctx {:config {:drive-tools? true}})))))))
@@ -306,7 +407,7 @@
                                                 (json/write-str {:reasoning "r" :status "done" :question "" :summary "done and checked"}))
                                             (json/write-str {:reasoning "r" :tool-calls [] :answer "Done: built it and ran the tests."}))))}
                       :tree (agent/load-tree "brainyard/loops/drive.edn")
-                      :config {:project-dir dir :working-dir dir :drive-tools? true :bd-path bin}})]
+                      :config {:project-dir dir :working-dir dir :drive-tools? true :bd-path bin :gh-path bin}})]
     (is (= 2 @judged) "one judgement a bead")
     (is (some #(str/starts-with? % "close t-2") (calls bin)))
     (is (some #(str/starts-with? % "close t-3") (calls bin)))
@@ -314,6 +415,29 @@
     (is (str/includes? (:answer r) "Stopped: Nothing is ready: every bead of the project"))
     (is (not (str/includes? (:answer r) "Still open under")) "the goal has no epic to say what is open under (byj-yq9)")
     (is (not (.isFile (drive/claims-file dir))) "every claim settled")))
+
+(deftest drive-works-a-profiles-github-issues-until-nothing-is-ready
+  ;; byj-m6f: the same loop over GitHub issues, each closed through gh
+  (let [{:keys [bin dir]} (setup "loop-gh" {:preset :collaborator :issues [{:tracker :github}]})
+        _ (do (issue! bin 7 "OPEN" "the login page" "") (issue! bin 9 "OPEN" "the logout link" ""))
+        briefs (atom [])
+        r (agent/ask "Work through this project's goal."
+                     {:lm {:provider :mock :format :mock
+                           :responses (fn [messages]
+                                        (let [sys (str (:content (first messages)))]
+                                          (if (str/includes? sys "A coding agent just took one turn on a bead")
+                                            (json/write-str {:reasoning "r" :status "done" :question "" :summary "done and checked"})
+                                            (do (swap! briefs conj (str (:content (second messages))))
+                                                (json/write-str {:reasoning "r" :tool-calls [] :answer "Done: built it and ran the tests."})))))}
+                      :tree (agent/load-tree "brainyard/loops/drive.edn")
+                      :config {:project-dir dir :working-dir dir :drive-tools? true :bd-path bin :gh-path bin}})]
+    (is (= 2 (count @briefs)))
+    (is (str/includes? (first @briefs) "Work on GitHub issue #7: the login page"))
+    (is (some #(str/starts-with? % "issue close 7") (gh-calls bin)))
+    (is (some #(str/starts-with? % "issue close 9") (gh-calls bin)))
+    (is (str/includes? (:answer r) "/drive:\n✓ #7 the login page — done and checked (closed)\n✓ #9 the logout link — done and checked (closed)"))
+    (is (str/includes? (:answer r) "Stopped: Nothing is ready: every GitHub issue of the project is done, blocked or claimed."))
+    (is (empty? (calls bin)) "bd is never run")))
 
 (deftest drive-sets-aside-a-bead-it-cannot-finish-and-goes-on
   ;; t-2's turns never finish: three turns, each brief after the first
@@ -334,7 +458,7 @@
                                               (json/write-str {:reasoning "r" :tool-calls []
                                                                :answer (str "Turn " (count @briefs) " got to step " (count @briefs) ".")})))))}
                       :tree (agent/load-tree "brainyard/loops/drive.edn")
-                      :config {:project-dir dir :working-dir dir :drive-tools? true :bd-path bin}})
+                      :config {:project-dir dir :working-dir dir :drive-tools? true :bd-path bin :gh-path bin}})
         t2 (filterv #(str/includes? % "t-2") @briefs)]
     (is (= 3 (count t2)) "three turns on t-2, no more")
     (is (str/includes? (nth t2 1) "This is turn 2 of the 3") )

@@ -4,14 +4,15 @@
 (ns brainyard.drive
   "/drive (RFC-073 \"The drive loop\", byj-71w.6): the `drive$*` commands
   agent$drive's loop (`brainyard/loops/drive.edn`) calls to work through a
-  project's goal one bead at a time, as far as its profile allows.
+  project's goal one issue at a time — a bead, or a GitHub issue where the
+  profile keeps them there (byj-m6f) — as far as its profile allows.
 
   Mechanism only. The order — pick, work, check, judge, settle, again — is
   the tree's; the bead's work is a ReAct turn the tree includes; whether a
   turn finished its bead is the predictor `drive/judge`'s; every word a model
-  reads is `resources/brainyard/drive/words.edn`'s. What is here reads beads
-  and the work tree, asks the person where the profile says to, closes a
-  bead, and keeps the run's tally.
+  reads is `resources/brainyard/drive/words.edn`'s. What is here reads the
+  trackers (bd, gh) and the work tree, asks the person where the profile
+  says to, closes an issue, and keeps the run's tally.
 
   brainyard has no counterpart: its exec-agent drove a todo list, and was
   not ported (RFC-023)."
@@ -19,10 +20,10 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.effect :as fx]
-            [brainyard.init :as init]
             [brainyard.json :as json]
             [brainyard.persist :as persist]
-            [brainyard.profile :as profile]))
+            [brainyard.profile :as profile]
+            [brainyard.which :as which]))
 
 (def words-resource "brainyard/drive/words.edn")
 
@@ -75,7 +76,133 @@
     (if (> (count s) n) (str (subs s 0 n) "…") s)))
 
 (defn- bd-path [config args]
-  (init/on-path "bd" (or (:path args) (:bd-path config) (System/getenv "PATH"))))
+  (which/on-path "bd" (or (:path args) (:bd-path config) (System/getenv "PATH"))))
+
+(defn- gh-path [config args]
+  (which/on-path "gh" (or (:path args) (:gh-path config) (System/getenv "PATH"))))
+
+;; --- the trackers /drive works (byj-m6f) ----------------------------------------
+
+(def drivable
+  "The trackers of a profile's `:issues` /drive works, in the order it
+  prefers them when the profile names none: beads (bd) and GitHub (gh)."
+  [:beads :github])
+
+(defn github-id?
+  "Whether `id` is a GitHub issue's, `#N`; any other is a bead's."
+  [id]
+  (boolean (re-matches #"#\d+" (str id))))
+
+(defn- tracker-of [id] (if (github-id? id) :github :beads))
+
+(defn- number-of [id] (subs (str id) 1))
+
+(defn- tools
+  "What the trackers are reached with in project `dir`: bd and gh where they
+  are found, and the GitHub repository the profile names (its first GitHub
+  tracker's `:github-repo`; else gh takes the origin remote's)."
+  [config args dir p]
+  {:dir dir :bd (bd-path config args) :gh (gh-path config args)
+   :repo (some #(when (= :github (:tracker %)) (not-empty (str (:github-repo %)))) (:issues p))})
+
+(defn- gh [{:keys [dir gh repo]} & argv]
+  (apply run dir gh (concat argv (when repo ["--repo" repo]))))
+
+(defn- available?
+  "Whether tracker `t` can be worked here: bd and `.beads/`, or gh."
+  [t {:keys [dir bd gh]}]
+  (case t
+    :beads (boolean (and bd (.isDirectory (io/file (str dir) ".beads"))))
+    :github (boolean gh)
+    false))
+
+(defn- said-of [r] (when (and r (not (:ok? r))) (:said r)))
+
+(defn- ready-items
+  "Tracker `t`'s ready work, in the order it is taken: `{:items [{:id
+  :title :description}] :error}`. Beads: `bd ready`, epics left out. GitHub:
+  the open issues no one is assigned, oldest first. Either passes over what
+  is labelled `label`, set aside for the person."
+  [t tl label]
+  (case t
+    :beads (let [r (run (:dir tl) (:bd tl) "ready" "--json" "--limit" "20" "--exclude-label" label)]
+             {:error (said-of r)
+              :items (vec (for [b (json-out r) :when (not= "epic" (:issue_type b))]
+                            {:id (:id b) :title (str (:title b)) :description (str (:description b))}))})
+    :github (let [r (gh tl "issue" "list" "--state" "open" "--limit" "100" "--json" "number,title,body,assignees,labels")]
+              {:error (said-of r)
+               :items (vec (for [i (sort-by :number (json-out r))
+                                 :when (and (empty? (:assignees i))
+                                            (not-any? #(= label (:name %)) (:labels i)))]
+                             {:id (str "#" (:number i)) :title (str (:title i)) :description (str (:body i))}))})))
+
+(defn- show-item
+  "What the tracker of `id` says of it: `{:title :description :status}`,
+  `:status` as bd says it — `closed`, `in_progress` (a GitHub issue someone is
+  assigned), `open` — or nil when it cannot be read."
+  [tl id]
+  (if (github-id? id)
+    (when (:gh tl)
+      (when-let [i (json-out (gh tl "issue" "view" (number-of id) "--json" "title,body,state,assignees"))]
+        {:title (str (:title i)) :description (str (:body i))
+         :status (cond (= "CLOSED" (str (:state i))) "closed" (seq (:assignees i)) "in_progress" :else "open")}))
+    (when (:bd tl)
+      (when-let [b (first (json-out (run (:dir tl) (:bd tl) "show" id "--json")))]
+        {:title (str (:title b)) :description (str (:description b)) :status (str (:status b))}))))
+
+(defn- claim! [tl id]
+  (if (github-id? id)
+    (gh tl "issue" "edit" (number-of id) "--add-assignee" "@me")
+    (run (:dir tl) (:bd tl) "update" id "--claim")))
+
+(defn- unclaim! [tl id]
+  (if (github-id? id)
+    (gh tl "issue" "edit" (number-of id) "--remove-assignee" "@me")
+    (run (:dir tl) (:bd tl) "unclaim" id)))
+
+(defn- close! [tl id reason]
+  (if (github-id? id)
+    (gh tl "issue" "close" (number-of id) "--comment" reason)
+    (run (:dir tl) (:bd tl) "close" id "--reason" reason)))
+
+(defn- comment! [tl id text]
+  (if (github-id? id)
+    (gh tl "issue" "comment" (number-of id) "--body" text)
+    (run (:dir tl) (:bd tl) "comments" "add" id text)))
+
+(defn- label!
+  "`label` put on `id`. A GitHub repository without the label gets it first,
+  described as `description`: gh adds only a label the repository has."
+  [tl id label description]
+  (if (github-id? id)
+    (let [r (gh tl "issue" "edit" (number-of id) "--add-label" label)]
+      (if (:ok? r)
+        r
+        (do (gh tl "label" "create" label "--description" description)
+            (gh tl "issue" "edit" (number-of id) "--add-label" label))))
+    (run (:dir tl) (:bd tl) "label" "add" id label)))
+
+(defn- reachable? [tl id] (boolean (if (github-id? id) (:gh tl) (:bd tl))))
+
+(defn- created-since
+  "How many issues tracker `t` has that were filed since `since`."
+  [t tl since]
+  (case t
+    :beads (count (json-out (run (:dir tl) (:bd tl) "list" "--all" "--json" "--created-after" since)))
+    ;; GitHub's search takes a time to the second
+    :github (count (json-out (gh tl "issue" "list" "--state" "all" "--limit" "200" "--json" "number"
+                                 "--search" (str "created:>=" (let [t (str since)] (if (> (count t) 19) (str (subs t 0 19) "Z") t))))))))
+
+(defn- kind-words
+  "The words for tracker `t`'s work, `{:kind :Kind :kinds}`."
+  [w t]
+  (get-in w [:kinds t]))
+
+(defn- word
+  "Word `k` of `w` for `id`'s tracker: its own under `:github`, else the
+  common one."
+  [w id k]
+  (or (when (github-id? id) (get-in w [:github k])) (get w k)))
 
 ;; --- the claims a run holds (byj-2pv) ------------------------------------------
 
@@ -106,20 +233,21 @@
        (catch Throwable _ nil)))
 
 (defn- release!
-  "Each bead of `ids` released (`bd unclaim`) when it is still in progress,
-  and dropped from the claims file either way; a log line for each released.
-  bd releases only its own actor's claim, so a bead someone has taken since
-  is left to them."
-  [dir bd ids why]
+  "Each of `ids` released — a bead `bd unclaim`ed, a GitHub issue's
+  assignment to gh's user removed — when it is still in progress, and
+  dropped from the claims file either way; a log line for each released.
+  bd releases only its own actor's claim, and gh only its own user's, so
+  one someone has taken since is left to them."
+  [tl ids why]
   (let [lines (reduce (fn [acc id]
-                        (let [b (first (json-out (run dir bd "show" id "--json")))]
-                          (if (= "in_progress" (str (:status b)))
-                            (let [r (run dir bd "unclaim" id)]
+                        (let [b (when (reachable? tl id) (show-item tl id))]
+                          (if (= "in_progress" (:status b))
+                            (let [r (unclaim! tl id)]
                               (conj acc (str "↺ " id " " (:title b) " — " why
-                                             (when-not (:ok? r) (str " (bd said: " (:said r) ")")))))
+                                             (when-let [x (said-of r)] (str " (" (if (github-id? id) "gh" "bd") " said: " x ")")))))
                             acc)))
                       [] ids)]
-    (update-claims! dir #(apply dissoc % ids))
+    (update-claims! (:dir tl) #(apply dissoc % ids))
     lines))
 
 (defn- run-over?
@@ -134,24 +262,31 @@
 
 (defn next-bead
   "The next step (`drive$next`): stop with why when the project has no
-  profile, its profile names issue trackers and not beads (`:issues`,
-  `profile/trackers`), beads is not there, the profile's limits are reached — failures
-  in a row, spend, beads filed since the run began — or nothing is ready
-  in the project's beads; else the bead to work on, claimed, with its brief.
-  A bead the last step left unfinished (`:retry`) is worked again, with
-  what was missing, what its last turn ended saying (`:retry-progress`) and
-  which of its turns this is (`:attempts` before it); a bead labelled as
-  set aside for the person is passed over. A run's first step first
-  releases the beads an earlier run claimed and never settled — cancelled
-  or dead in a bead's turn (`run-over?`) — each a line of `:log`. Where the profile has the person choose the work
-  (`:issue/work :ask`), the person is asked first. `{:stop :stopped :bead
-  :title :brief :head :since}`; `:since` is when the run began, kept by the
-  tree."
+  profile, its profile names issue trackers /drive does not work (only
+  Linear or Jira, `profile/trackers`), none it names can be worked here
+  (`available?`), the profile's limits are reached — failures in a row,
+  spend, issues filed since the run began — or nothing is ready; else the
+  work to do, claimed, with its brief. The trackers are taken in the
+  profile's order, beads alone when it names none: the first ready item of
+  the first that has one, a bead (`bd ready`) or a GitHub issue no one is
+  assigned (`#N`, claimed by assigning it to gh's user; byj-m6f).
+  A bead or issue the last step left unfinished (`:retry`) is worked again,
+  with what was missing, what its last turn ended saying
+  (`:retry-progress`) and which of its turns this is (`:attempts` before
+  it); one labelled as set aside for the person is passed over. A run's
+  first step first releases what an earlier run claimed and never settled —
+  cancelled or dead in a turn (`run-over?`) — each a line of `:log`. Where
+  the profile has the person choose the work (`:issue/work :ask`), the
+  person is asked first. `{:stop :stopped :bead :title :brief :head
+  :since}`; `:since` is when the run began, kept by the tree."
   [config ctx args]
   (let [dir (dir-of config args)
         w (words)
         p (profile/read-profile dir)
-        bd (bd-path config args)
+        tl (tools config args dir p)
+        named (let [ts (profile/trackers p)] (if (seq ts) (vec (distinct ts)) [:beads]))
+        driven (filterv (set drivable) named)
+        here (filterv #(available? % tl) driven)
         limits (:stop p)
         failures (or (num-of (:failures args)) 0)
         spent (or (some-> (:usage args) :cost) 0)
@@ -161,38 +296,49 @@
         retry (not-empty (str (:retry args)))
         attempts (or (num-of (:attempts args)) 0)
         head (str/trim (:out (run dir "git" "rev-parse" "HEAD")))
-        released (when (and first-step? bd p)
-                   (release! dir bd (for [[id c] (read-claims dir) :when (run-over? config c)] id)
+        released (when (and first-step? p (seq here))
+                   (release! tl (for [[id c] (read-claims dir) :when (run-over? config c)] id)
                              (:released-left w)))
-        log (str/join "\n" (remove str/blank? (cons (str (:log args)) released)))]
+        log (str/join "\n" (remove str/blank? (cons (str (:log args)) released)))
+        brief (fn [k item]
+                (let [{:keys [kind Kind]} (kind-words w (tracker-of (:id item)))]
+                  (fill (get w k) (merge {:kind kind :Kind Kind} item))))]
     (assoc
       (cond
         (nil? p) (stop (get-in w [:stops :no-profile]))
-        ;; the profile says where the issues are kept: one naming trackers
-        ;; and not beads is not driven through beads (byj-y0u); one naming
-        ;; none is, as before :issues
-        (let [ts (profile/trackers p)] (and (seq ts) (not (some #{:beads} ts))))
-        (stop (fill (get-in w [:stops :not-beads]) {:trackers (str/join ", " (map name (profile/trackers p)))}))
-        (or (nil? bd) (not (.isDirectory (io/file dir ".beads")))) (stop (get-in w [:stops :no-bd]))
+        ;; the profile says where the issues are kept: Linear's and Jira's
+        ;; are not worked yet (byj-y0u, byj-m6f)
+        (empty? driven)
+        (stop (fill (get-in w [:stops :not-driven]) {:trackers (str/join ", " (map name named))}))
+        (empty? here)
+        (stop (get-in w [:stops (if (= :github (first driven)) :no-gh :no-bd)]))
         (and (:failures limits) (>= failures (:failures limits)))
         (stop (fill (get-in w [:stops :failures]) {:n failures}))
         (and (:usd limits) (>= spent (:usd limits)))
         (stop (fill (get-in w [:stops :usd]) {:n (:usd limits)}))
         (and (:issues-per-run limits)
-             (>= (count (json-out (run dir bd "list" "--all" "--json" "--created-after" since)))
-                 (:issues-per-run limits)))
+             (>= (reduce + (map #(created-since % tl since) here)) (:issues-per-run limits)))
         (stop (fill (get-in w [:stops :issues]) {:n (:issues-per-run limits)}))
         retry
-        (let [b (first (json-out (run dir bd "show" retry "--json")))]
+        (let [b (show-item tl retry)]
           {:stop false :stopped "" :bead retry :title (str (:title b)) :head head :since since
-           :brief (fill (:retry w) {:id retry :title (:title b) :why (:retry-note args)
-                                    :n (inc attempts) :max (bead-attempts config)
-                                    :progress (or (not-empty (str/trim (str (:retry-progress args)))) (:no-progress w))})})
+           :brief (brief :retry {:id retry :title (:title b) :why (:retry-note args)
+                                 :n (inc attempts) :max (bead-attempts config)
+                                 :progress (or (not-empty (str/trim (str (:retry-progress args)))) (:no-progress w))})})
         :else
-        (let [ready (json-out (run dir bd "ready" "--json" "--limit" "20" "--exclude-label" (:set-aside-label w)))
-              b (first (remove #(= "epic" (:issue_type %)) ready))]
+        (let [label (:set-aside-label w)
+              found (reduce (fn [acc t]
+                              (let [r (ready-items t tl label)]
+                                (if-let [b (first (:items r))]
+                                  (reduced {:item b})
+                                  (update acc :errors conj (when (:error r) (str (name t) ": " (:error r)))))))
+                            {:errors []} here)
+              b (:item found)]
           (cond
-            (nil? b) (stop (get-in w [:stops :nothing-ready]))
+            (nil? b) (stop (str (fill (get-in w [:stops :nothing-ready])
+                                      {:what (str/join " and " (map #(:kind (kind-words w %)) here))})
+                                (when-let [e (seq (remove nil? (:errors found)))]
+                                  (str " (" (str/join "; " e) ")"))))
             (= :never (profile/level p :issue/work)) (stop (get-in w [:stops :work-never]))
             :else
             (let [no (when (= :ask (profile/level p :issue/work))
@@ -201,18 +347,19 @@
                                         :args {:bead (:id b)}}))]
               (if no
                 (stop (fill (get-in w [:stops :work-declined]) {:id (:id b)}))
-                (do (run dir bd "update" (:id b) "--claim")
+                (do (claim! tl (:id b))
                     (update-claims! dir assoc (:id b) {:session (str (:session-id config)) :pid (persist/own-pid) :run since})
                     {:stop false :stopped "" :bead (:id b) :title (str (:title b)) :head head :since since
-                     :brief (fill (:brief w) {:id (:id b) :title (:title b)
-                                              :description (str/trim (str (:description b)))
-                                              :goal (if (:goal p) (str " (" (str/trim (:goal p)) ")") "")})}))))))
+                     :brief (brief :brief {:id (:id b) :title (:title b)
+                                           :description (str/trim (str (:description b)))
+                                           :goal (if (:goal p) (str " (" (str/trim (:goal p)) ")") "")})}))))))
      :log log)))
 
 (defn check-bead
-  "What a bead's turn left (`drive$check`): the work tree's uncommitted
-  files (beads', brainyard's and Claude Code's state aside), the commits
-  since the step began and whether one names the bead, the bead's status,
+  "What a bead's or issue's turn left (`drive$check`): the work tree's
+  uncommitted files (beads', brainyard's and Claude Code's state aside), the
+  commits since the step began and whether one names it, its status in its
+  tracker (`show-item`),
   installed dependencies among the uncommitted (`words.edn`
   `:dependency-dirs`), and what the profile expects of a finished bead.
   Reads only. `{:text :clean? :committed? :status :dependencies}`."
@@ -226,8 +373,8 @@
                    (remove str/blank?) vec)
         log (when head (str/trim (:out (run dir "git" "log" (str head "..HEAD") "--format=%h %s%n%b"))))
         committed? (boolean (and (not (str/blank? log)) (str/includes? log bead)))
-        bd (bd-path config args)
-        status (some-> (first (json-out (run dir bd "show" bead "--json"))) :status)
+        status (:status (show-item (tools config args dir p) bead))
+        {:keys [Kind]} (kind-words w (tracker-of bead))
         expect (get-in w [:expect :git/commit (or (profile/level p :git/commit) :ask)])
         ;; a porcelain line's path, past its status and any rename's arrow
         path-of #(-> (subs % (min 3 (count %))) (str/split #" -> ") last str/trim (str/replace #"/$" ""))
@@ -238,7 +385,7 @@
     {:clean? (empty? dirty)
      :committed? committed?
      :status (str status)
-     :text (str "Bead " bead ": " (or status "status unknown") "\n"
+     :text (str Kind " " bead ": " (or status "status unknown") "\n"
                 "Uncommitted: " (if (seq dirty) (str/join ", " (map #(subs % (min 3 (count %))) dirty)) "nothing") "\n"
                 "Commits since the step began: " (if (str/blank? log) "none" (str/replace log #"\n+" "; "))
                 (when-not committed? (str "\nNo commit since the step began names " bead "."))
@@ -247,8 +394,8 @@
      :dependencies deps}))
 
 (defn settle
-  "Act on drive/judge's word on a bead (`drive$settle`): `done` closes the
-  bead as the profile's `:issue/close` says — on its own at `:act`, after the
+  "Act on drive/judge's word on a bead or GitHub issue (`drive$settle`), in
+  its own tracker: `done` closes it as the profile's `:issue/close` says — on its own at `:act`, after the
   person's yes at `:ask`, never at `:never` — and clears the failures;
   `retry` counts a failure and has the next step work the bead again, with
   what the turn ended saying — until the bead has had `bead-attempts`
@@ -271,7 +418,9 @@
         progress (clip (:work args) progress-max-chars)
         log (str (:log args))
         line #(str log (when-not (str/blank? log) "\n") %)
-        bd (bd-path config args)
+        tl (tools config args dir p)
+        reach? (reachable? tl bead)
+        tool (if (github-id? bead) "gh" "bd")
         ;; the bead's turn spent this in a scope of its own: said as a
         ;; tool's spend, the run's usage counts it (agent/account-tool-cost!)
         cost (let [c (some-> (:work-usage args) :cost)] (when (and (number? c) (pos? c)) c))]
@@ -287,13 +436,13 @@
                    (ask-person ctx {:type :tool-use :action :call :tool "drive$settle" :pattern "drive$settle"
                                     :display (fill (:ask-close w) {:id bead :title title :summary summary})
                                     :args {:bead bead}})))
-            r (when (and (not closed?) (nil? no) bd)
-                (run dir bd "close" bead "--reason" (str "/drive: " summary)))]
+            r (when (and (not closed?) (nil? no) reach?)
+                (close! tl bead (str "/drive: " summary)))]
         {:failures 0 :retry "" :retry-note "" :attempts 0 :progress "" :stop false :stopped ""
          :log (line (str "✓ " bead " " title " — " summary
                          (cond closed? " (closed in its turn)"
                                no (str " (left open: " no ")")
-                               (and r (not (:ok? r))) (str " (bd close failed: " (:said r) ")")
+                               (and r (not (:ok? r))) (str " (" tool " close failed: " (:said r) ")")
                                :else " (closed)")))})
       :retry
       (if (< attempts (bead-attempts config))
@@ -303,18 +452,17 @@
         ;; its turns are spent: set aside for the person, and on to the next
         (let [said (fn [r] (when (and r (not (:ok? r))) (str " (" (:said r) ")")))
               label (:set-aside-label w)
-              failed (when bd
-                       (str (said (run dir bd "unclaim" bead))
-                            (said (run dir bd "label" "add" bead label))
+              vars {:id bead :number (when (github-id? bead) (number-of bead)) :n attempts :why summary
+                    :progress (or (not-empty progress) (:no-progress w))}
+              failed (when reach?
+                       (str (said (unclaim! tl bead))
+                            (said (label! tl bead label (:set-aside-label-description w)))
                             (do (update-claims! dir dissoc bead) nil)
-                            (said (run dir bd "comments" "add" bead
-                                       (fill (:set-aside-note w)
-                                             {:id bead :n attempts :why summary
-                                              :progress (or (not-empty progress) (:no-progress w))})))))]
+                            (said (comment! tl bead (fill (word w bead :set-aside-note) vars)))))]
           {:failures (inc failures) :retry "" :retry-note "" :attempts 0 :progress "" :stop false :stopped ""
            :log (line (str "⏸ " bead " " title " — " summary "; "
-                           (fill (:set-aside w) {:id bead :n attempts})
-                           (when (not-empty failed) (str " — bd said:" failed))))}))
+                           (fill (word w bead :set-aside) vars)
+                           (when (not-empty failed) (str " — " tool " said:" failed))))}))
       :ask
       (let [q (str/trim (str (:question args)))]
         {:failures failures :retry "" :retry-note "" :attempts 0 :progress "" :stop true
@@ -332,17 +480,17 @@
   released first, so the next run finds it ready (byj-2pv)."
   [config args]
   (let [dir (dir-of config args)
-        bd (bd-path config args)
+        tl (tools config args dir (profile/read-profile dir))
         since (str (:since args))
-        released (when (and bd (not (str/blank? since)))
-                   (release! dir bd (for [[id c] (read-claims dir)
+        released (when-not (str/blank? since)
+                   (release! tl (for [[id c] (read-claims dir)
                                           :when (and (= since (:run c))
                                                      (= (str (:session-id config)) (str (:session c))))]
                                       id)
                              (:released-end (words))))
         log (str/trim (str/join "\n" (remove str/blank? (cons (str (:log args)) released))))]
     {:text (str "/drive:\n"
-                (if (str/blank? log) "no bead was worked on." log)
+                (if (str/blank? log) "nothing was worked on." log)
                 "\n\nStopped: " (let [s (str/trim (str (:stopped args)))] (if (str/blank? s) "the step limit was reached." s)))}))
 
 (defn commands
@@ -350,7 +498,7 @@
   [config]
   (let [any-arg (fn [k desc] [k {:optional true} [:any {:desc desc}]])]
     [{:name "drive$next" :kind :command
-      :description "/drive's next step: the next ready bead of the project's beads, claimed, with its brief — or why the run stops (no profile, the profile's limits, nothing ready, the person said no)."
+      :description "/drive's next step: the next ready bead, or GitHub issue no one is assigned, of the trackers the profile names, claimed, with its brief — or why the run stops (no profile, no tracker it works, the profile's limits, nothing ready, the person said no)."
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :failures "failures in a row so far")
                      (any-arg :usage "the run's usage so far") (any-arg :since "when the run began")
                      (any-arg :retry "a bead to work again") (any-arg :retry-note "what it lacked")
@@ -361,13 +509,13 @@
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (next-bead config ctx args))}
      {:name "drive$check" :kind :command
-      :description "What a bead's turn left: uncommitted files, the commits since the step began, the bead's status, and what the profile expects. Reads only."
+      :description "What a bead's or GitHub issue's turn left: uncommitted files, the commits since the step began, its status, and what the profile expects. Reads only."
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :bead "the bead") (any-arg :head "HEAD when the step began")]
       :output-schema [:map [:text :string] [:clean? :any] [:committed? :any] [:status :any] [:dependencies {:optional true} :any]]
       :effects #{:fs/read :process}
       :fn (fn [args _] (check-bead config args))}
      {:name "drive$settle" :kind :command
-      :description "Act on the judgement of a bead's turn: close it as the profile says, count a retry, set aside a bead whose turns are spent, or stop the run with the question for the person."
+      :description "Act on the judgement of a bead's or GitHub issue's turn: close it as the profile says, count a retry, set aside one whose turns are spent, or stop the run with the question for the person."
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :bead "the bead") (any-arg :title "its title")
                      (any-arg :status "done, retry, ask or stop") (any-arg :question "for ask") (any-arg :summary "one line")
                      (any-arg :bead-status "the bead's status after the turn") (any-arg :failures "failures so far")

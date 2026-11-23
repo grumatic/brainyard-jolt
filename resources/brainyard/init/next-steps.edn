@@ -13,8 +13,9 @@
 ;;   :draft-pending code, and AGENTS.md's project section still the placeholder
 ;;   :uncommitted  /init's files not committed; {files} in :command names them
 ;;   :beads        .beads/ is there
-;;   :beads-tracked the profile keeps its issues in beads, or names no tracker
-;;                 (profile/trackers; byj-y0u)
+;;   :drivable     the profile keeps its issues where /drive works them:
+;;                 beads that are here (or no tracker named, and beads
+;;                 here), or GitHub (profile/trackers; byj-y0u, byj-m6f)
 ;;   :onboarding   open starter issues (init$onboard, init/onboarding.edn)
 ;;   :git-unstated bd's block in AGENTS.md sets its conservative git default
 ;;                 and nothing outside it says which this project keeps
@@ -32,8 +33,8 @@
   :command "git add -- {files} && git commit -m \"Set up brainyard\""}
 
  {:id :drive
-  :when #{:profile :beads :beads-tracked}
-  :text "Start the work toward the profile's goal: /drive works through the project's ready beads one at a time, as the profile allows, and stops where it says to ask you (RFC-073)."
+  :when #{:profile :drivable}
+  :text "Start the work toward the profile's goal: /drive works through the project's ready issues one at a time, as the profile allows, and stops where it says to ask you (RFC-073)."
   :suggest "/drive"}
 
  {:id :starter

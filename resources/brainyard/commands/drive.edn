@@ -4,7 +4,7 @@
 ;; run, reads its report, and says it.
 ;;
 ;; `/drive` alone works until the profile says to stop; `/drive WORDS` passes
-;; the words along, though the run itself is the profile's and the beads'.
+;; the words along, though the run itself is the profile's and its issues'.
 {:command "/drive"
  :agent "drive"
  :rephrase :predictor
@@ -13,10 +13,10 @@
  "Work through this project's goal as its profile allows."
 
  :purpose
- "work through this project's goal one bead at a time, as its profile (.brainyard/profile.edn, shown in AGENTS.md) allows — each ready bead worked, checked and closed, asking the person only where the profile says to"
+ "work through this project's goal one issue at a time, as its profile (.brainyard/profile.edn, shown in AGENTS.md) allows — each ready bead or GitHub issue worked, checked and closed, asking the person only where the profile says to"
 
  :usage
- "Call agent$drive with :question set to the request and read its report: each bead it worked on and how that ended, why it stopped, and what is still open. Do not work on beads yourself around it. When it stopped on a question for the person, end with that question as it put it. End with its report as it said it."
+ "Call agent$drive with :question set to the request and read its report: each bead or issue it worked on and how that ended, why it stopped, and what is still open. Do not work on them yourself around it. When it stopped on a question for the person, end with that question as it put it. End with its report as it said it."
 
  :template
  "{request}

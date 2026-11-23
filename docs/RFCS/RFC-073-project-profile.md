@@ -7,7 +7,7 @@ its presets, and the tripwire that keeps every tool from writing it
 held to it by `/init check` and `/doctor` (`byj-71w.3`); the permission
 gate holding commits, pushes, beads filed and closed, and decision records
 to it (`byj-71w.5`); `/init` drafting it from the person's words and writing
-it on their yes (`byj-71w.4`); `/drive` working through the goal's beads
+it on their yes (`byj-71w.4`); `/drive` working through the goal's issues
 under it (`byj-71w.6`); measured in simulation per preset (`byj-71w.7`).
 Epic `byj-71w`. Changed by the model as the person asks, on their yes,
 with `profile$edit` (`byj-8b3`, "Changed as the person asks").
@@ -95,12 +95,12 @@ map is closed, so an unknown tracker or key is a problem. Credentials are no
 part of it: the profile is committed. The goal has no epic: `:goal-epic`, a
 beads epic's id the work was under, is deprecated — an older profile that
 names it still loads, and nothing reads it (`profile/trackers` names the
-trackers, in order). `/drive` works the project's ready beads. `/init`'s
-check says a tracker named here that the project has not set up — beads
-without `.beads/`, GitHub without `:github-repo` or a github.com remote
-(RFC-040, `byj-5im`). `byj deps` checks an issue a workflow link gives in
-the tracker of these that holds it, GitHub's in its `:github-repo`
-(RFC-075, `byj-ykq`).
+trackers, in order). `/drive` works the project's ready beads and GitHub
+issues (`byj-m6f`). `/init`'s check says a tracker named here that the
+project has not set up — beads without `.beads/`, GitHub without
+`:github-repo` or a github.com remote (RFC-040, `byj-5im`). `byj deps`
+checks an issue a workflow link gives in the tracker of these that holds
+it, GitHub's in its `:github-repo` (RFC-075, `byj-ykq`).
 AGENTS.md's block says the trackers in one line, each with its place and
 the last joined with "and": "Issues are tracked in beads and GitHub Issues
 (acme/web)."
@@ -313,16 +313,23 @@ errs toward holding: `git -C x log --grep commit y` matches
 `brainyard/loops/drive.edn` (`byj-71w.6`). It repeats a step, at most
 `:drive-max-steps` (20) times, until one says to stop:
 
-1. **`drive$next`** stops the run when the project has no profile, when
-   the profile names issue trackers and not beads (`profile/trackers`; one
-   naming none is driven through beads, as before `:issues`), when it has
-   no beads, when a `:stop` limit is reached — failures in a row, the run's
-   spend, beads filed since it began (`bd list --created-after`) — or when
-   nothing is ready in the project's beads (`bd ready`), passing over
-   a bead labelled `human` (step 5). Otherwise it
-   takes the first ready bead that is not an epic; with `:issue/work :ask`
+1. **`drive$next`** works the trackers the profile's `:issues` name, in
+   their order, that it can work: beads, through bd, and GitHub, through
+   gh in the first GitHub tracker's `:github-repo` (else the origin's;
+   `byj-m6f`); a profile naming none is driven through beads, as before
+   `:issues`. It stops the run when the project has no profile, when the
+   profile names only trackers it does not work (Linear, Jira:
+   `byj-igd`), when none it names can be worked here (bd and `.beads/`,
+   or gh), when a `:stop` limit is reached — failures in a row, the run's
+   spend, issues filed since it began (`bd list --created-after`, `gh
+   issue list --search created:>=`) — or when nothing is ready: no ready
+   bead (`bd ready`, epics left out) and no open GitHub issue that no one
+   is assigned, passing over one labelled `human` (step 5). Otherwise it
+   takes the first ready one of the first tracker that has one, oldest
+   first for GitHub, its id `#N`; with `:issue/work :ask`
    the person is asked first, through the turn's permission channel, as
-   `init$install` asks, and a no stops the run. It claims the bead,
+   `init$install` asks, and a no stops the run. It claims it — a bead
+   with `bd update --claim`, an issue by assigning it to gh's user —
    records the claim (below), and writes the brief (`resources/brainyard/drive/words.edn`). A bead the
    last step left unfinished is worked again, with what it lacked, what
    its last turn ended saying, and which of its turns this is: each turn
@@ -344,7 +351,8 @@ errs toward holding: `git -C x log --grep commit y` matches
    check, and says `done`, `retry`, `ask` (with the question) or `stop`.
    The done criteria are prose; the turn runs the checks the project's
    instructions name, and the judge reads what it says it ran.
-5. **`drive$settle`** acts on it: `done` closes the bead as `:issue/close`
+5. **`drive$settle`** acts on it, in the tracker the id is from: `done`
+   closes the bead or issue (`gh issue close --comment`) as `:issue/close`
    says — on its own at `:act`, after the person's yes at `:ask`, never at
    `:never` — and clears the failures; `retry` counts one and works the
    bead again next; `ask` and `stop` end the run with the question or why.
@@ -352,7 +360,10 @@ errs toward holding: `git -C x log --grep commit y` matches
    after its last sets it aside for the person instead — its claim
    released (`bd unclaim`), labelled `human`, bd's own mark for a bead
    that needs a person (`bd human list`), and a comment saying what its
-   last turn got to — and the run goes on to the next ready bead. The
+   last turn got to — and the run goes on to the next ready bead. A
+   GitHub issue is unassigned, labelled `human` (the label made in a
+   repository that has none, as gh adds only one it has) and commented
+   on, the same way. The
    label keeps later runs off it too, until the person removes it
    (`byj-dw0`: with no `:stop` in a profile, one run gave two beads four
    turns each, an hour, until the person cancelled it).
@@ -365,17 +376,17 @@ errs toward holding: `git -C x log --grep commit y` matches
 claimed bead out, so a bead a run claimed and did not settle was passed
 over by every later run while it was still open — one cancelled mid-bead
 was, twice in one session, until the person released it by hand. Each
-claim is recorded in `.brainyard/drive/claims.edn` (bead -> session,
-process, run) until `drive$settle` settles it. `drive$report` releases
-(`bd unclaim`) what its own run still holds — a question, a stop or a
+claim is recorded in `.brainyard/drive/claims.edn` (bead or `#N` ->
+session, process, run) until `drive$settle` settles it. `drive$report`
+releases (`bd unclaim`, or gh's assignment removed) what its own run still holds — a question, a stop or a
 limit ended it — and a run's first step releases what an earlier run
 left: one of this session, whose turns run one at a time, or one whose
 process is gone. Another live session's claim is left; its run may still
 be working. Each release is a line of the log. bd releases only its own
-actor's claim, so a bead someone has taken since is left to them. The person steps in at the questions
-the profile names and nowhere else. With a profile and beads, and the profile
-keeping its issues in beads or naming no tracker, `/init`'s next steps
-offer `/drive` first (`init/next-steps.edn` `:drive`,
+actor's claim, and gh removes only its own user, so one someone has taken since is left to them. The person steps in at the questions
+the profile names and nowhere else. With a profile keeping its issues where
+`/drive` works them — beads that are here, or GitHub — `/init`'s next
+steps offer `/drive` first (`init/next-steps.edn` `:drive`,
 `init-test/next-steps-follow-what-the-project-has`).
 
 ## API (proposed)
@@ -407,7 +418,7 @@ offer `/drive` first (`init/next-steps.edn` `:drive`,
 | `/drive`, `agent$drive`, `brainyard/loops/drive.edn` | the drive loop (built) |
 | `drive$next`, `drive$check`, `drive$settle`, `drive$report` (`brainyard.drive`) | its mechanism, registered by `:drive-tools?`, which `agent$drive`'s config sets (built) |
 | predictor `drive/judge`; `resources/brainyard/drive/words.edn` | the judgement of a bead's turn; every word the loop puts together (built) |
-| config `:drive-max-steps` (20), `:bd-path` | a run's step cap; where bd is looked up (built) |
+| config `:drive-max-steps` (20), `:bd-path`, `:gh-path` | a run's step cap; where bd and gh are looked up (built) |
 | config `:drive-bead-attempts` (3), `drive/bead-attempts` | the turns one bead gets in a run before it is set aside (built) |
 | `.brainyard/drive/claims.edn`, `drive/claims-file` | the beads /drive has claimed and not settled, so one a run never settled is released (built) |
 | `agents/person-words-for`, `:person-words` | the line the person typed, verbatim, in the memory of the agent its command stands for; read by `init/profile` as `typed` (built) |
@@ -437,13 +448,14 @@ offer `/drive` first (`init/next-steps.edn` `:drive`,
 | An axis at `:ask` asks the person in every mode, `:auto-approve` included, never the classifier; refused headless and in `:deny-by-default`; `:never` refuses unasked; `:act` holds nothing | `permission-test/the-gate-follows-the-projects-profile` |
 | A line made only of `:act` axes' commands and their companions, with no redirection, is not put to the `:auto` classifier; anything else in it, and every other check of the gate, still applies | `permission-test/a-line-the-profile-lets-run-is-not-classified` |
 | Through byj's hook, Claude Code asks what the profile asks about, and Codex is refused it | `tool-hook-test/another-agent-is-held-to-the-projects-profile` |
-| `/drive` works only under a profile and beads, not where the profile keeps the issues in trackers that leave beads out, the project's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
+| `/drive` works only under a profile and a tracker it works, not where the profile keeps the issues only in Linear or Jira, the project's ready beads, asks the person first at `:issue/work :ask`, and stops at the profile's limits | `drive-test/the-next-bead-or-why-the-run-stops` |
 | `drive$check` names installed dependencies among the uncommitted, and stops naming them once `.gitignore` does | `drive-test/installed-dependencies-are-said-as-such` |
 | A bead is closed by `/drive` only as `:issue/close` says, and a retry, a question or a stop is a line of the run's log | `drive-test/settling-a-bead-as-the-profile-says` |
 | A retry's brief carries what the last turn ended saying and which of the bead's turns it is | `drive-test/a-retry-goes-on-from-where-the-last-turn-got-to`, `drive-test/drive-sets-aside-a-bead-it-cannot-finish-and-goes-on` |
 | A bead a run claimed and did not settle is released when the run ends, or by the next run's first step when it was cancelled or its process died; another live session's is left | `drive-test/a-claim-a-run-never-settled-is-released`, `drive-test/a-run-that-ends-on-a-question-releases-its-bead`, `drive-test/drive-works-the-goals-beads-until-nothing-is-ready` |
 | A bead judged unfinished after its `:drive-bead-attempts` turns is set aside — unclaimed, labelled `human`, a comment saying how far it got — and the run goes on; a bead so labelled is not driven | `drive-test/a-bead-whose-turns-are-spent-is-set-aside-for-the-person`, `drive-test/drive-sets-aside-a-bead-it-cannot-finish-and-goes-on` |
 | The drive loop works each ready bead in a turn of its own until nothing is ready, and its answer says each outcome and why it stopped | `drive-test/drive-works-the-goals-beads-until-nothing-is-ready`, `drive-test/the-drive-loop-is-sound` |
+| A profile keeping its issues in GitHub is driven through gh: the oldest open issue no one is assigned and no one set aside, claimed by assigning it, checked, closed, set aside with a label the repository is given if it has none, released when the run ends; in the profile's repository when it names one; the trackers in the profile's order | `drive-test/a-profile-that-keeps-its-issues-in-github-is-driven-through-gh`, `drive-test/drive-works-a-profiles-github-issues-until-nothing-is-ready` |
 | `:issue/work` and `:decision/scope` are held by words and the drive loop, not by a gate | nothing enforces it, by design |
 
 ## Measuring it
@@ -576,5 +588,6 @@ The three choices the draft left to the person, decided as recommended:
 
 ## Known gaps
 
-- `/drive` works beads only: a profile whose `:issues` name GitHub, Linear
-  or Jira and not beads stops the run saying so (`byj-m6f`).
+- `/drive` works beads and GitHub issues only: a profile whose `:issues`
+  name only Linear or Jira stops the run saying so (`byj-igd`); of several
+  GitHub trackers, the first's repository is worked.

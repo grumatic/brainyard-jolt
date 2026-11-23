@@ -306,13 +306,14 @@ suggested next prompt.
   writes: `:git`/`:no-git`, `:code`/`:no-code` (build files, as the plan's
   draft decision reads them), `:draft-pending`, `:uncommitted`, `:beads`,
   `:git-unstated` ("The Beads block's git default"), `:profile`/`:no-profile`
-  (whether the project has a profile, RFC-073), `:beads-tracked` (its
-  profile keeps the issues in beads or names no tracker, so `/drive` is
-  offered only where it would work them; `byj-y0u`).
+  (whether the project has a profile, RFC-073), `:drivable` (its
+  profile keeps the issues where `/drive` works them — beads that are
+  here, or GitHub — so `/drive` is offered only there; `byj-y0u`,
+  `byj-m6f`).
 - **Shipped steps:** commit /init's files; /init again when there is code
   under a placeholder section; what to build, for an empty project; questions
   and tasks, for one with code; beads' `bd ready` / `work on <id>`; `/drive`, with a profile whose
-  issues are in beads; whether
+  issues are in beads or GitHub; whether
   agents here commit their own work, while bd's block leaves it unstated;
   `/help` and `/init check`.
 - **Mechanism:** `init$next` renders the matching entries as a single-spaced

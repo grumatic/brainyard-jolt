@@ -1127,9 +1127,11 @@
       (and code? (= :placeholder (:project-section p))) (conj :draft-pending)
       (seq (:uncommitted p)) (conj :uncommitted)
       (:beads? p) (conj :beads)
-      ;; /drive works beads only where the profile keeps the issues there,
-      ;; or names no tracker (byj-y0u)
-      (let [ts (get-in p [:profile :trackers])] (or (empty? ts) (some #{:beads} ts))) (conj :beads-tracked)
+      ;; /drive works the issues where the profile keeps them, when it
+      ;; can: beads that are here, or GitHub (byj-y0u, byj-m6f)
+      (let [ts (get-in p [:profile :trackers])]
+        (or (and (:beads? p) (or (empty? ts) (some #{:beads} ts))) (some #{:github} ts)))
+      (conj :drivable)
       (:onboarding? p) (conj :onboarding)
       (= :unstated (:git-profile p)) (conj :git-unstated)
       true (conj (if (get-in p [:profile :preset]) :profile :no-profile)))))

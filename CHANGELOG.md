@@ -6,6 +6,17 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`/drive` works a profile's GitHub issues as well as its beads.** It
+  goes through the trackers in the order the profile's `:issues` lists
+  them. From GitHub it takes the oldest open issue that no one is
+  assigned and that is not labelled `human`, in the profile's
+  `:github-repo` or else the origin's. It claims the issue by assigning it
+  to gh's user, works and checks it, and closes it with `gh issue close`
+  as the profile allows. After its last turn without finishing, it
+  unassigns the issue, labels it `human` and comments on it. Each
+  issue's id is `#N`. A profile naming only Linear or Jira still stops
+  the run. Set `:gh-path` to look gh up somewhere other than PATH
+  (byj-m6f).
 - **`/init`'s check marks the profile ✗ when the project has not set up a
   tracker the profile names.** That is beads with no `.beads/`, or GitHub
   with no `:github-repo` and no github.com remote. Linear and Jira are not
