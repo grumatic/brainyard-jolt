@@ -276,11 +276,31 @@
         (= "allow-once" (when (= "selected" (:outcome outcome)) (:optionId outcome))) :approved
         :else :rejected))))
 
+(def ^:private child-ignored
+  "A subagent's events that are not the session's to send: its turn's start
+  and end (the session's turn goes on), and what it streams — its answer is
+  its agent$ call's result, and its thoughts, streamed beside the session's,
+  would read as the session's own in a client that shows one thought (byj-wmm)."
+  #{:session.turn/start :session.turn/end :session/rewind :session/resumed :agent.llm/chunk})
+
+(defn- as-child
+  "Update `u`, one of subagent `data`'s calls, marked as its own:
+  `_meta.brainyard.subagent` `{id name}`, and `parentToolCallId` the id of the
+  call that started it, when it is known (byj-wmm)."
+  [st sid data u]
+  (let [parent (get-in st [:parents sid (:subagent-id data)])]
+    (cond-> (assoc-in u [:_meta :brainyard :subagent] {:id (:subagent-id data) :name (:subagent data)})
+      parent (assoc-in [:_meta :brainyard :parentToolCallId] parent))))
+
 (defn- on-event
   "The session's events as `session/update`s: the answer field's chunks as
   the agent's message, the reasoning as its thoughts, a batch of tool calls
   as `tool_call`s and their results as `tool_call_update`s, each naming
   its turn in `_meta.brainyard.turn` as a replayed one does (byj-d8c.2). A
+  subagent's calls are its own: their own ids, marked
+  `_meta.brainyard.subagent` `{id name}` with the `parentToolCallId` of the
+  agent$ call that started it, and its answer and thoughts are not streamed
+  as the session's (byj-wmm). A
   loaded session's history is replayed from its first turn
   (`replay-turns!`), or, where it left nothing to read it from, from its
   snapshot's transcript."
@@ -288,8 +308,19 @@
   (fn [event data]
     (when-let [sid @sid-box]
       (let [st (:state conn)
-            live! #(update! conn sid (in-turn @st sid %))]
-        (case event
+            ;; a subagent's event (RFC-018, its :subagent-id): its calls are
+            ;; kept apart from the session's and marked as its own (byj-wmm)
+            who (when (map? data) (:subagent-id data))
+            live! #(update! conn sid (in-turn @st sid (cond->> % who (as-child @st sid data))))]
+        (case (if (and who (child-ignored event)) ::ignored event)
+          ::ignored nil
+          :agent.subagent/dispatch
+          ;; the caller's call that started it: the first of its pending
+          ;; agent$<name> calls no child has claimed yet
+          (let [want (str "agent$" (:agent data))
+                claimed (set (vals (get-in @st [:parents sid])))
+                id (some (fn [[id t]] (when (and (= t want) (not (claimed id))) id)) (get-in @st [:calls sid who]))]
+            (when id (swap! st assoc-in [:parents sid (:id data)] id)))
           :session.turn/start
           (do (swap! st assoc-in [:turn sid] (:turn data))
               ;; a turn the session channel put in (another session, a script,
@@ -328,17 +359,18 @@
             nil)
           :agent.tools/calls
           (let [n (get-in (swap! st update-in [:batches sid] (fnil inc 0)) [:batches sid])
+                prefix (if who (str "call-" who "-") "call-")
                 ids (vec (for [[i {:keys [tool-name tool-args]}] (map-indexed vector (:tool-calls data))]
-                           (let [id (str "call-" n "-" i)]
+                           (let [id (str prefix n "-" i)]
                              (live! {:sessionUpdate "tool_call" :toolCallId id
                                                 :title (call-title tool-name tool-args)
                                                 :kind (tool-kind (effects-of tool-name) tool-name)
                                                 :status "pending"
                                                 :rawInput (or tool-args {})})
                              [id tool-name])))]
-            (swap! st assoc-in [:calls sid] ids))
+            (swap! st assoc-in [:calls sid who] ids))
           :agent.tools/results
-          (let [ids (get-in @st [:calls sid])]
+          (let [ids (get-in @st [:calls sid who])]
             (doseq [[[id _] r] (map vector ids (:results data))]
               (live! (cond-> {:sessionUpdate "tool_call_update" :toolCallId id
                                          :status (if (:tool-error? r) "failed" "completed")
@@ -365,7 +397,7 @@
   "The id of the newest pending call of `tool`, to name in a permission
   request; a fresh one when the gate asks before any call was announced."
   [conn sid tool]
-  (or (some (fn [[id t]] (when (= t tool) id)) (reverse (get-in @(:state conn) [:calls sid])))
+  (or (some (fn [[id t]] (when (= t tool) id)) (reverse (apply concat (vals (get-in @(:state conn) [:calls sid])))))
       (str "ask-" (System/currentTimeMillis))))
 
 (defn permission-fn

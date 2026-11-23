@@ -1301,3 +1301,40 @@
           (is (str/includes? (str (:error r)) "rejected"))
           (is (= before (count (filter #(= "_byj/turn" (:method %)) @(:seen c)))))))
       (finally (acp/end! (:conn c))))))
+
+(deftest a-subagents-calls-are-its-own
+  ;; byj-wmm: a child's calls reach the client marked as the child's, under
+  ;; the call that started it, and the session's own call keeps its result
+  (let [dir (fresh-dir "subagent")
+        _ (spit (io/file dir "a.md") "A")
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1})
+        model (script! dir [{:tool-calls [{:tool-name "agent$explore" :tool-args {:question "read a.md"}}]}
+                            {:tool-calls [{:tool-name "read-file" :tool-args {:path "a.md"}}]}
+                            {:answer "child answer"}
+                            {:answer "parent answer"}])
+        {:keys [sessionId]} (:result (call c "session/new" {:cwd dir :mcpServers []
+                                                            :_meta {:brainyard {:provider "mock" :model model
+                                                                                :permissionMode "auto-approve"}}}))]
+    (try
+      (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "go"}]})
+      (let [us (updates c sessionId)
+            calls (filter #(= "tool_call" (:sessionUpdate %)) us)
+            [parent child] calls
+            done (fn [id] (filter #(and (= "tool_call_update" (:sessionUpdate %)) (= id (:toolCallId %))) us))
+            sub (get-in child [:_meta :brainyard :subagent])]
+        (is (= ["agent$explore" "read-file a.md"] (mapv :title calls)))
+        (testing "the session's call is its own, unmarked, and completes with the child's answer"
+          (is (nil? (get-in parent [:_meta :brainyard :subagent])))
+          (is (= 1 (count (done (:toolCallId parent)))))
+          (is (str/includes? (get-in (first (done (:toolCallId parent))) [:content 0 :content :text]) "child answer")))
+        (testing "the child's call is marked as the child's, under the call that started it"
+          (is (= "explore" (:name sub)))
+          (is (str/starts-with? (str (:id sub)) "explore/"))
+          (is (= (:toolCallId parent) (get-in child [:_meta :brainyard :parentToolCallId])))
+          (is (not= (:toolCallId parent) (:toolCallId child)))
+          (is (= 1 (count (done (:toolCallId child)))))
+          (is (= sub (get-in (first (done (:toolCallId child))) [:_meta :brainyard :subagent]))))
+        (testing "the child's answer is not the session's message"
+          (is (= ["parent answer"] (keep #(when (= "agent_message_chunk" (:sessionUpdate %)) (get-in % [:content :text])) us)))))
+      (finally (acp/end! (:conn c))))))
