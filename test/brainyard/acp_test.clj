@@ -229,6 +229,18 @@
                                 (updates c sessionId))))))
       (finally (acp/end! (:conn c))))))
 
+(deftest a-calls-kind-is-what-its-tool-does
+  ;; RFC-007's effects, and byj-sff: a lookup in byj's tool registry, which
+  ;; has no effect to go by, is a search, not other
+  (is (= "execute" (acp/tool-kind #{:process} "bash")))
+  (is (= "edit" (acp/tool-kind #{:fs/write :fs/read} "write-file")))
+  (is (= "read" (acp/tool-kind #{:fs/read} "read-file")))
+  (is (= "fetch" (acp/tool-kind #{:net/http} "fetch")))
+  (is (= "search" (acp/tool-kind #{} "get-tool-info")))
+  (is (= "search" (acp/tool-kind #{} "list-tools")))
+  (is (= "other" (acp/tool-kind #{} "profile$edit")))
+  (is (= "other" (acp/tool-kind #{})) "with no name, by its effects alone"))
+
 (deftest a-request-asked-every-time-offers-no-always
   ;; byj-8b3: a profile write is asked each time; the client is not offered
   ;; an always, and one it sends anyway is not kept

@@ -147,16 +147,24 @@
 
 (defn- text-block [t] {:type "text" :text (str t)})
 
+(def ^:private registry-lookups
+  "The tools that look things up in byj's own tool registry, with no effect
+  of their own to name a kind by: ACP's `search` (byj-sff)."
+  #{"list-tools" "get-tool-info"})
+
 (defn tool-kind
-  "ACP's kind of a tool call, from the tool's effects (RFC-007)."
-  [effects]
-  (let [e (set effects)]
-    (cond
-      (:process e) "execute"
-      (:fs/write e) "edit"
-      (:fs/read e) "read"
-      (some #(= "net" (namespace %)) (filter keyword? e)) "fetch"
-      :else "other")))
+  "ACP's kind of a tool call, from the tool's effects (RFC-007); a lookup in
+  byj's tool registry, which has none, is a `search` (`tool-name`)."
+  ([effects] (tool-kind effects nil))
+  ([effects tool-name]
+   (let [e (set effects)]
+     (cond
+       (:process e) "execute"
+       (:fs/write e) "edit"
+       (:fs/read e) "read"
+       (some #(= "net" (namespace %)) (filter keyword? e)) "fetch"
+       (contains? registry-lookups (str tool-name)) "search"
+       :else "other"))))
 
 (defn- clip [s n] (let [s (str s)] (if (> (count s) n) (str (subs s 0 n) "…") s)))
 
@@ -206,7 +214,7 @@
         (doseq [[i {:keys [name args result error? started-at duration-ms]}] (map-indexed vector (:tools step))]
           (update! conn sid {:sessionUpdate "tool_call" :toolCallId (str "turn-" turn "-" k "-" i)
                              :title (call-title name args)
-                             :kind (tool-kind (effects-of name))
+                             :kind (tool-kind (effects-of name) name)
                              :status (if error? "failed" "completed")
                              :rawInput (if (map? args) args {})
                              :content [{:type "content" :content (text-block (clip result 4000))}]
@@ -324,7 +332,7 @@
                            (let [id (str "call-" n "-" i)]
                              (live! {:sessionUpdate "tool_call" :toolCallId id
                                                 :title (call-title tool-name tool-args)
-                                                :kind (tool-kind (effects-of tool-name))
+                                                :kind (tool-kind (effects-of tool-name) tool-name)
                                                 :status "pending"
                                                 :rawInput (or tool-args {})})
                              [id tool-name])))]
@@ -390,7 +398,7 @@
                                                            [])
                                                 :kind (if (= :file-access type)
                                                         (if (= :write action) "edit" "read")
-                                                        (tool-kind (effects-of tool)))
+                                                        (tool-kind (effects-of tool) tool))
                                                 :status "pending"
                                                 :rawInput (or args {})}
                                      :options (if every-time?
