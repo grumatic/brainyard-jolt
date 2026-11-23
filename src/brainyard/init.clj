@@ -878,7 +878,7 @@
             agents (io/file dir "AGENTS.md")]
         (put-profile! dir data)
         {:written? true
-         :text (str "The profile, as you confirmed it: .brainyard/profile.edn (" (name (:preset resolved)) ")"
+         :text (str "The person said yes when asked, shown this draft, so the profile is written as they confirmed it: .brainyard/profile.edn (" (name (:preset resolved)) ")"
                     (when (.isFile agents) ", shown in AGENTS.md")
                     "; added to git, to commit with /init's other files."
                     (when (seq ids)

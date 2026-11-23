@@ -367,7 +367,11 @@
   terminal remembers one. No timeout, as the terminal has none (divergence
   `permission-prompt-cli`): the client closing its end answers it. A
   request asked every time (`:every-time?`, a profile write) offers allow
-  once and reject alone, and nothing is remembered of it (byj-8b3)."
+  once and reject alone, and nothing is remembered of it (byj-8b3). What the
+  person is asked about — the request's `:display`, a drafted profile and
+  what it lacks for init$profile — goes as the tool call's content, as the
+  terminal shows it, so a client's yes is never given to a bare title
+  (byj-ci6)."
   [conn sid-box effects-of]
   (let [remembered (atom {})]
     (fn [{:keys [tool display pattern args type action path every-time?] :as req}]
@@ -381,6 +385,9 @@
                                     {:sessionId sid
                                      :toolCall {:toolCallId (pending-call-id conn sid tool)
                                                 :title title
+                                                :content (if (and (not (str/blank? (str display))) (not= (str/trim (str display)) title))
+                                                           [{:type "content" :content {:type "text" :text (str display)}}]
+                                                           [])
                                                 :kind (if (= :file-access type)
                                                         (if (= :write action) "edit" "read")
                                                         (tool-kind (effects-of tool)))

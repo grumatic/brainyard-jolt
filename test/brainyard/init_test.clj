@@ -845,7 +845,7 @@
                             (fn [_] {:allowed true}))]
     (is (= ["init$check" "init/plan" "init$scaffold" "init/profile" "init$profile" "init$check" "init$next"] steps))
     (is (= [:plan :profile] @seen))
-    (is (str/includes? (:answer r) "The profile, as you confirmed it: .brainyard/profile.edn (collaborator)"))
+    (is (str/includes? (:answer r) "so the profile is written as they confirmed it: .brainyard/profile.edn (collaborator)"))
     (is (str/includes? (slurp (io/file project "AGENTS.md")) "<!-- BEGIN BRAINYARD:profile -->"))
     (is (str/includes? (:answer r) "✓ profile: collaborator") "and the check after says so")))
 
@@ -875,7 +875,7 @@
                         :permission-fn (fn [_] {:allowed true})
                         :config {:project-dir project :working-dir project :init-tools? true}})]
       (is (= ["init$check" "init/plan" "init$scaffold" "init/profile" "init/profile" "init$profile" "init$check" "init$next"] @steps))
-      (is (str/includes? (:answer r) "The profile, as you confirmed it: .brainyard/profile.edn (autopilot)"))))
+      (is (str/includes? (:answer r) "so the profile is written as they confirmed it: .brainyard/profile.edn (autopilot)"))))
   (testing "what is still missing, the person is told before their yes"
     (let [bin (fresh-dir "bin-profile-missing")
           project (fresh-dir "profile-missing")

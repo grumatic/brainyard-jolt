@@ -222,6 +222,7 @@
         (is (= 1 (count @asked)) "allow-always is remembered for the session: the second call is not asked")
         (let [{:keys [toolCall options]} (first @asked)]
           (is (= "read" (:kind toolCall)))
+          (is (vector? (:content toolCall)) "content, empty when the display is the title")
           (is (= ["allow_once" "allow_always" "reject_once" "reject_always"] (mapv :kind options)))))
       (testing "and both calls ran"
         (is (= 2 (count (filter #(and (= "tool_call_update" (:sessionUpdate %)) (= "completed" (:status %)))
@@ -240,6 +241,8 @@
                                  (doto (promise) (deliver {:result {:outcome {:outcome "selected" :optionId @pick}}})))]
       (is (:denied (pfn req)) "an always it was not offered is a no")
       (is (= ["allow_once" "reject_once"] (mapv :kind (:options (first @asked)))))
+      (is (= [{:type "content" :content {:type "text" :text "change the profile"}}] (get-in (first @asked) [:toolCall :content]))
+          "what the person is asked about goes with it, not the title alone (byj-ci6)")
       (reset! pick "allow-once")
       (is (= {:allowed true} (pfn req)))
       (is (= {:allowed true} (pfn req)))
