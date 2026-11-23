@@ -523,6 +523,11 @@
     (is (nil? (permission/profile-file nil (.getPath f))) "no project, no profile")
     (is (= [".brainyard/profile.edn"] (permission/named-profile-files (str "echo x > " dir "/.brainyard/profile.edn"))) "absolute")
     (is (empty? (permission/named-profile-files "cat .brainyard/profile.edn.draft")))
+    (testing "byj's own writer, which names no file (byj-ph3)"
+      (is (= [".brainyard/profile.edn"] (permission/named-profile-files "byj profile write --json < p.json")))
+      (is (= [".brainyard/profile.edn"] (permission/named-profile-files "cd x && /usr/local/bin/byj -C . profile write")))
+      (is (empty? (permission/named-profile-files "byj profile --json")) "reading it")
+      (is (empty? (permission/named-profile-files "echo byj profile write")) "only said"))
     (testing "committing it is not writing it: git that records or reads it as it is (byj-71w.7)"
       (is (empty? (permission/named-profile-files "git add AGENTS.md .brainyard/profile.edn && git commit -m x")))
       (is (empty? (permission/named-profile-files "git -C . diff -- .brainyard/profile.edn")))

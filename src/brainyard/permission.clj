@@ -450,6 +450,10 @@
                   (not (and (re-find #"^(?:sed|awk|gawk)\s" t)
                             (some #(re-find #"^(?:-[A-Za-z]*i|--in-place|inplace$)" %) (str/split t #"\s+")))))))))
 
+(def ^:private profile-writing
+  ;; byj's own writer of the profile, `byj profile write` (byj-ph3): byj by any path, its options before the command
+  #"(?:^|/)byj(?:\s+-\S+(?:\s+[^-\s]\S*)?)*\s+profile\s+write(?:\s|$)")
+
 (defn named-profile-files
   "The project profile a shell `command` names, `.brainyard/profile.edn`, as
   written in it, relative or absolute, in a segment that may change it: one
@@ -458,10 +462,15 @@
   this names (RFC-073, byj-bdd): every turn ends in a checkpoint, so a
   change is a step back away, and the person still sees each one first."
   [command]
-  (vec (distinct (for [seg (command-segments command)
-                       :when (not (reads-profile-only? seg))
-                       [_ f] (re-seq #"(\.brainyard/profile\.edn)(?:$|[\s\"';|&>)])" (str seg))]
-                   f))))
+  (vec (distinct (concat
+                   (for [seg (command-segments command)
+                         :when (not (reads-profile-only? seg))
+                         [_ f] (re-seq #"(\.brainyard/profile\.edn)(?:$|[\s\"';|&>)])" (str seg))]
+                     f)
+                   ;; `byj profile write` writes it without naming it (byj-ph3)
+                   (for [seg (command-segments command)
+                         :when (re-find profile-writing (segment-text seg))]
+                     ".brainyard/profile.edn")))))
 
 (def ^:private removing
   ;; the commands that take a directory away whole, or move it

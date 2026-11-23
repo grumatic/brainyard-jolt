@@ -375,7 +375,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 
 | Name | What |
 |---|---|
-| `.brainyard/profile.edn` | the profile; committed; written only by `init$profile` and `profile$edit`, on the person's yes |
+| `.brainyard/profile.edn` | the profile; committed; written only by `init$profile` and `profile$edit`, on the person's yes, and by `byj profile write`, which the person runs (a client's onboarding, on their confirming) and the gate asks them about when an agent's line runs it (byj-ph3) |
 | `resources/brainyard/profile/presets.edn` | the presets |
 | `profile/presets` | `presets.edn`: the axes, levels, ceilings, presets and the default preset (built) |
 | `profile/read-profile` | the project's profile resolved, with `:file`; nil without one (built) |
@@ -421,6 +421,7 @@ next steps offer `/drive` first (`init/next-steps.edn` `:drive`).
 | A draft with no preset or first issues is drafted once more, and what it still lacks is said in the question before the person's yes | `init-test/a-draft-missing-its-preset-or-issues-is-drafted-again-and-said` |
 | `:issues` is a vector of trackers, each one of the four with only its own keys and no epic; a deprecated `:goal-epic` still loads and nothing reads it, `/drive` included; AGENTS.md's block says every tracker and its place in one line | `profile-test/the-profile-says-its-issue-trackers`, `drive-test/the-next-bead-or-why-the-run-stops` |
 | `profile$edit` replaces the issue trackers whole and drops a deprecated `:goal-epic`, and refuses an unknown tracker, a tracker not named, or issues that are not a vector | `init-test/the-profile-changes-as-the-person-asks-only-on-their-yes` |
+| `byj profile write` takes the whole profile as JSON, refuses it whole when anything is wrong (writing nothing), and writes the file and AGENTS.md's block from it; a shell line running it is one that may change the profile | `init-test/byj-profile-write-holds-the-json-to-the-schema-and-writes-the-file-and-the-block`, `permission-test/a-projects-profile-is-written-by-no-tool` |
 | `:decision/scope` and `:git/push` are never `:act` | `profile-test/no-profile-raises-an-axis-above-its-ceiling` |
 | A profile that does not match grants only the default preset | `profile-test/a-profile-that-does-not-match-grants-only-the-default` |
 | Every preset sets every axis, and the presets are the three decided | `profile-test/the-presets-are-data-and-name-every-axis` |

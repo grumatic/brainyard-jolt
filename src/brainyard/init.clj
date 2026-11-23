@@ -778,6 +778,53 @@
   (let [f (io/file (str dir) ".git" "config")]
     (boolean (and (.isFile f) (re-find #"url\s*=\s*\S*github\.com[:/]" (slurp f))))))
 
+(defn put-profile!
+  "Write profile `data` into project `dir` as the person confirmed it:
+  `.brainyard/profile.edn` pretty-printed (added to git with `-f` in a
+  repository, for a .gitignore that ignores `.brainyard/` whole) and, when
+  AGENTS.md is there, its profile block. Asks nothing: the callers are the
+  ones that asked (`write-profile`, and `byj profile write`, which the
+  person runs or the gate asks them about). Returns the file's path."
+  [dir data]
+  (let [f (profile/profile-file dir)
+        agents (io/file (str dir) "AGENTS.md")]
+    (io/make-parents f)
+    (spit f (with-out-str (pp/pprint data)))
+    (when (.exists (io/file (str dir) ".git"))
+      (fx/sh {:dir (str dir) :out :string :err :string} "git" "add" "-f" "--" ".brainyard/profile.edn"))
+    (when (.isFile agents)
+      (spit agents (set-block (slurp agents) profile/block-name (profile/render (profile/read-profile dir))
+                              (begin-marker "BRAINYARD"))))
+    (.getPath f)))
+
+(defn- keyword-of [v] (when (and (some? v) (not (str/blank? (name v)))) (keyword (name v))))
+
+(defn profile-from-json
+  "A profile as `byj profile write` takes it in JSON (`json/read-str`'s
+  keyword keys) made the EDN the file holds: `:profile/version` 1, the
+  preset, each tracker and each autonomy level a keyword, each axis the
+  qualified keyword its name says (`issue/create`)."
+  [m]
+  (let [m (if (map? m) m {})
+        kw-vals (fn [x] (into {} (for [[k v] x] [(keyword (if (keyword? k) (subs (str k) 1) (str k))) (keyword-of v)])))]
+    (cond-> (-> (dissoc m :profile/version (keyword "profile/version") :version)
+                (assoc :profile/version 1))
+      (:preset m) (update :preset keyword-of)
+      (sequential? (:issues m)) (update :issues (fn [is] (mapv #(cond-> (into {} %) (:tracker %) (update :tracker keyword-of)) is)))
+      (map? (:autonomy m)) (update :autonomy kw-vals))))
+
+(defn profile-write
+  "`byj profile write`'s work (byj-ph3): `data`, a profile as JSON reads it,
+  held to the schema and, when nothing is wrong with it, written into `dir`
+  (`put-profile!`). `{:ok true :file}` or `{:error :problems :stage}`, nothing
+  written."
+  [dir m]
+  (let [data (profile-from-json m)
+        problems (:problems (profile/resolve-profile data))]
+    (if (seq problems)
+      {:error (str "the profile is not one byj takes: " (str/join "; " problems)) :problems (vec problems) :stage :schema}
+      {:ok true :file (put-profile! dir data)})))
+
 (defn write-profile
   "Show the drafted profile to the person and write it on their yes
   (`init$profile`): `.brainyard/profile.edn` (added to git with `-f`, for a
@@ -828,15 +875,8 @@
                                   (conj acc id))
                               acc))
                           [] issues))
-            f (profile/profile-file dir)
             agents (io/file dir "AGENTS.md")]
-        (io/make-parents f)
-        (spit f (with-out-str (pp/pprint data)))
-        (when (.exists (io/file dir ".git"))
-          (fx/sh {:dir (str dir) :out :string :err :string} "git" "add" "-f" "--" ".brainyard/profile.edn"))
-        (when (.isFile agents)
-          (spit agents (set-block (slurp agents) profile/block-name (profile/render (profile/read-profile dir))
-                                  (begin-marker "BRAINYARD"))))
+        (put-profile! dir data)
         {:written? true
          :text (str "The profile, as you confirmed it: .brainyard/profile.edn (" (name (:preset resolved)) ")"
                     (when (.isFile agents) ", shown in AGENTS.md")

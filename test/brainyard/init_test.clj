@@ -652,6 +652,35 @@
       (spit f (pr-str {:profile/version 1 :autonomy {:git/push :act}}))
       (is (some #(str/includes? % "above its ceiling") (:problems (status)))))))
 
+(deftest byj-profile-write-holds-the-json-to-the-schema-and-writes-the-file-and-the-block
+  ;; byj-ph3: what a client's onboarding writes, the person having confirmed it
+  (let [project (fresh-dir "profile-write")
+        f (io/file project ".brainyard" "profile.edn")
+        agents #(slurp (io/file project "AGENTS.md"))
+        in (fn [s] (json/read-str s))]
+    (init/scaffold {} {:dir project})
+    (testing "JSON's strings become the file's keywords"
+      (is (= {:profile/version 1 :preset :autopilot :goal "A RAG service." :scope {:in ["api" "index"] :out ["UI"]}
+              :done ["npm test passes"] :issues [{:tracker :beads} {:tracker :github :github-repo "o/r"}]
+              :autonomy {:decision/local :ask}}
+             (init/profile-from-json (in "{\"preset\":\"autopilot\",\"goal\":\"A RAG service.\",\"scope\":{\"in\":[\"api\",\"index\"],\"out\":[\"UI\"]},\"done\":[\"npm test passes\"],\"issues\":[{\"tracker\":\"beads\"},{\"tracker\":\"github\",\"github-repo\":\"o/r\"}],\"autonomy\":{\"decision/local\":\"ask\"}}")))))
+    (testing "written: the file, and AGENTS.md's block from it"
+      (let [r (init/profile-write project (in "{\"preset\":\"collaborator\",\"goal\":\"A RAG service.\",\"issues\":[{\"tracker\":\"beads\"}]}"))]
+        (is (:ok r))
+        (is (= {:profile/version 1 :preset :collaborator :goal "A RAG service." :issues [{:tracker :beads}]}
+               (edn/read-string (slurp f))))
+        (is (str/includes? (agents) "Goal: A RAG service."))
+        (is (str/includes? (agents) "Issues are tracked in beads."))
+        (is (= :current (:block (:profile (init/project-status project)))))))
+    (testing "refused whole, nothing written, when anything is wrong with it"
+      (let [before (slurp f)]
+        (doseq [bad ["{\"preset\":\"maximal\"}" "{\"goal\":\"g\",\"wings\":1}" "{\"autonomy\":{\"git/push\":\"act\"}}"
+                     "{\"issues\":[{\"tracker\":\"trello\"}]}"]]
+          (let [r (init/profile-write project (in bad))]
+            (is (= :schema (:stage r)) bad)
+            (is (seq (:problems r)) bad)))
+        (is (= before (slurp f)))))))
+
 (deftest a-drafted-profile-is-what-the-draft-says-and-no-more
   ;; byj-71w.4
   (is (= {:profile/version 1 :preset :collaborator :goal "g" :scope {:in ["a" "b"]} :done ["npm test passes"]

@@ -12,6 +12,7 @@
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
+            [clojure.walk :as walk]
             [brainyard.agent :as agent]
             [brainyard.effect :as fx]
             [jolt.scheme :as scheme]
@@ -29,6 +30,7 @@
             [brainyard.context :as context]
             [brainyard.permission :as permission]
             [brainyard.persist :as persist]
+            [brainyard.profile :as profile]
             [brainyard.schedule :as schedule]
             [brainyard.web-share :as web-share]
             [brainyard.share :as share]
@@ -85,7 +87,7 @@
 (defn- effects [s] (set (map keyword (globs s))))
 
 (def ^:private command-names
-  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "config" "deps"})
+  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "config" "deps" "profile"})
 
 (def ^:private command-aliases
   "Old names a command still answers to: `sessions` (brainyard's `by
@@ -2236,6 +2238,47 @@
       :else
       (do (err-println "usage: byj deps [--json] | byj deps write [--local] [--json] < NEW.json") 2))))
 
+(defn- profile-command
+  "`byj profile [--json]` and `byj profile write [--json]` (byj-ph3,
+  RFC-073): the project's profile as data — resolved, with its problems and
+  whether AGENTS.md shows it — and one written whole from JSON on stdin
+  through the profile's schema (`init/profile-write`), so a client (the
+  workbench's onboarding) never writes the EDN or AGENTS.md's block itself.
+  Asks nothing: the person runs it, and the gate asks them about an agent's
+  line that runs it, as about any that changes the profile."
+  [{:keys [questions json]} dir]
+  (let [[sub & more] questions
+        out (fn [x] (println (json/write-str x)))]
+    (cond
+      (nil? sub)
+      (let [p (profile/read-profile dir)
+            agents (io/file (str dir) "AGENTS.md")
+            r {:file (.getPath (profile/profile-file dir))
+               :exists (some? p)
+               :profile (some-> p (dissoc :file :problems))
+               :problems (vec (:problems p))
+               :block (some-> (profile/block-state p (when (.isFile agents) (slurp agents))) name)}]
+        (if json
+          ;; keywords as written, :issue/create as "issue/create" (data.json keeps the name alone)
+          (out (walk/postwalk #(if (keyword? %) (subs (str %) 1) %) r))
+          (println (if p (profile/render p) (str "no profile: " (:file r)))))
+        0)
+
+      (and (= "write" sub) (empty? more))
+      (let [text (slurp *in*)
+            parsed (try {:ok (json/read-str text)} (catch Throwable e {:error (ex-message e)}))
+            r (if (:error parsed)
+                {:error (str "the profile is not JSON: " (:error parsed)) :stage :input}
+                (init/profile-write dir (:ok parsed)))]
+        (cond
+          json (out (cond-> r (:stage r) (update :stage name)))
+          (:ok r) (println (str "wrote " (:file r)))
+          :else (err-println (str "profile: " (:error r))))
+        (if (:ok r) 0 1))
+
+      :else
+      (do (err-println "usage: byj profile [--json] | byj profile write [--json] < NEW.json") 2))))
+
 (defn- agent-command
   "`byj agent [--name NAME] [--json]` (byj-1wv.47): every agent with its
   reach, least first, or one in full. The one is named by `--name`; a bare
@@ -2448,6 +2491,12 @@
       (let [wd (or working-dir (System/getProperty "user.dir") ".")]
         (*exit* (deps-command opts (:project-dir (:config (config/load-config {:working-dir wd :overrides overrides
                                                                                  :env-fn (env-fn wd)}))))))
+
+      ;; the project's profile, read and written whole (byj-ph3, RFC-073)
+      (= :profile command)
+      (let [wd (or working-dir (System/getProperty "user.dir") ".")]
+        (*exit* (profile-command opts (:project-dir (:config (config/load-config {:working-dir wd :overrides overrides
+                                                                                    :env-fn (env-fn wd)}))))))
 
       (= :config command)
       (let [wd (or working-dir (System/getProperty "user.dir") ".")]
