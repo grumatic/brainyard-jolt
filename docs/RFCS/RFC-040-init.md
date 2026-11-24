@@ -486,8 +486,11 @@ for the next stage (`byj-gly.340`, fixed in `sim/run!`).
   - Seen on a new directory that was not a repository: `bd init` ran
     `git init` itself, then committed its files.
 - **`byj doctor [-C DIR] [--json]`** prints the report `/doctor` gives: the
-  check, the project's loops, what is installed, Claude Code's sign-in and
-  the subscription's windows (RFC-006, RFC-029, RFC-071).
+  check, the project's loops, what is installed (byj's copies on PATH, then
+  byj-share's, the CLI `/share` runs), Claude Code's sign-in and the
+  subscription's windows, then, when codex is installed, Codex's sign-in, as
+  `codex login status` says it, and its plan's windows as its rollouts last
+  reported them (RFC-006, RFC-029, RFC-071, byj-rys).
 
 ### The report as data: `byj doctor --json` (`byj-mmd`)
 
@@ -503,11 +506,12 @@ the text alike (`session/doctor-data`):
 | `missingRequired` | the required tools that are missing, by name |
 | `project` | `{dir, checks}`: the Project section's lines in order, each `{id, ok, label, detail, text}` (`init/project-checks`). `ok` is true or false for a ✓ or ✗ line and null for a note; `id` is one of `git`, `agents-md`, `claude-md`, `beads`, `gitignore`, `code`, `project-section`, `profile`, `deps`, `uncommitted`, `skills`; `text` is the line as printed |
 | `loops` | `{overrides, attachments}` (`project-loops/report`), null when the project holds no loop of its own and attaches nothing |
-| `installed` | each copy of byj on PATH (`update/install-lines`): `{name, version, path, origin, runsByName, text}`, a shadowed copy with `shadowedBy` and `hint` (how its owner updates or removes it), and `running` when the running byj is not the one that runs by name |
+| `installed` | each copy of byj on PATH, then of byj-share (`update/install-lines`; `name` says which): `{name, version, path, origin, runsByName, text}`, a command on no PATH entry as one line with no `version` or `path`, a shadowed copy with `shadowedBy` and `hint` (how its owner updates or removes it), and `running` when the running byj is not the one that runs by name |
 | `checkout` | the source checkout this run is from, or null |
 | `claude` | `{signedIn, email, organization, plan, refreshDaysLeft}` |
 | `subscription` | `{plan, windows [{name, label, usedPercent, resetsAt}]}` with `error` and `fetchedAt` when the last reading is shown, or null when the windows are unknown |
 | `subscriptionUnknown` | why the windows are unknown, or null |
+| `codex` | `{available, signedIn}`, with `method` (`ChatGPT` or `API key`) when signed in, `plan`, `error` when `codex login status` gave no answer, and `subscription` `{plan, windows, fetchedAt}` as Claude Code's when its rollouts reported limits. Not asked when codex is not found (byj-rys) |
 | `text` | the report as `byj doctor` prints it |
 
 The account's email and organization are the person's own; a client shows
@@ -712,7 +716,7 @@ All of them are planned. Nothing enforces them until their beads are built.
 | A person's call of an agent (a typed `:agent$…`) hands its suggestion to the session, which offers it in the input line; a model's call of an agent is never given one in its tool result — in a turn a command became (`/init`), the subagent's suggestion is offered at the turn's end instead. | `session-test/init-is-a-turn-that-drives-agent-init`, `agents-test/delegation-runs-a-child-turn`, `tui-test/the-models-next-question-is-offered-in-the-input` |
 | bd's git default is the person's to state: `git-profile` says `:unstated` only when bd's block holds its conservative default and nothing outside bd's blocks names a profile; the next steps then say so with prompts that write either answer and suggest nothing, and the starter issues ask the person once; named outside the blocks, neither appears. | `init-test/the-git-default-bds-block-sets-is-the-persons-to-state` |
 | `byj init` ends with the next steps, `--check` too; the AGENTS.md template's brainyard block says where a newcomer starts. | `init-test/byj-init-says-what-to-do-next` |
-| `byj doctor --json` gives the report as data: the tools, the project's lines as `{id, ok, label, detail}` with ✓ and ✗ as true and false and a note as null, what is installed, the account, and the windows or null with why; its `text` is what `byj doctor` prints, unchanged. It exits 0 whatever the checks say and 1 only when no report could be made. | `session-test/doctor-gives-its-report-as-data-for-a-clients-panel`, `main-test/byj-doctor-json-gives-the-report-as-data`, `update-test/the-other-copies-on-path-are-said-and-left`; its shape is byj's contract, `contract/doctor/doctor.json` (`contract-test/the-doctor-report-is-byjs-contract`) |
+| `byj doctor --json` gives the report as data: the tools, the project's lines as `{id, ok, label, detail}` with ✓ and ✗ as true and false and a note as null, what is installed (byj's copies, then byj-share's), the account, the windows or null with why, and Codex's sign-in and windows; its `text` is what `byj doctor` prints, unchanged. It exits 0 whatever the checks say and 1 only when no report could be made. | `session-test/doctor-gives-its-report-as-data-for-a-clients-panel`, `main-test/byj-doctor-json-gives-the-report-as-data`, `update-test/the-other-copies-on-path-are-said-and-left`; its shape is byj's contract, `contract/doctor/doctor.json` (`contract-test/the-doctor-report-is-byjs-contract`) |
 | `byj init` has a help page. | nothing enforces it: `cli-help-test/every-dispatched-subcommand-has-help` covers only subcommands with subcommands of their own |
 
 ## Not in scope

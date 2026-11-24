@@ -295,6 +295,15 @@
       (is (= (str "- byj: v0.3.2 at " local-byj)
              (:text (first (u/install-lines {:running nil :path-env path-env :version-of version-of}))))
           "a checkout run names what runs by name and nothing of itself"))
+    (testing "other commands said after byj's, each the same way: byj doctor says byj-share's"
+      (let [share (exe! (io/file local "byj-share"))
+            lines (u/install-lines {:running nil :path-env path-env :version-of (fn [cmd _] (if (= "byj-share" cmd) "0.4.0" "v0.3.2"))
+                                    :commands ["byj" "byj-share"]})]
+        (is (= ["byj" "byj" "byj-share"] (mapv :name lines)))
+        (is (= {:name "byj-share" :version "0.4.0" :path share :origin :binary :runs-by-name? true}
+               (dissoc (last lines) :text :note?)))
+        (is (= [{:name "byj-share" :runs-by-name? false :text "- byj-share: not on PATH" :note? false}]
+               (u/install-lines {:running nil :path-env (.getPath (fresh-dir "bare-share")) :version-of version-of :commands ["byj-share"]})))))
     (testing "a copy that says no version"
       (is (str/includes? (:text (first (u/install-lines {:running nil :path-env path-env :version-of (constantly nil)}))) "version unknown at")))))
 

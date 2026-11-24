@@ -688,7 +688,7 @@
         as-json (comp json/read-str json/write-str)
         j (as-json (session/doctor-data ctx))]
     (testing "every field, and the report as doctor prints it"
-      (is (= #{:tools :missingRequired :project :loops :installed :checkout :claude :subscription :subscriptionUnknown :text}
+      (is (= #{:tools :missingRequired :project :loops :installed :checkout :claude :subscription :subscriptionUnknown :codex :text}
              (set (keys j))))
       (is (= (session/doctor-report ctx) (:text j)) "the text is the report byj doctor prints"))
     (testing "the tools, each with what it is for and how to get it"
@@ -723,7 +723,28 @@
       (let [j (as-json (session/doctor-data (assoc ctx :claude-usage-fn (constantly {:logged-in? false :limits []}))))]
         (is (= false (get-in j [:claude :signedIn])))
         (is (nil? (:subscription j)))
-        (is (= "not signed in to Claude Code" (:subscriptionUnknown j)))))))
+        (is (= "not signed in to Claude Code" (:subscriptionUnknown j)))))
+    (testing "Codex: not looked for when the codex tool is not found"
+      (is (= {:available false :signedIn false} (:codex j)))
+      (is (not (str/includes? (:text j) "Codex:"))))
+    (testing "Codex signed in with ChatGPT: its plan and windows, as Claude Code's"
+      (let [cx {:available? true :signed-in? true :method "ChatGPT" :plan "plus" :at 1700000000000
+                :limits [{:label "5-hour" :percent 12 :resets-at "2026-11-18T10:00:00Z"}
+                         {:label "Weekly" :percent 30 :resets-at nil}]}
+            j (as-json (session/doctor-data (assoc ctx :codex-fn (constantly cx))))]
+        (is (= {:available true :signedIn true :method "ChatGPT" :plan "plus"
+                :subscription {:plan "plus" :fetchedAt 1700000000000
+                               :windows [{:name "5-hour" :label "5-hour" :usedPercent 12 :resetsAt "2026-11-18T10:00:00Z"}
+                                         {:name "weekly" :label "Weekly" :usedPercent 30 :resetsAt nil}]}}
+               (:codex j)))
+        (is (re-find #"\n\nCodex:\n  signed in with ChatGPT, plan plus\n  5-hour .* 12%" (:text j)))))
+    (testing "Codex installed and signed out, or its status unknown"
+      (let [j (as-json (session/doctor-data (assoc ctx :codex-fn (constantly {:available? true :signed-in? false}))))]
+        (is (= {:available true :signedIn false} (:codex j)))
+        (is (str/ends-with? (:text j) "\n\nCodex:\n  not signed in — codex login")))
+      (let [j (as-json (session/doctor-data (assoc ctx :codex-fn (constantly {:available? true :signed-in? false :error "codex login status gave no answer in 10 s"}))))]
+        (is (= "codex login status gave no answer in 10 s" (get-in j [:codex :error])))
+        (is (str/ends-with? (:text j) "Codex:\n  sign-in unknown — codex login status gave no answer in 10 s"))))))
 
 (deftest loop-runs-a-prompt-now-and-again-as-claude-codes-does
   ;; byj-gly.325

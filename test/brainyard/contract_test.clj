@@ -237,7 +237,11 @@
       (let [d (session/doctor-data
                {:config {:project-dir dir :working-dir dir}
                 :checkout nil
-                :install-lines-fn (fn [_] (update/install-lines {:running nil :path-env path-env :version-of (constantly "v0.0.0")}))
+                :install-lines-fn (fn [_] (update/install-lines {:running nil :path-env path-env :version-of (constantly "v0.0.0")
+                                                                 :commands ["byj" "byj-share"]}))
+                :codex-fn (constantly {:available? true :signed-in? true :method "ChatGPT" :plan "plus" :at 1700000000000
+                                       :limits [{:label "5-hour" :percent 12 :resets-at "2026-01-01T00:00:00Z"}
+                                                {:label "Weekly" :percent 30 :resets-at nil}]})
                 :claude-usage-fn (constantly {:logged-in? true
                                               :limits [;; a reset already past: one to come is said in
                                                        ;; hours from now, which moves

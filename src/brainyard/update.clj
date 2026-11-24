@@ -458,8 +458,9 @@
   `:runs-by-name?`, `:shadowed-by` (the path that runs by name instead),
   `:hint` (how its owner updates or removes a shadowed copy) and `:running`
   (the running byj, when it is not this one). Nothing is updated or removed:
-  the copy's owner does."
-  [{:keys [running path-env version-of]}]
+  the copy's owner does. `commands` are the commands said, in order, byj's
+  alone unless given: `byj doctor` says byj-share's copies too."
+  [{:keys [running path-env version-of commands] :or {commands ["byj"]}}]
   (vec (mapcat
         (fn [cmd]
           (let [[first-c & others] (copies cmd path-env)
@@ -484,7 +485,7 @@
                       :runs-by-name? false :shadowed-by (:path first-c) :hint (way-with c)
                       :text (str "- " cmd ": " (desc c) ", shadowed by " (:path first-c) " — " (way-with c))
                       :note? true)))))
-        ["byj"])))
+        commands)))
 
 ;; --- a Homebrew install (byj-gly.181.12) --------------------------------------------
 

@@ -6,6 +6,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj doctor` says byj-share and Codex.** What is installed lists
+  byj-share's copies on PATH after byj's, each with its version and how its
+  owner updates a shadowed one. When codex is installed, a Codex section says
+  its sign-in (`codex login status`: ChatGPT or an API key, never the key) and
+  its plan's windows as Codex last reported them, as Claude Code's are said.
+  `byj doctor --json` gives both: `installed` names each copy's command, and
+  a new `codex` field (byj-rys).
 - **An ACP client gets each turn's recap and the next prompt.** The recap
   the full-screen UI shows under a turn (`recap: …`) is sent when it is
   written, as a notice marked `recap` with its turn, and a loaded session

@@ -1477,12 +1477,43 @@
                               ":")
                          (claude-usage/limit-lines u)))))
 
+(def codex-status-timeout-ms
+  "How long `codex login status` is given for /doctor."
+  10000)
+
+(defn- codex-now
+  "Codex's sign-in and its plan's limits, for /doctor: what `codex login
+  status` says — run only when the codex tool was found, given
+  `codex-status-timeout-ms` — and the limits as its rollouts last reported
+  them (`codex-usage/limits`). `{:available? :signed-in? :method :plan :limits
+  :at :error}`, `:method` \"ChatGPT\" or \"API key\"; never the key. A test
+  gives `:codex-fn` in `ctx` instead."
+  [ctx checked]
+  (if-let [f (:codex-fn ctx)]
+    (f)
+    (let [t (some #(when (= "codex" (name (:name %))) %) (:tools checked))]
+      (if-not (:available? t)
+        {:available? false}
+        (let [r (fx/run!! (fx/process-task {:out :string :err :string} (str (or (:path t) "codex")) "login" "status")
+                          codex-status-timeout-ms)
+              out (when-let [ok (:ok r)] (str (:out ok) "\n" (:err ok)))
+              method (cond (re-find #"(?i)logged in using chatgpt" (str out)) "ChatGPT"
+                           (re-find #"(?i)logged in using an api key" (str out)) "API key")
+              l (when method (codex-usage/limits (get-in ctx [:config :codex-home])))]
+          (cond-> {:available? true :signed-in? (boolean method)}
+            method (assoc :method method)
+            (nil? out) (assoc :error (if (:timeout r)
+                                       (str "codex login status gave no answer in " (quot codex-status-timeout-ms 1000) " s")
+                                       (str "codex login status failed" (some->> (some-> (:err r) ex-message) (str ": ")))))
+            l (assoc :plan (:plan l) :limits (:limits l) :at (:at l))))))))
+
 (defn- doctor-gather
   "What `/doctor` reads of the machine and the project, once, for its text and
   its data alike."
   [ctx]
-  (let [checkout (if (contains? ctx :checkout) (:checkout ctx) (version/source-root))]
-    {:checked ((or (:doctor-check-fn ctx) init/check) (:config ctx))
+  (let [checkout (if (contains? ctx :checkout) (:checkout ctx) (version/source-root))
+        checked ((or (:doctor-check-fn ctx) init/check) (:config ctx))]
+    {:checked checked
      :loops (project-loops/report (:project-dir (:config ctx)))
      :checkout checkout
      :installed ((or (:install-lines-fn ctx)
@@ -1490,17 +1521,33 @@
                        (update/install-lines
                         {:running (when-not checkout (update/real-path (update/executable-path (persist/own-pid) update/shell)))
                          :path-env (System/getenv "PATH")
+                         ;; byj-share, which /share runs, beside byj
+                         :commands ["byj" "byj-share"]
                          :version-of (fn [cmd p]
                                        (some-> (init/version-of p (if (= "byj" cmd) ["--version"] ["version"]))
                                                (cond->> (= "byj" cmd) (str "v"))))})))
                  checkout)
-     :u (claude-usage-now ctx)}))
+     :u (claude-usage-now ctx)
+     :codex (codex-now ctx checked)}))
 
 (defn- refresh-days [u]
   (when-let [t (get-in u [:account :refresh-expires-at])]
     (quot (- t (System/currentTimeMillis)) 86400000)))
 
-(defn- doctor-text [{:keys [checked loops checkout installed u]}]
+(defn- codex-text
+  "/doctor's Codex lines, when the codex tool was found: the sign-in, and the
+  plan's windows on a ChatGPT sign-in."
+  [cx]
+  (when (:available? cx)
+    (str "\n\nCodex:\n"
+         (cond
+           (:signed-in? cx) (str "  signed in with " (:method cx) (some->> (:plan cx) (str ", plan "))
+                                 (when (= "ChatGPT" (:method cx))
+                                   (str "\n" (str/join "\n" (codex-usage/limit-lines cx)))))
+           (:error cx) (str "  sign-in unknown — " (:error cx))
+           :else "  not signed in — codex login"))))
+
+(defn- doctor-text [{:keys [checked loops checkout installed u codex]}]
   (let [{:keys [email organization plan]} (:account u)
         days (refresh-days u)]
     (str (:text checked)
@@ -1514,19 +1561,23 @@
                 (when days (str "\n  refresh token: " (if (neg? days) "expired — /login claude" (str days " day(s) left"))
                                 (when (< -1 days 7) " — /login claude soon"))))
            "  not signed in — /login claude")
-         "\n\n" (subscription-text u))))
+         "\n\n" (subscription-text u)
+         (codex-text codex))))
 
 (defn doctor-report
   "`/doctor`: the tools and the project (`init$check`), the project's own
   loops — one made from an older bundled loop named so (RFC-071) — what is
   installed —
   the byj that runs by name, and every other copy on PATH,
-  shadowed, with how it is updated or removed (byj-gly.181.13) — then Claude
+  shadowed, with how it is updated or removed (byj-gly.181.13), and byj-share's
+  the same way — then Claude
   Code's sign-in — the account, when its refresh token runs out, which is
-  what forces a new login — and the subscription's windows (byj-gly.324).
+  what forces a new login — and the subscription's windows (byj-gly.324), then
+  Codex's sign-in and its plan's windows when codex is installed.
 
   What it reads of the machine can be given in `ctx`, as a test gives it
-  (byj-ng7.13): `:claude-usage-fn`, `:doctor-check-fn` (config → `{:text}`),
+  (byj-ng7.13): `:claude-usage-fn`, `:codex-fn` (→ `codex-now`'s map),
+  `:doctor-check-fn` (config → `{:text}`),
   `:install-lines-fn` (checkout → `[{:text}]`), `:checkout` (the source
   root, nil for none)."
   [ctx]
@@ -1541,6 +1592,13 @@
                         :else %)
                  x))
 
+(defn- windows-of
+  "A plan's limits as `byj doctor --json` says its windows."
+  [limits]
+  (vec (for [{:keys [label percent resets-at]} limits]
+         {:name (-> (str label) str/lower-case str/trim (str/replace #"\s+" "-"))
+          :label label :usedPercent percent :resetsAt resets-at})))
+
 (defn doctor-data
   "`byj doctor --json` (byj-mmd): `doctor-report`'s report as data, for a
   client that shows it in parts — the workbench's Doctor panel — rather than
@@ -1548,7 +1606,7 @@
   `:text` too; `ctx` as `doctor-report` takes it. RFC-040 \"byj doctor
   --json\" says each field."
   [ctx]
-  (let [{:keys [checked loops checkout installed u] :as g} (doctor-gather ctx)
+  (let [{:keys [checked loops checkout installed u codex] :as g} (doctor-gather ctx)
         {:keys [email organization plan]} (:account u)
         p (:project checked)]
     (json-safe
@@ -1582,13 +1640,18 @@
                :refreshDaysLeft (refresh-days u)}
       :subscription (when (and (:logged-in? u) (seq (:limits u)))
                       (cond-> {:plan plan
-                               :windows (vec (for [{:keys [label percent resets-at]} (:limits u)]
-                                               {:name (-> (str label) str/lower-case str/trim (str/replace #"\s+" "-"))
-                                                :label label :usedPercent percent :resetsAt resets-at}))}
+                               :windows (windows-of (:limits u))}
                         (:error u) (assoc :error (:error u))
                         (:fetched-at u) (assoc :fetchedAt (:fetched-at u))))
       :subscriptionUnknown (when-not (and (:logged-in? u) (seq (:limits u)))
                              (or (:error u) (if (:logged-in? u) "no limits reported" "not signed in to Claude Code")))
+      :codex (let [cx codex]
+               (cond-> {:available (boolean (:available? cx)) :signedIn (boolean (:signed-in? cx))}
+                 (:method cx) (assoc :method (:method cx))
+                 (contains? cx :plan) (assoc :plan (:plan cx))
+                 (:error cx) (assoc :error (:error cx))
+                 (seq (:limits cx)) (assoc :subscription (cond-> {:plan (:plan cx) :windows (windows-of (:limits cx))}
+                                                           (:at cx) (assoc :fetchedAt (:at cx))))))
       :text (doctor-text g)})))
 
 (defn- capture-file
