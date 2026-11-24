@@ -18,4 +18,51 @@
 
  :ask-add "/workflow: add workflow {id} to .brainyard/deps.edn?\n\n{shown}"
  :ask-change "/workflow: change workflow {id} in .brainyard/deps.edn?\n\n{shown}"
- :ask-remove "/workflow: remove workflow {id} from .brainyard/deps.edn? Its runs are kept.\n\n{shown}"}
+ :ask-remove "/workflow: remove workflow {id} from .brainyard/deps.edn? Its runs are kept.\n\n{shown}"
+
+ ;; --- a run (byj-edw.2) ------------------------------------------------------
+ ;; each stage's brief: the run, the profile's goal and scope, the stage's
+ ;; role, what was handed to it, and what it hands on
+ :brief "Run #{n} of workflow {workflow}{title}: {work}\n\n{profile}The run goes {flow}, each stage a turn of its own, handed on in turn. You play stage {stage} now, as {role}.\n\n{handed}{next}\n\nDo your part, and only yours: a later stage does its own. Check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what the person decides: keep to it. Where it says to ask before a commit, a bead or issue filed or closed, a decision record or a push, run the command or write the file — byj asks the person then and waits for their answer. Put a question in your answer only for a change of goal, scope, stack or done criteria, or a decision the profile does not let you make. End by saying what you did, how you checked it, and {end}."
+ :profile "This project's goal: {goal}\n{scope}\n"
+ :scope-in "In scope: {in}\n"
+ :scope-out "Out of scope: {out}\n"
+ :item "{Kind} {id}: {title}\n\n{description}"
+ :handed "Handed to you from stage {from} ({role}): {gives}. It ended saying:\n\n{answer}\n\n"
+ :hands-on "When your part is done, it is handed to stage {to} with {gives}."
+ :last "This is the run's last stage: nothing is handed on."
+ :end-on "what stage {to} should do next and what you hand it"
+ :end-last "the run's result: what was done, and whether the work passes or what should change"
+
+ ;; a stage's next turn, after the master's judgement said retry; the stage's
+ ;; brief follows it, since each turn starts from a fresh memory
+ :retry "Stage {stage} of run #{n} is not finished: {why}\n\nThis is turn {k} of the {max} a stage gets. The last turn ended saying:\n\n{progress}\n\nGo on from where it got to: what it did is in the work tree, so look at what is there rather than doing it again, then do what is missing and check it. If it cannot be done in this turn either, say what stands in the way.\n\nThe stage, as it was given:\n\n{brief}"
+ :no-progress "(nothing)"
+
+ ;; what workflow$check says of a stage's turn, for the master's judgement
+ :check-head "Stage {stage} ({role}) of run #{n}, turn {k} of {max}."
+ :check-gives "Hands to stage {to}: {gives}"
+ :check-last "It is the run's last stage: nothing is handed on; judge the run's result."
+ :expect {:act "the profile has an agent commit its own work: a finished stage leaves its work committed"
+          :ask "the profile has the person decide each commit: a finished stage's turn runs git commit for its work, and byj asks the person then; its work is left uncommitted only when the person said no"
+          :never "the profile has no agent commit: uncommitted work is expected"}
+
+ ;; the master, for the judgement, when the workflow names none
+ :no-master "no master role is named: judge as the person who asked for the run would"
+
+ :ask-close "/workflow: close {id} ({title}) — run #{n} of {workflow} is done: {summary}?"
+
+ :stops {:no-profile "This project has no profile: /init drafts one when you tell it what the project is for. A run works under it."
+         :no-workflow "No workflow {workflow} in .brainyard/deps.edn{known}."
+         :errors "Workflow {workflow} cannot run: {errors}."
+         :no-work "Say what the run is to work on: words, a bead id or a GitHub issue (#N)."
+         :finished "Every stage is done."
+         :stage-spent "Stage {stage} was not finished in {k} turns: {why}"
+         :asks "Stage {stage} needs you: {question}"
+         :cannot "Stage {stage} cannot go on: {why}"
+         :failures "{n} turns in a row did not finish a stage: the profile's limit."
+         :usd "${n} spent: the profile's limit."
+         :left "The run ended without its report: its session is over."}
+
+ :report-head "/workflow run #{n} — {workflow}{title}: {work}"
+ :report-tail "Kept as .brainyard/workflow-runs/{n}.edn. Say how it went — pass, changes or fail, with a note — and /workflow keeps it with the run."}

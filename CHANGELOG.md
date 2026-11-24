@@ -10,6 +10,17 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   workflows `.brainyard/deps.edn` names, shows one whole, and adds, changes
   or removes one as you ask. Each change is shown to you first, and written
   through `byj deps write`'s checks only on your yes (RFC-076).
+- **`/workflow run` runs one.** `/workflow run fix byj-abc` takes the work
+  — words, or a bead or GitHub issue first — through the workflow's stages,
+  each a turn of its own told its role, the project's goal and scope, and
+  what the last stage handed it. After each stage, what it hands on is
+  checked (files changed, commits, its answer, a bead closed), and the
+  workflow's master role judges it: hand on, go again (three turns a stage),
+  or stop with a question for you. The profile's `:usd` and `:failures`
+  limits hold. A bead or issue the run works is claimed, and closed at the
+  end as the profile allows. Runs are kept in `.brainyard/workflow-runs/`;
+  `/workflow` lists them and keeps your verdict on one. New config:
+  `:workflow-max-steps` (30), `:workflow-stage-attempts` (3).
 - **`byj doctor` says byj-share and Codex.** What is installed lists
   byj-share's copies on PATH after byj's, each with its version and how its
   owner updates a shadowed one. When codex is installed, a Codex section says

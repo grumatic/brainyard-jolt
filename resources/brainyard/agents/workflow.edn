@@ -1,17 +1,21 @@
 ;; agent$workflow (RFC-076): /workflow. Keeps this project's workflows — the
 ;; named graphs of stages .brainyard/deps.edn holds under :workflows
-;; (RFC-075) — listing, adding, changing and removing them with the
-;; workflow$* commands its :config turns on; each change is shown to the
-;; person and written only on their yes.
+;; (RFC-075) — and runs one on a piece of work.
 ;;
-;; A turn of it is the bundled ReAct loop with every tool the session has,
-;; so it reads the project as any turn does; not itself.
+;; Its loop is brainyard/loops/workflow.edn: a request to run a workflow
+;; takes each stage through a ReAct turn of its own, judged by the
+;; workflow's master role; any other request is one ReAct turn over the
+;; workflow$* commands its :config turns on, each change shown to the person
+;; and written only on their yes. Every turn has every tool the session has,
+;; under the same permission gate and the profile's holds on it; not itself.
 {:description
- "Keeps this project's workflows (.brainyard/deps.edn's :workflows: named graphs of stages, each stage playing a role, each link saying what one stage hands the next, a master role supervising its runs): lists them, shows one, and adds, changes or removes one as the person asks — every change shown to them and written only on their yes. Say what you want done with a workflow, in your own words."
+ "Keeps and runs this project's workflows (.brainyard/deps.edn's :workflows: named graphs of stages, each stage playing a role, each link saying what one stage hands the next, a master role supervising a run). Lists them, shows one, and adds, changes or removes one as the person asks — every change shown to them and written only on their yes. Runs one on a piece of work (words, a bead or a GitHub issue): each stage worked in a turn of its own with its role's brief, what it hands on checked, the master judging each handoff, under the project's profile; ends with each stage's outcome. Lists past runs and keeps the person's verdict on one. A run takes minutes to hours."
 
  :instruction-resource "brainyard/prompts/agents/workflow.md"
 
- ;; every tool the session has, to read the project with; but not itself
+ :loop "brainyard/loops/workflow.edn"
+
+ ;; every tool the session has, for a stage's work; but not itself
  :deny-tools ["agent$workflow"]
 
  ;; it asks the person as it works, so its call is waited on, never detached

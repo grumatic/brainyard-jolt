@@ -65,7 +65,7 @@ Ids are keywords. `self` names this project in a graph, so no project may
 take it; a provide's `:id` is unique within its project.
 
 `:workflows` (byj-dls) are named graphs of stages that a runner (the
-workbench's runs) takes a piece of work through. A stage plays a role, its
+workbench's runs, or byj's own `/workflow`, RFC-076) takes a piece of work through. A stage plays a role, its
 id unless `:role` names one, so one role may play several stages; a link says
 what one stage hands the next, its gives as a handoff's; `:master` is the
 role that supervises a run. A workflow's links make no cycle, every stage

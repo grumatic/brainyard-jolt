@@ -97,7 +97,7 @@
 
 (defn- number-of [id] (subs (str id) 1))
 
-(defn- tools
+(defn tools
   "What the trackers are reached with in project `dir`: bd and gh where they
   are found, and the GitHub repository the profile names (its first GitHub
   tracker's `:github-repo`; else gh takes the origin remote's)."
@@ -136,7 +136,7 @@
                                             (not-any? #(= label (:name %)) (:labels i)))]
                              {:id (str "#" (:number i)) :title (str (:title i)) :description (str (:body i))}))})))
 
-(defn- show-item
+(defn show-item
   "What the tracker of `id` says of it: `{:title :description :status}`,
   `:status` as bd says it — `closed`, `in_progress` (a GitHub issue someone is
   assigned), `open` — or nil when it cannot be read."
@@ -150,17 +150,17 @@
       (when-let [b (first (json-out (run (:dir tl) (:bd tl) "show" id "--json")))]
         {:title (str (:title b)) :description (str (:description b)) :status (str (:status b))}))))
 
-(defn- claim! [tl id]
+(defn claim! [tl id]
   (if (github-id? id)
     (gh tl "issue" "edit" (number-of id) "--add-assignee" "@me")
     (run (:dir tl) (:bd tl) "update" id "--claim")))
 
-(defn- unclaim! [tl id]
+(defn unclaim! [tl id]
   (if (github-id? id)
     (gh tl "issue" "edit" (number-of id) "--remove-assignee" "@me")
     (run (:dir tl) (:bd tl) "unclaim" id)))
 
-(defn- close! [tl id reason]
+(defn close! [tl id reason]
   (if (github-id? id)
     (gh tl "issue" "close" (number-of id) "--comment" reason)
     (run (:dir tl) (:bd tl) "close" id "--reason" reason)))
@@ -182,7 +182,7 @@
             (gh tl "issue" "edit" (number-of id) "--add-label" label))))
     (run (:dir tl) (:bd tl) "label" "add" id label)))
 
-(defn- reachable? [tl id] (boolean (if (github-id? id) (:gh tl) (:bd tl))))
+(defn reachable? [tl id] (boolean (if (github-id? id) (:gh tl) (:bd tl))))
 
 (defn- created-since
   "How many issues tracker `t` has that were filed since `since`."

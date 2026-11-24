@@ -3,7 +3,9 @@
 ;; for an agent is (RFC-004): the session's agent asks agent$workflow, reads
 ;; its report, and says it.
 ;;
-;; `/workflow` alone lists them; `/workflow WORDS` says what to do with one.
+;; `/workflow` alone lists them; `/workflow WORDS` says what to do with one,
+;; or runs one: `/workflow run fix byj-abc`, `/workflow run feature the login
+;; page`.
 ;;
 ;; Not in brainyard, which has no workflows of stages and roles.
 {:command "/workflow"
@@ -14,10 +16,10 @@
  "List this project's workflows."
 
  :purpose
- "keep this project's workflows (.brainyard/deps.edn's :workflows: stages, each playing a role, and what one hands the next) — list them, show one, or add, change or remove one, each change shown to the person and written only on their yes"
+ "keep and run this project's workflows (.brainyard/deps.edn's :workflows: stages, each playing a role, and what one hands the next) — list them, show one, add, change or remove one, each change shown to the person and written only on their yes, or run one on a piece of work, each stage a turn of its own judged by the workflow's master"
 
  :usage
- "Call agent$workflow with :question set to the request, in the person's words, and read its report. Do not change .brainyard/deps.edn yourself around it. When it stopped on a question for the person, end with that question as it put it. End with its report as it said it."
+ "Call agent$workflow with :question set to the request, in the person's words — which workflow to run and on what, when they ask for a run — and read its report. Do not change .brainyard/deps.edn yourself around it, and do not work a run's stages yourself. When it stopped on a question for the person, end with that question as it put it. End with its report as it said it."
 
  :template
  "{request}

@@ -1,0 +1,84 @@
+;; agent$workflow's loop (RFC-076): keep the project's workflows, or run one.
+;;
+;;   run or manage                      → a predictor (workflow/route), from
+;;                                         the request, the line the person
+;;                                         typed and the workflows there are
+;;   managing them                      → one ReAct turn (loops/react.edn),
+;;                                         asked what was asked, over the
+;;                                         workflow$* commands, each change
+;;                                         written on the person's yes
+;;   a run's opening                    → workflow$start (mechanism: the
+;;                                         profile, the workflow, its work —
+;;                                         a bead or issue claimed — kept
+;;                                         in .brainyard/workflow-runs/)
+;;   a stage's work                     → a ReAct turn in a scope of its own,
+;;                                         asked the stage's brief
+;;   what the turn left                 → workflow$check (the work tree, and
+;;                                         what the stage hands on)
+;;   whether the stage is done          → a predictor (workflow/judge), as
+;;                                         the workflow's master role
+;;   handing on, again, or stopping     → workflow$settle, as the profile says
+;;   the answer                         → workflow$report
+;;   the order                          → this file
+;;
+;; One ReAct scope serves both: a run's stages, each asked its brief, and the
+;; one turn a request to manage the workflows is, asked the request — so the
+;; tree holds the ReAct loop once, and its node ids stay its own. Each turn
+;; starts from a fresh memory; what it spent comes back out, said as a
+;; tool's spend by workflow$settle for a stage and by workflow$report for a
+;; managing turn, so the turn's usage — what workflow$settle holds to the
+;; profile's :usd — counts every one.
+;;
+;; Check it before changing it: `byj flow check brainyard/loops/workflow.edn`.
+[:sequence {:id :workflow/turn}
+ [:action {:id :workflow/init :fn :react/init}]
+ [:action {:id :workflow/seed :fn :mem/set
+           :set {:workflows "" :typed "" :intent "" :workflow "" :work "" :master "" :managing false
+                 :stop false :stopped "" :run "" :stage "" :brief "" :work-answer "" :stage-usage {}
+                 :check "" :status "" :ask-question "" :summary ""}}]
+ [:action {:id :workflow/known :fn :tool/run :tool "workflow$list" :out {:workflows :text}}]
+ ;; the line the person typed for /workflow, word for word, when they typed it
+ [:action {:id :workflow/typed :fn :mem/join :in {:a :person-words} :out {:typed :joined}}]
+ [:action {:id :workflow/route :fn :predictor/run :predictor "workflow/route"
+           :in {:request :question :typed :typed :workflows :workflows}
+           :out {:intent :intent :workflow :workflow :work :work}}]
+ [:fallback {:id :workflow/open}
+  [:sequence {:id :workflow/run}
+   [:condition {:id :workflow/run? :fn :mem/match? :key :intent :pattern "^\\s*[Rr][Uu][Nn]\\s*$"}]
+   [:action {:id :workflow/start :fn :tool/run :tool "workflow$start"
+             :in {:workflow :workflow :work :work}
+             :out {:stop :stop :stopped :stopped :run :run :brief :brief :master :master}}]]
+  ;; anything else: one turn over the workflow$* commands, asked what was asked
+  [:sequence {:id :workflow/manage}
+   [:action {:id :workflow/managing :fn :mem/set :set {:managing true}}]
+   [:action {:id :workflow/ask :fn :mem/join :in {:a :question} :out {:brief :joined}}]]]
+ [:repeat {:id :workflow/steps :max-n :config/workflow-max-steps :until :mem/true? :key :stop}
+  [:fallback {:id :workflow/step-guard}
+   ;; the run did not open, or it ended, or the managing turn is done:
+   ;; succeed, and :until ends it
+   [:condition {:id :workflow/stopped? :fn :mem/true? :key :stop}]
+   [:sequence {:id :workflow/step}
+    [:scope {:id :workflow/turn-of
+             :in {:question :brief}
+             :out {:work-answer :answer :stage-usage :usage}}
+     [:include {:tree "brainyard/loops/react.edn"}]]
+    [:fallback {:id :workflow/after}
+     [:sequence {:id :workflow/managed}
+      [:condition {:id :workflow/managing? :fn :mem/true? :key :managing}]
+      [:action {:id :workflow/managed-once :fn :mem/set :set {:stop true}}]]
+     [:sequence {:id :workflow/judged}
+      [:action {:id :workflow/check :fn :tool/run :tool "workflow$check"
+                :in {:run :run :answer :work-answer}
+                :out {:check :text}}]
+      [:action {:id :workflow/judge :fn :predictor/run :predictor "workflow/judge"
+                :in {:master :master :brief :brief :answer :work-answer :check :check}
+                :out {:status :status :ask-question :question :summary :summary}}]
+      [:action {:id :workflow/settle :fn :tool/run :tool "workflow$settle"
+                :in {:run :run :status :status :question :ask-question :summary :summary :answer :work-answer
+                     :usage :usage :stage-usage :stage-usage}
+                :out {:stop :stop :stopped :stopped :brief :brief :stage :stage}}]]]]]]
+ [:action {:id :workflow/report :fn :tool/run :tool "workflow$report"
+           :in {:run :run :stopped :stopped :managing :managing :answer :work-answer :stage-usage :stage-usage}
+           :out {:answer :text}}]
+ [:action {:id :workflow/stamp :fn :react/stamp-answer}]
+ [:action {:id :workflow/store :fn :react/store-trajectory}]]

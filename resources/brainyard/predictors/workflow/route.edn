@@ -1,0 +1,21 @@
+;; /workflow's first step (RFC-076): whether the person asks to run one of
+;; the project's workflows on a piece of work, or for something else about
+;; them — listing, showing, adding, changing or removing one, its runs, or
+;; how a run went — which a ReAct turn over the workflow$* commands does.
+{:id "workflow/route"
+ :strategy :predict
+ :description "Route a /workflow request: run a workflow, or manage the workflows."
+ :instructions "A person asked /workflow for something about this project's workflows, listed below. Decide what they ask:
+
+- run: to run, start or take a piece of work through one of the workflows. workflow: its id as listed; when they name none and the project has only one, that one; when it is unclear which, empty. work: what the run is to work on, in their words — a bead id or a GitHub issue (#N) first when they name one, then the rest of what they said about the work; empty when they said nothing of it.
+- manage: anything else — listing the workflows, showing one, adding, changing or removing one, listing runs, saying how a run went — and a question about how to run one.
+
+When the typed line is given, it is what the person typed, word for word: it wins over the request, which another agent put in its own words."
+ :inputs
+ [[:request {:desc "What /workflow was asked, as the calling agent put it"} :string]
+  [:typed {:desc "The line the person typed, word for word; empty when there is none"} :string]
+  [:workflows {:desc "The project's workflows, as workflow$list says them"} :string]]
+ :outputs
+ [[:intent {:desc "run or manage"} :string]
+  [:workflow {:desc "For run: the workflow's id; else empty"} :string]
+  [:work {:desc "For run: what the run works on; else empty"} :string]]}

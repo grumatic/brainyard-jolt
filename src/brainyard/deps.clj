@@ -775,6 +775,31 @@
              :detail (if (seq done) (str (count done) " session(s) of its role have finished a turn")
                          "no session of its role has finished a turn")})))
 
+(defn run-give-row
+  "Give `g` of a workflow's link as a run that works its stages in turn sees
+  it (RFC-076, `byj-edw.2`), from what the stage left rather than from the
+  sessions bound to its role: `:file` ready when a file it matches changed
+  since the stage began (`changed`, paths relative to the project); `:branch`
+  when the stage made a commit (`commits`, how many); `:note` when it
+  answered (`answer`); `:bead` and `:issue` as a handoff's, in the tracker
+  that holds it. `{:kind :ready :detail :items}`, and `:tracker` for an
+  issue. opts as `report`'s, `:issues` the profile's trackers."
+  [dir g {:keys [changed commits answer]} opts]
+  (case (:kind g)
+    :file (let [res (mapv path-glob->re (:paths g))
+                hit (vec (sort (distinct (filter (fn [p] (some #(re-matches % p) res)) changed))))]
+            {:kind :file :items hit :ready (boolean (seq hit))
+             :detail (if (seq hit)
+                       (str "changed in this stage: " (str/join ", " (take 5 hit)) (when (> (count hit) 5) ", …"))
+                       (str "no file matching " (str/join ", " (:paths g)) " changed in this stage"))})
+    :branch (let [n (or commits 0)]
+              {:kind :branch :items [] :ready (pos? n)
+               :detail (if (pos? n) (str n " commit(s) in this stage") "no commit in this stage")})
+    :note {:kind :note :items [] :ready (not (str/blank? (str answer)))
+           :detail (if (str/blank? (str answer)) "the stage gave no answer" "the stage's answer")}
+    :bead (bead-row :bead dir g opts)
+    :issue (issue-row dir g opts)))
+
 (defn- latest-handed [local from to]
   (->> (:handed local)
        (filter #(and (= from (:from %)) (= to (:to %))))

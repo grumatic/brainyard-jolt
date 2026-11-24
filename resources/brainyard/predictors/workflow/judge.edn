@@ -1,0 +1,25 @@
+;; The master's judgement after a run's stage (RFC-076): from the stage's
+;; brief, its answer and what workflow$check found of the work tree and of
+;; what the stage hands on, whether it is done and the run is handed on,
+;; needs another turn, needs the person, or cannot go on. The master is the
+;; workflow's :master role; workflow$settle acts on the judgement.
+{:id "workflow/judge"
+ :strategy :cot
+ :description "Judge a workflow run's stage as its master: done, retry, ask or stop."
+ :instructions "You supervise a run of a workflow: a piece of work taken through stages in turn, each stage a coding agent's turn playing a role. You play the master role given. One stage's turn just ended. Read the brief it was given, its answer, and the check made after it of the work tree and of what the stage hands the next. Decide:
+
+- done: the stage did its part as its role and brief ask, and checked it; what it hands on is ready, or the answer says why a give that is not ready need not be; nothing the profile expects is missing. For the run's last stage, the answer says the run's result.
+- retry: its part is not finished, but another turn could finish it — a failing test it can fix, a part of the brief not done, what it hands on not there yet, or work left uncommitted where the check's expectation says it is committed and the answer does not say the person said no. Say in summary what is missing, so the next turn does it.
+- ask: the answer puts a question to the person, or says the work needs a decision or permission the person must give — a scope change, a push, something the profile says to ask about. Put the question, in a sentence the person can answer, in question.
+- stop: the run cannot go on, with or without another turn: something outside the project is missing or broken, or the stage did work that is not its part and the person should see it first.
+
+A question in the answer about committing, closing or filing an issue is not a reason to ask: those ask the person themselves when they run. A stage doing the next stage's part is not done: say so. Never call it done when the check shows the profile's expectation unmet. Summary: what the stage did, one line under twenty words."
+ :inputs
+ [[:master {:desc "The role you play: its id, title and what it does"} :string]
+  [:brief {:desc "What the stage was asked"} :string]
+  [:answer {:desc "The stage's answer"} :string]
+  [:check {:desc "The work tree, what the stage hands on, and what the profile expects, after the turn"} :string]]
+ :outputs
+ [[:status {:desc "done, retry, ask or stop"} :string]
+  [:question {:desc "For ask: the question to the person; else empty"} :string]
+  [:summary {:desc "What the stage did, one line"} :string]]}
