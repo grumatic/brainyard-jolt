@@ -74,6 +74,7 @@
             [brainyard.loop-proposals-test]
             [brainyard.profile-test]
             [brainyard.drive-test]
+            [brainyard.workflow-test]
             [brainyard.loop-eval-test]
             [brainyard.loop-watch-test]
             [brainyard.links-test]
@@ -173,6 +174,7 @@
     brainyard.loop-proposals-test
     brainyard.profile-test
     brainyard.drive-test
+    brainyard.workflow-test
     brainyard.loop-eval-test
     brainyard.loop-watch-test
     brainyard.links-test

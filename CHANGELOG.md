@@ -6,6 +6,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`/workflow` keeps a project's workflows.** `agent$workflow` lists the
+  workflows `.brainyard/deps.edn` names, shows one whole, and adds, changes
+  or removes one as you ask. Each change is shown to you first, and written
+  through `byj deps write`'s checks only on your yes (RFC-076).
 - **`byj doctor` says byj-share and Codex.** What is installed lists
   byj-share's copies on PATH after byj's, each with its version and how its
   owner updates a shadowed one. When codex is installed, a Codex section says

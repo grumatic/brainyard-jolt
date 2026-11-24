@@ -1,0 +1,25 @@
+;; /workflow (RFC-076): keep this project's workflows (.brainyard/deps.edn's
+;; :workflows) through agent$workflow. A turn, as every command that stands
+;; for an agent is (RFC-004): the session's agent asks agent$workflow, reads
+;; its report, and says it.
+;;
+;; `/workflow` alone lists them; `/workflow WORDS` says what to do with one.
+;;
+;; Not in brainyard, which has no workflows of stages and roles.
+{:command "/workflow"
+ :agent "workflow"
+ :rephrase :predictor
+
+ :default-request
+ "List this project's workflows."
+
+ :purpose
+ "keep this project's workflows (.brainyard/deps.edn's :workflows: stages, each playing a role, and what one hands the next) — list them, show one, or add, change or remove one, each change shown to the person and written only on their yes"
+
+ :usage
+ "Call agent$workflow with :question set to the request, in the person's words, and read its report. Do not change .brainyard/deps.edn yourself around it. When it stopped on a question for the person, end with that question as it put it. End with its report as it said it."
+
+ :template
+ "{request}
+
+[{command}] This is {command}: {purpose}. {usage}"}

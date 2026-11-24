@@ -49,6 +49,7 @@
             [brainyard.codex-agent :as codex-agent]
             [brainyard.schedule :as schedule]
             [brainyard.drive :as drive]
+            [brainyard.workflow :as workflow]
             [brainyard.init :as init]
             [brainyard.instructions :as instructions]
             [brainyard.skills :as skills]
@@ -1595,6 +1596,9 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
         ;; working a project's goal under its profile (RFC-073): agent$drive's config turns them on
         drive-cmds (when (:drive-tools? config) (drive/commands config))
         _ (swap! reg into (map (juxt :name identity)) drive-cmds)
+        ;; keeping and running the project's workflows (RFC-076): agent$workflow's config turns them on
+        workflow-cmds (when (:workflow-tools? config) (workflow/commands config))
+        _ (swap! reg into (map (juxt :name identity)) workflow-cmds)
         ;; changing the profile as the person asks, on their yes (RFC-073, byj-8b3)
         profile-cmds (when (:profile-tools? config true) (init/profile-commands config))
         _ (swap! reg into (map (juxt :name identity)) profile-cmds)

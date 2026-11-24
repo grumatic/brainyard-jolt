@@ -1,0 +1,21 @@
+;; The words /workflow puts together (RFC-076): what workflow$list and
+;; workflow$show say of a project's workflows, what the person is asked
+;; before one is written or removed, and — for a run — each stage's brief,
+;; the handoff, and the report. brainyard.workflow fills {name}; what a model
+;; or the person reads is here, not in src/.
+{:none "This project has no workflows: .brainyard/deps.edn names none. /workflow adds one — say its stages in order, the role each plays and what one hands the next."
+ :roles-none "No roles yet: a workflow's stages each play one, and adding a workflow adds the roles it names."
+ :unreadable "deps.edn has problems a write would drop: {problems}. They are fixed first, by hand or through byj deps write."
+
+ ;; what a give is, in words
+ :gives {:file "files {paths}"
+         :bead "bead {id}"
+         :beads "the beads under {parent}"
+         :issue "issue {id}"
+         :branch "the branch's commits"
+         :note "a note: the stage's answer"}
+ :no-gives "nothing named"
+
+ :ask-add "/workflow: add workflow {id} to .brainyard/deps.edn?\n\n{shown}"
+ :ask-change "/workflow: change workflow {id} in .brainyard/deps.edn?\n\n{shown}"
+ :ask-remove "/workflow: remove workflow {id} from .brainyard/deps.edn? Its runs are kept.\n\n{shown}"}

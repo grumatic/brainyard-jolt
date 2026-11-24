@@ -124,7 +124,7 @@
         (is (= "builtin" (:dropped (first shadowed))))))
     (testing "the built-in roster loads on its own — see the-shipped-roster for what is in it"
       (let [{:keys [agents problems]} (agents/load-agents {:working-dir "/nonexistent" :project-dir "/nonexistent"})]
-        (is (= ["claude" "codex" "drive" "edit" "explore" "general-purpose" "init" "plan"] (map :name agents)))
+        (is (= ["claude" "codex" "drive" "edit" "explore" "general-purpose" "init" "plan" "workflow"] (map :name agents)))
         (is (empty? problems))))))
 
 ;; --- an agent is a tool -----------------------------------------------------------
@@ -762,7 +762,7 @@
   (let [{:keys [agents problems]} (agents/load-agents {:working-dir "/nonexistent" :project-dir "/nonexistent"})
         by-name (into {} (map (juxt :name identity)) agents)]
     (is (empty? problems))
-    (is (= #{"explore" "plan" "edit" "general-purpose" "claude" "codex" "init" "drive"} (set (keys by-name)))
+    (is (= #{"explore" "plan" "edit" "general-purpose" "claude" "codex" "init" "drive" "workflow"} (set (keys by-name)))
         "no bead-keeper: it is this repository's own agent, not every project's (byj-gly.316); nor Share's, which byj-share setup installs (RFC-070 D4)")
 
     (testing "agent$init is its own loop, and its commands are all it calls (RFC-040)"
@@ -780,6 +780,13 @@
         (is (true? (:attended? a)) "it asks the person as it works: waited on, never detached")
         (is (true? (:attended? (by-name "init"))))
         (is (true? (:attended? (agents/agent-tool a (fn [& _])))) "and its tool says so")))
+
+    (testing "agent$workflow keeps the project's workflows with every tool but itself, asking as it goes (RFC-076)"
+      (let [a (by-name "workflow")]
+        (is (nil? (:tools a)))
+        (is (= ["agent$workflow"] (:deny-tools a)))
+        (is (true? (:workflow-tools? (:config a))))
+        (is (true? (:attended? a)))))
 
     (testing "agent$general-purpose is brainyard's react-agent: the ReAct loop, every tool but itself (byj-63b)"
       (let [a (by-name "general-purpose")]

@@ -1,0 +1,22 @@
+;; agent$workflow (RFC-076): /workflow. Keeps this project's workflows — the
+;; named graphs of stages .brainyard/deps.edn holds under :workflows
+;; (RFC-075) — listing, adding, changing and removing them with the
+;; workflow$* commands its :config turns on; each change is shown to the
+;; person and written only on their yes.
+;;
+;; A turn of it is the bundled ReAct loop with every tool the session has,
+;; so it reads the project as any turn does; not itself.
+{:description
+ "Keeps this project's workflows (.brainyard/deps.edn's :workflows: named graphs of stages, each stage playing a role, each link saying what one stage hands the next, a master role supervising its runs): lists them, shows one, and adds, changes or removes one as the person asks — every change shown to them and written only on their yes. Say what you want done with a workflow, in your own words."
+
+ :instruction-resource "brainyard/prompts/agents/workflow.md"
+
+ ;; every tool the session has, to read the project with; but not itself
+ :deny-tools ["agent$workflow"]
+
+ ;; it asks the person as it works, so its call is waited on, never detached
+ :attended? true
+
+ :tier :standard
+
+ :config {:workflow-tools? true}}

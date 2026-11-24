@@ -355,6 +355,8 @@
                      :doc "How many steps — a bead's turn, or a retry of one — one /drive run takes at most, whatever the profile's own limits (RFC-073)."}
    :drive-bead-attempts {:type "integer" :default 3 :family :agents
                          :doc "How many turns one bead gets in a /drive run: one judged unfinished after its last is set aside for the person — its claim released, labelled human, which /drive passes over — and the run goes on to the next ready bead (RFC-073, byj-dw0)."}
+   :workflow-tools? {:type "boolean" :default false :family :agents
+                     :doc "Register the workflow$* commands, which keep and run the project's workflows (.brainyard/deps.edn's :workflows, RFC-076). agent$workflow's own config turns them on for its turn; off elsewhere."}
    :init-tools? {:type "boolean" :default false :family :agents
                  :doc "Register the init$* commands, which check and prepare a project for brainyard (RFC-040). agent$init's own config turns them on for its turn; off elsewhere."}
    :profile-tools? {:type "boolean" :default true :family :agents

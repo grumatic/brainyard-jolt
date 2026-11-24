@@ -6,4 +6,4 @@
 ;; Such a command is not run as a direct call: its line becomes the turn's
 ;; input, rephrased for the agent the session runs, which then drives the
 ;; subagent the command stands for across its own iterations.
-["init" "drive" "review" "plan" "edit" "claude" "codex" "share" "team" "handover" "emacs"]
+["init" "drive" "workflow" "review" "plan" "edit" "claude" "codex" "share" "team" "handover" "emacs"]
