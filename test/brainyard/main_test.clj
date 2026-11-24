@@ -595,6 +595,31 @@
         (is (str/includes? out "handoff design → implement"))))
     (is (= 2 (:exit (deps! nil "bogus"))))))
 
+(deftest byj-workflow-gives-the-runs-as-data-and-keeps-a-verdict
+  ;; byj-edw.4: the runs /workflow keeps, for a client
+  (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-workflow-cli-" (System/nanoTime))) .mkdirs))
+        wf! (fn [& args] (apply run-main "-C" dir "workflow" args))
+        f (io/file dir ".brainyard" "workflow-runs" "1.edn")]
+    (testing "no runs"
+      (is (= {:runs []} (json/read-str (:out (wf! "runs" "--json")))))
+      (is (str/includes? (:out (wf! "runs")) "No runs yet.")))
+    (io/make-parents f)
+    (spit f (pr-str {:n 1 :workflow :fix :status :done :work "make it fast" :stages [{:stage :implement :status :done}]
+                     :log ["✓ implement — done"] :stopped "Every stage is done."}))
+    (testing "as data, every run or one"
+      (let [j (json/read-str (:out (wf! "runs" "--json")))]
+        (is (= [{:n 1 :workflow "fix" :status "done" :work "make it fast" :stages [{:stage "implement" :status "done"}]
+                 :log ["✓ implement — done"] :stopped "Every stage is done."}]
+               (:runs j))))
+      (is (= 1 (count (:runs (json/read-str (:out (wf! "runs" "1" "--json")))))))
+      (is (= 1 (:exit (wf! "runs" "2" "--json"))) "a run there is not")
+      (is (str/includes? (:out (wf! "runs")) "#1 fix — done — make it fast")))
+    (testing "a verdict, kept with the run"
+      (is (= {:ok true :run 1} (json/read-str (:out (wf! "verdict" "1" "pass" "looks" "good" "--json")))))
+      (is (= "looks good" (:note (edn/read-string (slurp f)))))
+      (is (= 1 (:exit (wf! "verdict" "1" "meh")))))
+    (is (= 2 (:exit (wf! "bogus"))))))
+
 (deftest byj-doctor-json-gives-the-report-as-data
   ;; byj-mmd: for the workbench's Doctor panel. The machine is read through
   ;; seams here: no tool is run, no keychain or network asked

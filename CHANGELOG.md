@@ -30,6 +30,9 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   deps` sees them. The report closes them and says the worktrees, which are
   kept for you to merge. New config: `:workflow-stage-timeout-ms` (an
   hour).
+- **`byj workflow runs [N] [--json]`** gives the runs `/workflow` keeps, as
+  data for a client: byj's contract, `contract/workflow/runs.json`. `byj
+  workflow verdict N pass|changes|fail [NOTE]` keeps your word on one.
 - **`byj doctor` says byj-share and Codex.** What is installed lists
   byj-share's copies on PATH after byj's, each with its version and how its
   owner updates a shadowed one. When codex is installed, a Codex section says

@@ -462,7 +462,9 @@
            :work (:work-text run) :profile (profile-words w p)
            :flow (str/join " → " (map (comp id-name :stage) stages))
            :stage (id-name s)
-           :role (str (role-words spec r) (when (given (:does here)) (str "; in this workflow: " (:does here))))
+           ;; the brief ends the role with its own full stop
+           :role (str/replace (str (role-words spec r) (when (given (:does here)) (str "; in this workflow: " (:does here))))
+                              #"\.\s*$" "")
            :handed handed
            :next (if (seq outs)
                    (str/join "\n" (for [{:keys [to gives]} outs] (fill (:hands-on w) {:to (id-name to) :gives (gives-words w gives)})))
@@ -892,6 +894,14 @@
                            (str/join "\n" (for [d places] (str "  " d (when-let [b (git-out d "rev-parse" "--abbrev-ref" "HEAD")] (str " (" b ")")))))))
                     (when (seq closed) (str "\nIts sessions:\n" (str/join "\n" closed)))
                     "\n\n" (fill (:report-tail w) {:n (:n run)}))}))))
+
+(defn runs-report
+  "`byj workflow runs --json` (byj-edw.4): the project's runs as data,
+  newest first — or run `n` alone — each record as
+  `.brainyard/workflow-runs/<n>.edn` keeps it, a keyword as its name, as
+  `byj deps --json` gives its files. `{:runs [run …]}`."
+  [dir & [n]]
+  {:runs (mapv deps/json-value (if n (keep identity [(read-run dir n)]) (runs dir)))})
 
 (defn- run-line [run]
   (str "#" (:n run) " " (id-name (:workflow run)) " — " (name (:status run))

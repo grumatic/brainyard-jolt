@@ -34,6 +34,7 @@
             [brainyard.schedule :as schedule]
             [brainyard.web-share :as web-share]
             [brainyard.share :as share]
+            [brainyard.workflow :as workflow]
             [brainyard.worktree :as worktree]
             [brainyard.children :as children]
             [brainyard.trajectory :as trajectory]
@@ -87,7 +88,7 @@
 (defn- effects [s] (set (map keyword (globs s))))
 
 (def ^:private command-names
-  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "config" "deps" "profile"})
+  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "config" "deps" "profile" "workflow"})
 
 (def ^:private command-aliases
   "Old names a command still answers to: `sessions` (brainyard's `by
@@ -2238,6 +2239,37 @@
       :else
       (do (err-println "usage: byj deps [--json] | byj deps write [--local] [--json] < NEW.json") 2))))
 
+(defn- workflow-command
+  "`byj workflow runs [N] [--json]` and `byj workflow verdict N
+  pass|changes|fail [NOTE…]` (byj-edw.4, RFC-076): the runs /workflow keeps
+  — `.brainyard/workflow-runs/` — as data for a client, and the person's
+  word on one kept with it."
+  [{:keys [questions json]} dir]
+  (let [[sub & more] questions
+        out (fn [x] (println (json/write-str x)))
+        n (some-> (first more) str/trim (str/replace #"^#" "") parse-long)]
+    (cond
+      (and (= "runs" sub) (or (empty? more) (and n (= 1 (count more)))))
+      (do (if json
+            (out (workflow/runs-report dir n))
+            (println (:text (if n
+                              (if-let [r (workflow/read-run dir n)]
+                                {:text (with-out-str (pp/pprint r))}
+                                {:text (str "No run " n ".")})
+                              (workflow/list-runs {:project-dir dir} {:limit 50})))))
+          (if (and n (nil? (workflow/read-run dir n))) 1 0))
+
+      (and (= "verdict" sub) n (second more))
+      (let [{:keys [text]} (workflow/record-verdict {:project-dir dir}
+                                                    {:run n :verdict (second more)
+                                                     :note (not-empty (str/join " " (drop 2 more)))})
+            ok? (str/starts-with? text "Kept")]
+        (if json (out (if ok? {:ok true :run n} {:error text})) (println text))
+        (if ok? 0 1))
+
+      :else
+      (do (err-println "usage: byj workflow runs [N] [--json] | byj workflow verdict N pass|changes|fail [NOTE]") 2))))
+
 (defn- profile-command
   "`byj profile [--json]` and `byj profile write [--json]` (byj-ph3,
   RFC-073): the project's profile as data — resolved, with its problems and
@@ -2491,6 +2523,12 @@
       (let [wd (or working-dir (System/getProperty "user.dir") ".")]
         (*exit* (deps-command opts (:project-dir (:config (config/load-config {:working-dir wd :overrides overrides
                                                                                  :env-fn (env-fn wd)}))))))
+
+      ;; the runs /workflow keeps (byj-edw.4, RFC-076)
+      (= :workflow command)
+      (let [wd (or working-dir (System/getProperty "user.dir") ".")]
+        (*exit* (workflow-command opts (:project-dir (:config (config/load-config {:working-dir wd :overrides overrides
+                                                                                     :env-fn (env-fn wd)}))))))
 
       ;; the project's profile, read and written whole (byj-ph3, RFC-073)
       (= :profile command)

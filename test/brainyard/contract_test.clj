@@ -20,6 +20,9 @@
     found by its path and one found nowhere, with two roles, a session bound
     to one and one gone, and a handoff whose gives are ready but its branch,
     bd's answer given (byj-9dv);
+  - `workflow/runs.json`: `byj workflow runs --json` in a project outside
+    git whose run of a two-stage workflow handed its first stage on, stopped
+    on its second's question, and has the person's verdict (byj-edw.4);
   - `doctor/doctor.json`: `byj doctor --json` in a project with AGENTS.md
     alone, two copies of byj on PATH and a signed-in account, the machine's
     tools all said missing so that the file is not the machine's (byj-mmd);
@@ -49,7 +52,8 @@
             [brainyard.json :as json]
             [brainyard.main :as main]
             [brainyard.session :as session]
-            [brainyard.update :as update]))
+            [brainyard.update :as update]
+            [brainyard.workflow :as workflow]))
 
 (def root "contract")
 
@@ -64,7 +68,7 @@
 (def varying
   "Keys whose values differ between two runs of the same turn."
   #{:at :ts :ms :started-at :ended-at :created-at :updated-at :last-active :pid :duration-ms :elapsed-ms
-    :latency-ms :wall-ms :timestamp :time :ttft-ms :tokens-per-s :saved-at
+    :latency-ms :wall-ms :timestamp :time :ttft-ms :tokens-per-s :saved-at :verdict-at
     ;; :auto resolves by where byj runs: :auto-approve in a container
     :resolved-mode
     ;; the commit byj was built from
@@ -224,6 +228,27 @@
                               :bd-fn (fn [_ & _] {:exit 0 :out "[{\"id\":\"x-1\",\"status\":\"closed\"}]"})
                               :gh-fn (fn [_ & _] {:exit 0 :out "{\"state\":\"OPEN\"}"})})]
       (held "deps/deps.json" (str (json/write-str (normal (json/read-str (json/write-str d)) top)) "\n")))))
+
+(deftest a-workflows-runs-are-byjs-contract
+  ;; byj-edw.4: what a client shows of the runs /workflow keeps. Outside
+  ;; git, so no commit's id is in it, and no tracker is reached
+  (let [top (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-contract-runs-" (System/nanoTime))) .mkdirs))
+        cfg {:project-dir top :working-dir top :bd-path "" :gh-path "" :session-id "s-1700000000000"}
+        put! (fn [f text] (io/make-parents f) (spit f text))]
+    (put! (io/file top ".brainyard" "profile.edn")
+          (pr-str {:profile/version 1 :preset :collaborator :goal "A parser." :scope {:in ["the parser"]}}))
+    (put! (deps/spec-file top)
+          (pr-str {:schema-version 1
+                   :roles {:ci {:title "CI" :does "Supervises runs."} :implement {:does "Implements it."} :review {:does "Reviews it."}}
+                   :workflows {:fix {:title "Fix" :master :ci :stages {:implement {} :review {}}
+                                     :links [{:from :implement :to :review :gives [{:kind :note}]}]}}}))
+    (let [{:keys [run]} (workflow/start-run cfg {} {:workflow "fix" :work "make it fast"})]
+      (workflow/check-stage cfg {:run run :answer "Made it fast."})
+      (workflow/settle-stage cfg {} {:run run :status "done" :summary "made it fast" :answer "Made it fast."})
+      (workflow/settle-stage cfg {} {:run run :status "ask" :summary "needs a decision" :question "Drop Python 2?" :answer "Should we?"})
+      (workflow/record-verdict cfg {:run run :verdict "changes" :note "decide first"}))
+    (held "workflow/runs.json"
+          (str (json/write-str (normal (json/read-str (json/write-str (workflow/runs-report top))) top)) "\n"))))
 
 (deftest the-doctor-report-is-byjs-contract
   ;; byj-mmd: what the workbench's Doctor panel reads. Outside this

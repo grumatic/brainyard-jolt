@@ -1,10 +1,10 @@
 # RFC-076 — Workflows
 
-**Status:** building (`byj-edw`). Built: keeping a project's workflows
-(`byj-edw.1`); running one (`byj-edw.2`); a run in a worktree of its own
-and a role's `:session` and `:worktree` acted on (`byj-edw.3`). Still to
-come: a run's record as a contract (`byj-edw.4`). byj's own; brainyard has
-no counterpart.
+**Status:** built (`byj-edw`). Built: keeping a project's workflows
+(`byj-edw.1`); running one (`byj-edw.2`); a run in a worktree of its own,
+with a role's `:session` and `:worktree` acted on (`byj-edw.3`); and a
+run's record as data, `byj workflow runs --json`, byj's contract
+(`byj-edw.4`). byj's own; brainyard has no counterpart.
 
 ## Purpose
 
@@ -26,7 +26,8 @@ stops.
 **It must not know** what a workflow is for, or what a role does: that is
 the spec's, as the person wrote it.
 
-**It hands** a stage's work to a ReAct turn (RFC-002), the master's
+**It hands** `byj workflow runs --json` the runs as data, a client's to
+show (RFC-070); a stage's work to a ReAct turn (RFC-002), the master's
 judgement to a predictor (RFC-005), a stage that works in a session of its
 own to RFC-032's `teams/start-session!` and RFC-031's channel, a bead or issue to RFC-073's tracker
 layer (`drive/tools` and its neighbours), and every write to RFC-075's `deps/write!`, which holds the file to
@@ -245,6 +246,21 @@ A run's record:
  :verdict :pass :note "…" :verdict-at "…"}
 ```
 
+`runs-report [dir & [n]]` → `{:runs [run …]}`: each record as data, a
+keyword as its name, as `byj deps --json` gives its files.
+
+The CLI:
+
+```
+byj workflow runs [N] [-C DIR] [--json]               the runs, newest first, or run N
+byj workflow verdict N pass|changes|fail [NOTE…]      the person's word on run N, kept with it
+```
+
+`--json`'s runs are the records above, their keys as the file names them.
+A run that is not there exits 1, and so does a verdict refused. The shape is
+byj's contract, `contract/workflow/runs.json` (RFC-070). The workflows
+themselves are `byj deps`'s (RFC-075).
+
 Config:
 
 - `:workflow-tools?` (default false) registers the commands;
@@ -273,7 +289,9 @@ Config:
 | The profile's `:usd` and `:failures` end a run, a stage's spend counted | `workflow-test/the-profiles-limits-end-a-run` |
 | A stage works where its role's `:session` says — this turn, or a session of its own in a worktree — and a run asked to work apart works in its own worktree; the session is bound to its role | `workflow-test/a-stage-works-where-its-role-says-and-is-bound-to-it` |
 | A stage in a session of its own is asked its brief there, the same session again while it is live; the report closes it and says the worktree | `workflow-test/a-stage-in-a-session-of-its-own-is-asked-there` |
+| `byj workflow runs --json` gives the runs as data, one or all, and `byj workflow verdict` keeps the person's word; a run not there, or a verdict refused, exits 1 | `main-test/byj-workflow-gives-the-runs-as-data-and-keeps-a-verdict` |
+| The runs' shape is byj's contract | `contract-test/a-workflows-runs-are-byjs-contract` |
 
 ## Known gaps
 
-- A run's record is not yet a contract a client reads (`byj-edw.4`).
+None.
