@@ -2684,6 +2684,7 @@
                     (err-println "--resume-run reopens a full-screen run's sessions; a session run inline is one — --resume ID continues it"))
                   (run-session opts base)))
             (System/exit 1))
-          (run-ask opts (with-persona base opts)))))
+          ;; ask runs turns: an agent's own loop is its tree whole (byj-1n6)
+          (run-ask opts (with-persona base (assoc opts :turn? true))))))
         (finally (some-> update-notice err-println)
                  (mcp/stop-all! mcp-box))))))))

@@ -6,6 +6,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj ask --agent` works for an agent with a loop of its own.** `byj ask
+  --agent drive`, `init` or `workflow` (and `byj --prompt` with one) had
+  failed at once with "invalid loop tree: unregistered fns: :session/…";
+  the agent's loop now runs as the turn's tree, as it does for a subagent.
 - **`/workflow` keeps a project's workflows.** `agent$workflow` lists the
   workflows `.brainyard/deps.edn` names, shows one whole, and adds, changes
   or removes one as you ask. Each change is shown to you first, and written

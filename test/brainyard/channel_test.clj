@@ -7,6 +7,8 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [brainyard.agent :as agent]
+            [brainyard.bt :as bt]
             [brainyard.channel :as channel]
             [brainyard.json :as json]
             [brainyard.main]
@@ -555,6 +557,15 @@
           (is (not (contains? (ids (:tree b)) :react/turn))))
         (testing "with its own predictors searched first"
           (is (= (.getPath (io/file spec-dir "predictors")) (first (get-in b [:config :predictor-roots])))))))
+    (testing "for byj ask, which runs turns, its loop is the tree whole, as a subagent's is (byj-1n6)"
+      (let [b (session/with-persona base "fast" {:turn? true})]
+        (is (contains? (ids (:tree b)) :fast/turn))
+        (is (not (contains? (ids (:tree b)) :session/turn))))
+      (testing "so a bundled agent with a loop of its own runs under ask: its tree needs no session fns"
+        (doseq [a ["drive" "init" "workflow"]]
+          (let [b (session/with-persona base a {:turn? true})
+                ctx (agent/make-ctx {:config (:config b)})]
+            (is (nil? (bt/validate (:tree b) (:registry ctx))) a)))))
     (testing "-p/-m on the command line and --loop win, as flags do"
       (let [b (session/with-persona (assoc base :lm-flagged? true) "fast" {:loop "mine.edn"})]
         (is (= "claude-sonnet-5" (:model (:lm b))))

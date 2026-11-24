@@ -3547,13 +3547,21 @@
   it gets it (`agents/child-lm`) — unless `:lm-flagged?` says `-p`/`-m` named
   one, and its own `:loop` as each turn's tree unless `loop?` says `--loop`
   named one (byj-gly.256). A headless session's (RFC-031) first, now any
-  session's: `byj run`, `byj ask` and the SDK's (byj-g5n.2, RFC-053)."
-  [base name & [{:keys [loop]}]]
+  session's: `byj run`, `byj ask` and the SDK's (byj-g5n.2, RFC-053).
+  `:turn?` says the base runs turns, not a session — `byj ask`'s — so its
+  tree is the agent's loop itself, as a subagent's is, not the session loop
+  around it: a session tree under ask's turn has no session fns
+  registered (byj-1n6)."
+  [base name & [{:keys [loop turn?]}]]
   (let [{:keys [agents]} (agents/load-agents (:config base))]
     (when-let [a (first (filter #(= name (:name %)) agents))]
-      (cond-> (update base :config #(agents/persona-config a %))
-        (and (:lm a) (not (:lm-flagged? base))) (assoc :lm (agents/child-lm a base nil))
-        (and (agents/loop-path a) (not loop)) (assoc :tree (tree-with-turn-loop (agents/loop-path a) (get-in base [:config :project-dir])))))))
+      (let [dir (get-in base [:config :project-dir])]
+        (cond-> (update base :config #(agents/persona-config a %))
+          (and (:lm a) (not (:lm-flagged? base))) (assoc :lm (agents/child-lm a base nil))
+          (and (agents/loop-path a) (not loop))
+          (assoc :tree (if turn?
+                         (agent/load-tree (agents/loop-path a) dir)
+                         (tree-with-turn-loop (agents/loop-path a) dir))))))))
 
 (defn cancel-turn!
   "Cancel the running turn, if any, through the cancellers atom given to

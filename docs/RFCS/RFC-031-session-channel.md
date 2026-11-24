@@ -253,7 +253,9 @@ Port-only, each with its own divergence entry when built:
   agent spec's persona (`agents/persona-config`, the same one a subagent of
   that spec gets): its instruction, tools and predictors, its own `:lm` by the
   rule a subagent gets it (`agents/child-lm`), and its own `:loop` as each
-  turn's tree (`session/tree-with-turn-loop`). An explicit `-p`/`-m` or
+  turn's tree (`session/tree-with-turn-loop`) — under `byj ask`, which runs
+  turns and no session, as the tree itself, as a subagent's is (`:turn?`,
+  `byj-1n6`). An explicit `-p`/`-m` or
   `--loop` wins over the spec, as flags do (`byj-gly.256`), and `--label` names it in `session list`. Both are the
   port's (divergence `a-headless-session-has-a-persona-and-a-name`). jolt has
   no signal API but SIGINT's handler, so a SIGTERM ends the process where it
@@ -383,7 +385,7 @@ channel; RFC-039 "For a program" (`byj-oer`).
 | A headless session advertises `:close-session`, is found by its label, and ends when asked; a session a person runs refuses the request. | `channel-test/a-headless-session-is-closed-over-its-channel` |
 | A headless session started with `BYJ_PARENT_PID` closes once that process is gone; no pid, or not a pid, watches nothing. | `main-test/a-served-session-closes-when-its-starter-is-gone` |
 | `--agent` gives a headless session — and `run` and `ask` alike — a spec's instruction and tool globs, and an unknown agent none. | `channel-test/a-headless-session-takes-an-agents-persona` |
-| …and the spec's model (a model change keeps the caller's provider) and its loop as each turn's tree, with its predictors first; `-p`/`-m` and `--loop` win. | `channel-test/a-headless-session-takes-an-agents-model-and-loop` |
+| …and the spec's model (a model change keeps the caller's provider) and its loop as each turn's tree — under `byj ask` the tree itself, so `drive`, `init` and `workflow` run there — with its predictors first; `-p`/`-m` and `--loop` win. | `channel-test/a-headless-session-takes-an-agents-model-and-loop` |
 | `session$start` is offered only with a front end's `:start-session`; its question is the new session's first turn and its id comes back; a blank question starts nothing; a failure is said, not thrown. | `channel-test/a-session-can-start-another-where-its-front-end-can` |
 | Live sessions are listed newest first and named by id or prefix; an ambiguous name and asking oneself are refused; `session$ask` returns the peer's answer, and the peer sees who asked; `session$send` returns at once and its answer lands as a completed background task; a closed session is listed as not live; the CLI asks by prefix, prints brainyard's JSON, and lists. | `channel-test/a-session-finds-and-asks-its-peers` |
 | A live Claude Code session is listed as `claude:<id>`, reachable when it runs in any tmux — by the pane its record names — and not when it runs outside, with why; it is found by id, prefix or label; a short task is typed into its pane and a long one is a file the typed line points at, and the turn's answer comes back; one outside tmux is refused with what to do instead. | `claude-reach-test/a-claude-code-session-in-any-tmux-is-reached-and-one-outside-is-not` |
