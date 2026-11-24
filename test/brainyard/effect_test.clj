@@ -547,3 +547,19 @@
                         :when (and (re-find #"\(m/via\b" line) (not (re-find #"^\s*;" line)))]
                     (str (.getName f) ":" (inc i) " " (str/trim line)))]
     (is (empty? offenders) (str/join "\n" offenders))))
+
+(deftest a-process-started-keeps-off-the-persons-stores-as-this-one-does
+  ;; byj-9og: a test run sets brainyard.projects-home in its own process; a byj
+  ;; one of its tests starts read BY_PROJECTS_HOME only, and registered its
+  ;; project in the person's registry when the run was not in shards
+  (let [home (System/getProperty "brainyard.projects-home")
+        echo #(str/trim (str (:out (fx/sh (cond-> {:out :string :err :string} % (assoc :env %))
+                                          "sh" "-c" "printf %s \"$BY_PROJECTS_HOME\""))))]
+    (is (not-empty home) "the runner set it")
+    (testing "this process's environment, or one given, gets it"
+      (is (= home (echo nil)))
+      (is (= home (echo {"PATH" (System/getenv "PATH")}))))
+    (testing "a value the caller gave is kept"
+      (is (= "/elsewhere" (echo {"PATH" (System/getenv "PATH") "BY_PROJECTS_HOME" "/elsewhere"}))))
+    (testing "nothing to carry, nothing added"
+      (is (nil? (fx/carried-env {"BY_PROJECTS_HOME" "x" "BY_CHANGES_SKIP_ROOT" "y"}))))))

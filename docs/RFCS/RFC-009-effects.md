@@ -109,6 +109,15 @@ closed the pipe). Until then `release!` closed them; it went with
 `byj-gly.262`. `sh` runs a short command to its end. No namespace but this one
 runs `jolt.process` (`effect-ratchet-test`).
 
+**`start` carries a test run's isolation to its children** (`byj-9og`): a
+property this process sets to keep off the person's stores — the project
+registry's home (`brainyard.projects-home`, RFC-074) and the repository whose
+refs keep no turn (`brainyard.changes-skip-root`, provenance P-55) — is put in
+the child's environment as the variable the child reads instead
+(`BY_PROJECTS_HOME`, `BY_CHANGES_SKIP_ROOT`; `carried-env`), unless the
+environment says it already. Only a test run sets them, so a person's run
+starts its children as before (`effect-test/a-process-started-keeps-off-the-persons-stores-as-this-one-does`).
+
 **`start` never lets a child ask on the terminal** (`byj-gly.295`, provenance
 P-32): it runs with `noninteractive` over its environment — `GIT_TERMINAL_PROMPT=0`,
 `SSH_ASKPASS_REQUIRE=never`, `GCM_INTERACTIVE=never`, and git's ssh in batch mode

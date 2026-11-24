@@ -124,7 +124,7 @@ Config: `:register-project?` (boolean, true).
 | A slug read off disk never aims the delete outside the registry | `projects-test/a-slug-off-disk-never-aims-the-delete-elsewhere` |
 | `byj projects` lists, adds and forgets; prune asks, and removes nothing unanswered | `projects-test/byj-projects-lists-adds-and-forgets` |
 | A question registers its project, and a run with `:register-project?` false does not | `projects-test/a-question-registers-its-project-and-a-clones-does-not` |
-| No test registers in the person's registry | `test-run/run` sets `brainyard.projects-home` to the run's own, and the suite's shards `BY_PROJECTS_HOME`, which a byj a test starts inherits; a byj started by a test run in one image (`test-serial:byj`, `jolt -M:test NS`) is not covered, as P-55's guard is not, and nothing checks |
+| No test registers in the person's registry | `test-run/run` sets `brainyard.projects-home` to the run's own, and every process the run starts gets it as `BY_PROJECTS_HOME` — `fx/start`'s `carried-env`, however the run was started: shards, one image, one namespace, a live nREPL image (`byj-9og`); `test-run/run` fails a run that left a project under this repository or the temporary directory in the person's registry; `effect-test/a-process-started-keeps-off-the-persons-stores-as-this-one-does` |
 
 ## Divergences
 

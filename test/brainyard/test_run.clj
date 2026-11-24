@@ -27,6 +27,23 @@
                   (catch Throwable _ nil))]
     (into (set (when (.isDirectory d) (map #(.getName %) (.listFiles d)))) refs)))
 
+(defn- person-registered
+  "The projects in the PERSON'S registry (~/.brainyard/projects, RFC-074) that
+  a test could have made — under this repository or the temporary directory —
+  as `{slug path}`. Read from $HOME, not `projects/projects-root`, which the run
+  points at a home of its own."
+  [root]
+  (let [d (some-> (System/getenv "HOME") (clojure.java.io/file ".brainyard" "projects"))
+        tmp (System/getProperty "java.io.tmpdir")
+        unders (distinct (remove clojure.string/blank?
+                                 [root tmp (some-> tmp clojure.java.io/file .getCanonicalPath)]))
+        under? (fn [p] (some #(clojure.string/starts-with? (str p) (str %)) unders))]
+    (into {} (for [f (some-> d .listFiles)
+                   :let [rec (try (clojure.edn/read-string (slurp (clojure.java.io/file f "project.edn")))
+                                  (catch Throwable _ nil))]
+                   :when (and (map? rec) (under? (:path rec)))]
+               [(.getName f) (:path rec)]))))
+
 (defn nested-deftests
   "`file:line` for every `deftest` that is not at the start of a line.
 
@@ -134,6 +151,7 @@
         ;; at a time (provenance P-55)
         _ (System/setProperty "brainyard.changes-skip-root" (repo-root))
         before (own-sessions)
+        registered (person-registered (repo-root))
         nested (nested-deftests)
         times (atom {})
         {:keys [fail] :as summary} (reduce (fn [acc n]
@@ -145,6 +163,10 @@
                                            nses)
         summary (assoc summary :times @times)
         leaked (sort (clojure.set/difference (own-sessions) before))
+        ;; a byj a test started registered its project in the person's registry
+        ;; (byj-9og, provenance P-66): the processes a run starts get its projects home (fx/carried-env)
+        strays (sort (for [[slug path] (apply dissoc (person-registered (repo-root)) (keys registered))]
+                       (str slug " (" path ")")))
         ;; every result any test produced, from a tool with an :output-schema,
         ;; held to it: the suite is the conformance check (RFC-030, byj-gly.199)
         mismatched (->> (schema/recorded-outputs) (filter :problems) (group-by :tool-name))]
@@ -162,7 +184,15 @@
           (println (str "  " tool ": " (clojure.string/join "; " (distinct (mapcat :problems rs)))
                         " (" (count rs) " call(s))")))
         (flush)))
-    (if (and (empty? leaked) (empty? nested) (empty? mismatched))
+    (when (seq strays)
+      (binding [*out* *err*]
+        (println (str "\n" (count strays) " project(s) a test made were registered in your own registry"
+                      " (~/.brainyard/projects, RFC-074) during the suite — a process the test started"
+                      " did not get the run's projects home (byj-9og): "
+                      (clojure.string/join ", " (take 3 strays))
+                      "\n(byj projects remove SLUG --yes forgets one)"))
+        (flush)))
+    (if (and (empty? leaked) (empty? nested) (empty? mismatched) (empty? strays))
       summary
       (do (when (seq leaked)
             (binding [*out* *err*]

@@ -225,6 +225,29 @@
       (and cmd (not (str/includes? cmd "BatchMode"))) (assoc "GIT_SSH_COMMAND" (str cmd " -o BatchMode=yes"))
       (and (nil? cmd) (nil? (get env "GIT_SSH"))) (assoc "GIT_SSH_COMMAND" "ssh -o BatchMode=yes"))))
 
+(def ^:private carried-properties
+  "The properties that keep a process off the person's own stores, each with
+  the environment variable a process it starts reads in its place: the
+  project registry (`projects/projects-root`, RFC-074) and the repository
+  whose git refs keep no turn (`changes/repo-root`, provenance P-55). A test
+  run sets them in its own process; carried to every process it starts, a
+  byj one of its tests starts keeps off them too, however the run was
+  started — in shards, serial, one namespace, a live nREPL image (byj-9og,
+  provenance P-66)."
+  {"brainyard.projects-home" "BY_PROJECTS_HOME"
+   "brainyard.changes-skip-root" "BY_CHANGES_SKIP_ROOT"})
+
+(defn carried-env
+  "`env` with each of `carried-properties` set in this process said as its
+  variable, where `env` does not say it already; nil when there is none to
+  add, so a caller that gave no environment keeps giving none."
+  [env]
+  (let [adds (into {} (for [[prop var] carried-properties
+                            :let [v (System/getProperty prop)]
+                            :when (and (not-empty v) (nil? (get env var)))]
+                        [var v]))]
+    (when (seq adds) (merge env adds))))
+
 (defonce ^:private detached
   ;; true while the full-screen TUI owns the terminal (`detach-children!`)
   (atom false))
@@ -283,7 +306,8 @@
   "Start a subprocess, owning its stdin: the only way the port starts one.
 
   It runs with `noninteractive` over its environment — `:env`, or this
-  process's — unless it is handed the terminal: `:in :inherit` (the TUI's
+  process's, with `carried-env`'s variables for the properties this process
+  keeps off the person's stores — unless it is handed the terminal: `:in :inherit` (the TUI's
   hand-over: tmux attach, `$EDITOR`), or `:interactive? true`. While the TUI
   owns the terminal (`detach-children!`), such a child is also started with no
   controlling terminal, and remembered until it ends.
@@ -297,8 +321,10 @@
   `release!` that closed them here went with byj-gly.262)."
   [opts & cmd]
   (let [handed? (or (= :inherit (:in opts)) (:interactive? opts))
+        carried (carried-env (or (:env opts) (into {} (System/getenv))))
         opts (cond-> (dissoc opts :interactive?)
-               (not handed?) (assoc :env (noninteractive (or (:env opts) (into {} (System/getenv))))))
+               carried (assoc :env carried)
+               (not handed?) (assoc :env (noninteractive (or carried (:env opts) (into {} (System/getenv))))))
         detach? (and @detached (not handed?) @no-terminal-argv)
         cmd (if detach? (concat @no-terminal-argv cmd) cmd)
         in (:in opts)
