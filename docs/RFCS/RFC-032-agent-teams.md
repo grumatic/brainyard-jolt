@@ -124,7 +124,9 @@ report and close), showed no warnings, and left no member process.
 `brainyard.teams`: `commands` (the `team$*` tools: `team$create`, `$spawn`,
 `$assign`, `$status`, `$resume`, `$close`), `spawn!`, `resume!`, `assign!`,
 `enqueue!`, `status`, `close!`, `current-team`, `read-team`, `teams-dir`,
-`member-command`. From RFC-031: `channel/forwarding-permission-fn`,
+`member-command`, and `start-session!` — the headless session a member is,
+started as a background task of the caller's and waited for until live,
+which a workflow run's stages use too (RFC-076). From RFC-031: `channel/forwarding-permission-fn`,
 `channel/spent!`. From RFC-018: `agents/persona-config`, `agents/child-lm`,
 `agents/loop-path`.
 

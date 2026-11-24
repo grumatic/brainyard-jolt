@@ -78,8 +78,8 @@ A role's `:session` says which session whatever runs the roles in turn gives
 it (byj-ba5): `:upstream`, the default, the session of the role handing to
 it, so one session can play design, implement and review one after another;
 `:own`, a session of its own, in a new worktree when `:worktree`. Like
-`:worktree`, it is for that runner (the workbench's runs); nothing here acts
-on it.
+`:worktree`, it is for that runner (the workbench's runs, or `/workflow`'s,
+which act on both, RFC-076); nothing here acts on it.
 
 `deps-local.edn`, this machine's, not committed (`/init`'s `.gitignore`
 ignores what is in `.brainyard/` but for the profile and the spec, RFC-040):

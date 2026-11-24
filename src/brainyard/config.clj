@@ -361,6 +361,8 @@
                         :doc "How many stage turns — a stage, or another go at one — one /workflow run takes at most, whatever the profile's own limits (RFC-076)."}
    :workflow-stage-attempts {:type "integer" :default 3 :family :agents
                              :doc "How many turns one stage of a /workflow run gets: one its master judges unfinished after its last ends the run, for the person (RFC-076)."}
+   :workflow-stage-timeout-ms {:type "integer" :default 3600000 :family :agents
+                               :doc "How long a /workflow run waits for a stage worked in a session of its own — a run in a worktree, or a role whose :session is :own — to answer (RFC-076)."}
    :init-tools? {:type "boolean" :default false :family :agents
                  :doc "Register the init$* commands, which check and prepare a project for brainyard (RFC-040). agent$init's own config turns them on for its turn; off elsewhere."}
    :profile-tools? {:type "boolean" :default true :family :agents

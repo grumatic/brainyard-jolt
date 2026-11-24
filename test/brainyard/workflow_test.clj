@@ -10,10 +10,12 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
+            [brainyard.channel :as channel]
             [brainyard.deps :as deps]
             [brainyard.effect :as fx]
             [brainyard.flow :as flow]
             [brainyard.json :as json]
+            [brainyard.tasks :as tasks]
             [brainyard.workflow :as workflow]))
 
 (defn- fresh-dir [name]
@@ -332,3 +334,56 @@
             r2 (workflow/settle-stage cfg {} {:run run :status "retry" :summary "not yet"})]
         (is (false? (:stop r1)))
         (is (= "2 turns in a row did not finish a stage: the profile's limit." (:stopped r2)))))))
+
+;; --- where a stage works (byj-edw.3) ------------------------------------------------
+
+(deftest a-stage-works-where-its-role-says-and-is-bound-to-it
+  (let [{:keys [dir cfg]} (run-setup "places" {:preset :collaborator :issues [{:tracker :beads}]})
+        cfg (assoc cfg :session-id "1790000000300-wfhere01")
+        yes {:permission-fn (fn [_] {:allowed true})}]
+    (workflow/save-workflow cfg yes {:id "fix" :roles {:review {:session :own :worktree true}}})
+    (let [{:keys [run elsewhere]} (workflow/start-run cfg {} {:workflow "fix" :work "x"})]
+      (is (false? elsewhere) "implement is :upstream, and the run is not in a worktree: this turn")
+      (is (= {:key :here} (get-in (workflow/read-run dir run) [:stages 0 :place])))
+      (is (= {:implement ["1790000000300-wfhere01"]} (:bindings (:value (deps/read-local dir))))
+          "bound to its role, as byj deps reads it")
+      (let [r (workflow/settle-stage cfg {} {:run run :status "done" :summary "s" :answer "a"})
+            place (get-in (workflow/read-run dir run) [:stages 1 :place])]
+        (is (true? (:elsewhere r)) "review's role is :own")
+        (is (= :review (:key place)))
+        (is (= "workflow/fix-1-review" (:branch place)) "in a worktree of its own, made when its turn begins")
+        (is (= dir (:from place)) "branched from where implement worked")))
+    (testing "a run in a worktree works there, every stage in its session"
+      (let [{:keys [run elsewhere stopped]} (workflow/start-run cfg {} {:workflow "docs" :work "y" :worktree "yes"})
+            place (get-in (workflow/read-run dir run) [:stages 0 :place])]
+        (is (true? elsewhere) stopped)
+        (is (= :root (:key place)))
+        (is (.isDirectory (io/file (:dir place))))
+        (is (str/includes? (:out (fx/sh {:dir dir :out :string} "git" "branch" "--list" "workflow/*")) (str "workflow/docs-" run)))))))
+
+(deftest a-stage-in-a-session-of-its-own-is-asked-there
+  ;; a real `jolt run:byj --serve` on the mock model, as teams-test's members
+  (let [{:keys [dir cfg]} (run-setup "delegate" {:preset :collaborator :issues [{:tracker :beads}]})
+        cfg (assoc cfg :session-id "1790000000400-wfleader" :ask-timeout-ms 60000 :team-spawn-timeout-ms 90000
+                   :workflow-stage-timeout-ms 60000)
+        ctx {:config cfg :task-registry (tasks/registry) :lm {:provider :mock}}]
+    (try
+      (let [{:keys [run elsewhere]} (workflow/start-run cfg ctx {:workflow "docs" :work "the README" :worktree "yes"})
+            r (workflow/delegate-stage cfg ctx {:run run :brief "count the files"})
+            kept (workflow/read-run dir run)
+            sid (get-in kept [:sessions :root :session-id])]
+        (is elsewhere)
+        (is (str/includes? (:answer r) "count the files") (pr-str r))
+        (is (re-matches #"\d{13}-[0-9a-f]{8}" (str sid)) (pr-str (:sessions kept)))
+        (is (= "workflow-1/root" (get-in kept [:sessions :root :label])))
+        (is (= [sid] (get-in (:value (deps/read-local dir)) [:bindings :design])) "the session is bound to the stage's role")
+        (testing "asked again, the same session answers"
+          (workflow/delegate-stage cfg ctx {:run run :brief "and again"})
+          (is (= sid (get-in (workflow/read-run dir run) [:sessions :root :session-id]))))
+        (testing "the report closes the run's sessions and says where its work is"
+          (let [text (:text (workflow/report-run cfg ctx {:run run :stopped "done here"}))]
+            (is (str/includes? text "Worktrees, kept for you to merge or remove:"))
+            (is (str/includes? text (str "(workflow/docs-" run ")")))
+            (is (str/includes? text "workflow-1/root — closed")))))
+      (finally
+        (tasks/cancel-all! (:task-registry ctx))))))

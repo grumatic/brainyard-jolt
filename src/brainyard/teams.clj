@@ -102,18 +102,21 @@
               (> (System/currentTimeMillis) deadline) nil
               :else (do (Thread/sleep 200) (recur)))))))
 
-(defn- launch!
-  "Run member `entry` of `team` as a headless session and wait until it is
-  live: a background task of the leader's, so it ends with the leader. With
-  `resume`, the member's own session is continued, history and all. Returns
-  the entry with its task and session ids, or `{:error}`."
-  [{:keys [config] :as ctx} team {:keys [name agent provider model worktree] :as entry} & [resume]]
-  (let [label (str (:id team) "/" name)
-        project (or (:project-dir config) (:working-dir config))
-        work-dir (or worktree (:working-dir config) project)
+(defn start-session!
+  "A headless session (RFC-031) started as a background task of `ctx`'s
+  session, so it ends with it, and waited for until it is live: labelled
+  `label`, working in `working-dir` (the project's when nil), with `agent`'s
+  persona and on `provider`/`model` when given, continuing session `resume`
+  when given, its environment `env` (name → value) on top of the project's.
+  Its permission prompts go to `ctx`'s session's person; `who` names it in
+  the error when it does not come up. Teams' members are
+  these, and so are a workflow run's stages that work in a session of their
+  own (RFC-076). `{:session-id :task-id :label}`, or `{:error}`."
+  [{:keys [config] :as ctx} {:keys [label working-dir agent provider model resume env task-name who]}]
+  (let [project (or (:project-dir config) (:working-dir config))
+        work-dir (or working-dir (:working-dir config) project)
         cmd (str "BY_PROJECT_DIR=" (sh-quote project)
-                 ;; a member leads no team of its own
-                 " BY_TEAM_TOOLS=false"
+                 (apply str (for [[k v] env] (str " " k "=" (sh-quote v))))
                  " exec " (member-command config) " --serve"
                  " --label " (sh-quote label)
                  ;; its permission prompts go to this session's person
@@ -123,9 +126,9 @@
                  (when agent (str " --agent " (sh-quote agent)))
                  (when provider (str " -p " (sh-quote provider)))
                  (when model (str " -m " (sh-quote model))))
-        task-id (tasks/start! ctx {:name (str "team member " label)
+        task-id (tasks/start! ctx {:name (or task-name (str "session " label))
                                    :job-type :team-member
-                                   ;; its ending is the team closing, not a result
+                                   ;; its ending is its caller closing it, not a result
                                    :quiet? true
                                    :task-fn (fn [append!]
                                               (tasks/bash-task {:command cmd
@@ -134,11 +137,28 @@
                                                                append!))})
         live (await-live config label (:team-spawn-timeout-ms config 60000))]
     (if live
-      (assoc entry :label label :task-id task-id :session-id (:session-id live)
-             :started-at (System/currentTimeMillis))
+      {:session-id (:session-id live) :task-id task-id :label label}
       (do (tasks/cancel! (:task-registry ctx) task-id)
-          {:error (str "member " name " did not come up within "
+          {:error (str (or who label) " did not come up within "
                        (:team-spawn-timeout-ms config 60000) " ms — task$detail " task-id " has its output")}))))
+
+(defn- launch!
+  "Run member `entry` of `team` as a headless session and wait until it is
+  live (`start-session!`): a background task of the leader's, so it ends
+  with the leader. With `resume`, the member's own session is continued,
+  history and all. Returns the entry with its task and session ids, or
+  `{:error}`."
+  [{:keys [config] :as ctx} team {:keys [name agent provider model worktree] :as entry} & [resume]]
+  (let [label (str (:id team) "/" name)
+        r (start-session! ctx {:label label :working-dir worktree :agent agent :provider provider :model model
+                               :resume resume
+                               ;; a member leads no team of its own
+                               :env {"BY_TEAM_TOOLS" "false"}
+                               :task-name (str "team member " label) :who (str "member " name)})]
+    (if (:error r)
+      r
+      (assoc entry :label label :task-id (:task-id r) :session-id (:session-id r)
+             :started-at (System/currentTimeMillis)))))
 
 (defn spawn!
   "Start member `name` of the open team: a headless session labelled

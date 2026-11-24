@@ -12,7 +12,10 @@
 ;;                                         a bead or issue claimed — kept
 ;;                                         in .brainyard/workflow-runs/)
 ;;   a stage's work                     → a ReAct turn in a scope of its own,
-;;                                         asked the stage's brief
+;;                                         asked the stage's brief — or, for a
+;;                                         run in a worktree and a role whose
+;;                                         :session is :own, workflow$delegate:
+;;                                         a session of its own, asked it
 ;;   what the turn left                 → workflow$check (the work tree, and
 ;;                                         what the stage hands on)
 ;;   whether the stage is done          → a predictor (workflow/judge), as
@@ -33,7 +36,7 @@
 [:sequence {:id :workflow/turn}
  [:action {:id :workflow/init :fn :react/init}]
  [:action {:id :workflow/seed :fn :mem/set
-           :set {:workflows "" :typed "" :intent "" :workflow "" :work "" :master "" :managing false
+           :set {:workflows "" :typed "" :intent "" :workflow "" :work "" :isolate "" :master "" :managing false :elsewhere false
                  :stop false :stopped "" :run "" :stage "" :brief "" :work-answer "" :stage-usage {}
                  :check "" :status "" :ask-question "" :summary ""}}]
  [:action {:id :workflow/known :fn :tool/run :tool "workflow$list" :out {:workflows :text}}]
@@ -41,13 +44,13 @@
  [:action {:id :workflow/typed :fn :mem/join :in {:a :person-words} :out {:typed :joined}}]
  [:action {:id :workflow/route :fn :predictor/run :predictor "workflow/route"
            :in {:request :question :typed :typed :workflows :workflows}
-           :out {:intent :intent :workflow :workflow :work :work}}]
+           :out {:intent :intent :workflow :workflow :work :work :isolate :isolate}}]
  [:fallback {:id :workflow/open}
   [:sequence {:id :workflow/run}
    [:condition {:id :workflow/run? :fn :mem/match? :key :intent :pattern "^\\s*[Rr][Uu][Nn]\\s*$"}]
    [:action {:id :workflow/start :fn :tool/run :tool "workflow$start"
-             :in {:workflow :workflow :work :work}
-             :out {:stop :stop :stopped :stopped :run :run :brief :brief :master :master}}]]
+             :in {:workflow :workflow :work :work :worktree :isolate}
+             :out {:stop :stop :stopped :stopped :run :run :brief :brief :master :master :elsewhere :elsewhere}}]]
   ;; anything else: one turn over the workflow$* commands, asked what was asked
   [:sequence {:id :workflow/manage}
    [:action {:id :workflow/managing :fn :mem/set :set {:managing true}}]
@@ -58,10 +61,17 @@
    ;; succeed, and :until ends it
    [:condition {:id :workflow/stopped? :fn :mem/true? :key :stop}]
    [:sequence {:id :workflow/step}
-    [:scope {:id :workflow/turn-of
-             :in {:question :brief}
-             :out {:work-answer :answer :stage-usage :usage}}
-     [:include {:tree "brainyard/loops/react.edn"}]]
+    [:fallback {:id :workflow/work-of}
+     ;; a stage that works in a session of its own: asked there, waited for
+     [:sequence {:id :workflow/elsewhere}
+      [:condition {:id :workflow/elsewhere? :fn :mem/true? :key :elsewhere}]
+      [:action {:id :workflow/delegate :fn :tool/run :tool "workflow$delegate"
+                :in {:run :run :brief :brief}
+                :out {:work-answer :answer :stage-usage :usage}}]]
+     [:scope {:id :workflow/turn-of
+              :in {:question :brief}
+              :out {:work-answer :answer :stage-usage :usage}}
+      [:include {:tree "brainyard/loops/react.edn"}]]]
     [:fallback {:id :workflow/after}
      [:sequence {:id :workflow/managed}
       [:condition {:id :workflow/managing? :fn :mem/true? :key :managing}]
@@ -76,7 +86,7 @@
       [:action {:id :workflow/settle :fn :tool/run :tool "workflow$settle"
                 :in {:run :run :status :status :question :ask-question :summary :summary :answer :work-answer
                      :usage :usage :stage-usage :stage-usage}
-                :out {:stop :stop :stopped :stopped :brief :brief :stage :stage}}]]]]]]
+                :out {:stop :stop :stopped :stopped :brief :brief :stage :stage :elsewhere :elsewhere}}]]]]]]
  [:action {:id :workflow/report :fn :tool/run :tool "workflow$report"
            :in {:run :run :stopped :stopped :managing :managing :answer :work-answer :stage-usage :stage-usage}
            :out {:answer :text}}]

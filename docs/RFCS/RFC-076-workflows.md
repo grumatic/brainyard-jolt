@@ -1,9 +1,10 @@
 # RFC-076 — Workflows
 
 **Status:** building (`byj-edw`). Built: keeping a project's workflows
-(`byj-edw.1`) and running one in the session's work tree (`byj-edw.2`).
-Still to come: a run's isolation (`byj-edw.3`) and its record as a contract
-(`byj-edw.4`). byj's own; brainyard has no counterpart.
+(`byj-edw.1`); running one (`byj-edw.2`); a run in a worktree of its own
+and a role's `:session` and `:worktree` acted on (`byj-edw.3`). Still to
+come: a run's record as a contract (`byj-edw.4`). byj's own; brainyard has
+no counterpart.
 
 ## Purpose
 
@@ -26,7 +27,8 @@ stops.
 the spec's, as the person wrote it.
 
 **It hands** a stage's work to a ReAct turn (RFC-002), the master's
-judgement to a predictor (RFC-005), a bead or issue to RFC-073's tracker
+judgement to a predictor (RFC-005), a stage that works in a session of its
+own to RFC-032's `teams/start-session!` and RFC-031's channel, a bead or issue to RFC-073's tracker
 layer (`drive/tools` and its neighbours), and every write to RFC-075's `deps/write!`, which holds the file to
 its schema and checks, snapshots the old one, and reads the new one back. It
 never writes `deps.edn` any other way. The person's yes is asked through
@@ -101,8 +103,10 @@ person's word on one — `pass`, `changes` or `fail`, and a note.
    - Before opening, a run still marked running whose session is over is
      marked stopped and its claim released. Its session is over when it was
      this session's, or its process is gone.
-2. **A stage** is a ReAct turn in a scope of its own, asked its brief. The
-   brief, in `words.edn`, says:
+2. **A stage** is a ReAct turn in a scope of its own, asked its brief — or,
+   where it works in a session of its own (§"Where a stage works"),
+   `workflow$delegate` asks that session the brief and waits for its answer.
+   The brief, in `words.edn`, says:
    - the run and its work;
    - the profile's goal and scope;
    - the flow;
@@ -151,6 +155,41 @@ counts every one, and the profile's `:usd` is held to it.
 Stages that do not depend on each other are still worked one after another,
 in `order`.
 
+### Where a stage works
+
+A stage works in a place.
+
+- **This turn, in the project** (`{:key :here}`). This is the default.
+- **A headless session of its own** (`{:key k :dir d}`), started for it by
+  `teams/start-session!`. It is a background task of this session's, so it
+  ends with it. It is labelled `workflow-<n>/<key>`, runs on this turn's
+  provider and model, and its permission prompts go to this session's
+  person. `:ask-timeout-ms` is raised to `:workflow-stage-timeout-ms` (an
+  hour) so its turn may be the stage's whole work.
+
+The place follows the roles' `:session` (RFC-075):
+
+- **`:upstream`**, the default: where the stage handing to it worked. That
+  is the done stage linking to it, the last in `order`. A stage nothing
+  hands to uses the run's own place.
+- **`:own`**: a session of its own, keyed by the stage. With `:worktree` it
+  is in a new worktree on `workflow/<workflow>-<n>-<stage>`, branched from
+  where the stage handing to it worked, and made when its turn begins.
+  Without `:worktree` it works in that stage's directory.
+
+A run asked to work apart (`/workflow run … in a worktree`; the route's
+`isolate`, `workflow$start`'s `:worktree`) has its own place in a worktree,
+on `workflow/<workflow>-<n>` (key `:root`). There every stage works in a
+session, since a turn here cannot change its directory.
+
+`workflow$check` reads the stage's own work tree. A session that is still
+live is asked again, as a retry or an `:upstream` stage. Each stage's
+session is bound to its role in `deps-local.edn`, and on a stage's first
+turn the handoff to it is kept under `:handed`, so `byj deps` and the
+workbench see the run's sessions. `workflow$report` closes the sessions the
+run started. It says the worktrees, which are kept for the person to merge
+or remove, and lists the commits in each.
+
 ## API
 
 `brainyard.workflow`:
@@ -175,10 +214,13 @@ in `order`.
 - `check-stage [config args]` → `{:text}`.
 - `settle-stage [config ctx args]` → `{:stop :stopped :brief :stage
   :usage-cost-usd?}`.
-- `report-run [config args]` → `{:text :usage-cost-usd?}`.
+- `report-run [config ctx args]` → `{:text :usage-cost-usd?}`.
+- `delegate-stage [config ctx args]` → `{:answer :usage}`;
+  `stage-timeout-ms [config]`.
 - `commands [config]`: `workflow$list`, `workflow$show`, `workflow$save`,
   `workflow$remove`, `workflow$runs`, `workflow$verdict`, `workflow$start`,
-  `workflow$check`, `workflow$settle`, `workflow$report`.
+  `workflow$check`, `workflow$settle`, `workflow$report`,
+  `workflow$delegate`.
 
 `brainyard.deps/run-give-row [dir give evidence opts]`: a link's give as a
 run sees it. `brainyard.drive`'s `tools`, `show-item`, `claim!`, `unclaim!`,
@@ -192,9 +234,12 @@ A run's record:
  :session "<session id>" :pid 123 :started-at "…" :ended-at "…"
  :base "<HEAD when it opened>" :branch "main"
  :def {…the workflow…} :roles {…its roles…}
+ :root {:key :here}                          ; or {:key :root :dir "<worktree>" :branch "workflow/fix-3"}
+ :sessions {:root {:session-id "…" :task-id "…" :label "workflow-3/root" :dir "…"}}
  :at 0 :failures 0 :usd 0.42
  :stages [{:stage :implement :role :implement :status :done   ; :pending | :working | :done
            :attempts 1 :head "<HEAD when it began>" :brief "…" :answer "…" :summary "…"
+           :place {:key :here}               ; where it works
            :question "…" :gives [{:to :review :ready true :gives [{:kind :note :ready true :detail "…"}]}]}]
  :log ["✓ implement — …"] :stopped "Every stage is done."
  :verdict :pass :note "…" :verdict-at "…"}
@@ -206,6 +251,8 @@ Config:
   `agent$workflow`'s `:config` turns it on.
 - `:workflow-max-steps` (30) caps the stage turns in a run.
 - `:workflow-stage-attempts` (3) caps the turns one stage gets.
+- `:workflow-stage-timeout-ms` (3600000) is how long a stage in a session of
+  its own is waited for.
 
 ## Invariants
 
@@ -224,10 +271,9 @@ Config:
 | A stage that needs the person ends the run with the question | `workflow-test/a-stage-that-needs-the-person-ends-the-run-with-the-question` |
 | Any other request is one turn, asked what was asked | `workflow-test/any-other-request-is-a-turn-over-the-workflow-commands` |
 | The profile's `:usd` and `:failures` end a run, a stage's spend counted | `workflow-test/the-profiles-limits-end-a-run` |
+| A stage works where its role's `:session` says — this turn, or a session of its own in a worktree — and a run asked to work apart works in its own worktree; the session is bound to its role | `workflow-test/a-stage-works-where-its-role-says-and-is-bound-to-it` |
+| A stage in a session of its own is asked its brief there, the same session again while it is live; the report closes it and says the worktree | `workflow-test/a-stage-in-a-session-of-its-own-is-asked-there` |
 
 ## Known gaps
 
-- A run works in the session's own work tree, one turn after another; a
-  role's `:session :own` and `:worktree` are not acted on, and a run's
-  sessions are not bound to their roles in `deps-local.edn` (`byj-edw.3`).
 - A run's record is not yet a contract a client reads (`byj-edw.4`).

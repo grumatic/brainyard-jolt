@@ -21,6 +21,14 @@
   stage go again, or stops the run, under the profile's limits; and
   `workflow$report` is the answer. The order is the tree's.
 
+  Where a stage works (`byj-edw.3`): in this turn, in the project — or,
+  for a run in a worktree of its own and for a role whose `:session` is
+  `:own`, in a headless session of its own (`teams/start-session!`), in
+  a worktree of its own when the role says `:worktree`, asked its brief
+  over the session channel by `workflow$delegate`. A stage whose role is
+  `:upstream` works where the stage handing to it did. Each stage's session
+  is bound to its role in `deps-local.edn`, and each handoff kept there.
+
   Mechanism only (RFC-001). Every word a model or the person reads is
   `resources/brainyard/workflow/words.edn`'s.
 
@@ -30,13 +38,17 @@
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
+            [brainyard.channel :as channel]
             [brainyard.deps :as deps]
             [brainyard.drive :as drive]
             [brainyard.effect :as fx]
             [brainyard.json :as json]
             [brainyard.persist :as persist]
             [brainyard.profile :as profile]
-            [brainyard.which :as which]))
+            [brainyard.tasks :as tasks]
+            [brainyard.teams :as teams]
+            [brainyard.which :as which]
+            [brainyard.worktree :as worktree]))
 
 (def words-resource "brainyard/workflow/words.edn")
 
@@ -470,13 +482,86 @@
       (when-let [it (drive/show-item tl tok)]
         (assoc it :id tok)))))
 
+;; --- where a stage works (byj-edw.3) ------------------------------------------------
+
+(defn- place-dir
+  "The directory `place` works in: its own, else the project `dir`."
+  [dir place]
+  (str (or (:dir place) dir)))
+
+(defn- elsewhere? [place] (not= :here (:key place :here)))
+
+(defn- handing-stage
+  "The stage that hands stage `i` of `run` its work: of those linking to
+  it and done, the last in the run's order; nil for a stage nothing hands to."
+  [run i]
+  (let [s (:stage (nth (:stages run) i))
+        froms (set (for [{:keys [from to]} (get-in run [:def :links]) :when (= s to)] from))]
+    (last (filter #(and (froms (:stage %)) (= :done (:status %))) (take i (:stages run))))))
+
+(defn- place-of
+  "Where stage `i` of `run` works, as its role's `:session` says (RFC-075):
+  `:own`, a session of its own — keyed by the stage — in a new worktree
+  when the role says `:worktree` (branched from where the stage handing to
+  it worked), else in that stage's directory; `:upstream`, the default,
+  where the stage handing to it worked, or the run's own place (`:root`)
+  for a stage nothing hands to. A place is `{:key :here}` — this turn, in
+  the project — or `{:key k :dir d}`, a session keyed `k` working in `d`;
+  a new worktree's place says its `:branch` and `:from`, and gets its
+  `:dir` when the stage's turn begins (`workflow$delegate`)."
+  [dir run i]
+  (let [{s :stage r :role} (nth (:stages run) i)
+        role (get-in run [:roles r])
+        upstream (or (:place (handing-stage run i)) (:root run) {:key :here})]
+    (if (= :own (:session role))
+      (if (:worktree role)
+        {:key s :branch (str "workflow/" (id-name (:workflow run)) "-" (:n run) "-" (id-name s))
+         :from (place-dir dir upstream)}
+        {:key s :dir (place-dir dir upstream)})
+      upstream)))
+
+(defn- begin-stage
+  "`run` with stage `i` begun: where it works, the HEAD it began at there,
+  and its brief."
+  [w p dir run i]
+  (let [place (place-of dir run i)
+        head (or (git-out (or (:dir place) (:from place) dir) "rev-parse" "HEAD") "")
+        run (update-in run [:stages i] merge {:status :working :started-at (now) :place place :head head})]
+    (assoc-in run [:stages i :brief] (brief-of w p run i))))
+
+(defn- update-local!
+  "deps-local.edn rewritten as `f` of it: what byj deps reads of the
+  sessions playing each role and the handoffs made (RFC-075). Bookkeeping:
+  a write that fails stops no run."
+  [dir f]
+  (try (let [{local :value} (deps/read-local dir)]
+         (deps/write! dir :local (f local)))
+       (catch Throwable _ nil)))
+
+(defn- note-begun!
+  "Stage `i` of `run` begun in session `sid`: bound to its role, and, on its
+  first turn, the handoff to it from the stage handing it its work kept."
+  [dir run i sid]
+  (when (given sid)
+    (let [{r :role k :attempts} (nth (:stages run) i)
+          from (handing-stage run i)]
+      (update-local! dir (fn [local]
+                           (cond-> local
+                             (not (some #{sid} (get-in local [:bindings r])))
+                             (update-in [:bindings r] (fnil conj []) sid)
+                             (and from (zero? (or k 0)))
+                             (update :handed (fnil conj []) {:from (:role from) :to r :session sid :at (java.util.Date.)})))))))
+
 (defn start-run
   "`workflow$start`: open a run of workflow `:workflow` on `:work` — words,
   or a bead id or GitHub issue (`#N`) first, which the run claims and, when
   it is done, closes as the profile's `:issue/close` says. A run kept as
   running whose session is over is first marked stopped. Stops with why when
   the project has no profile, the workflow is not there or cannot be
-  written, or there is no work. `{:stop :stopped :run :brief :master}`."
+  written, or there is no work. `:worktree` true runs it in a worktree of
+  its own, on a branch `workflow/<workflow>-<n>`, each stage in a session
+  there. `{:stop :stopped :run :brief :master :elsewhere}`, `:elsewhere`
+  whether the first stage works in a session of its own."
   [config ctx args]
   (let [dir (dir-of config args)
         w (words)
@@ -487,7 +572,8 @@
         wf (get-in spec [:workflows wid])
         work (str/trim (str (:work args)))
         errs (filter #(= wid (get-in % [:target :workflow])) (workflow-errors dir spec))
-        stop (fn [why] {:stop true :stopped why :run "" :brief "" :master ""})]
+        isolate? (contains? #{true "true" "yes"} (cond-> (:worktree args) (string? (:worktree args)) (-> str/trim str/lower-case)))
+        stop (fn [why] {:stop true :stopped why :run "" :brief "" :master "" :elsewhere false})]
     (when p (settle-left! config dir tl w))
     (cond
       (nil? p) (stop (get-in w [:stops :no-profile]))
@@ -502,12 +588,14 @@
       (let [item (item-of tl work)
             {:keys [Kind]} (when item (get-in (drive/words) [:kinds (if (drive/github-id? (:id item)) :github :beads)]))
             n (inc (reduce max 0 (map :n (runs dir))))
+            wt (when isolate?
+                 (worktree/add! dir (io/file (runs-dir dir) (str n) "worktree") (str "workflow/" (id-name wid) "-" n)))
             stages (order wf)
             role-of #(deps/stage-role % (get-in wf [:stages %]))
             roles (into {} (for [r (distinct (concat (map role-of stages) (when (:master wf) [(:master wf)])))]
                              [r (get-in spec [:roles r])]))
             head (or (git-out dir "rev-parse" "HEAD") "")
-            claimed? (boolean (when (and item (not= "closed" (:status item)))
+            claimed? (boolean (when (and item (not= "closed" (:status item)) (not (:error wt)))
                                 (:ok? (drive/claim! tl (:id item)))))
             run {:n n :workflow wid :status :running
                  :work work
@@ -522,11 +610,16 @@
                  :started-at (now) :base head
                  :branch (git-out dir "rev-parse" "--abbrev-ref" "HEAD")
                  :def wf :roles roles :at 0 :failures 0 :usd 0 :log []
-                 :stages (vec (for [s stages] {:stage s :role (role-of s) :status :pending :attempts 0}))}
-            run (update-in run [:stages 0] merge {:status :working :head head :started-at (now)})
-            b (brief-of w p run 0)]
-        (write-run! dir (assoc-in run [:stages 0 :brief] b))
-        {:stop false :stopped "" :run n :brief b :master (master-words w run)}))))
+                 :root (if (:dir wt) {:key :root :dir (:dir wt) :branch (:branch wt)} {:key :here})
+                 :stages (vec (for [s stages] {:stage s :role (role-of s) :status :pending :attempts 0}))}]
+        (if (:error wt)
+          (stop (:error wt))
+          (let [run (begin-stage w p dir run 0)
+                place (get-in run [:stages 0 :place])]
+            (write-run! dir run)
+            (when-not (elsewhere? place) (note-begun! dir run 0 (:session-id config)))
+            {:stop false :stopped "" :run n :brief (get-in run [:stages 0 :brief]) :master (master-words w run)
+             :elsewhere (elsewhere? place)}))))))
 
 (defn check-stage
   "`workflow$check`: what the current stage's turn of run `:run` left —
@@ -543,25 +636,30 @@
       {:text (str "No run " (:run args) " to check.")}
       (let [p (profile/read-profile dir)
             i (:at run)
-            {s :stage r :role head :head k :attempts} (nth (:stages run) i)
-            dirty (git-lines dir "status" "--porcelain" "--" "." ":!.beads" ":!.brainyard" ":!.claude")
+            {s :stage r :role head :head k :attempts place :place} (nth (:stages run) i)
+            ;; the stage's own work tree: the project's, or its worktree's
+            pdir (place-dir dir place)
+            dirty (git-lines pdir "status" "--porcelain" "--" "." ":!.beads" ":!.brainyard" ":!.claude")
             changed (when (given head)
-                      (distinct (concat (git-lines dir "diff" "--name-only" head)
-                                        (git-lines dir "ls-files" "-o" "--exclude-standard"))))
-            log (when (given head) (git-lines dir "log" (str head "..HEAD") "--format=%h %s"))
+                      (distinct (concat (git-lines pdir "diff" "--name-only" head)
+                                        (git-lines pdir "ls-files" "-o" "--exclude-standard"))))
+            log (when (given head) (git-lines pdir "log" (str head "..HEAD") "--format=%h %s"))
             opts (tracker-opts config p)
             ev {:changed (remove #(re-find #"^\.(brainyard|beads|claude)/" %) changed)
                 :commits (count log) :answer (:answer args)}
             outs (out-links run s)
             rows (vec (for [{:keys [to gives]} outs]
-                        {:to to :gives (mapv #(deps/run-give-row dir % ev opts) gives)}))
+                        {:to to :gives (mapv #(deps/run-give-row pdir % ev opts) gives)}))
             gw (fn [g row] (str (give-words w g) " — " (if (:ready row) "ready" "not ready") " (" (:detail row) ")"))]
         (write-run! dir (assoc-in run [:stages i :gives]
                                   (vec (for [{:keys [to gives]} rows]
                                          {:to to :ready (every? :ready gives) :gives (mapv #(select-keys % [:kind :ready :detail]) gives)}))))
         {:text (str/join "\n"
+                         (remove nil?
                          (concat
                           [(fill (:check-head w) {:stage (id-name s) :role (id-name r) :n n :k (inc k) :max (stage-attempts config)})
+                           (when (elsewhere? place)
+                             (str "Worked in " pdir (when-let [b (or (:branch place) (git-out pdir "rev-parse" "--abbrev-ref" "HEAD"))] (str ", on " b))))
                            (str "Uncommitted: " (if (seq dirty) (str/join ", " (map #(subs % (min 3 (count %))) dirty)) "nothing"))
                            (str "Commits since the stage began: " (if (seq log) (str/join "; " log) "none"))]
                           (if (seq outs)
@@ -569,7 +667,7 @@
                               (fill (:check-gives w) {:to (id-name to)
                                                       :gives (if (seq gives) (str/join "; " (map gw gives (:gives row))) (:no-gives w))}))
                             [(:check-last w)])
-                          [(str "Expected: " (get-in w [:expect (or (profile/level p :git/commit) :ask)]))]))}))))
+                          [(str "Expected: " (get-in w [:expect (or (profile/level p :git/commit) :ask)]))])))}))))
 
 (defn- close-item!
   "The run's bead or issue closed, its stages done, as the profile's
@@ -603,7 +701,8 @@
   `:failures` and `:usd` limits stop it too. A run that ends unfinished
   releases its claim. Every step is a line of the run's log, and what the
   stage's turn spent is said as this tool's spend.
-  `{:stop :stopped :brief :stage}`."
+  `{:stop :stopped :brief :stage :elsewhere}`, `:elsewhere` whether the
+  next turn works in a session of its own."
   [config ctx args]
   (let [dir (dir-of config args)
         w (words)
@@ -632,7 +731,7 @@
                         released (when (= :stopped (:status run)) (release-item! tl run))
                         run (cond-> run released (line released))]
                     (write-run! dir run)
-                    {:stop true :stopped why :brief "" :stage ""}))
+                    {:stop true :stopped why :brief "" :stage "" :elsewhere false}))
             usd-hit? (and (:usd limits) (>= spent (:usd limits)))
             usd-why (fill (get-in w [:stops :usd]) {:n (:usd limits)})]
         (cond->
@@ -645,12 +744,12 @@
               (if (< (inc i) (count (:stages run)))
                 (if usd-hit?
                   (end run usd-why)
-                  (let [run (-> run (assoc :at (inc i))
-                                (update-in [:stages (inc i)] merge {:status :working :started-at (now)
-                                                                    :head (or (git-out dir "rev-parse" "HEAD") "")}))
-                        b (brief-of w p run (inc i))]
-                    (write-run! dir (assoc-in run [:stages (inc i) :brief] b))
-                    {:stop false :stopped "" :brief b :stage (id-name (:stage (nth (:stages run) (inc i))))}))
+                  (let [run (begin-stage w p dir (assoc run :at (inc i)) (inc i))
+                        place (get-in run [:stages (inc i) :place])]
+                    (write-run! dir run)
+                    (when-not (elsewhere? place) (note-begun! dir run (inc i) (:session-id config)))
+                    {:stop false :stopped "" :brief (get-in run [:stages (inc i) :brief])
+                     :stage (id-name (:stage (nth (:stages run) (inc i)))) :elsewhere (elsewhere? place)}))
                 (let [closed (close-item! ctx tl w p run summary)]
                   (end (cond-> run closed (line closed)) (get-in w [:stops :finished])))))
             :retry
@@ -668,7 +767,7 @@
                 (let [b (fill (:retry w) {:stage sname :n n :why summary :k (inc k) :max (stage-attempts config)
                                           :progress (or (not-empty answer) (:no-progress w)) :brief (:brief st)})]
                   (write-run! dir run)
-                  {:stop false :stopped "" :brief b :stage sname})))
+                  {:stop false :stopped "" :brief b :stage sname :elsewhere (elsewhere? (:place st))})))
             :ask
             (let [q (str/trim (str (:question args)))]
               (end (update-in run [:stages i] assoc :summary summary :answer answer :question q)
@@ -679,13 +778,86 @@
                  (str "✗ " sname " — " summary)))
           cost (assoc :usage-cost-usd cost))))))
 
+(defn stage-timeout-ms
+  "How long a stage worked in a session of its own is waited for:
+  config's `:workflow-stage-timeout-ms`."
+  [config]
+  (or (num-of (:workflow-stage-timeout-ms config)) 3600000))
+
+(defn- live-session [config sid]
+  (when (given sid)
+    (let [s (channel/find-session config sid)] (when-not (:error s) s))))
+
+(defn delegate-stage
+  "`workflow$delegate`: the current stage of run `:run` worked in the
+  session its place names (`place-of`): the one it already has when it is
+  live, else a headless session started for it (`teams/start-session!`),
+  in a new worktree first when the place asks for one — labelled
+  `workflow-<n>/<key>`, on this turn's provider and model, its permission
+  prompts this session's person's. It is bound to the stage's role, asked
+  the stage's `:brief` over the session channel, and waited for up to
+  `stage-timeout-ms`; what it spent is this session's (`session$ask`).
+  `{:answer :usage}`, the answer saying why when there is none."
+  [config ctx args]
+  (let [dir (dir-of config args)
+        n (num-of (:run args))
+        run (when n (read-run dir n))]
+    (if-not run
+      {:answer (str "(no run " (:run args) ")") :usage {}}
+      (let [i (:at run)
+            {:keys [place] :as st} (nth (:stages run) i)
+            k (:key place)
+            wt (when (and (:branch place) (not (:dir place)) (not= :root k))
+                 (worktree/add! dir (io/file (runs-dir dir) (str n) (id-name k)) (:branch place) (given (:head st))))
+            place (cond-> place (:dir wt) (assoc :dir (:dir wt)))
+            known (get-in run [:sessions k])
+            sess (or (when (live-session config (:session-id known)) known)
+                     (when-not (:error wt)
+                       (let [lm (:lm ctx)
+                             label (str "workflow-" n "/" (id-name k))
+                             r (teams/start-session! ctx {:label label :working-dir (:dir place)
+                                                          :provider (some-> (:provider lm) id-name)
+                                                          :model (some-> (:model lm) str)
+                                                          ;; its turn may be the stage's whole work
+                                                          :env {"BY_ASK_TIMEOUT_MS" (str (stage-timeout-ms config))
+                                                                "BY_TEAM_TOOLS" "false"}
+                                                          :task-name (str "workflow run #" n ", " (id-name k))
+                                                          :who (str "the session for stage " (id-name (:stage st)))})]
+                         (if (:error r) r (assoc r :dir (:dir place))))))
+            why (or (:error wt) (:error sess))
+            run (cond-> (assoc-in run [:stages i :place] place)
+                  (and sess (not why)) (assoc-in [:sessions k] (select-keys sess [:session-id :task-id :label :dir])))]
+        ;; every stage keyed alike works where this one does
+        (write-run! dir (update run :stages
+                                (fn [ss] (mapv #(if (and (= k (get-in % [:place :key])) (:dir place)) (assoc-in % [:place :dir] (:dir place)) %) ss))))
+        (if why
+          {:answer (str "(the stage could not be worked in a session of its own: " why ")") :usage {}}
+          (do (note-begun! dir run i (:session-id sess))
+              (let [ask (some #(when (= "session$ask" (:name %)) %) (channel/commands config))
+                    t (stage-timeout-ms config)
+                    r ((:fn ask) {:session (:session-id sess) :question (:brief args) :timeout-ms t} ctx)]
+                {:answer (if (:error r)
+                           (str "(the stage's session " (:session-id sess) " did not answer: " (:error r) ")")
+                           (str (:answer r)))
+                 :usage {}})))))))
+
+(defn- close-sessions!
+  "The sessions `run` started for its stages stopped, through the tasks
+  they run as; their worktrees and branches stay. Lines for the report."
+  [ctx run]
+  (let [reg (:task-registry ctx)]
+    (vec (for [[k {:keys [task-id label dir]}] (sort-by (comp id-name key) (:sessions run))]
+           (do (when (and reg task-id) (try (tasks/cancel! reg task-id) (catch Throwable _ nil)))
+               (str "  " label " — closed" (when dir (str "; its work is in " dir))))))))
+
 (defn report-run
   "`workflow$report`: the answer. For a turn that managed the workflows
   (`:managing`), that turn's `:answer`, and what it spent
   (`:stage-usage`) said as this tool's spend; for run `:run`, each step's
   line, why it ended and the commits since it began; for a run that never
-  opened, why not. `{:text}`."
-  [config args]
+  opened, why not. The sessions a run started for its stages are closed,
+  and its worktrees said. `{:text}`."
+  [config ctx args]
   (let [dir (dir-of config args)
         w (words)
         n (num-of (:run args))
@@ -703,13 +875,22 @@
                   (write-run! dir (assoc run :status :stopped :ended-at (now)
                                          :stopped (if (str/blank? stopped) "the step limit was reached." stopped)))
                   run)
-            commits (when (given (:base run)) (git-lines dir "log" "--format=%h %s" "-n" "20" (str (:base run) "..HEAD")))]
+            closed (close-sessions! ctx run)
+            ;; where its work is: the project, or the worktrees its stages worked in
+            places (distinct (for [st (:stages run) :let [pl (:place st)] :when (and (:dir pl) (not= (str dir) (:dir pl)))] (:dir pl)))
+            commits (when (given (:base run))
+                      (distinct (mapcat #(git-lines % "log" "--format=%h %s" "-n" "20" (str (:base run) "..HEAD"))
+                                        (cons (str dir) places))))]
         {:text (str (fill (:report-head w) {:n (:n run) :workflow (id-name (:workflow run))
                                             :title (if (given (get-in run [:def :title])) (str " (" (get-in run [:def :title]) ")") "")
                                             :work (clip (:work run) 200)})
                     "\n" (if (seq (:log run)) (str/join "\n" (:log run)) "nothing was done.")
                     "\n\nEnded: " (:stopped run)
                     (when (seq commits) (str "\nCommits since it began:\n" (str/join "\n" (map #(str "  " %) commits))))
+                    (when (seq places)
+                      (str "\nWorktrees, kept for you to merge or remove:\n"
+                           (str/join "\n" (for [d places] (str "  " d (when-let [b (git-out d "rev-parse" "--abbrev-ref" "HEAD")] (str " (" b ")")))))))
+                    (when (seq closed) (str "\nIts sessions:\n" (str/join "\n" closed)))
                     "\n\n" (fill (:report-tail w) {:n (:n run)}))}))))
 
 (defn- run-line [run]
@@ -802,8 +983,9 @@
       :fn (fn [args _] (record-verdict config args))}
      {:name "workflow$start" :kind :command
       :description "/workflow's run: open a run of a workflow on a piece of work, and give its first stage's brief — or why it cannot run."
-      :input-schema [:map dir (opt :workflow "the workflow's id") (opt :work "what the run works on: words, or a bead id or #N first")]
-      :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any]]
+      :input-schema [:map dir (opt :workflow "the workflow's id") (opt :work "what the run works on: words, or a bead id or #N first")
+                     (opt :worktree "yes to run it in a worktree of its own")]
+      :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (start-run config ctx args))}
      {:name "workflow$check" :kind :command
@@ -817,7 +999,8 @@
       :input-schema [:map dir (opt :run "the run's number") (opt :status "done, retry, ask or stop")
                      (opt :question "for ask") (opt :summary "one line") (opt :answer "the stage's answer")
                      (opt :usage "the run's usage so far") (opt :stage-usage "what the stage's turn spent")]
-      :output-schema [:map [:stop :any] [:stopped :any] [:brief :any] [:stage :any] [:usage-cost-usd {:optional true} :any]]
+      :output-schema [:map [:stop :any] [:stopped :any] [:brief :any] [:stage :any] [:elsewhere {:optional true} :any]
+                      [:usage-cost-usd {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (settle-stage config ctx args))}
      {:name "workflow$report" :kind :command
@@ -827,4 +1010,10 @@
                      (opt :stage-usage "what that turn spent")]
       :output-schema [:map [:text :string] [:usage-cost-usd {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
-      :fn (fn [args _] (report-run config args))}]))
+      :fn (fn [args ctx] (report-run config ctx args))}
+     {:name "workflow$delegate" :kind :command
+      :description "Have a run's stage worked in a session of its own — started for it, in a worktree of its own where its role says so — asked its brief, and waited for."
+      :input-schema [:map dir (opt :run "the run's number") (opt :brief "the stage's brief")]
+      :output-schema [:map [:answer :any] [:usage :any]]
+      :effects #{:fs/read :fs/write :process :session/send}
+      :fn (fn [args ctx] (delegate-stage config ctx args))}]))

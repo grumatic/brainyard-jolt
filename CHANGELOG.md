@@ -21,6 +21,15 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   end as the profile allows. Runs are kept in `.brainyard/workflow-runs/`;
   `/workflow` lists them and keeps your verdict on one. New config:
   `:workflow-max-steps` (30), `:workflow-stage-attempts` (3).
+- **A workflow run can work apart, and a role can have its own session.**
+  `/workflow run feature … in a worktree` works on a branch of its own
+  (`workflow/<workflow>-<n>`), each stage in a session there. A role whose
+  `:session` is `:own` gets a session of its own, in a new worktree when it
+  says `:worktree`. Each session's permission prompts come to you. The
+  run's sessions are bound to their roles in `deps-local.edn`, so `byj
+  deps` sees them. The report closes them and says the worktrees, which are
+  kept for you to merge. New config: `:workflow-stage-timeout-ms` (an
+  hour).
 - **`byj doctor` says byj-share and Codex.** What is installed lists
   byj-share's copies on PATH after byj's, each with its version and how its
   owner updates a shadowed one. When codex is installed, a Codex section says
