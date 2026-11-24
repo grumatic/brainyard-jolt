@@ -28,7 +28,8 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   says `:worktree`. Each session's permission prompts come to you. The
   run's sessions are bound to their roles in `deps-local.edn`, so `byj
   deps` sees them. The report closes them and says the worktrees, which are
-  kept for you to merge. New config: `:workflow-stage-timeout-ms` (an
+  kept for you to merge. What those sessions spend counts toward the
+  profile's `:usd` limit. New config: `:workflow-stage-timeout-ms` (an
   hour).
 - **`byj workflow runs [N] [--json]`** gives the runs `/workflow` keeps, as
   data for a client: byj's contract, `contract/workflow/runs.json`. `byj

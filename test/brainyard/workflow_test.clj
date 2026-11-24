@@ -387,3 +387,18 @@
             (is (str/includes? text "workflow-1/root — closed")))))
       (finally
         (tasks/cancel-all! (:task-registry ctx))))))
+
+(deftest a-stage-worked-elsewhere-spends-the-runs-budget
+  ;; what the stage's session spent comes back on session$ask's reply; the
+  ;; run's :usd takes it, or the profile's :usd limit would never stop a run
+  ;; whose stages work elsewhere — found by a live run (byj-edw)
+  (let [{:keys [dir cfg]} (run-setup "delegate-usd" {:preset :collaborator :issues [{:tracker :beads}]})
+        {:keys [run]} (workflow/start-run cfg {} {:workflow "fix" :work "x"})
+        _ (#'workflow/write-run! dir (assoc (workflow/read-run dir run) :sessions {:here {:session-id "1790000000500-wfstage1"}}))
+        stub {:name "session$ask" :fn (fn [_ _] {:status :ok :answer "fixed" :usage {:cost 0.25}})}]
+    (with-redefs [channel/find-session (fn [_ sid & _] {:session-id sid})
+                  channel/commands (fn [_] [stub])]
+      (let [r (workflow/delegate-stage cfg {} {:run run :brief "fix it"})]
+        (is (= "fixed" (:answer r)))
+        (is (= {} (:usage r)) "not said as this tool's spend: session$ask counted it already")
+        (is (= 0.25 (:usd (workflow/read-run dir run))))))))

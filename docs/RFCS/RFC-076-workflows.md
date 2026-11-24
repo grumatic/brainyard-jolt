@@ -151,7 +151,11 @@ person's word on one — `pass`, `changes` or `fail`, and a note.
 A stage's turn, and a managing turn, start from a fresh memory. What it
 spent comes back out and is said as a tool's spend — by `workflow$settle`
 for a stage, by `workflow$report` for a managing turn — so the turn's usage
-counts every one, and the profile's `:usd` is held to it.
+counts every one, and the profile's `:usd` is held to it. A stage worked
+in a session of its own spends there: `session$ask` counts what that
+session's reply says it spent as this session's, and `workflow$delegate`
+adds it to the run's `:usd` itself, saying no spend of its own, so it is
+counted once and the limit still holds.
 
 Stages that do not depend on each other are still worked one after another,
 in `order`.
@@ -289,6 +293,7 @@ Config:
 | The profile's `:usd` and `:failures` end a run, a stage's spend counted | `workflow-test/the-profiles-limits-end-a-run` |
 | A stage works where its role's `:session` says — this turn, or a session of its own in a worktree — and a run asked to work apart works in its own worktree; the session is bound to its role | `workflow-test/a-stage-works-where-its-role-says-and-is-bound-to-it` |
 | A stage in a session of its own is asked its brief there, the same session again while it is live; the report closes it and says the worktree | `workflow-test/a-stage-in-a-session-of-its-own-is-asked-there` |
+| What a stage's own session spent is the run's, toward the profile's `:usd`, and counted once | `workflow-test/a-stage-worked-elsewhere-spends-the-runs-budget` |
 | `byj workflow runs --json` gives the runs as data, one or all, and `byj workflow verdict` keeps the person's word; a run not there, or a verdict refused, exits 1 | `main-test/byj-workflow-gives-the-runs-as-data-and-keeps-a-verdict` |
 | The runs' shape is byj's contract | `contract-test/a-workflows-runs-are-byjs-contract` |
 

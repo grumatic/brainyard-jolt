@@ -798,8 +798,10 @@
   `workflow-<n>/<key>`, on this turn's provider and model, its permission
   prompts this session's person's. It is bound to the stage's role, asked
   the stage's `:brief` over the session channel, and waited for up to
-  `stage-timeout-ms`; what it spent is this session's (`session$ask`).
-  `{:answer :usage}`, the answer saying why when there is none."
+  `stage-timeout-ms`; what it spent is this session's (`session$ask`), and
+  is added to the run's `:usd` here, so the profile's `:usd` limit holds a
+  run whose stages work elsewhere. `{:answer :usage}` — `:usage` empty, so
+  the spend is not counted twice — the answer saying why when there is none."
   [config ctx args]
   (let [dir (dir-of config args)
         n (num-of (:run args))
@@ -837,7 +839,14 @@
           (do (note-begun! dir run i (:session-id sess))
               (let [ask (some #(when (= "session$ask" (:name %)) %) (channel/commands config))
                     t (stage-timeout-ms config)
-                    r ((:fn ask) {:session (:session-id sess) :question (:brief args) :timeout-ms t} ctx)]
+                    r ((:fn ask) {:session (:session-id sess) :question (:brief args) :timeout-ms t} ctx)
+                    cost (some-> r :usage :cost)]
+                ;; session$ask counted it as this session's spend already; the
+                ;; run's own :usd, which the profile's :usd limit is held to,
+                ;; takes it here, as workflow$settle takes an in-turn stage's
+                (when (and (number? cost) (pos? cost))
+                  (when-let [now-run (read-run dir n)]
+                    (write-run! dir (update now-run :usd (fnil + 0) cost))))
                 {:answer (if (:error r)
                            (str "(the stage's session " (:session-id sess) " did not answer: " (:error r) ")")
                            (str (:answer r)))
