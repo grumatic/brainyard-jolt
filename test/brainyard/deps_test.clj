@@ -286,6 +286,40 @@
                                              "handoffs" [{"from" "a" "to" "b" "gives" [{"kind" "issue" "id" "#1" "tracker" "gitea"}]}]} {})))
           "a tracker the profile cannot name is refused"))))
 
+(deftest a-bead-give-reads-as-it-did-and-is-said-deprecated
+  ;; a bead is an issue: {:kind :bead} is deprecated for the :issue give in
+  ;; beads, which says the same whatever trackers the profile names (byj-5q4)
+  (testing "the issue give that says the same, kept in beads"
+    (is (= {:kind :issue :id "x-1" :tracker :beads} (deps/bead-as-issue {:kind :bead :id "x-1"})))
+    (is (= {:kind :issue :parent "x" :tracker :beads} (deps/bead-as-issue {:kind :bead :parent "x"})))
+    (is (= {:tracker :beads} (deps/issue-tracker (deps/bead-as-issue {:kind :bead :id "x-1"}) [{:tracker :github}]))
+        "not GitHub's though it is the profile's only tracker")
+    (is (= {:kind :note} (deps/bead-as-issue {:kind :note}))))
+  (let [dir (tmp "bead-give")
+        spec {"roles" {"a" {} "b" {}}
+              "handoffs" [{"from" "a" "to" "b" "gives" [{"kind" "bead" "id" "x-1"} {"kind" "issue" "id" "#2"}]}]
+              "workflows" {"fix" {"stages" {"a" {} "b" {}}
+                                  "links" [{"from" "a" "to" "b" "gives" [{"kind" "bead" "parent" "x"}]}]}}}
+        w (deps/write! dir :spec spec {:registry []})]
+    (testing "written as asked, and said"
+      (is (:ok w) (pr-str w))
+      (is (= [{:kind :bead :id "x-1"} {:kind :issue :id "#2"}]
+             (:gives (first (:handoffs (edn/read-string (slurp (deps/spec-file dir))))))))
+      (is (= ["a → b: a :bead give is deprecated, a bead being an issue; write {:kind :issue :tracker :beads :id \"x-1\"} instead"
+              "workflow fix, a → b: a :bead give is deprecated, a bead being an issue; write {:kind :issue :tracker :beads :parent \"x\"} instead"]
+             (:warnings w))))
+    (testing "the report checks it as it did, and warns"
+      (let [r (deps/report dir {:registry [] :issues [] :path-env ""})]
+        (is (= [{:handoff ["a" "b"]} {:workflow "fix" :link ["a" "b"]}]
+               (mapv :target (check r "deprecated-give"))))
+        (is (every? #(= "warn" (:level %)) (check r "deprecated-give")))
+        (is (= "bead" (:kind (first (:gives (first (:handoffs r))))))
+            "its row is a bead give's, as before")))
+    (testing "and byj doctor and /init's check say it"
+      (is (= 2 (count (filter #(str/includes? % ":bead give is deprecated") (:warnings (deps/health dir {:registry []}))))))))
+  (testing "a spec without one is written with no warnings"
+    (is (not (contains? (deps/write! (tmp "no-bead") :spec {"roles" {"a" {}}} {:registry []}) :warnings)))))
+
 (deftest what-does-not-fit-is-dropped-and-said
   (let [dir (tmp "lenient")
         f (io/file dir ".brainyard" "deps.edn")]

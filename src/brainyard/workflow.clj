@@ -99,13 +99,14 @@
           (into done left))))))
 
 (defn give-words
-  "Give `g` of a link, in words."
+  "Give `g` of a link, in words: a `:bead` give, deprecated, as the issue
+  it is (`deps/bead-as-issue`)."
   [w g]
-  (let [gw (:gives w)]
+  (let [gw (:gives w)
+        g (deps/bead-as-issue g)]
     (case (:kind g)
       :file (fill (:file gw) {:paths (str/join ", " (:paths g))})
-      :bead (if (:id g) (fill (:bead gw) {:id (:id g)}) (fill (:beads gw) {:parent (:parent g)}))
-      :issue (if (:id g) (fill (:issue gw) {:id (:id g)}) (fill (:beads gw) {:parent (:parent g)}))
+      :issue (if (:id g) (fill (:issue gw) {:id (:id g)}) (fill (:issues gw) {:parent (:parent g)}))
       :branch (:branch gw)
       :note (:note gw)
       (id-name (:kind g)))))
@@ -246,7 +247,9 @@
   replace its own, the rest kept. `:stages` and `:links` are its whole
   stages and links when given (EDN or JSON); `:roles` adds or changes roles
   (a map of id to `{:title :does}`), and a role a stage or the master names
-  that the spec has not is added bare. Held to what `byj deps write` holds a
+  that the spec has not is added bare. A `:bead` give in its links, which
+  is deprecated, is written as the `:issue` give that says the same
+  (`deps/bead-as-issue`), and said. Held to what `byj deps write` holds a
   spec to; shown to the person as what changes and written only on their
   yes. `{:written? :text}`."
   [config ctx args]
@@ -275,7 +278,11 @@
                   (some? (:ok (:links parsed))) (assoc :links (:ok (:links parsed))))
             {wv :value wp :problems} (deps/clean-spec {:workflows {id raw}})
             {rv :value rp :problems} (deps/clean-spec {:roles (or (:ok (:roles parsed)) {})})
-            wf (get-in wv [:workflows id])
+            cleaned (get-in wv [:workflows id])
+            ;; a :bead give, deprecated, written as the issue it is (byj-5q4)
+            wf (cond-> cleaned
+                 (:links cleaned) (update :links (fn [ls] (mapv #(cond-> % (:gives %) (update :gives (partial mapv deps/bead-as-issue))) ls))))
+            as-issue? (not= cleaned wf)
             named (distinct (concat (for [[s st] (:stages wf)] (deps/stage-role s st))
                                     (when (:master wf) [(:master wf)])))
             roles (merge-with merge (or (:roles spec) {}) (:roles rv))
@@ -296,7 +303,8 @@
                 shown (str/join "\n" (concat (if before
                                                (remove str/blank? [(shown-change (describe w spec id before) lines)])
                                                lines)
-                                             added-roles))]
+                                             added-roles
+                                             (when as-issue? [(:as-issue w)])))]
             (write-spec! ctx dir "workflow$save"
                          (fill (if before (:ask-change w) (:ask-add w)) {:id id-s :shown shown})
                          {:id id-s} after
@@ -976,7 +984,7 @@
                      [:does {:optional true} [:string {:desc "what it is for, a sentence"}]]
                      [:master {:optional true} [:string {:desc "the role that supervises its runs: it judges each handoff; none drops it"}]]
                      [:stages {:optional true} [:any {:desc "EDN map of stage id to {:role :title :does}, each key optional, e.g. {:design {} :fix {:role :implement}}"}]]
-                     [:links {:optional true} [:any {:desc "EDN vector of {:from :to :gives}, a give one of {:kind :file :paths [\"glob\"]} {:kind :bead :id \"x-1\"} {:kind :bead :parent \"x\"} {:kind :issue :id \"#42\"} {:kind :branch} {:kind :note}"}]]
+                     [:links {:optional true} [:any {:desc "EDN vector of {:from :to :gives}, a give one of {:kind :file :paths [\"glob\"]} {:kind :issue :id \"#42\"} {:kind :issue :tracker :beads :id \"x-1\"} {:kind :issue :tracker :beads :parent \"x\"} {:kind :branch} {:kind :note}"}]]
                      [:roles {:optional true} [:any {:desc "EDN map of role id to {:title :does}: roles to add or change"}]]]
       :output-schema [:map [:text :string] [:written? :any]]
       :effects #{:fs/read :fs/write}
@@ -1002,7 +1010,7 @@
       :fn (fn [args _] (record-verdict config args))}
      {:name "workflow$start" :kind :command
       :description "/workflow's run: open a run of a workflow on a piece of work, and give its first stage's brief — or why it cannot run."
-      :input-schema [:map dir (opt :workflow "the workflow's id") (opt :work "what the run works on: words, or a bead id or #N first")
+      :input-schema [:map dir (opt :workflow "the workflow's id") (opt :work "what the run works on: words, or an issue's id first: its id in beads, or #N")
                      (opt :worktree "yes to run it in a worktree of its own")]
       :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}

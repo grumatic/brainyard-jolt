@@ -9,21 +9,22 @@
 
  ;; what a give is, in words
  :gives {:file "files {paths}"
-         :bead "bead {id}"
-         :beads "the beads under {parent}"
          :issue "issue {id}"
+         :issues "the issues under {parent}"
          :branch "the branch's commits"
          :note "a note: the stage's answer"}
  :no-gives "nothing named"
 
  :ask-add "/workflow: add workflow {id} to .brainyard/deps.edn?\n\n{shown}"
  :ask-change "/workflow: change workflow {id} in .brainyard/deps.edn?\n\n{shown}"
+ ;; said with either when a :bead give in its links is written as an issue (byj-5q4)
+ :as-issue "  (its :bead gives are written as :issue gives in beads, which say the same: :bead is deprecated)"
  :ask-remove "/workflow: remove workflow {id} from .brainyard/deps.edn? Its runs are kept.\n\n{shown}"
 
  ;; --- a run (byj-edw.2) ------------------------------------------------------
  ;; each stage's brief: the run, the profile's goal and scope, the stage's
  ;; role, what was handed to it, and what it hands on
- :brief "Run #{n} of workflow {workflow}{title}: {work}\n\n{profile}The run goes {flow}, each stage a turn of its own, handed on in turn. You play stage {stage} now, as {role}.\n\n{handed}{next}\n\nDo your part, and only yours: a later stage does its own. Check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what the person decides: keep to it. Where it says to ask before a commit, a bead or issue filed or closed, a decision record or a push, run the command or write the file — byj asks the person then and waits for their answer. Put a question in your answer only for a change of goal, scope, stack or done criteria, or a decision the profile does not let you make. End by saying what you did, how you checked it, and {end}."
+ :brief "Run #{n} of workflow {workflow}{title}: {work}\n\n{profile}The run goes {flow}, each stage a turn of its own, handed on in turn. You play stage {stage} now, as {role}.\n\n{handed}{next}\n\nDo your part, and only yours: a later stage does its own. Check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what the person decides: keep to it. Where it says to ask before a commit, an issue filed or closed, a decision record or a push, run the command or write the file — byj asks the person then and waits for their answer. Put a question in your answer only for a change of goal, scope, stack or done criteria, or a decision the profile does not let you make. End by saying what you did, how you checked it, and {end}."
  :profile "This project's goal: {goal}\n{scope}\n"
  :scope-in "In scope: {in}\n"
  :scope-out "Out of scope: {out}\n"
@@ -55,7 +56,7 @@
  :stops {:no-profile "This project has no profile: /init drafts one when you tell it what the project is for. A run works under it."
          :no-workflow "No workflow {workflow} in .brainyard/deps.edn{known}."
          :errors "Workflow {workflow} cannot run: {errors}."
-         :no-work "Say what the run is to work on: words, a bead id or a GitHub issue (#N)."
+         :no-work "Say what the run is to work on: words, or an issue — its id in beads, or #N on GitHub."
          :finished "Every stage is done."
          :stage-spent "Stage {stage} was not finished in {k} turns: {why}"
          :asks "Stage {stage} needs you: {question}"

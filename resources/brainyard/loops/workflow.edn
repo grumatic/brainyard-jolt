@@ -9,7 +9,7 @@
 ;;                                         written on the person's yes
 ;;   a run's opening                    → workflow$start (mechanism: the
 ;;                                         profile, the workflow, its work —
-;;                                         a bead or issue claimed — kept
+;;                                         an issue claimed — kept
 ;;                                         in .brainyard/workflow-runs/)
 ;;   a stage's work                     → a ReAct turn in a scope of its own,
 ;;                                         asked the stage's brief — or, for a

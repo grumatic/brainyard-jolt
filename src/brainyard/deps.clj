@@ -181,6 +181,33 @@
                          x))
                      xs)))
 
+(defn bead-as-issue
+  "Give `g`, when its `:kind` is `:bead`, as the `:issue` give that says the
+  same: the issue in beads, whatever trackers the profile names. A bead is
+  an issue, and an issue give in beads is a bead give's check, `:parent`
+  included, so `:bead` is deprecated (byj-5q4). Any other give as it is."
+  [g]
+  (if (= :bead (:kind g)) (assoc g :kind :issue :tracker :beads) g))
+
+(defn deprecated-gives
+  "A warning for each `:bead` give `spec`'s handoffs and workflow links
+  make, saying the `:issue` give to write instead (`bead-as-issue`):
+  `{:level :warn :kind :deprecated-give :target :message}`. It still reads
+  and is checked as it was (byj-5q4)."
+  [spec]
+  (let [said (fn [where g]
+               ;; written out in the order a person writes it, whatever order the map is in
+               (str where ": a :bead give is deprecated, a bead being an issue; write {:kind :issue :tracker :beads "
+                    (if (:id g) (str ":id " (pr-str (:id g))) (str ":parent " (pr-str (:parent g)))) "} instead"))]
+    (concat
+     (for [{:keys [from to gives]} (:handoffs spec) g gives :when (= :bead (:kind g))]
+       {:level :warn :kind :deprecated-give :target {:handoff [from to]}
+        :message (said (str (id-name from) " → " (id-name to)) g)})
+     (for [[w {:keys [links]}] (sort-by key (:workflows spec))
+           {:keys [from to gives]} links g gives :when (= :bead (:kind g))]
+       {:level :warn :kind :deprecated-give :target {:workflow w :link [from to]}
+        :message (said (str "workflow " (id-name w) ", " (id-name from) " → " (id-name to)) g)}))))
+
 (defn- tidy-gives
   "Handoffs or a workflow's links `hs` at `path`, each give that names
   nothing dropped and said: a file give needs its paths, a bead give its bead."
@@ -872,6 +899,7 @@
                                    {:from from :to to :gives gs :ready (every? :ready gs)}))})
         checks (concat
                 (for [e (structural-errors dir spec registry)] (assoc e :level :error))
+                (deprecated-gives spec)
                 (mapcat :checks prows)
                 (for [{:keys [id sessions]} roles
                       c (if (empty? sessions)
@@ -926,6 +954,7 @@
           {spec :value spec-probs :problems} (read-spec dir)
           {local-probs :problems} (read-local dir)
           checks (concat (for [e (structural-errors dir spec registry)] (assoc e :level :error))
+                         (deprecated-gives spec)
                          (for [[id p] (sort-by key (:projects spec))
                                c (:checks (project-row dir id p opts))]
                            c))
@@ -997,8 +1026,9 @@
   ISO-8601 — written to the project at `dir`: coerced to EDN, held to the
   schema, a spec refused a cycle or a dangling role, the old file
   snapshotted, the new one written in a stable order and read back.
-  `{:ok true :file :snapshot}`, `:snapshot` nil when there was no file
-  before, or `{:error :stage}` — stage `input`, `schema`, `check`,
+  `{:ok true :file :snapshot :warnings?}`, `:snapshot` nil when there was no
+  file before, `:warnings` what it says of a spec written as asked (a
+  `:bead` give, deprecated: `deprecated-gives`), or `{:error :stage}` — stage `input`, `schema`, `check`,
   `snapshot`, `write` or `verify` — with `:problems` when the schema
   refused it. opts as `report`'s."
   [dir which m & [opts]]
@@ -1024,7 +1054,10 @@
                       (do (restore! f snap) {:error (str "could not write " (.getPath ^java.io.File f) ": " w) :stage :write})
                       (let [back (read-file f (if (= :local which) clean-local clean-spec))]
                         (if (and (empty? (:problems back)) (= value (:value back)))
-                          {:ok true :file (.getPath ^java.io.File f) :snapshot (:path snap)}
+                          (cond-> {:ok true :file (.getPath ^java.io.File f) :snapshot (:path snap)}
+                            ;; written as asked, and said deprecated (byj-5q4)
+                            (and (= :spec which) (seq (deprecated-gives value)))
+                            (assoc :warnings (mapv :message (deprecated-gives value))))
                           (do (restore! f snap)
                               {:error (str (.getPath ^java.io.File f) " did not read back as written; the old one is put back")
                                :stage :verify}))))))))))))))

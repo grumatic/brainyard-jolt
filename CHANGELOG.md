@@ -6,6 +6,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A `:bead` give in `.brainyard/deps.edn` is deprecated: write it as an
+  issue.** A bead is an issue, and `{:kind :issue :tracker :beads :id …}`
+  (or `:parent`) says the same. A `:bead` give still reads and is checked
+  as before, but `byj deps`, `byj doctor` and `byj deps write` warn about
+  each one (`deprecated-give`) and say what to write instead. `/workflow`
+  offers only `:issue`, and writes a workflow's `:bead` gives as issues
+  when it saves one, telling you so.
 - **`byj ask --agent` works for an agent with a loop of its own.** `byj ask
   --agent drive`, `init` or `workflow` (and `byj --prompt` with one) had
   failed at once with "invalid loop tree: unregistered fns: :session/…";

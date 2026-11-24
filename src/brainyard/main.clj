@@ -2232,7 +2232,8 @@
                 (deps/write! dir (if local :local :spec) (:ok parsed)))]
         (cond
           json (out (cond-> r (:stage r) (update :stage name)))
-          (:ok r) (println (str "wrote " (:file r) (when (:snapshot r) (str "; the old one kept as " (:snapshot r)))))
+          (:ok r) (do (println (str "wrote " (:file r) (when (:snapshot r) (str "; the old one kept as " (:snapshot r)))))
+                      (doseq [w (:warnings r)] (err-println (str "deps: warning: " w))))
           :else (err-println (str "deps: " (:error r))))
         (if (:ok r) 0 1))
 

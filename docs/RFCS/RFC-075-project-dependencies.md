@@ -47,12 +47,12 @@ Two files under the project's `.brainyard/`:
                               {:id :api :kind :files :paths ["contract/api.json"]}]
                    :affects ["src/client.clj"]           ; paths here; information only
                    :seen "91fe655"}}                     ; its commit last reviewed; optional
- :roles {:design {:title "Design" :does "decisions and beads"}   ; each key optional
+ :roles {:design {:title "Design" :does "decisions and issues"}   ; each key optional
          :implement {:session :own :worktree true}}   ; :upstream (the default) | :own
  :handoffs [{:from :design :to :implement
              :gives [{:kind :file :paths ["docs/decisions/*.md"]}   ; globs
-                     {:kind :bead :id "x-1"}                        ; or {:kind :bead :parent "x"}
                      {:kind :issue :id "#42"}                       ; in a tracker the profile names; :tracker optional
+                     {:kind :issue :tracker :beads :parent "x"}     ; or :id "x-1"; :bead is deprecated
                      {:kind :branch}
                      {:kind :note}]}]
  :workflows {:feature {:title "Feature" :master :lead                ; each key optional
@@ -131,16 +131,14 @@ in a worktree keeps itself. A give is ready when:
 - `:file`: a file matches (`*` within a directory, `**` across them) and a
   turn of a session bound to `:from` changed one, as that turn is kept
   (RFC-069, `changes/rows`);
-- `:bead`: the bead, or every child of `:parent`, is closed, as bd says;
-  not ready, and said, where there is no bd;
 - `:issue`: the issue is closed in the tracker that holds it, of those the
   project's profile names in `:issues` (RFC-073; `byj-ykq`, #3). The
   tracker is the give's `:tracker`; else GitHub for `#N`, `N` or
   `owner/repo#N`; else the profile's one tracker when it names one; else
   Linear or Jira for `KEY-123` when the profile names one of them only
-  (both: not ready, said, until `:tracker` says); else beads. In beads it
-  is a `:bead` give's check, `:parent` included, so a `:bead` give is an
-  issue give in beads and keeps its meaning. In GitHub, `gh issue view`'s
+  (both: not ready, said, until `:tracker` says); else beads. In beads, the
+  issue, or every child of `:parent`, is closed, as bd says; not ready,
+  and said, where there is no bd. In GitHub, `gh issue view`'s
   state, in the repository the id names, else the profile's
   `:github-repo`, else the one gh finds from the project's remote; a GitHub
   issue is given by its `:id`. An epic is an issue like any other. Linear
@@ -148,6 +146,12 @@ in a worktree keeps itself. A give is ready when:
   not checked.
   A tracker that cannot be reached (no `bd` or `gh`, gh not logged in) leaves
   it not ready, saying which and why. Its row carries `tracker`;
+- `:bead` (deprecated, `byj-5q4`): a bead is an issue, and this is the
+  `:issue` give in beads — `{:kind :issue :tracker :beads …}` says the
+  same whatever trackers the profile names (`bead-as-issue`). It is still
+  read, checked as that issue give, and its row says `bead`; every one is a
+  `deprecated-give` warning, and `byj deps write` writes it as given and
+  says so;
 - `:branch`: a `:from` session's worktree branch has a commit its base has
   not;
 - `:note`: a `:from` session has finished a turn.
@@ -167,6 +171,7 @@ an entry for its pair; the latest is the one shown.
 | error | `version` | a `:binary`'s `--version` fails its constraint |
 | warn | `upstream-changed` | `changes` is not empty, or git cannot list them |
 | info | `never-reviewed` | no `:seen` |
+| warn | `deprecated-give` | a handoff or workflow link gives `:kind :bead`; the message says the `:issue` give to write instead (`byj-5q4`) |
 | warn | `unbound-role` | no session bound to a role |
 | warn | `session-gone` | a bound session no longer exists |
 | wait | `not-ready` | a give is not ready |
@@ -184,7 +189,9 @@ cycle or a dangling role (stage `check`); snapshots the old file under
 one through a file beside it and a rename, every map in a stable order —
 the keys the file knows in their order, ids by name — so the same map is
 always the same text; and reads it back, putting the old one back when it
-does not read as written (stage `verify`).
+does not read as written (stage `verify`). A spec written with a `:bead`
+give is written as given, and its `deprecated-give` messages come back as
+`warnings`, which the CLI prints to stderr.
 
 ## API
 
@@ -204,10 +211,14 @@ does not read as written (stage `verify`).
 - `health [dir opts]` — `/init`'s check's and `byj doctor`'s line (RFC-040,
   `byj-g6o`): nil without a `deps.edn`, else `{:projects :problems :errors
   :warnings}`, the reading problems and the error and warning messages of
-  the structure's and the projects' checks; no role, session or give, so
+  the structure's and the projects' checks, `deprecated-give` among them; no role, session or give, so
   neither bd nor gh runs. opts: `:registry`, `:path-env`.
+- `bead-as-issue [g]` — a `:bead` give as the `:issue` give in beads that
+  says the same; any other give as it is.
+- `deprecated-gives [spec]` — a `deprecated-give` warning for each `:bead`
+  give of `spec`'s handoffs and workflow links.
 - `write! [dir which m opts]` — `which` `:spec` or `:local`; `{:ok :file
-  :snapshot}` or `{:error :stage}` (`input`, `schema`, `check`,
+  :snapshot :warnings?}` or `{:error :stage}` (`input`, `schema`, `check`,
   `snapshot`, `write`, `verify`), with `:problems` for `schema`.
 
 The CLI:
@@ -251,6 +262,7 @@ The shape is byj's contract, `contract/deps/deps.json` (RFC-070).
 | A registered project is found by its origin as its git config says it now, not the one its record holds | `deps-test/a-registered-project-is-found-by-its-origin-as-it-is-now` |
 | An origin through an SSH host alias is the forge's repository it resolves to, for the registry and for `remote-mismatch`; where ssh cannot say, owner and name match when one host is no known forge, never across two forges | `deps-test/an-ssh-host-alias-names-the-forge-it-stands-for` |
 | `byj deps --json` and `byj deps write` give and take JSON, and exit 1 on a refusal | `main-test/byj-deps-gives-the-dependencies-as-data-and-writes-them-whole` |
+| A `:bead` give reads and is checked as it did, as the issue give in beads that says the same; the report, `byj doctor` and a write warn that it is deprecated | `deps-test/a-bead-give-reads-as-it-did-and-is-said-deprecated` |
 | The report's shape is byj's contract | `contract-test/the-dependencies-are-byjs-contract` |
 | The spec is not ignored by the `.gitignore` `/init` writes, and the local file is; a `.gitignore` an earlier `/init` wrote gets the spec's exception from the next, and the check says so until then (`byj-bo8`, RFC-040) | `init-test/the-gitignore-keeps-brainyard-s-state-but-not-the-profile` |
 

@@ -101,6 +101,31 @@
                               {:id "docs" :stages {:write {}}})
       (is (= {} (get-in (read-back dir) [:roles :write]))))))
 
+(deftest a-workflow-hands-on-an-issue-never-a-bead
+  ;; a bead is an issue: :kind :bead is deprecated (byj-5q4)
+  (let [dir (project "bead-give" (assoc-in spec [:workflows :fix :links]
+                                           [{:from :implement :to :review :gives [{:kind :bead :parent "x"} {:kind :note}]}]))
+        asked (atom [])
+        yes {:permission-fn (person asked true)}
+        cfg {:project-dir dir}]
+    (testing "a :bead give already there is shown as the issue it is"
+      (is (str/includes? (:text (workflow/show-workflow cfg {:id "fix"}))
+                         "  link implement → review: gives the issues under x, a note: the stage's answer")))
+    (testing "a workflow saved is written with :issue gives in beads for its :bead ones, and the person is told"
+      (is (:written? (workflow/save-workflow cfg yes {:id "fix" :title "Small fix"})))
+      (is (str/includes? (:display (last @asked)) ":bead is deprecated"))
+      (is (= [{:kind :issue :parent "x" :tracker :beads} {:kind :note}]
+             (:gives (first (get-in (read-back dir) [:workflows :fix :links]))))))
+    (testing "as are those it is handed"
+      (is (:written? (workflow/save-workflow cfg yes {:id "docs" :stages "{:write {} :review {}}"
+                                                     :links "[{:from :write :to :review :gives [{:kind :bead :id \"x-1\"}]}]"})))
+      (is (= [{:kind :issue :id "x-1" :tracker :beads}]
+             (:gives (first (get-in (read-back dir) [:workflows :docs :links]))))))
+    (testing "the workflow tools offer no :bead kind"
+      (let [save (some #(when (= "workflow$save" (:name %)) %) (workflow/commands {}))]
+        (is (not (re-find #":kind :bead\b" (pr-str (:input-schema save)))))
+        (is (re-find #":kind :issue :tracker :beads" (pr-str (:input-schema save))))))))
+
 (deftest a-workflow-is-changed-and-removed-on-the-persons-yes
   (let [dir (project "change")
         asked (atom [])

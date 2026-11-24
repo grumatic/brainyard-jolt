@@ -29,7 +29,7 @@ the spec's, as the person wrote it.
 **It hands** `byj workflow runs --json` the runs as data, a client's to
 show (RFC-070); a stage's work to a ReAct turn (RFC-002), the master's
 judgement to a predictor (RFC-005), a stage that works in a session of its
-own to RFC-032's `teams/start-session!` and RFC-031's channel, a bead or issue to RFC-073's tracker
+own to RFC-032's `teams/start-session!` and RFC-031's channel, an issue to RFC-073's tracker
 layer (`drive/tools` and its neighbours), and every write to RFC-075's `deps/write!`, which holds the file to
 its schema and checks, snapshots the old one, and reads the new one back. It
 never writes `deps.edn` any other way. The person's yes is asked through
@@ -64,6 +64,12 @@ run's stages, so the tree holds the ReAct loop once.
   - `:roles` adds or changes roles. A role named by a stage or the master
     that the project lacks is added bare.
   - Data comes as a map, as EDN, or as JSON.
+  - A link gives an issue as `{:kind :issue …}`, `:tracker :beads` for one
+    in beads; the command's schema offers no other kind for one. A `:bead`
+    give, deprecated (RFC-075, `byj-5q4`), in what it is handed or in the
+    workflow already, is written as the issue give that says the same
+    (`deps/bead-as-issue`), and the person is told so with the change.
+    What a give is called, in a brief or a listing, is an issue's words.
 - **`workflow$remove`** takes one out. The roles it played stay.
 
 A change is held to what `byj deps write` holds a spec to, and is refused
@@ -89,10 +95,10 @@ person's word on one — `pass`, `changes` or `fail`, and a note.
 ### A run
 
 1. **`workflow$start`** opens a run of the workflow on its work. The work is
-   words, or a bead id or GitHub issue (`#N`) first.
+   words, or an issue's id first: its id in beads, or `#N` on GitHub.
    - It stops, with why, when there is no profile, no such workflow, an
      error naming it, or no work.
-   - A bead or issue the work names is read for its title and description,
+   - An issue the work names is read for its title and description,
      and claimed.
    - The run is kept as `.brainyard/workflow-runs/<n>.edn` (under
      `.brainyard/`, which `/init`'s `.gitignore` ignores). It holds the
@@ -124,14 +130,15 @@ person's word on one — `pass`, `changes` or `fail`, and a note.
    - `:file`: a matching file changed since the stage began;
    - `:branch`: a commit in the stage;
    - `:note`: the stage answered;
-   - `:bead` and `:issue`: as a handoff's, in the tracker that holds it.
+   - `:issue`: as a handoff's, in the tracker that holds it; a `:bead`
+     give, deprecated, as the issue in beads it is (RFC-075).
 
    The result is kept with the stage.
 4. **`workflow/judge`**, a predictor playing the master role, says `done`,
    `retry`, `ask` or `stop`.
 5. **`workflow$settle`** acts on it:
    - `done`: hands on to the next stage in `order`, with its brief. After
-     the last stage it ends the run and closes its bead or issue as the
+     the last stage it ends the run and closes its issue as the
      profile's `:issue/close` says: on its own at `act`, on the person's yes
      at `ask`, never at `never`.
    - `retry`: has the stage go again. The brief carries what was missing,
@@ -281,6 +288,7 @@ Config:
 | A run works stages each after what links to it, ties by name | `workflow-test/stages-are-worked-in-link-order` |
 | The workflows, roles and errors are listed, and one is shown whole | `workflow-test/workflows-are-listed-and-shown` |
 | A workflow is added on the person's yes, with the roles it names, and the others are kept | `workflow-test/a-workflow-is-added-on-the-persons-yes` |
+| A workflow hands on an issue, never a bead: a `:bead` give is shown and written as the issue in beads it is, and said; the tools offer no `:bead` | `workflow-test/a-workflow-hands-on-an-issue-never-a-bead` |
 | A change writes only what is given and only on the person's yes; what `byj deps write` would refuse is refused before they are asked; removing one keeps its roles | `workflow-test/a-workflow-is-changed-and-removed-on-the-persons-yes` |
 | `agent$workflow` has every tool but itself, its commands turned on, and is waited on | `agents-test/the-shipped-roster` |
 | Its loop is sound, with the ReAct loop in it once | `workflow-test/the-workflow-loop-is-sound` |
