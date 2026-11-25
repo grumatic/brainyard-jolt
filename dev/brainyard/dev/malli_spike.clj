@@ -191,8 +191,8 @@
         convertible (count (filter #(try ((mf 'malli.core/schema) (params->schema (:params %))) true
                                          (catch Throwable _ false))
                                    (vals registry)))
-        recorded (vec (distinct (concat (recorded-calls (or log ".brainyard/logs/events.log"))
-                                        (trajectory-calls ".brainyard/sessions"))))
+        recorded (vec (distinct (concat (recorded-calls (or log (str ((requiring-resolve 'brainyard.projects/runtime-path) "." "logs" "events.log"))))
+                                        (trajectory-calls (str ((requiring-resolve 'brainyard.persist/sessions-dir) {:project-dir "."}))))))
         {:keys [rows unknown timing]} (compare-calls registry (concat recorded synthetic))
         differ (remove :same? rows)]
     (println "== load (ms, in a process that has loaded the port)")

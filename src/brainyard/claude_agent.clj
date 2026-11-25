@@ -12,13 +12,14 @@
   They are registered only when `:claude-tools?` is on, which agent$claude's
   own config sets, so the commands cost no other turn its prompt.
 
-  Every delegation leaves a record, `.brainyard/claude-agents/<session-id>.edn`
+  Every delegation leaves a record, `~/.brainyard/projects/<slug>/claude-agents/<session-id>.edn`
   — the task, the worktree and branch, the round, the state and the last
   report — which the agent page reads (`.5`) and which lets the same agent
   instance find its session again when it is asked to continue. Guidance too
   long for one typed line is a file beside it, which Claude Code is given
   access to with `--add-dir`."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.claude-host :as host]
@@ -33,7 +34,7 @@
 
 (defn- project [config] (or (:project-dir config) (:working-dir config) "."))
 
-(defn records-dir [config] (io/file (project config) ".brainyard" "claude-agents"))
+(defn records-dir [config] (projects/runtime-path (project config) "claude-agents"))
 
 (defn- record-file [config sid] (io/file (records-dir config) (str sid ".edn")))
 

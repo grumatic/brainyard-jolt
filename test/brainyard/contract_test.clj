@@ -52,6 +52,7 @@
             [brainyard.json :as json]
             [brainyard.main :as main]
             [brainyard.persist :as persist]
+            [brainyard.projects :as projects]
             [brainyard.session :as session]
             [brainyard.update :as update]
             [brainyard.workflow :as workflow]))
@@ -104,6 +105,11 @@
                        ;; the project's sessions folder, wherever byj keeps it
                        ;; (RFC-016's revision: the person's home), before <dir>
                        (str/replace (.getCanonicalPath (persist/sessions-dir {:project-dir dir})) "<sessions>")
+                       ;; any other project's folder in the home, or one of
+                       ;; its kinds (deps-local.edn, workflow-runs …; RFC-016's
+                       ;; second revision): its slug hashes a scratch path
+                       (str/replace (projects/projects-root) "<projects>")
+                       (str/replace #"<projects>/[^/\"\s]+" "<project-home>")
                        (str/replace dir "<dir>")
                        (str/replace #"[^\s\"]*/by-[0-9a-f]{16}\.sock" "<socket>")
                        (str/replace #"\b\d{13}-[0-9a-f]{8}\b" "<sid>")

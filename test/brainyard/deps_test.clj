@@ -4,7 +4,8 @@
 (ns brainyard.deps-test
   "A project's dependencies as data, checked, and written safely (byj-9dv,
   RFC-075)."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
@@ -88,7 +89,7 @@
                          {:from :implement :to :review :gives [{:kind :note} {:kind :bead :parent "x-2"}]}]}]
     (io/make-parents (deps/spec-file dir))
     (spit (deps/spec-file dir) (pr-str spec))
-    (spit (io/file dir ".brainyard" "deps-local.edn")
+    (spit (doto (deps/local-file dir) io/make-parents)
           (pr-str {:bindings {:design ["s-design" "s-wt"] :implement ["s-impl" "gone-1"]}}))
     (session! dir "s-design" {:turns 1 :title "decide"})
     (session! wt "s-wt" {:turns 0})
@@ -148,7 +149,7 @@
           (is (= [{:handoff ["design" "implement"]}] (map :target (check r "started-early")))
               "s-impl took turns while design → implement was not handed")))
       (testing "handed: no longer ready to hand, and early only for the turns before it"
-        (spit (io/file dir ".brainyard" "deps-local.edn")
+        (spit (doto (deps/local-file dir) io/make-parents)
               (pr-str {:bindings {:design ["s-design" "s-wt"] :implement ["s-impl"]}
                        :handed [{:from :design :to :implement :session "s-impl" :turn 1 :at #inst "2026-11-18T00:00:00Z"}]}))
         (let [r (report)]
@@ -156,7 +157,7 @@
           (is (empty? (check r "handoff-ready")))
           (is (empty? (check r "started-early")))))
       (testing "a session going on from the handing role is not early (byj-ba5)"
-        (spit (io/file dir ".brainyard" "deps-local.edn")
+        (spit (doto (deps/local-file dir) io/make-parents)
               (pr-str {:bindings {:design ["s-design" "s-wt" "s-impl"] :implement ["s-impl"]}}))
         (is (empty? (check (report) "started-early"))))
       (testing "its health, for /init's check and byj doctor: the projects' trouble, no session and no give (byj-g6o)"
@@ -410,7 +411,7 @@
             r (deps/write! dir :spec (js (assoc-in spec ["roles" "review"] {})) {:registry []})]
         (is (:ok r))
         (is (= before (slurp (:snapshot r))))
-        (is (str/includes? (:snapshot r) "/.brainyard/deps-snapshots/"))
+        (is (str/includes? (:snapshot r) (str (projects/runtime-path dir "deps-snapshots") "/")))
         (is (contains? (:roles (edn/read-string (slurp f))) :review))))
     (testing "a cycle through another project's spec is refused"
       (io/make-parents (deps/spec-file other))

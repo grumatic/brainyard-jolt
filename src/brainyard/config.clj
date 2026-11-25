@@ -139,7 +139,7 @@
    :enable-mouse {:type "boolean" :default true :family :session
                   :doc "Mouse reporting in the full-screen renderer: the wheel scrolls and a click opens a fold or a subagent. Off keeps the terminal's own click-drag text selection."}
    :keep-rails? {:type "boolean" :default true :family :session
-                 :doc "The full-screen renderer keeps its rails across restarts, per project, in .brainyard/rails.edn: each rail's open or closed, its view and width, and what its sections fold (byj-gly.457). Never in a run that saves no session (:persist-session? false)."}
+                 :doc "The full-screen renderer keeps its rails across restarts, per project, in ~/.brainyard/projects/<slug>/rails.edn: each rail's open or closed, its view and width, and what its sections fold (byj-gly.457). Never in a run that saves no session (:persist-session? false)."}
    :attention-signal {:family :session :type "keyword" :default :bell
                       :enum [:bell :osc9 :both :off]
                       :doc "What the full-screen renderer writes to the terminal when a session turns to Needs input (a permission ask opens), once per ask: bell (BEL, which a terminal or tmux marks on a background tab or window), osc9 (a desktop notification naming the session — iTerm2, WezTerm, kitty, Ghostty, Windows Terminal), both, or off (byj-gly.328)."}
@@ -291,7 +291,7 @@
    :todo-slug {:type "string" :default nil :family :tools
                :doc "The checklist a run continues instead of planning a new one (loops/plan-act-eval.edn)."}
    :todos? {:type "boolean" :default true :family :tools
-            :doc "Offer todo$* — a checklist under .brainyard/todos that survives the turn that wrote it."}
+            :doc "Offer todo$* — a checklist under ~/.brainyard/projects/<slug>/todos that survives the turn that wrote it."}
    ;; checking a loop before running it (RFC-022)
    :flows? {:type "boolean" :default true :family :tools
             :doc "Offer flow$check — report every problem with a behavior-tree loop without running it."}
@@ -307,7 +307,7 @@
    :config-write? {:type "boolean" :default true :family :tools
                    :doc "Offer config$set/unset/revert — changing settings from inside a turn. Permission keys are never writable either way (RFC-013)."}
    :event-log? {:type "boolean" :default true :family :logs
-                :doc "Append every event to <project>/.brainyard/logs/events.log — the one record of what happened, written whole: no payload trimmed, no string clipped, so a dataset can be derived from it (RFC-026, RFC-021). Only :agent.llm/chunk is left out, being a second copy of a reply already recorded."}
+                :doc "Append every event to ~/.brainyard/projects/<slug>/logs/events.log — the one record of what happened, written whole: no payload trimmed, no string clipped, so a dataset can be derived from it (RFC-026, RFC-021). Only :agent.llm/chunk is left out, being a second copy of a reply already recorded."}
    :event-log-max-bytes {:family :logs :type "integer" :default 52428800 :doc "Rotate the event log past this size. 50 MiB rather than 10 because the records are now whole prompts and replies — at the old limit a day of real work would roll the log, and with it anything derived from it."}
    :event-log-keep {:family :logs :type "integer" :default 3 :doc "Rotated event logs kept beside the live one."}
    :trajectory-log? {:type "boolean" :default true :family :logs

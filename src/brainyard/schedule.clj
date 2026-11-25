@@ -4,7 +4,7 @@
 (ns brainyard.schedule
   "Prompts set to a time: a cron, a moment, or a delay (byj-gly.325) —
   brainyard's `agent/common/schedule.clj`, its names and its store
-  (`<project>/.brainyard/schedule/<id>/spec.edn`, `:id :title :prompt :cron
+  (`~/.brainyard/projects/<slug>/schedule/<id>/spec.edn`, `:id :title :prompt :cron
   :fire-at :enabled :next-fire :last-run :last-status :created`).
 
   Where it differs (divergence `schedule-fires-into-the-session`): brainyard
@@ -20,7 +20,8 @@
   (provenance P-10), so the local offset is the OS's, as `brainyard.clock`
   keeps it — asked again every few minutes, so a daylight-saving change is
   noticed within them (byj-gly.382)."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [brainyard.clock :as clock]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -147,7 +148,7 @@
 
 ;; --- the store, brainyard's layout ---------------------------------------------------------------
 
-(defn root [project] (io/file (str project) ".brainyard" "schedule"))
+(defn root [project] (projects/runtime-path project "schedule"))
 (defn- spec-file [project id] (io/file (root project) (str id) "spec.edn"))
 (def ^:private id-re #"^[a-z0-9][a-z0-9-]*$")
 (defn valid-id? [id] (boolean (and (string? id) (re-matches id-re id))))

@@ -11,10 +11,11 @@
   brainyard has no such tool; its bodies ran in SCI, where `atom` was there to
   reach for (divergence `tool-lisp-reach`).
 
-  One EDN map per project, `.brainyard/store.edn`: a string key to any EDN
+  One EDN map per project, `~/.brainyard/projects/<slug>/store.edn`: a string key to any EDN
   value. Written whole and atomically, one writer at a time in a process — a
   body's `pmap` may put from several threads at once."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint]
             [clojure.string :as str]
@@ -28,8 +29,7 @@
 (def max-key-chars 200)
 
 (defn store-file [config]
-  (io/file (config/canonical-dir (or (:project-dir config) (:working-dir config) "."))
-           ".brainyard" "store.edn"))
+  (projects/runtime-path (or (:project-dir config) (:working-dir config) ".") "store.edn"))
 
 (def ^:private lock (Object.))
 

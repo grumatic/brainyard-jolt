@@ -37,7 +37,10 @@ The folder is the project's in the registry (`persist/project-home`,
 `projects/project-user-dir`), keyed by its path, in the person's home
 (`projects/projects-root`); a worktree, another path, is a project of its
 own. The first write there writes the record, `:listed? false` when the
-project was never registered (`projects/ensure-record!`). byj session path
+project was never registered (`projects/ensure-record!`). The same folder
+keeps everything else the project's runs leave — its event log, delegation
+records, workflow runs, todos, store … — each built by
+`projects/runtime-path` (`byj-84c.4`); `byj project path [KIND]` says where. byj session path
 says where; a program reads it there (`persist/location`). The id is the
 run's `:session-id` (RFC-014): milliseconds plus 8 hex, so it sorts by age,
 and the turn transcripts a compaction spills land under

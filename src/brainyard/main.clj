@@ -88,7 +88,7 @@
 (defn- effects [s] (set (map keyword (globs s))))
 
 (def ^:private command-names
-  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "config" "deps" "profile" "workflow"})
+  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "project" "config" "deps" "profile" "workflow"})
 
 (def ^:private command-aliases
   "Old names a command still answers to: `sessions` (brainyard's `by
@@ -554,6 +554,36 @@
       json (do (println (json/write-str loc)) (if (:exists loc) 0 1))
       (:exists loc) (do (println (:dir loc)) 0)
       :else (do (err-println (str "no session " (:session-id loc) " in " (:project-dir loc))) 1))))
+
+(defn- project-command
+  "`byj project path [KIND] [--json]` (RFC-016's second revision, byj-84c):
+  where this project keeps what its runs leave — its folder in the registry,
+  or one KIND of it (`sessions`, `logs`, `workflow-runs`, `todos` …) — so a
+  program, an editor or a script reads it through byj and never builds the
+  path or works out a slug (S3). `--json` gives `{project-dir dir kinds}`, or
+  `{project-dir kind path exists}` for one. Exit 1 for a KIND byj does not
+  keep, 2 for another subcommand."
+  [{:keys [questions json]} config]
+  (let [[sub kind] questions
+        kinds (into (vec persist/kinds) projects/runtime-kinds)
+        pd (persist/project-of config)]
+    (cond
+      (not= "path" (or sub "path"))
+      (do (err-println (str "project: unknown subcommand " (pr-str sub) " — path")) 2)
+      (str/blank? (str kind))
+      (let [d (.getCanonicalPath (persist/project-home config))]
+        (println (if json
+                   (json/write-str {:project-dir pd :dir d
+                                    :kinds (into (sorted-map) (for [k kinds] [k (str d "/" k)]))})
+                   d))
+        0)
+      (not (some #{kind} kinds))
+      (do (err-println (str "project: byj keeps no " (pr-str kind) " — " (str/join ", " kinds))) 1)
+      :else
+      (let [f (if (some #{kind} persist/kinds) (persist/state-dir config kind) (projects/runtime-path pd kind))
+            path (.getCanonicalPath f)]
+        (println (if json (json/write-str {:project-dir pd :kind kind :path path :exists (.exists f)}) path))
+        0))))
 
 (defn- session-command
   "`byj session list [--live] [--json]` — brainyard's `cmd-sessions-list`,
@@ -2318,7 +2348,7 @@
 (defn- workflow-command
   "`byj workflow runs [N] [--json]`, `byj workflow verdict N
   pass|changes|fail [NOTE…]` and `byj workflow stop N [WHY…]` (byj-edw.4,
-  byj-cm4.4, RFC-076): the runs /workflow keeps — `.brainyard/workflow-runs/`
+  byj-cm4.4, RFC-076): the runs /workflow keeps — `~/.brainyard/projects/<slug>/workflow-runs/`
   — as data for a client, the person's word on one kept with it, and a
   running one stopped from outside its session."
   [{:keys [questions json]} dir]
@@ -2530,6 +2560,12 @@
       ;; the person's projects, the registry by keeps too (RFC-074)
       (= :projects command)
       (*exit* (projects-command opts))
+
+      ;; where this project keeps what its runs leave (RFC-016's second revision)
+      (= :project command)
+      (let [wd (or working-dir (System/getProperty "user.dir") ".")
+            {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})]
+        (*exit* (project-command opts config)))
 
       ;; a loop measured on the project's own work (RFC-071)
       (= :loops command)

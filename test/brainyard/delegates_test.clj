@@ -5,7 +5,8 @@
   "A project's delegations for a program (byj-oer): `byj session delegates`'s
   rows and `byj session attach` — on the stand-in for Claude Code
   (test/fixtures/fake-claude) and a tmux server of the test's own."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.projects :as projects]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent-host :as ah]
@@ -84,7 +85,7 @@
   (let [{:keys [project config]} (world "gone")
         gone (str project "/.brainyard/worktrees/bd-x")
         write! (fn [dir id r]
-                 (let [f (io/file project ".brainyard" dir (str id ".edn"))]
+                 (let [f (projects/runtime-path project dir (str id ".edn"))]
                    (io/make-parents f)
                    (spit f (pr-str r))))]
     (write! "claude-agents" "c-1" {:session-id "c-1" :dir gone :state "stopped" :parent-session "p-1" :updated-at 2

@@ -52,4 +52,5 @@
  {:name "btop" :description "Processes, CPU, memory, disks and network"
   :command ["btop"]}
  {:name "events" :description "This project's event log, as it grows"
-  :command ["tail" "-n" "40" "-F" ".brainyard/logs/events.log"]}]
+  ;; kept in the project's folder of ~/.brainyard/projects, which byj says
+  :command ["sh" "-c" "tail -n 40 -F \"$(byj project path logs)/events.log\""]}]

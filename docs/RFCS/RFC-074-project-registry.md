@@ -123,6 +123,7 @@ registry's, and the run goes on.
 - `prune-projects! [root] [root keep?]` — every missing record removed, its folder whole, but one `keep?` says to keep; the records removed.
 - `move-project! [root old-slug new-path]` — the old folder made the new path's; `{:record}` or `{:error}`.
 - `main-checkout [path]` — a linked worktree's main checkout, or nil.
+- `runtime-path [project kind & more]` — where the project keeps `kind` of what its runs leave (`runtime-kinds`: logs, claude-agents, codex-agents, workflow-runs, deps-snapshots, init/snapshots, captures, exports, drive/claims.edn, store.edn, todos, rails.edn, schedule, loops/proposals, loops/evals, deps-local.edn): `<root>/<slug>/<kind>`, the one function every such path is built by (RFC-016's second revision, `byj-84c.4`); what the project's `.brainyard/` kept of it moved there the first time, into the person's own home only (`auto-migrate?`, `migrate-kind!`).
 - `remove-project! [root slug]` — one record removed; it, or nil.
 - `refresh-index! [root]`, `parse-origin-url [text]`, `table [rows offset]`.
 
@@ -152,6 +153,7 @@ Config: `:register-project?` (boolean, true).
 | A registration keeps `:created-at` and keys it does not know; the index is the records' | `projects-test/a-registration-keeps-created-at-and-what-it-does-not-know` |
 | A record `by` wrote is read, and kept, as byj's own | `projects-test/a-record-by-wrote-is-read-as-byjs` |
 | The registry keeps a project's runtime: prune keeps a folder with a young session and removes a stale one whole, remove says what goes, move adopts a moved project's folder and tells its sessions, a worktree says whose it is, and the list shows worktrees and unlisted folders with `--all` | `projects-test/the-registry-keeps-a-projects-runtime` |
+| Every path to what a project's runs leave is built by `runtime-path`; what an older byj left in the project's `.brainyard/` is moved the first time, never what the repository shares, and never into a test run's home on its own; `byj project path` says where | `projects-test/only-the-registry-says-where-a-run-leaves-what`, `projects-test/what-a-run-left-in-the-project-is-moved-the-first-time-it-is-touched`, `projects-test/byj-project-path-says-where-a-projects-runs-leave-what` |
 | A missing project is listed, and removed only by prune or remove | `projects-test/a-missing-project-is-listed-and-only-pruned-when-asked` |
 | A slug read off disk never aims the delete outside the registry | `projects-test/a-slug-off-disk-never-aims-the-delete-elsewhere` |
 | `byj projects` lists, adds and forgets; prune asks, and removes nothing unanswered | `projects-test/byj-projects-lists-adds-and-forgets` |

@@ -4,7 +4,7 @@
 (ns brainyard.rail-state
   "What a person left the rails as, kept per project across restarts
   (byj-gly.457): each rail's open?, view and width (`tui-frame/kept-rails`),
-  and what each view folds. One file, `<project>/.brainyard/rails.edn`, which
+  and what each view folds. One file, `~/.brainyard/projects/<slug>/rails.edn`, which
   `.brainyard/*` keeps out of git:
 
     {:frame {:left {:open? true :view 0 :cols 30} :right {…}}
@@ -15,13 +15,14 @@
   so neither knows the file. A file that is missing or unreadable is no state,
   and one that cannot be written is left as it was: a rail that opens closed
   is never worth an error."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]))
 
 (defn file
   "Where project `dir` keeps its rails."
   [dir]
-  (io/file (str dir) ".brainyard" "rails.edn"))
+  (projects/runtime-path dir "rails.edn"))
 
 (defn- read-file [f]
   (try (let [m (when (.exists (io/file f)) (edn/read-string (slurp f)))]

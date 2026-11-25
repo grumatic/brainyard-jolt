@@ -4,7 +4,8 @@
 (ns brainyard.loop-eval-test
   "A candidate loop run as a clone of the agent on a task set and compared
   with the loop in force (RFC-071, byj-ng7.4), on the mock provider."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
@@ -110,7 +111,7 @@
     (is (= {:provider :mock} (:model report)))
     (is (every? #(= "done" (:name (first (:checks %)))) (:runs report)))
     (is (str/includes? (str/join "\n" (le/summary-lines {:file "f" :report report})) "verdict: not-better"))
-    (is (.isDirectory (io/file dir ".brainyard" "loops" "evals")))))
+    (is (.isDirectory (projects/runtime-path dir "loops/evals")))))
 
 (deftest a-run-is-contained-in-its-clone
   (let [{:keys [dir config]} (fixture "contained" 1)

@@ -25,7 +25,10 @@ so it never reads byj's tree, and byj's own suite never reads its tree either.
 What varies between two runs is written `<varies>` (times, pids, durations),
 `<sid>` (a session id), `<dir>` (the project's directory), `<sessions>` (the
 folder its sessions are kept in — in the person's home since RFC-016's
-revision, `byj session path` says where) and `<socket>` (the socket's path); the words of a prompt sent to the model are written
+revision, `byj session path` says where), `<project-home>` (another
+project's folder in the home, where it keeps what its runs leave —
+`deps-local.edn`, `workflow-runs/` …; `byj project path` says where) and
+`<socket>` (the socket's path); the words of a prompt sent to the model are written
 `<prompt>`, since their shape is the contract and their wording is byj's to
 change.
 

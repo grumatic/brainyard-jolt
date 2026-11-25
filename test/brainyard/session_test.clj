@@ -2,7 +2,8 @@
 ;; SPDX-License-Identifier: MIT
 
 (ns brainyard.session-test
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.projects :as projects]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
@@ -1193,7 +1194,8 @@
                                             :max-iterations 4 :persist-session? false})
         said (some #(when (and (= :info (first %)) (str/includes? (second %) "captured")) (second %)) out)]
     (is (some? said))
-    (is (str/includes? said "/.brainyard/captures/capture-"))
+    ;; beside the project's sessions, in its folder of the home (byj-84c.4)
+    (is (str/includes? said (str (projects/runtime-path dir "captures") "/capture-")))
     (is (str/includes? (slurp (last (str/split said #" to "))) "a question"))))
 
 (deftest tool-trail-is-kept-for-recent-turns

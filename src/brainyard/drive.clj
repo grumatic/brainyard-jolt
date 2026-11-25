@@ -16,7 +16,8 @@
 
   brainyard has no counterpart: its exec-agent drove a todo list, and was
   not ported (RFC-023)."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.effect :as fx]
@@ -208,12 +209,12 @@
 
 (defn claims-file
   "Where /drive keeps the beads it has claimed and not yet settled:
-  `<project>/.brainyard/drive/claims.edn`, bead id -> `{:session :pid :run}`.
+  `~/.brainyard/projects/<slug>/drive/claims.edn`, bead id -> `{:session :pid :run}`.
   A run that ends — or is cancelled, or dies — inside a bead's turn leaves
   the bead claimed, and `bd ready` leaves a claimed bead out, so the next
   run would pass over it; this is how that one is found and released."
   [dir]
-  (io/file (str dir) ".brainyard" "drive" "claims.edn"))
+  (projects/runtime-path dir "drive/claims.edn"))
 
 (defn- read-claims [dir]
   (or (try (let [f (claims-file dir)]

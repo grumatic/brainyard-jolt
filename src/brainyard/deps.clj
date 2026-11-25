@@ -19,7 +19,7 @@
   is dropped, a key at a time, and said as a problem; `report` resolves the
   projects, reads the sessions bound to each role and checks every handoff;
   `write!` is strict — it refuses a problem, a cycle or a dangling role —
-  and snapshots the old file under `.brainyard/deps-snapshots/` before it
+  and snapshots the old file under `~/.brainyard/projects/<slug>/deps-snapshots/` before it
   writes the new one in a stable order and reads it back.
 
   Mechanism only (RFC-001): nothing here decides what a session does with a
@@ -56,7 +56,7 @@
 
 (defn spec-file [dir] (io/file (str dir) ".brainyard" "deps.edn"))
 
-(defn local-file [dir] (io/file (str dir) ".brainyard" "deps-local.edn"))
+(defn local-file [dir] (projects/runtime-path dir "deps-local.edn"))
 
 (defn- file-of [dir which] (if (= :local which) (local-file dir) (spec-file dir)))
 
@@ -989,14 +989,14 @@
   (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss-SSS") (java.util.Date.)))
 
 (defn- snapshot!
-  "File `f` copied under `.brainyard/deps-snapshots/` before it is
+  "File `f` copied under `~/.brainyard/projects/<slug>/deps-snapshots/` before it is
   replaced: `{:path}`, `{:skipped? true}` when there is none yet, or
   `{:error}`."
   [dir f]
   (if-not (.isFile ^java.io.File f)
     {:skipped? true}
     (try
-      (let [d (io/file (str dir) ".brainyard" "deps-snapshots")
+      (let [d (projects/runtime-path dir "deps-snapshots")
             base (str/replace (.getName ^java.io.File f) #"\.edn$" "")
             dest (io/file d (str (stamp) "-" base ".edn"))]
         (.mkdirs d)

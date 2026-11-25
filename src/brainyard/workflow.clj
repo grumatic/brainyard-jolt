@@ -13,7 +13,7 @@
   their yes, as `profile$edit` writes the profile.
 
   Running one (`byj-edw.2`): `workflow$start` opens a run — kept as
-  `.brainyard/workflow-runs/<n>.edn` — and gives its first stage's brief;
+  `~/.brainyard/projects/<slug>/workflow-runs/<n>.edn` — and gives its first stage's brief;
   each stage is a ReAct turn the tree includes; `workflow$check` says what
   the turn left and whether what the stage hands on is ready
   (`deps/run-give-row`); the master role's judgement is the predictor
@@ -34,7 +34,8 @@
 
   brainyard has no counterpart; the workbench authors and runs these
   workflows from its own UI, and this is byj's own way to, from a session."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
@@ -371,7 +372,7 @@
   [config]
   (max 1 (or (num-of (:workflow-stage-attempts config)) 3)))
 
-(defn runs-dir [dir] (io/file (str dir) ".brainyard" "workflow-runs"))
+(defn runs-dir [dir] (projects/runtime-path dir "workflow-runs"))
 
 (defn run-file [dir n] (io/file (runs-dir dir) (str n ".edn")))
 
@@ -1091,7 +1092,7 @@
 (defn runs-report
   "`byj workflow runs --json` (byj-edw.4): the project's runs as data,
   newest first — or run `n` alone — each record as
-  `.brainyard/workflow-runs/<n>.edn` keeps it, a keyword as its name, as
+  `~/.brainyard/projects/<slug>/workflow-runs/<n>.edn` keeps it, a keyword as its name, as
   `byj deps --json` gives its files. `{:runs [run …]}`."
   [dir & [n]]
   {:runs (mapv deps/json-value (if n (keep identity [(read-run dir n)]) (runs dir)))})

@@ -61,8 +61,8 @@ is measured, not remembered.
   `coact-repair-action`", "brainyard `clj-llm.core.predictor`".
 - For anything a model sees, read what was ACTUALLY sent rather than what the
   code appears to send. Every `claude -p` call is recorded — argv and stdin,
-  unclipped — to `<project>/.brainyard/logs/events.log` (on unless
-  `:event-log? false`), and `dev/brainyard/dev/replay.clj` reads one back and
+  unclipped — to `~/.brainyard/projects/<slug>/logs/events.log`, which
+  `byj project path logs` names (on unless `:event-log? false`), and `dev/brainyard/dev/replay.clj` reads one back and
   re-runs it. Guessing at the cause of a model's behaviour cost a wrong fix
   once (provenance P-6).
 - An intentional difference goes in `docs/divergences.md` **and**

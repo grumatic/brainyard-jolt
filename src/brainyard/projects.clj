@@ -28,7 +28,8 @@
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
-            [brainyard.clock :as clock]))
+            [brainyard.clock :as clock]
+            [brainyard.effect :as fx]))
 
 (def project-file
   "A project's record, the truth for its slug -> path."
@@ -365,6 +366,96 @@
               {:record rec}
               {:error (str "moved to " new-slug ", but its record could not be written")})
             {:error (str "could not rename " old " to " to)})))))
+
+;; --- what a project's runs leave -------------------------------------------------
+
+(def runtime-kinds
+  "What a project's runs leave besides its sessions, transcripts and tasks
+  (`persist/kinds`), each a path under the project's folder in the registry
+  (RFC-016's second revision, byj-84c.4) and under `<project>/.brainyard/`
+  before it: a folder, or a file where it names one."
+  ["logs" "claude-agents" "codex-agents" "workflow-runs" "deps-snapshots"
+   "init/snapshots" "captures" "exports" "drive/claims.edn"
+   "store.edn" "todos" "rails.edn" "schedule" "loops/proposals" "loops/evals"
+   "deps-local.edn"])
+
+(defn auto-migrate?
+  "Is what a project's `.brainyard/` kept of its runs moved on its own the
+  first time it is touched? Only into the person's own home: never into a
+  home the `brainyard.projects-home` property or `BY_PROJECTS_HOME` gave — a
+  test run's — which would carry a real project's records (this repository's
+  own, a turn's project when a test gives none) into a home the next run
+  empties (byj-7sp.4)."
+  []
+  (boolean (and (System/getenv "HOME")
+                (empty? (System/getProperty "brainyard.projects-home"))
+                (empty? (System/getenv "BY_PROJECTS_HOME")))))
+
+(defn- move-path!
+  "`from` renamed to `to`, or moved by `mv` across file systems; true when
+  done."
+  [^java.io.File from ^java.io.File to]
+  (.mkdirs (.getParentFile to))
+  (or (.renameTo from to)
+      (try (= 0 (:exit (fx/sh {:out :string :err :string} "mv" (.getPath from) (.getPath to))))
+           (catch Throwable _ false))))
+
+(defn- remove-empty-up!
+  "`d` and each empty folder above it removed, up to `stop`, never `stop`."
+  [^java.io.File d ^java.io.File stop]
+  (loop [d d]
+    (when (and d (not= (.getCanonicalPath d) (.getCanonicalPath stop))
+               (.isDirectory d) (empty? (.listFiles d)) (.delete d))
+      (recur (.getParentFile d)))))
+
+(defn migrate-kind!
+  "`kind` of what the project at `cp` kept in its own `.brainyard/` moved to
+  `to`: whole when `to` is not there, else entry by entry what `to` lacks,
+  the rest left where it is; the folders it leaves empty removed. The
+  entries moved."
+  [cp kind ^java.io.File to]
+  (let [from (io/file cp ".brainyard" kind)]
+    (if-not (and (.exists from) (not= (.getCanonicalPath from) (.getCanonicalPath to)))
+      0
+      (let [n (cond
+                (not (.exists to)) (if (move-path! from to) 1 0)
+                (and (.isDirectory from) (.isDirectory to))
+                (count (filter true? (for [^java.io.File e (or (.listFiles from) [])
+                                           :let [t (io/file to (.getName e))]
+                                           :when (not (.exists t))]
+                                       (move-path! e t))))
+                :else 0)]
+        (remove-empty-up! (if (.exists from) from (.getParentFile from)) (io/file cp ".brainyard"))
+        n))))
+
+(defonce ^:private migrated
+  ;; [project kind] -> the legacy path's mtime when last moved from
+  (atom {}))
+
+(defn runtime-path
+  "Where the project at `project` keeps `kind` of what its runs leave
+  (`runtime-kinds`), then `more` under it: the one function every such path
+  is built by (RFC-016's second revision, byj-84c.4) —
+  `<projects-root>/<slug>/<kind>`, keyed by the project's path as the
+  registry is; the project's own `.brainyard/<kind>` when there is no home.
+  What the project's `.brainyard/` kept of it is moved here the first time
+  it is touched, into the person's own home only (`auto-migrate?`), and the
+  folder, once there, holds its record (`ensure-record!`)."
+  [project kind & more]
+  (let [cp (or (canonical-path (str (or project "."))) ".")
+        root (projects-root)]
+    (if-let [dir (project-user-dir root cp)]
+      (let [d (io/file dir)
+            to (io/file d kind)
+            legacy (io/file cp ".brainyard" kind)
+            stamp (when (.exists legacy) (.lastModified legacy))]
+        (when (and stamp (auto-migrate?) (not= stamp (get @migrated [cp kind])))
+          (swap! migrated assoc [cp kind] stamp)
+          (try (migrate-kind! cp kind to) (catch Throwable _ nil)))
+        (when (and (.isDirectory d) (not (.isFile (io/file d project-file))))
+          (ensure-record! root cp))
+        (apply io/file to more))
+      (apply io/file cp ".brainyard" kind more))))
 
 (defn project-path-for-slug
   "The path `slug`'s record names, or nil when it names none. Read from the

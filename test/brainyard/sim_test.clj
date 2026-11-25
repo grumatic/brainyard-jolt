@@ -6,7 +6,8 @@
   tmux server of the test's own: a person's lines typed into a real inline
   session, a permission prompt answered by the plan and recorded, each stage
   in a process resuming the same session, its checks, and the report."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.agent :as agent]
@@ -133,7 +134,7 @@
 
 (deftest what-claude-code-spent-is-counted
   (let [dir (.getCanonicalPath (doto (io/file "target" "sim-cost" (str (System/nanoTime))) .mkdirs))
-        recs (doto (io/file dir ".brainyard" "claude-agents") .mkdirs)]
+        recs (doto (projects/runtime-path dir "claude-agents") .mkdirs)]
     (spit (io/file recs "b.edn") (pr-str {:session-id "b" :started-at 500 :cost-usd 9.0}))
     (spit (io/file recs "c.edn") (pr-str {:session-id "c" :started-at 600 :cost-usd 0.20}))
     (let [before (sim/delegation-costs dir)]
@@ -195,7 +196,7 @@
 
 (deftest a-parked-task-keeps-the-stage-open
   (let [dir (io/file (System/getProperty "java.io.tmpdir") (str "sim-parked-" (System/nanoTime)))
-        log (io/file dir ".brainyard" "logs" "events.log")
+        log (projects/runtime-path dir "logs" "events.log")
         ev #(spit log (str (pr-str {:ts 1 :event %1 :level :trace :data %2 :session "s"}) "\n") :append true)]
     (io/make-parents log)
     (is (= {:tasks #{} :open-turns 0} (sim/parked-pending dir)) "no log: nothing pending")

@@ -9,7 +9,7 @@
   that delegated it and opens it in a terminal.
 
   Read from what the delegations leave: their records
-  (`.brainyard/claude-agents/`, `.brainyard/codex-agents/`) and the sessions
+  (`~/.brainyard/projects/<slug>/claude-agents/`, `~/.brainyard/projects/<slug>/codex-agents/`) and the sessions
   running on byj's tmux server (`agent-host/*tmux*`, byj-6e6). Attaching runs
   nothing here but a saved session started again, as its delegation started
   it (`claude-agent/reopen`, `codex-agent/reopen`); the program runs the attach

@@ -4,7 +4,8 @@
 (ns brainyard.toolbox-test
   "Declarative tools (RFC-010): the Tool Lisp language, user tools and their
   commands, brainyard's own tool files, and user tools inside the loop."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
@@ -254,7 +255,7 @@
       (is (= {:key "k" :removed true} (call "store$put" {:key "k"})))
       (is (= {:key "k" :found false} (call "store$get" {:key "k"}))))
     (testing "on disk, as EDN, for a later session"
-      (is (= {"scan/a" "x"} (edn/read-string (slurp (io/file dir ".brainyard" "store.edn"))))))
+      (is (= {"scan/a" "x"} (edn/read-string (slurp (projects/runtime-path dir "store.edn"))))))
     (testing "what is not EDN data is refused"
       (is (str/includes? (:error (store/put! (:config ctx) "f" inc)) "EDN data")))
     (testing "declared effects, for the gates"

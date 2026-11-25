@@ -8,7 +8,7 @@
   Every event the kernel puts on the bus (RFC-026), written down so a later run
   can be asked what happened in an earlier one:
 
-      <project-dir>/.brainyard/logs/events.log
+      ~/.brainyard/projects/<slug>/logs/events.log
 
   One `pr-str` map per line, the same discipline as the prediction and
   trajectory logs — brainyard writes pretty-printed EDN paragraphs split on
@@ -26,7 +26,8 @@
   and replies. Those belong to the prediction log, which is off until a project
   turns it on (RFC-021), and putting them here would quietly make this log the
   thing that one is deliberately not."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.walk :as walk]
@@ -44,7 +45,7 @@
   (when (and (not (false? event-log?))
              (not (false? persist-session?))
              project-dir)
-    (io/file project-dir ".brainyard" "logs" filename)))
+    (projects/runtime-path project-dir "logs" filename)))
 
 ;; --- rotation --------------------------------------------------------------------
 
@@ -160,7 +161,7 @@
   What a reader making its own pass over the whole log reads (the eval
   adapters, byj-gly.288.1), rather than `read-events`' parse of every line."
   [{:keys [project-dir event-log-keep]}]
-  (files-newest-first (io/file (or project-dir ".") ".brainyard" "logs" filename) event-log-keep))
+  (files-newest-first (projects/runtime-path project-dir "logs" filename) event-log-keep))
 
 (defn- lines-newest-first [f]
   (reverse (remove str/blank? (str/split-lines (slurp f)))))
@@ -209,7 +210,7 @@
   whole record and then hiding it would still let a caller confirm that a phrase
   appears in a prompt it is not allowed to read."
   [{:keys [project-dir event-log-keep] :as config} {:keys [event level session since match limit full?]}]
-  (let [f (io/file (or project-dir ".") ".brainyard" "logs" filename)
+  (let [f (projects/runtime-path project-dir "logs" filename)
         limit (or limit 50)
         words (->> (str/split (str/lower-case (str match)) #"\s+")
                    (remove str/blank?))

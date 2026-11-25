@@ -14,7 +14,7 @@
 ;;   a run's opening                    → workflow$start (mechanism: the
 ;;                                         profile, the workflow, its work —
 ;;                                         an issue claimed — kept
-;;                                         in .brainyard/workflow-runs/)
+;;                                         in the project's workflow-runs/, byj project path)
 ;;   a stage's work                     → a ReAct turn in a scope of its own,
 ;;                                         asked the stage's brief — or, for a
 ;;                                         run in a worktree and a role whose

@@ -5,7 +5,7 @@
   "Durable work state (RFC-023) — brainyard's `common/todo.clj` reduced to the
   part a workflow cannot supply itself.
 
-      <project-dir>/.brainyard/todos/<slug>.md
+      ~/.brainyard/projects/<slug>/todos/<slug>.md
 
   brainyard has a todo-agent that authors a list and an exec-agent that drives
   it, handing each other dossiers. Here the driving is a behaviour tree
@@ -25,7 +25,8 @@
       - [ ] [check] run the suite
 
   The tag is advisory. A workflow routes on it; nothing enforces it."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.projects :as projects]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.config :as config]))
 
@@ -39,8 +40,7 @@
   slug)
 
 (defn todos-dir [config]
-  (io/file (config/canonical-dir (or (:project-dir config) (:working-dir config) "."))
-           ".brainyard" "todos"))
+  (projects/runtime-path (or (:project-dir config) (:working-dir config) ".") "todos"))
 
 (defn todo-file [config slug] (io/file (todos-dir config) (str (check-slug! slug) ".md")))
 
@@ -193,7 +193,7 @@
   [config]
   (when (:todos? config true)
     [{:name "todo$create" :kind :command
-      :description (str "Write a checklist that OUTLIVES this turn, under .brainyard/todos/<slug>.md."
+      :description (str "Write a checklist that OUTLIVES this turn, as <slug>.md in the project's todos folder, kept outside the repository."
                         " Use it when a task has more steps than one turn should carry: the list is"
                         " what lets a later turn pick up where this one stopped. An item may name how"
                         " it should be done with `via`.")

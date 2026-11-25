@@ -13,7 +13,7 @@
 ;; codex$handoff commits what it changed and says how to publish it.
 ;;
 ;; The session is an interactive Codex in tmux (byj-cx-<thread>), so a person
-;; can attach to it at any time; its record is .brainyard/codex-agents/<thread>.edn.
+;; can attach to it at any time; its record is ~/.brainyard/projects/<slug>/codex-agents/<thread>.edn.
 ;; Asked again (agent-registry$ask), the same instance finds the session it
 ;; drives marked YOURS and continues it.
 [:sequence {:id :cx/turn}

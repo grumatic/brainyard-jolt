@@ -16,7 +16,8 @@
   I/O goes through the ctx, so tests and other front ends can drive it:
     :read-input  (fn [prompt] line-or-nil)   nil = end of input
     :emit        (fn [kind text])            kind ∈ :answer :info :error"
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [brainyard.clock :as clock]
             [clojure.java.io :as io]
             [clojure.pprint]
@@ -1658,7 +1659,7 @@
   "Where a capture goes when nobody says: beside the session it captures, named
   for the moment it was taken."
   [config]
-  (let [dir (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" "captures")]
+  (let [dir (projects/runtime-path (or (:project-dir config) (:working-dir config) ".") "captures")]
     (.mkdirs dir)
     (.getPath (io/file dir (str "capture-" (System/currentTimeMillis) ".txt")))))
 

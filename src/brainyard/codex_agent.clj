@@ -24,8 +24,9 @@
   branch back with the commands that publish it, for whoever gave agent$codex
   the task.
 
-  The record of each delegation is `.brainyard/codex-agents/<thread>.edn`."
-  (:require [clojure.edn :as edn]
+  The record of each delegation is `~/.brainyard/projects/<slug>/codex-agents/<thread>.edn`."
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.claude-agent :as claude-agent]
@@ -38,7 +39,7 @@
 
 (defn- project [config] (or (:project-dir config) (:working-dir config) "."))
 
-(defn records-dir [config] (io/file (project config) ".brainyard" "codex-agents"))
+(defn records-dir [config] (projects/runtime-path (project config) "codex-agents"))
 
 (defn- record-file [config sid] (io/file (records-dir config) (str sid ".edn")))
 

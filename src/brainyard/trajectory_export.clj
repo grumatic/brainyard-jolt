@@ -8,7 +8,7 @@
   `trajectory.edn` is what the agent DID; this is that turned into examples of
   what it should do:
 
-      <project-dir>/.brainyard/exports/trajectories-<ms>.{jsonl,edn}
+      ~/.brainyard/projects/<slug>/exports/trajectories-<ms>.{jsonl,edn}
 
   Two formats. `openai-jsonl` is one `{\"messages\": [...]}` per turn in the
   OpenAI tool-calling shape, ready to fine-tune on; `edn` is the records
@@ -20,7 +20,8 @@
   moment a project's turns stop being a local diagnostic and become a file that
   gets copied somewhere. `trajectory.edn` itself holds whatever the turn said,
   as brainyard's does."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.projects :as projects]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.json :as json]
             [brainyard.secrets :as secrets]
@@ -100,7 +101,7 @@
      :redacted (boolean (and redact? (some secrets/redacted? examples)))}))
 
 (defn export-file [config fmt]
-  (io/file (or (:project-dir config) ".") ".brainyard" "exports"
+  (projects/runtime-path (:project-dir config) "exports"
            (str "trajectories-" (System/currentTimeMillis) "." (extension fmt))))
 
 (defn learnable?

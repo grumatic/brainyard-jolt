@@ -34,7 +34,8 @@
   the accept, as for a loop.
 
   brainyard has no counterpart: its loops are code."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
@@ -51,7 +52,7 @@
 (defn proposals-dir
   "`<project>/.brainyard/loops/proposals`."
   [config]
-  (io/file (project-loops/loops-dir (project-dir config)) "proposals"))
+  (projects/runtime-path (project-dir config) "loops/proposals"))
 
 (defn- read-edn [f] (when (.isFile f) (try (edn/read-string (slurp f)) (catch Throwable _ nil))))
 

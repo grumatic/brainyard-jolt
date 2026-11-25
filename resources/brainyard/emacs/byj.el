@@ -1509,9 +1509,19 @@ with its key here and a button, for you to run."
     (byj--send (byj--with-here (byj--question 'todo-at-point (car (byj--place)) (line-number-at-pos) line)))))
 
 ;; The session's checklist (RFC-023's todo file, the /todo and coaching
-;; checklists) is a markdown file under the project's .brainyard/todos/: it is
-;; opened as it is, kept in step with the disk, and a step ticked there tells
-;; byj. The file is the one source; no copy of it is kept here.
+;; checklists) is a markdown file in the project's todos folder, which byj
+;; keeps in the project's folder of ~/.brainyard/projects and says where
+;; (`byj project path todos', RFC-016): it is opened as it is, kept in step
+;; with the disk, and a step ticked there tells byj. The file is the one
+;; source; no copy of it is kept here.
+
+(defun byj--project-path (dir kind)
+  "Where byj keeps KIND of what DIR's project's runs leave, asked of byj —
+never built here, as byj alone names a project's folder — or nil."
+  (with-temp-buffer
+    (when (eq 0 (call-process byj-program nil '(t nil) nil "-C" dir "project" "path" kind))
+      (let ((p (string-trim (buffer-string))))
+        (and (file-name-absolute-p p) p)))))
 
 (defvar-local byj--todo-dir nil "The project whose checklist this buffer is.")
 
@@ -1531,7 +1541,9 @@ with its key here and a button, for you to run."
 your work, kept in step with what byj writes to it."
   (interactive)
   (let* ((dir (or (car (byj--project-entry)) (byj--project-dir)))
-         (todos (expand-file-name ".brainyard/todos" dir))
+         (todos (or (byj--project-path dir "todos")
+                    ;; a byj from before it kept them in the home
+                    (expand-file-name ".brainyard/todos" dir)))
          (files (and (file-directory-p todos)
                      (sort (directory-files todos t "\\.md\\'")
                            (lambda (a b) (time-less-p (file-attribute-modification-time (file-attributes b))

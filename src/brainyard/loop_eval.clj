@@ -36,7 +36,8 @@
   Mechanism only (RFC-001): which candidate, on which tasks, with what bounds
   is the caller's. What runs a turn is injected (`:run-turn`), the agent's
   own `ask` by default."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
@@ -331,7 +332,7 @@
 (defn evals-dir
   "`<project>/.brainyard/loops/evals`, where reports are kept."
   [config]
-  (io/file (project-loops/loops-dir (loop-proposals/project-dir config)) "evals"))
+  (projects/runtime-path (loop-proposals/project-dir config) "loops/evals"))
 
 (defn- read-candidate [candidate]
   (cond

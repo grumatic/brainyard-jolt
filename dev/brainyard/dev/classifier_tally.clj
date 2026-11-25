@@ -12,16 +12,17 @@
   the pattern matching the two attachments the rules and extensions plans
   attach (dev/sim/extensions/ext/work.edn and tests.edn). Reads only."
   (:require [clojure.java.io :as io]
+            [brainyard.projects]
             [clojure.string :as str]))
 
 (defn tally
   "`{:runs n :verdicts {[verdict cached?] n} :doubts [[run reason] …]}` over the
-  `dirs` whose `.brainyard/logs/events.log` holds a command `pattern` matches."
+  `dirs` whose event log (`byj project path logs`) holds a command `pattern` matches."
   [pattern dirs]
   (let [re (re-pattern pattern)]
     (reduce
      (fn [acc dir]
-       (let [f (io/file dir ".brainyard" "logs" "events.log")
+       (let [f (brainyard.projects/runtime-path dir "logs" "events.log")
              t (when (.isFile f) (slurp f))]
          (if-not (and t (re-find re t))
            acc

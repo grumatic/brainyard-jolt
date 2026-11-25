@@ -7,7 +7,8 @@
   emacs$* tools. Against a stand-in emacsclient, and once against a real
   Emacs daemon of the test's own, on a socket in a temporary directory —
   never the person's server."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.projects :as projects]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.persist]
@@ -565,6 +566,7 @@
                            "  *'session list'*) printf '[{\"session-id\":\"s-live\",\"live?\":true}]' ;;\n"
                            "  *'--attach s-gone'*) printf '{\"success\":false,\"error\":\"no live session s-gone\"}'; exit 1 ;;\n"
                            "  *'emacs changes'*) cat " (terminal/string-literal (str home "/changes.json")) " ;;\n"
+                           "  *'project path todos'*) printf '%s' " (terminal/string-literal (str (projects/runtime-path dir "todos"))) " ;;\n"
                            "  *) printf '{\"success\":true,\"answer\":\"it is one\"}' ;;\n"
                            "esac\n"))
             (fx/sh {:out :string :err :string} "chmod" "+x" (.getPath bin))
@@ -628,7 +630,7 @@
                 (el (str "(with-current-buffer (find-file-noselect " gl ") (insert \"x\") (byj-review-unsaved) " settle ")"))
                 (is (str/starts-with? (last (last (lines))) (str "Review my unsaved changes in " g ":")))))
             (testing "the checklist: the todo file itself, a step ticked there saved and told"
-              (let [todo (io/file dir ".brainyard" "todos" "coach-moving.md")]
+              (let [todo (projects/runtime-path dir "todos" "coach-moving.md")]
                 (spit (doto todo io/make-parents) "# moving\n\n- [ ] by words\n- [ ] to a line\n")
                 (el (str "(with-current-buffer (find-file-noselect " (terminal/string-literal (str f)) ") (byj-todo))"))
                 (is (= "t" (el (str "(with-current-buffer (get-file-buffer " (terminal/string-literal (str todo)) ") (and byj-todo-mode auto-revert-mode t))")))

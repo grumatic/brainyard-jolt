@@ -14,7 +14,8 @@
   tool found for its version, and looks at the project's files. It installs
   nothing, writes nothing, and needs no network or model. The reference is
   brainyard's `env-detect` `executables.clj` (`detect-executables`)."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
@@ -509,11 +510,11 @@
 
 (defn apply-writes!
   "Make the writes `plan` lists in `dir`: each file changed is first copied to
-  `.brainyard/init/snapshots/<ms>/`, as brainyard's init-agent snapshots
+  `~/.brainyard/projects/<slug>/init/snapshots/<ms>/`, as brainyard's init-agent snapshots
   before every write. `{:writes [{:path :action}] :snapshot}`."
   [dir plan]
   (let [changes (filter #(#{:create :update} (:action %)) plan)
-        snap (io/file dir ".brainyard" "init" "snapshots" (str (System/currentTimeMillis)))]
+        snap (projects/runtime-path dir "init/snapshots" (str (System/currentTimeMillis)))]
     (doseq [{:keys [path action before after kind] :as w} changes]
       (if (= :link kind)
         (link! dir w)

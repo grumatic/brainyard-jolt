@@ -12,7 +12,7 @@
 ;;
 ;; The session is an interactive Claude Code in tmux (byj-cc-<id>), so a person
 ;; can attach to it at any time; nothing here outlives the session but its
-;; record, .brainyard/claude-agents/<id>.edn. Asked again (agent-registry$ask),
+;; record, ~/.brainyard/projects/<slug>/claude-agents/<id>.edn. Asked again (agent-registry$ask),
 ;; the same instance finds the session it drives marked YOURS and continues it.
 ;;
 ;; Check it before changing it: `by flow check brainyard/loops/claude.edn`.

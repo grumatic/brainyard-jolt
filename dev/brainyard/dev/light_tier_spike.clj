@@ -10,7 +10,7 @@
       jolt -A:dev -m brainyard.dev.light-tier-spike [N] [LOG-DIR…]
 
   N calls per predictor (default 5), from the event logs under each LOG-DIR's
-  .brainyard/logs (default: this project), newest first, one per session so a
+  ~/.brainyard/projects/<slug>/logs (default: this project), newest first, one per session so a
   long session does not fill the sample. Every row is two real model calls on
   the claude CLI's subscription. Results: target/light-tier/results.edn; the
   outputs are printed for a person to read — whether a recap kept its facts is

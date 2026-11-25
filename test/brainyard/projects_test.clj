@@ -277,3 +277,74 @@
         (if before
           (System/setProperty "brainyard.projects-home" before)
           (System/clearProperty "brainyard.projects-home"))))))
+
+(deftest only-the-registry-says-where-a-run-leaves-what
+  ;; byj-84c.4: every path to what a project's runs leave is built by
+  ;; projects/runtime-path (or persist/state-dir for sessions), so the place
+  ;; is one function's; a namespace that builds `.brainyard/logs` itself
+  ;; would write where nothing reads any more
+  (let [kinds "logs|claude-agents|codex-agents|workflow-runs|deps-snapshots|init|captures|exports|drive|store\\.edn|todos|rails\\.edn|schedule|deps-local\\.edn"
+        re (re-pattern (str "\"\\.brainyard\"\\s+\"(" kinds ")\"|\"loops\"\\s+\"(proposals|evals)\""))
+        offenders (for [f (file-seq (io/file "src/brainyard"))
+                        :when (and (.isFile f) (str/ends-with? (.getName f) ".clj")
+                                   (not= "projects.clj" (.getName f)))
+                        [i line] (map-indexed vector (str/split-lines (slurp f)))
+                        :when (re-find re line)]
+                    (str (.getName f) ":" (inc i) " " (str/trim line)))]
+    (is (empty? offenders) (str/join "\n" offenders))))
+
+(deftest what-a-run-left-in-the-project-is-moved-the-first-time-it-is-touched
+  ;; byj-84c.4: a project's .brainyard/ keeps what its repository shares;
+  ;; what an older byj's runs left there is moved to the project's folder in
+  ;; the home the first time it is asked for — on its own only into the
+  ;; person's home, which a test stands in for here
+  (let [p (temp-dir "proj-legacy")
+        b (io/file p ".brainyard")
+        put! (fn [rel text] (let [f (io/file b rel)] (io/make-parents f) (spit f text) f))]
+    (put! "logs/events.log" "old events\n")
+    (put! "store.edn" "{\"k\" 1}")
+    (put! "init/snapshots/1/AGENTS.md" "before")
+    (put! "loops/react.edn" "{}")
+    (put! "loops/proposals/p-1.edn" "{}")
+    (put! "config.edn" "{}")
+    (testing "a test run's home is never moved into on its own"
+      (is (false? (projects/auto-migrate?)))
+      (projects/runtime-path p "logs")
+      (is (.isFile (io/file b "logs" "events.log"))))
+    (with-redefs [projects/auto-migrate? (constantly true)]
+      (doseq [k ["logs" "store.edn" "init/snapshots" "loops/proposals"]] (projects/runtime-path p k))
+      (testing "each kind moved, whole"
+        (is (= "old events\n" (slurp (projects/runtime-path p "logs" "events.log"))))
+        (is (= "{\"k\" 1}" (slurp (projects/runtime-path p "store.edn"))))
+        (is (.isFile (projects/runtime-path p "init/snapshots" "1" "AGENTS.md")))
+        (is (.isFile (projects/runtime-path p "loops/proposals" "p-1.edn"))))
+      (testing "and nothing it shares: the config and the loops stay, the folders emptied go"
+        (is (.isFile (io/file b "config.edn")))
+        (is (.isFile (io/file b "loops" "react.edn")))
+        (doseq [gone ["logs" "store.edn" "init" "loops/proposals"]]
+          (is (not (.exists (io/file b gone))) gone)))
+      (testing "the folder holds the project's record"
+        (is (= p (:path (first (filter #(= p (:path %)) (projects/list-projects (projects/projects-root) {:unlisted? true})))))))
+      (testing "an older byj that wrote there again: what the home lacks is moved, what it has is left"
+        (put! "logs/events.log.1" "older\n")
+        (put! "logs/events.log" "clash\n")
+        (projects/runtime-path p "logs")
+        (is (= "older\n" (slurp (projects/runtime-path p "logs" "events.log.1"))))
+        (is (= "old events\n" (slurp (projects/runtime-path p "logs" "events.log"))))
+        (is (= "clash\n" (slurp (io/file b "logs" "events.log"))) "left where it was")))))
+
+(deftest byj-project-path-says-where-a-projects-runs-leave-what
+  ;; byj-84c.4 (S3): a program, an editor or a script asks byj, never
+  ;; builds the path or works out the slug
+  (let [p (temp-dir "proj-path")]
+    (let [{:keys [exit out]} (run-main nil "-C" p "project" "path" "logs")]
+      (is (= 0 exit))
+      (is (= (str (.getCanonicalPath (projects/runtime-path p "logs")) "\n") out)))
+    (let [j (json/read-str (:out (run-main nil "-C" p "project" "path" "--json")))]
+      (is (= p (:project-dir j)))
+      (is (= (str (projects/projects-root) "/" (projects/project-slug p)) (:dir j)))
+      (is (= (str (:dir j) "/sessions") (get-in j [:kinds :sessions])))
+      (is (= (str (:dir j) "/workflow-runs") (get-in j [:kinds :workflow-runs]))))
+    (let [j (json/read-str (:out (run-main nil "-C" p "project" "path" "todos" "--json")))]
+      (is (= {:project-dir p :kind "todos" :exists false} (dissoc j :path))))
+    (is (= 1 (:exit (run-main nil "-C" p "project" "path" "config.edn"))) "what the project shares is not byj's to place")))

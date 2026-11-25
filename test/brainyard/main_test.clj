@@ -7,7 +7,9 @@
   Mostly this is where the run's session id is settled, because everything
   downstream is named after it: the event sinks, the agent's spill directory
   and the session snapshot all have to agree on which run this is."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [brainyard.deps :as deps]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
@@ -584,7 +586,7 @@
         (is (= #{"project-missing" "never-reviewed" "unbound-role" "not-ready"} (set (map :kind (:checks j)))))))
     (testing "--local writes the machine's file"
       (is (= 0 (:exit (deps! "{\"bindings\": {\"design\": [\"s-1\"]}}" "write" "--local" "--json"))))
-      (is (= {:design ["s-1"]} (:bindings (edn/read-string (slurp (io/file dir ".brainyard" "deps-local.edn")))))))
+      (is (= {:design ["s-1"]} (:bindings (edn/read-string (slurp (deps/local-file dir)))))))
     (testing "refused: not JSON, a role that is not one; exit 1 and the stage"
       (is (= [1 "input"] (let [{:keys [exit out]} (deps! "{nope" "write" "--json")] [exit (:stage (json/read-str out))])))
       (is (= [1 "check"] (let [{:keys [exit out]} (deps! "{\"handoffs\": [{\"from\": \"a\", \"to\": \"b\"}]}" "write" "--json")]
@@ -599,7 +601,7 @@
   ;; byj-edw.4: the runs /workflow keeps, for a client
   (let [dir (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-workflow-cli-" (System/nanoTime))) .mkdirs))
         wf! (fn [& args] (apply run-main "-C" dir "workflow" args))
-        f (io/file dir ".brainyard" "workflow-runs" "1.edn")]
+        f (projects/runtime-path dir "workflow-runs" "1.edn")]
     (testing "no runs"
       (is (= {:runs []} (json/read-str (:out (wf! "runs" "--json")))))
       (is (str/includes? (:out (wf! "runs")) "No runs yet.")))
@@ -619,10 +621,10 @@
       (is (= "looks good" (:note (edn/read-string (slurp f)))))
       (is (= 1 (:exit (wf! "verdict" "1" "meh")))))
     (testing "a running run stopped from outside its session (byj-cm4.4)"
-      (spit (io/file dir ".brainyard" "workflow-runs" "2.edn")
+      (spit (projects/runtime-path dir "workflow-runs" "2.edn")
             (pr-str {:n 2 :workflow :fix :status :running :work "w" :stages [{:stage :implement :status :working}] :log []}))
       (is (= {:ok true :run 2} (json/read-str (:out (wf! "stop" "2" "not" "now" "--json")))))
-      (let [r (edn/read-string (slurp (io/file dir ".brainyard" "workflow-runs" "2.edn")))]
+      (let [r (edn/read-string (slurp (projects/runtime-path dir "workflow-runs" "2.edn")))]
         (is (= :stopped (:status r)))
         (is (= "not now" (:stopped r)))
         (is (= ["■ not now"] (:log r))))

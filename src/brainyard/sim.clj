@@ -34,7 +34,8 @@
   as a person's accept would (RFC-072), and the report names them. A plan's
   `:notice-markers` are words to count in the notices each stage's turns
   were shown — what an attachment said, `ANSWER REFUSED` for a refusal."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.string :as str]
@@ -126,7 +127,7 @@
   inline session shows nothing while a turn runs, so the screen cannot say
   whether a line was taken (a sonnet turn said nothing for minutes)."
   [dir]
-  (let [f (io/file dir ".brainyard" "logs" "events.log")]
+  (let [f (projects/runtime-path dir "logs" "events.log")]
     (if (.isFile f)
       (count (re-seq #":event :session\.turn/start" (slurp f)))
       0)))
@@ -139,7 +140,7 @@
   (byj-gly.317: mode B's ui stage was checked while Claude Code still built
   it). `{:tasks #{id…} :open-turns n}`."
   [dir]
-  (let [f (io/file dir ".brainyard" "logs" "events.log")
+  (let [f (projects/runtime-path dir "logs" "events.log")
         log (if (.isFile f) (slurp f) "")
         ids #(set (map second (re-seq % log)))]
     {:tasks (reduce disj
@@ -381,7 +382,7 @@
   "What each Claude Code session agent$claude drove in project `dir` has cost
   so far, by its delegation record: `{session-id usd}`."
   [dir]
-  (into {} (for [f (or (.listFiles (io/file dir ".brainyard" "claude-agents")) [])
+  (into {} (for [f (or (.listFiles (projects/runtime-path dir "claude-agents")) [])
                  :when (str/ends-with? (.getName ^java.io.File f) ".edn")
                  :let [r (try (edn/read-string (slurp f)) (catch Throwable _ nil))]
                  :when (and (map? r) (:session-id r))]
