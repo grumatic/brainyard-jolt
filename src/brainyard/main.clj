@@ -526,7 +526,30 @@
   (let [seen (set listened)]
     (for [{:keys [id problem turn-count conversation-title last-question]} (persist/summaries config)
           :when (and (not problem) (pos? (or turn-count 0)) (not (seen id)))]
-      {:session-id id :live? false :saved? true :label conversation-title :last-question last-question})))
+      (merge (select-keys (persist/location config id) [:session-id :dir :project-dir])
+             {:live? false :saved? true :label conversation-title :last-question last-question}))))
+
+(defn- session-rows
+  "`byj session list`'s rows: the sessions that listened, then — unless
+  `live` — the saved ones that never did; each saying where it is kept."
+  [config live]
+  (let [listened (channel/sessions config)]
+    (if live
+      (filter :live? listened)
+      (concat listened (saved-rows config (map :session-id listened))))))
+
+(defn- session-path
+  "`byj session path ID [--json]` (byj-7sp.1): where session ID of this
+  project is kept — its directory, or `--json` `{session-id dir project-dir
+  exists}` — so a program finds it through byj rather than building the
+  path; exit 1 when there is no such session."
+  [id json config]
+  (let [loc (when-not (str/blank? (str id)) (persist/location config (str/trim (str id))))]
+    (cond
+      (nil? loc) (do (err-println "session path: give a session's id (byj session list)") 2)
+      json (do (println (json/write-str loc)) (if (:exists loc) 0 1))
+      (:exists loc) (do (println (:dir loc)) 0)
+      :else (do (err-println (str "no session " (:session-id loc) " in " (:project-dir loc))) 1))))
 
 (defn- session-command
   "`byj session list [--live] [--json]` — brainyard's `cmd-sessions-list`,
@@ -560,6 +583,7 @@
                    (:error r) (err-println (str "error: " (:error r)))
                    :else (println (str/join " " (:attach r))))
                  (System/exit (if (:error r) 1 0)))
+      "path" (System/exit (session-path (second questions) json config))
       "watch" (let [target (second questions)
                     s (channel/find-session (dissoc config :session-id) target
                                             " — `session list --live` names the live ones")]
@@ -570,13 +594,10 @@
                     (err-println (str "watching " (:session-id s) " — " (pr-str ack) " (ctrl-c stops)"))
                     @done
                     (System/exit 0))))
-      (do (err-println (str "session: unknown subcommand " (pr-str sub) " — list | watch SESSION | delegates | attach ID")) (System/exit 2)))
+      (do (err-println (str "session: unknown subcommand " (pr-str sub) " — list | path ID | watch SESSION | delegates | attach ID")) (System/exit 2)))
     (if (not= "list" sub)
       nil
-      (let [listened (channel/sessions config)
-            rows (if live
-                   (filter :live? listened)
-                   (concat listened (saved-rows config (map :session-id listened))))]
+      (let [rows (session-rows config live)]
         (if json
           (println (json/write-str (mapv #(update % :ops (fn [ops] (mapv name ops))) rows)))
           (if (empty? rows)

@@ -51,6 +51,7 @@
             [brainyard.init :as init]
             [brainyard.json :as json]
             [brainyard.main :as main]
+            [brainyard.persist :as persist]
             [brainyard.session :as session]
             [brainyard.update :as update]
             [brainyard.workflow :as workflow]))
@@ -249,6 +250,20 @@
       (workflow/record-verdict cfg {:run run :verdict "changes" :note "decide first"}))
     (held "workflow/runs.json"
           (str (json/write-str (normal (json/read-str (json/write-str (workflow/runs-report top))) top)) "\n"))))
+
+(deftest a-projects-sessions-are-byjs-contract
+  ;; byj-7sp.1: where a program finds a session — `byj session list --json`'s
+  ;; dir and project-dir, `byj session path --json` — rather than building
+  ;; .brainyard/sessions/<id> itself, so the place can move (RFC-016's revision)
+  (let [top (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-contract-sessions-" (System/nanoTime))) .mkdirs))
+        cfg {:project-dir top :working-dir top}
+        id "1700000000000-0123abcd"]
+    (persist/save! cfg id {:turn-count 1 :question "what is here?" :conversation-title "what-is-here"
+                           :previous-turns [{:question "what is here?" :answer "two files"}]})
+    (held "session/list.json"
+          (str (json/write-str (normal (json/read-str (with-out-str (#'brainyard.main/session-command {:questions ["list"] :json true} cfg))) top)) "\n"))
+    (held "session/path.json"
+          (str (json/write-str (normal (json/read-str (with-out-str (#'brainyard.main/session-path id true cfg))) top)) "\n"))))
 
 (deftest the-doctor-report-is-byjs-contract
   ;; byj-mmd: what the workbench's Doctor panel reads. Outside this

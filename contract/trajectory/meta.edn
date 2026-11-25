@@ -1,4 +1,5 @@
 {:ask-socket-path "<socket>",
+ :project-dir "<dir>",
  :frame-version 2,
  :ops
  [:ask

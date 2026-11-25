@@ -31,7 +31,9 @@
    :summary "This project's sessions, and a live one's events (RFC-031)"
    :subcommands
    [{:subs [{:name "list" :args "[--live] [--json]"
-             :summary "this project's sessions: those that listen, then saved ones"}
+             :summary "this project's sessions: those that listen, then saved ones; --json says where each is kept"}
+            {:name "path" :args "ID [--json]"
+             :summary "where a session is kept, for a program to read it there; exit 1 when there is none"}
             {:name "watch" :args "SESSION [--events E,…]"
              :summary "a live session's events as they happen, one EDN line each"}
             {:name "delegates" :args "[--json]"

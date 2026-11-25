@@ -249,7 +249,7 @@ matters more there (scrollback) than here.
 ## API
 
 `brainyard.persist`: `sessions-dir`, `session-dir`, `session-file`,
-`lock-file`, `own-pid`, `alive?`, `read-session`, `save!`, `summaries`,
+`lock-file`, `project-of`, `location`, `own-pid`, `alive?`, `read-session`, `save!`, `summaries`,
 `latest-id`, `holder`, `lock!`, `unlock!`, `restore`, `describe`,
 `schema-version`, `fork!`, `delete!`.
 
@@ -279,6 +279,15 @@ session removed at someone's word — its directory and its transcript tree —
 where `prune!` removes by age. A session another live process holds is
 refused, since its next save would write it back. Reached through ACP's
 `session/delete` (RFC-053); the CLI has no command for it.
+
+**Where a session is kept, as a protocol** (`persist/location`,
+`byj-7sp.1`): `{:session-id :dir :project-dir :exists}`. `byj session list
+--json` gives each row's `dir` and `project-dir`, and `byj session path ID
+[--json]` one session's — its directory, exit 1 when there is none — so a
+program built on byj reads a session where byj says it is rather than
+building `.brainyard/sessions/<id>` itself, and keeps working when the
+place moves (the revision below). Both are byj's contract
+(`contract/session/list.json`, `contract/session/path.json`).
 
 Config (RFC-013): `:persist-session?` (default true), `:resume` (an id, set by
 the CLI), `:session-id`, `:prune-sessions?` (true), `:keep-sessions` (20),
@@ -323,6 +332,7 @@ someone with three and then shows them one (`byj-gly.75`).
 | **A resumable session is never pruned to make room for records**, and a held one is left alone whichever budget it falls under. | `persist-test/a-resumable-session-is-never-pruned-to-make-room-for-records`, `persist-test/a-record-held-by-a-live-process-is-left-alone` |
 | A `session.edn` is what makes a directory resumable; transcripts keep the rule they had. | `persist-test/what-makes-a-directory-resumable-is-the-snapshot`, `persist-test/transcripts-keep-the-rule-they-had` |
 | Pruning never deletes anything that is not a direct child of its root. | `persist-test/pruning-refuses-to-escape-its-root` |
+| A session says where it is kept: the list's `dir` and `project-dir`, `byj session path`, exit 1 for none; both shapes are byj's contract. | `sdk-test/a-session-says-where-it-is-kept`, `contract-test/a-projects-sessions-are-byjs-contract` |
 
 ## Known gaps
 
@@ -481,14 +491,16 @@ project's folder through `persist`, not through the gate.
 Before anything moves, the location becomes a protocol rather than a path a
 program builds:
 
-- `byj session list --json` gives each session's `dir` and `projectDir`;
+- `byj session list --json` gives each session's `dir` and `project-dir`;
 - `byj session path ID [--json]` gives one session's directory;
 - `meta.edn` names its `:project-dir`;
 - the contract's `:path` placeholder becomes `<sessions>/<sid>/trajectory.edn`,
   `<sessions>` the session's project folder, whatever its root.
 
 Shipped first, with the location unchanged, so a program reading the folder
-can move to the command before the folder moves.
+can move to the command before the folder moves. **Built** (`byj-7sp.1`):
+the first three, in this RFC's API below as `persist/location`; the
+placeholder changes with the move.
 
 ### What changes in byj
 
@@ -530,7 +542,7 @@ can move to the command before the folder moves.
 
 ### Steps
 
-1. The protocol (`byj-7sp.1`): `dir` and `projectDir` in `byj session list --json`, `byj
+1. The protocol (`byj-7sp.1`, built): `dir` and `project-dir` in `byj session list --json`, `byj
    session path`, `:project-dir` in `meta.edn`; the location unchanged.
 2. One root (`byj-7sp.2`): every session path built through `persist`.
 3. The root's resolution and the test runner's home and guard (`byj-7sp.3`).

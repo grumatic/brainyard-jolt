@@ -44,6 +44,23 @@
 
 (defn lock-file [config id] (io/file (session-dir config id) "lock.edn"))
 
+(defn project-of
+  "The project whose sessions `config` reads and writes, as a canonical path."
+  [config]
+  (config/canonical-dir (or (:project-dir config) (:working-dir config) ".")))
+
+(defn location
+  "Where session `id` of the project is kept: `{:session-id :dir :project-dir
+  :exists}`, `:exists` whether its directory is there. What a program built on
+  byj reads instead of building `.brainyard/sessions/<id>` itself, so the
+  place can change under it (byj-7sp.1, RFC-016's revision)."
+  [config id]
+  (let [d (session-dir config id)]
+    {:session-id (str id)
+     :dir (.getCanonicalPath d)
+     :project-dir (project-of config)
+     :exists (.isDirectory d)}))
+
 ;; --- pid and liveness -------------------------------------------------------------
 
 (defn- sh [& cmd]

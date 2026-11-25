@@ -445,6 +445,10 @@
       (reset! (:server ch) (us/serve! path #(handle ch %)))
       ;; every key, so a label from an earlier run does not outlive it
       (write-meta! config session-id {:ask-socket-path path
+                                      ;; whose session it is, so a list of
+                                      ;; them need not be read from one
+                                      ;; project's folder (byj-7sp.1)
+                                      :project-dir (persist/project-of config)
                                       :frame-version frame-version
                                       :ops (cond-> ops
                                              permission-fn (conj :permission)
@@ -490,7 +494,8 @@
 (defn sessions
   "Every session under the project that has ever listened, newest first:
   brainyard's `enriched-summaries` row — `:session-id :live? :owner-pid
-  :ask-socket-path :ops`, and the `:label` (the conversation's title) and
+  :ask-socket-path :ops` — with where it is kept (`:dir :project-dir`,
+  `persist/location`), and the `:label` (the conversation's title) and
   `:last-question` a person picks one by. Live means its lock names a running
   process and its socket is there to answer."
   [config]
@@ -505,6 +510,9 @@
                            snap (let [f (io/file d "session.edn")]
                                   (when (.isFile f) (persist/read-session config id)))]
                        {:session-id id
+                        ;; where it is kept, as byj's protocol (byj-7sp.1)
+                        :dir (.getCanonicalPath d)
+                        :project-dir (persist/project-of config)
                         :live? (boolean (and pid (persist/alive? pid) (.exists (io/file ask-socket-path))))
                         :owner-pid pid
                         :ask-socket-path ask-socket-path

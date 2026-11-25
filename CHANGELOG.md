@@ -6,6 +6,12 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A program finds a session where byj says it is.** `byj session list
+  --json` gives each session's `dir` and `project-dir`, and the new `byj
+  session path ID [--json]` gives one session's folder (exit 1 when there is
+  none); a live session's `meta.edn` names its `:project-dir`. Read sessions
+  through these rather than building `.brainyard/sessions/<id>`: sessions are
+  to move to `~/.brainyard/sessions/<project>/` (RFC-016's revision).
 - **A `:bead` give in `.brainyard/deps.edn` is deprecated: write it as an
   issue.** A bead is an issue, and `{:kind :issue :tracker :beads :id …}`
   (or `:parent`) says the same. A `:bead` give still reads and is checked

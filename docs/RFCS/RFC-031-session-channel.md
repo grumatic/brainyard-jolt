@@ -263,7 +263,9 @@ Port-only, each with its own divergence entry when built:
   both are taken over by the next owner.
 - **Finding a live session:** a session that has listened has `meta.edn`, and it
   is live when its lock names a running process and its socket is there
-  (`channel/sessions`, brainyard's `enriched-summaries`).
+  (`channel/sessions`, brainyard's `enriched-summaries`). `meta.edn` names
+  its `:project-dir`, and each row of the list its `:dir` and `:project-dir`
+  (`byj-7sp.1`, RFC-016).
 - **What an asker is charged.** When an answer lands — from `session$ask`,
   or later from `session$send` — its usage is added to the asker's *session*
   usage (the turn that asked may be over), and

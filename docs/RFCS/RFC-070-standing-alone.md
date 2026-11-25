@@ -33,7 +33,10 @@ share sidecar (RFC-043), ACP and the SDK (RFC-053), the trajectory
 1. **A program reaches byj as a process, a socket or a file.** It runs
    `byj` and reads its `--json` outputs; it speaks to a session over
    `ask.sock` (RFC-031) or to `byj acp` (RFC-053); it reads what a session
-   leaves on disk (`.brainyard/sessions/<id>/`, RFC-025, RFC-016). byj
+   leaves on disk (`.brainyard/sessions/<id>/`, RFC-025, RFC-016) — found
+   where byj says it is, `byj session list --json`'s `dir` or `byj session
+   path ID`, not by building the path, which is to move (RFC-016's
+   revision, `byj-7sp`). byj
    keeps no extension registry and loads no other program's code: a
    feature that is a program's own is that program's, and byj names it
    nowhere.

@@ -265,3 +265,25 @@
              (map #(select-keys % [:session-id :saved? :live?])
                   (json/read-str (with-out-str (#'brainyard.main/session-command {:questions ["list"] :json true} cfg)))))
           "in the JSON too"))))
+
+(deftest a-session-says-where-it-is-kept
+  ;; byj-7sp.1: a program finds a session's folder through byj — the list's
+  ;; dir and project-dir, byj session path — never by building it, so the
+  ;; place can move (RFC-016's revision)
+  (let [dir (fresh-dir "where")
+        s (open dir (scripted [(reply {:answer "ok" :goal-achieved true})]))
+        id (:id s)
+        cfg {:project-dir dir :working-dir dir}
+        kept (.getCanonicalPath (persist/session-dir cfg id))
+        path #(let [code (atom nil) out (with-out-str (reset! code (#'brainyard.main/session-path %1 %2 cfg)))] [@code (str/trim out)])]
+    (try (answer s "where am I kept") (finally (sdk/close! s)))
+    (testing "the list says where each is kept"
+      (is (= [{:session-id id :dir kept :project-dir (.getCanonicalPath (io/file dir))}]
+             (map #(select-keys % [:session-id :dir :project-dir])
+                  (json/read-str (with-out-str (#'brainyard.main/session-command {:questions ["list"] :json true} cfg)))))))
+    (testing "byj session path gives the folder, or says there is none"
+      (is (= [0 kept] (path id false)))
+      (is (= [0 {:session-id id :dir kept :project-dir (.getCanonicalPath (io/file dir)) :exists true}]
+             (update (path id true) 1 json/read-str)))
+      (is (= 1 (first (path "1700000000000-deadbeef" false))))
+      (is (false? (:exists (json/read-str (second (path "1700000000000-deadbeef" true)))))))))

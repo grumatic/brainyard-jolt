@@ -97,7 +97,9 @@
       (testing "meta.edn names the socket and what it answers"
         (is (= {:ask-socket-path (:path ch) :frame-version channel/frame-version
                 :ops [:ask :inject :status :cancel :subscribe :config :emit :mcp :rename-session]}
-               (select-keys (channel/read-meta (:config ch) (:session-id ch)) [:ask-socket-path :frame-version :ops]))))
+               (select-keys (channel/read-meta (:config ch) (:session-id ch)) [:ask-socket-path :frame-version :ops])))
+        (is (= (.getCanonicalPath (io/file dir)) (:project-dir (channel/read-meta (:config ch) (:session-id ch))))
+            "and whose session it is (byj-7sp.1)"))
       (fake-session ch (fn [q] {:answer (str "answered: " q) :terminated-by :answer-channel :usage {:llm-calls 1}}) stop?)
       (testing ":ask waits for the turn and returns its answer, with the session's model"
         (is (= {:status :ok :answer "answered: what is 2+2" :usage {:llm-calls 1} :provider "mock" :model "m"}
