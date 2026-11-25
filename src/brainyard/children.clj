@@ -26,6 +26,7 @@
   it drives, from the delegation records (RFC-039)."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [brainyard.persist :as persist]
             [brainyard.trajectory :as trajectory]))
 
 (defn instance-id?
@@ -141,7 +142,7 @@
   the file changed (the page asks for every saved session it draws, eight
   times a second)."
   [{:keys [project-dir] :as config} session-id]
-  (let [f (io/file project-dir ".brainyard" "sessions" (str session-id) trajectory/filename)]
+  (let [f (io/file (persist/session-dir {:project-dir project-dir} session-id) trajectory/filename)]
     (if-not (.isFile f)
       []
       (let [k (.getPath f) m (.lastModified f) b (.length f)

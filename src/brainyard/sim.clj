@@ -43,6 +43,7 @@
             [brainyard.effect :as fx]
             [brainyard.loop-proposals :as loop-proposals]
             [brainyard.project-loops :as project-loops]
+            [brainyard.persist :as persist]
             [brainyard.trajectory :as trajectory]))
 
 ;; --- tmux -----------------------------------------------------------------------------------
@@ -368,7 +369,7 @@
   "Every trajectory record in project `dir` written at or after `since` (ms),
   across its sessions — a stage's root turns and its subagents' alike."
   [dir since]
-  (let [sessions (or (.listFiles (io/file dir ".brainyard" "sessions")) [])]
+  (let [sessions (or (.listFiles (persist/sessions-dir {:project-dir dir})) [])]
     (vec (sort-by :ts (for [s sessions
                             :when (.isDirectory ^java.io.File s)
                             r (try (trajectory/read-trajectories {:project-dir dir} (.getName ^java.io.File s))

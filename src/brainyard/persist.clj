@@ -35,8 +35,15 @@
 
 ;; --- paths ------------------------------------------------------------------------
 
-(defn sessions-dir [config]
-  (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" "sessions"))
+(defn state-dir
+  "Where the project keeps what its sessions leave of `kind` —
+  `\"sessions\"`, `\"transcripts\"` (RFC-014), `\"tasks\"` (RFC-019): the one
+  root every such path is built from, so the place can move in one fn
+  (byj-7sp.2, RFC-016's revision)."
+  [config kind]
+  (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" kind))
+
+(defn sessions-dir [config] (state-dir config "sessions"))
 
 (defn session-dir [config id] (io/file (sessions-dir config) (str id)))
 
@@ -403,8 +410,7 @@
 
 ;; --- pruning --------------------------------------------------------------------
 
-(defn transcripts-dir [config]
-  (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" "transcripts"))
+(defn transcripts-dir [config] (state-dir config "transcripts"))
 
 (defn- delete-tree!
   "Delete `dir`, but only when it is a direct child of `root` — brainyard's
@@ -464,8 +470,7 @@
                             (> (- now at) ttl-ms))))]
       dir)))
 
-(defn tasks-dir [config]
-  (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" "tasks"))
+(defn tasks-dir [config] (state-dir config "tasks"))
 
 (declare prune-empty!)
 

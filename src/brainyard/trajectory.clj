@@ -30,6 +30,7 @@
   (:require [clojure.edn :as edn]
             [brainyard.config :as config]
             [brainyard.cost :as cost]
+            [brainyard.persist :as persist]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.version :as version]))
@@ -292,7 +293,7 @@
   (when (and (not (false? trajectory-log?))
              (not (false? persist-session?))
              session-id project-dir)
-    (io/file project-dir ".brainyard" "sessions" (str session-id) filename)))
+    (io/file (persist/session-dir {:project-dir project-dir} session-id) filename)))
 
 ;; One monitor for every append in this process. A turn writes one line, so
 ;; contention is not a cost worth optimising — but subagents run concurrently
@@ -323,7 +324,7 @@
   live process: a read racing a write sees a half-written tail, and one torn
   line at the end must not cost the reader every record before it."
   [{:keys [project-dir]} session-id]
-  (let [f (io/file project-dir ".brainyard" "sessions" (str session-id) filename)]
+  (let [f (io/file (persist/session-dir {:project-dir project-dir} session-id) filename)]
     (if-not (.isFile f)
       []
       (->> (str/split-lines (slurp f))
@@ -344,7 +345,7 @@
 (defn sessions
   "Session ids that have a trajectory, newest-written first."
   [{:keys [project-dir]}]
-  (let [d (io/file project-dir ".brainyard" "sessions")]
+  (let [d (persist/sessions-dir {:project-dir project-dir})]
     (if-not (.isDirectory d)
       []
       (->> (.listFiles d)

@@ -24,7 +24,8 @@
             [clojure.pprint :as pprint]
             [clojure.string :as str]
             [brainyard.effect :as fx]
-            [brainyard.events :as events]))
+            [brainyard.events :as events]
+            [brainyard.persist :as persist]))
 
 ;; --- measuring --------------------------------------------------------------------
 
@@ -62,10 +63,9 @@
   (str (System/currentTimeMillis) "-" (subs (str (random-uuid)) 0 8)))
 
 (defn transcript-dir
-  "<project-dir>/.brainyard/transcripts/<session-id>/turn-<n>."
+  "`<transcripts>/<session-id>/turn-<n>`, under `persist/transcripts-dir`."
   [config turn]
-  (io/file (or (:project-dir config) (:working-dir config) ".")
-           ".brainyard" "transcripts"
+  (io/file (persist/transcripts-dir config)
            (or (:session-id config) "no-session")
            (str "turn-" (or turn 1))))
 

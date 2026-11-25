@@ -248,8 +248,8 @@ matters more there (scrollback) than here.
 
 ## API
 
-`brainyard.persist`: `sessions-dir`, `session-dir`, `session-file`,
-`lock-file`, `project-of`, `location`, `own-pid`, `alive?`, `read-session`, `save!`, `summaries`,
+`brainyard.persist`: `state-dir`, `sessions-dir`, `session-dir`, `session-file`,
+`lock-file`, `transcripts-dir`, `tasks-dir`, `project-of`, `location`, `own-pid`, `alive?`, `read-session`, `save!`, `summaries`,
 `latest-id`, `holder`, `lock!`, `unlock!`, `restore`, `describe`,
 `schema-version`, `fork!`, `delete!`.
 
@@ -332,6 +332,7 @@ someone with three and then shows them one (`byj-gly.75`).
 | **A resumable session is never pruned to make room for records**, and a held one is left alone whichever budget it falls under. | `persist-test/a-resumable-session-is-never-pruned-to-make-room-for-records`, `persist-test/a-record-held-by-a-live-process-is-left-alone` |
 | A `session.edn` is what makes a directory resumable; transcripts keep the rule they had. | `persist-test/what-makes-a-directory-resumable-is-the-snapshot`, `persist-test/transcripts-keep-the-rule-they-had` |
 | Pruning never deletes anything that is not a direct child of its root. | `persist-test/pruning-refuses-to-escape-its-root` |
+| Every path to a session's folder, transcripts and tasks is built by `persist/state-dir`, no other namespace. | `persist-test/only-persist-says-where-a-session-is-kept` |
 | A session says where it is kept: the list's `dir` and `project-dir`, `byj session path`, exit 1 for none; both shapes are byj's contract. | `sdk-test/a-session-says-where-it-is-kept`, `contract-test/a-projects-sessions-are-byjs-contract` |
 
 ## Known gaps
@@ -544,7 +545,7 @@ placeholder changes with the move.
 
 1. The protocol (`byj-7sp.1`, built): `dir` and `project-dir` in `byj session list --json`, `byj
    session path`, `:project-dir` in `meta.edn`; the location unchanged.
-2. One root (`byj-7sp.2`): every session path built through `persist`.
+2. One root (`byj-7sp.2`, built): every session path built through `persist`.
 3. The root's resolution and the test runner's home and guard (`byj-7sp.3`).
 4. The move (`byj-7sp.4`): the layout, transcripts and tasks with it, reading both places,
    migration.

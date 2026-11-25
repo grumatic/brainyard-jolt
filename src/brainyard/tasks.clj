@@ -27,6 +27,7 @@
             [clojure.string :as str]
             [brainyard.effect :as fx]
             [brainyard.events :as events]
+            [brainyard.persist :as persist]
             [brainyard.tools :as tools]
             [ebb.core :as m]))
 
@@ -53,8 +54,7 @@
 
 (defn registry [] (atom {}))
 
-(defn tasks-dir [config]
-  (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" "tasks"))
+(defn tasks-dir [config] (persist/tasks-dir config))
 
 (defn- terminal? [status] (contains? #{:completed :failed :cancelled} status))
 

@@ -656,3 +656,16 @@
       (let [kept (:recaps (persist/read-session c "s1"))]
         (is (= persist/recaps-kept (count kept)))
         (is (= (+ 5 persist/recaps-kept) (key (last (sort-by key kept)))))))))
+
+(deftest only-persist-says-where-a-session-is-kept
+  ;; byj-7sp.2: every path to what a session leaves — its folder, its
+  ;; transcripts, its tasks — is built by persist/state-dir, so the place can
+  ;; move in one fn (RFC-016's revision); a namespace that builds one itself
+  ;; would be left behind by the move
+  (let [offenders (for [f (file-seq (io/file "src/brainyard"))
+                        :when (and (.isFile f) (str/ends-with? (.getName f) ".clj")
+                                   (not= "persist.clj" (.getName f)))
+                        [i line] (map-indexed vector (str/split-lines (slurp f)))
+                        :when (re-find #"\"\.brainyard\"\s+\"(sessions|transcripts|tasks)\"" line)]
+                    (str (.getName f) ":" (inc i) " " (str/trim line)))]
+    (is (empty? offenders) (str/join "\n" offenders))))
