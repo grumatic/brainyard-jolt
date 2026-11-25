@@ -563,3 +563,110 @@ contract writes the folder `<sessions>`.
 5. Pruning a gone project's sessions (`byj-7sp.5`, built: `persist/prune-gone!`).
 6. The path gate closing other projects' sessions to an agent (`byj-7sp.6`, built: RFC-012).
 7. The docs, the contract recorded again, the divergence (`byj-7sp.7`).
+
+## The project's home
+
+Decided 2026-11-26, not built (`byj-84c`): the second revision. byj-7sp's
+layout above — a tree per kind beside the registry — is replaced before it
+is published by **one folder per project, the registry's**, holding
+everything a run leaves, sessions among it. The steps below replace that
+section's layout, root and worktree placement; its pruning, migration and
+the gate's reasons stand.
+
+### What stays in the project, and what goes
+
+A project's `.brainyard/` keeps what is shared through its repository, and
+git no longer ignores it:
+
+- `config.edn`, `profile.edn`, `deps.edn`, `AGENTS.md`, `BRAINYARD.md`;
+- `agents/`, `commands/`, `skills/`, `hooks/`, `tools/`, `programs/`,
+  `predictors/user/`, `teams/`;
+- `loops/*.edn` and `loops/tasks/`, `mcp/catalog.edn`, `analytics.edn`,
+  `prices.edn`, `terminal.edn`, `emacs/lessons/`;
+- `.env`, read as now and named in `.brainyard/.gitignore`, which byj
+  writes, so a secret is never committed.
+
+Everything a run leaves goes to `~/.brainyard/projects/<slug>/`:
+
+```
+~/.brainyard/projects/<slug>/
+  project.edn          the registry's record (RFC-074): the one per folder
+  sessions/            <session-id>/ as now, last-run.edn
+  transcripts/  tasks/
+  logs/events.log
+  claude-agents/  codex-agents/  workflow-runs/
+  deps-snapshots/  init/snapshots/  captures/  exports/  handovers/
+  drive/claims.edn  store.edn  todos/  rails.edn  schedule/
+  loops/proposals/  loops/evals/
+  deps-local.edn       what this machine says of the project's dependencies
+  worktrees/<branch>/  the project's git worktrees, checkouts themselves
+```
+
+brainyard names this folder "the project's user-scope folder"
+(`projects/project-user-dir`) and keeps only the record in it; byj keeps
+the project's runtime there. A divergence, widening
+`sessions-are-kept-in-the-home`.
+
+### The slug
+
+- **S1 The key is the project root's canonical path**, the slug brainyard's
+  byte for byte (`<basename>-<first 8 hex of SHA-256>`, RFC-074). A case, a
+  trailing `/`, a `..` or a symlink (`/tmp`, `/private/tmp`) name the same
+  slug. A project id committed to the repository, its root commit or its
+  origin were not taken: two clones of one repository, and its worktrees,
+  would share them, and a project outside git has none.
+- **S2 The project root** is an explicit directory, else the git root, else
+  **the nearest directory at or above the working directory holding
+  `.brainyard/`**, else the working directory. The person's home is never
+  one by its `.brainyard/`, which is byj's home. A divergence from
+  brainyard's `resolve-project-dir`: a project outside git run from its
+  subdirectory is one project, not one per directory.
+- **S3 Only byj makes a slug.** A program asks: `byj projects list --json`,
+  `byj project path --json`.
+- **S4 A worktree is keyed by its own path**, as decided; its record says
+  `:worktree-of` its main checkout's slug. Its checkout lies in the main
+  checkout's folder, its runtime in its own.
+- **S5 One folder, one record.** Writing to a project's folder writes its
+  record. A run that is not registered (`:register-project? false`: a flow,
+  a program's evaluation, a loop evaluation's clone) writes it with
+  `:listed? false`, which `byj projects` leaves out, and the gone-project
+  prune removes it with its last session.
+- **S6 A project moved or renamed is a new slug.** Its old folder is a gone
+  project's, kept until `:session-ttl-days`. `byj projects move OLD-SLUG
+  [DIR]` adopts it: the folder renamed, its record and each session's
+  `meta.edn` `:project-dir` rewritten; refused when the new slug has a
+  folder or a session is held. Nothing is matched by guessing.
+- **S7 One home**: `brainyard.projects-home`, `BY_PROJECTS_HOME`, `$HOME`.
+  `brainyard.sessions-home` goes.
+
+### What it costs
+
+- **`by projects prune|remove` deletes the folder whole.** brainyard's
+  registry knows only its record; on a machine that runs both, `by` asked to
+  forget a missing project removes its sessions with it, held or young.
+  byj's own prune keeps a gone project's folder until nothing in it is
+  younger than the TTL; `by`'s does not, and is asked first.
+- **`by projects list` lists a record `:listed? false`**: `by` does not know
+  the key, and shows the runs byj hides.
+- **A worktree moves.** Its checkout is under the home, so an editor, a tmux
+  pane or a program that found it at `.brainyard/worktrees/` looks again;
+  the gate opens a project's own tree though it lies in another's folder.
+- **Programs built on byj** read sessions, workflow runs, delegations and
+  worktrees from the project's `.brainyard/` today; they ask `byj project
+  path` before this ships.
+
+### Steps
+
+1. One home, sessions, transcripts and tasks under `projects/<slug>/`, one
+   record per folder (`byj-84c.1`).
+2. The project root's `.brainyard/` step (`byj-84c.2`).
+3. The registry keeps runtime: prune and remove by the TTL, `byj projects
+   move`, `:worktree-of` (`byj-84c.3`).
+4. The rest of what a run leaves, through one function, with migration
+   (`byj-84c.4`).
+5. Worktrees under the project's folder, moved with `git worktree move`
+   (`byj-84c.5`).
+6. `byj project path`, and `.brainyard/` out of `.gitignore` (`byj-84c.6`).
+7. Another project's whole folder closed to an agent; `:project-homes-shared?`
+   (`byj-84c.7`).
+8. Docs, contract, divergence (`byj-84c.8`).
