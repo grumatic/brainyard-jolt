@@ -1645,9 +1645,20 @@ session, where a person sees it.
 **A full-screen run can be resumed as the set it was.** brainyard resumes one
 session per `--resume`, and its exit hint lists a line for each tab. Here a
 run also records the sessions it has open and the one in front
-(`.brainyard/sessions/last-run.edn`), and `--resume-run` reopens them all,
+(`last-run.edn` in the project's sessions folder), and `--resume-run` reopens them all,
 with the same one in front. The session list also offers saved sessions to
 resume. Each session is still its own, and `--resume <id>` still continues one.
+
+<!-- divergence: sessions-are-kept-in-the-home -->
+**A session is kept in the person's home, not the project.** brainyard keeps
+sessions project-only, on purpose (`"sessions" :project-only`: work in one
+codebase, "rather than a user-global junk drawer"). Here a session, its
+transcripts and its tasks are under `~/.brainyard/<kind>/<project-slug>/`,
+keyed by the project's path as the registry is and beside it: a worktree
+removed with `--force` took its sessions with it, the project folder held a
+person's records, and a project made again lost them (RFC-016, `byj-7sp`).
+A project's old `.brainyard/sessions` is moved the first time it is touched;
+`by`, which shares the home, keeps its own in the project.
 
 <!-- divergence: the-default-model-is-config -->
 **The model a run asks is a config key, `:default-lm`, and by default

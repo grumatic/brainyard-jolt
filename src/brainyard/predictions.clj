@@ -5,7 +5,7 @@
   "Predictor calls, read back out of the event log (RFC-021).
 
   This used to be a log of its own — one `pr-str` map per line under
-  `<project>/.brainyard/sessions/<id>/predictions.edn`, written by a sink of its
+  `predictions.edn` in the session's folder (persist/session-dir), written by a sink of its
   own, clipped at 4000 characters, and off by default. All three of those are
   gone. `events.log` is lossless and holds every `:predictor/call` whole
   (RFC-026), so a second file recording the same thing less completely had

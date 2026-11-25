@@ -1,8 +1,8 @@
 # RFC-016 — Session persistence and resume
 
-**Status:** implemented (`byj-gly.9`). A revision that keeps sessions in the
-person's home rather than the project is proposed at the end (draft, not built:
-"Proposed revision"); nothing above changes until it is built.
+**Status:** implemented (`byj-gly.9`); sessions kept in the person's home
+since `byj-7sp` ("Sessions in the person's home", at the end; divergence
+`sessions-are-kept-in-the-home`).
 
 ## Purpose
 
@@ -26,14 +26,20 @@ CLI.
 ### One directory per session
 
 ```
-<project-dir>/.brainyard/sessions/<session-id>/
-  session.edn     the snapshot
-  lock.edn        {:pid … :at …}, only while a process holds it
+~/.brainyard/sessions/<project-slug>/
+  project.edn       {:path "/abs/project"}: whose sessions these are
+  <session-id>/
+    session.edn     the snapshot
+    lock.edn        {:pid … :at …}, only while a process holds it
 ```
 
-The id is the run's `:session-id` (RFC-014): milliseconds plus 8 hex, so it
-sorts by age, and the turn transcripts a compaction spills land under
-`.brainyard/transcripts/<session-id>/` beside it. Resuming reuses the id, so a
+The folder is the project's, keyed by its path (`projects/project-slug`, as
+the registry's), in the person's home (`persist/sessions-home`); a worktree,
+another path, is a project of its own. byj session path says where; a
+program reads it there (`persist/location`). The id is the run's
+`:session-id` (RFC-014): milliseconds plus 8 hex, so it sorts by age, and the
+turn transcripts a compaction spills land under
+`~/.brainyard/transcripts/<project-slug>/<session-id>/`. Resuming reuses the id, so a
 session keeps one directory for its whole life. brainyard's ids are
 `agt-<millis>-<rand>` in a project-scoped `sessions/` directory — the same
 shape, split across `meta.edn`, `session.edn` and an append-only
@@ -135,7 +141,7 @@ byj run --no-persist        # save nothing
 
 **A full-screen run is resumed as the set it was** (`byj-gly.178`). While the
 run is on, the sessions it has open, in order, and the one last in front are
-recorded in `.brainyard/sessions/last-run.edn`, rewritten when either changes,
+recorded in `last-run.edn` in the project's sessions folder, rewritten when either changes,
 so a run that crashes still leaves its set. `--resume-run` reopens each of them
 under its own id, with its history, and puts the same one in front. A session
 another process has open is started fresh in its place, and says so. A session
@@ -212,8 +218,10 @@ says a session is live, which the session channel relies on (RFC-031,
 
 ### Pruning
 
-At startup, `prune!` removes session, transcript and task (RFC-019) directories
-that are all of:
+At startup, `prune!` removes the sessions of a project that is gone past
+`:session-ttl-days` (`prune-gone!`, "Sessions in the person's home"), and
+session, transcript and task (RFC-019) directories of this project that are
+all of:
 past `:session-ttl-days` (14), outside the most recent `:keep-sessions` (20)
 **in their own tree**, not this run's, and not held by a live process. It costs
 one directory listing, and `:prune-sessions? false` switches it off.
@@ -354,12 +362,12 @@ someone with three and then shows them one (`byj-gly.75`).
 - **No `--resume` picker.** brainyard offers an interactive menu; here
   `--sessions` lists and `-r <id>` chooses.
 
-## Proposed revision: sessions in the person's home (draft)
+## Sessions in the person's home
 
-Decided 2026-11-25, not built (`byj-7sp`): sessions move to the person's
+Decided 2026-11-25 and built (`byj-7sp`): sessions moved to the person's
 home, a worktree keyed by its own path, a gone project's sessions kept until
 `:session-ttl-days`, and another project's sessions closed to an agent by
-default. Until it is built, everything above stands.
+default. What follows is why, what it cost, and how it is laid out.
 
 ### Why move them
 
@@ -502,10 +510,9 @@ program builds:
 - the contract's `:path` placeholder becomes `<sessions>/<sid>/trajectory.edn`,
   `<sessions>` the session's project folder, whatever its root.
 
-Shipped first, with the location unchanged, so a program reading the folder
-can move to the command before the folder moves. **Built** (`byj-7sp.1`):
-the first three, in this RFC's API below as `persist/location`; the
-placeholder changes with the move.
+Shipped first (`byj-7sp.1`), with the location unchanged, so a program
+reading the folder could move to the command before the folder moved; the
+contract writes the folder `<sessions>`.
 
 ### What changes in byj
 
@@ -530,7 +537,7 @@ placeholder changes with the move.
   `contract/`, the CLI help, a divergence entry in `docs/divergences.md` and
   `.edn`.
 
-### What it would promise
+### What it promises
 
 - A session is kept under the person's home, in its project's folder, and
   nothing of it under the project's `.brainyard/` once migrated.

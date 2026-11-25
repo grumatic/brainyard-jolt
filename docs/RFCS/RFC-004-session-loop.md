@@ -537,7 +537,7 @@ drift the moment one of them is edited.
 ## Known gaps
 
 - Persistence and resume are RFC-016: a snapshot per session under
-  `.brainyard/sessions/`, `-r <id>` / `--resume-latest` / `--sessions`, and
+  `~/.brainyard/sessions/<project-slug>/`, `-r <id>` / `--resume-latest` / `--sessions`, and
   startup pruning. Not ported: `/clear` rotation, batched history demotion.
 - History is demoted by a fixed full-depth, not brainyard's batched demotion (`append-turn` `:full-depth 10 :summary-depth 30 :demote-batch 10`), which keeps the history zone cache-stable.
 - No full-screen TUI — `byj-gly.20`; no streaming output while a turn runs — `byj-gly.8`.

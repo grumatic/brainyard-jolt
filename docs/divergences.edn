@@ -454,6 +454,9 @@
  {:id "a-run-resumes-as-a-set"
   :brainyard "bases/agent-tui core.clj :resume-session / format-resume-hint (one session per --resume; the exit hint lists each tab's id)"
   :test "brainyard.persist-test/a-run-remembers-the-set-it-had-open"}
+ {:id "sessions-are-kept-in-the-home"
+  :brainyard "components/agent/src/ai/brainyard/agent/core/config.clj (\"sessions\" :project-only: <project>/.brainyard/sessions/)"
+  :test "brainyard.persist-test/a-session-is-kept-in-the-persons-home"}
  {:id "the-default-model-is-config"
   :brainyard "clj-llm core/providers.clj get-default-lm (a process-wide default LM from LLM_PROVIDER and the providers config; :lm-config is read-only, switched with /model)"
   :test "brainyard.main-test/a-run-asks-the-configured-model-not-whichever-key-is-set"}

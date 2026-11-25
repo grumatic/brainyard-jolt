@@ -63,7 +63,7 @@
    :cache-ttl {:family :provider :type "string" :default "5m" :doc "Cache lifetime for the marked zones: 5m, or 1h (a 2x write premium)."}
    :prompt-cache-key {:family :provider :type "string" :default nil :doc "Routing key for OpenAI's automatic prefix cache."}
    :persist-session? {:type "boolean" :default true :family :session
-                      :doc "Save the session after every turn under .brainyard/sessions (RFC-016)."}
+                      :doc "Save the session after every turn, in ~/.brainyard/sessions/<project>/ (RFC-016)."}
    :prune-sessions? {:type "boolean" :default true :family :session
                      :doc "At startup, remove session and transcript directories past the keep/TTL limits (RFC-016)."}
    :register-project? {:type "boolean" :default true :family :session
@@ -153,7 +153,7 @@
    :keep-sessions {:family :session :type "integer" :default 20 :doc "Most recent sessions always kept, whatever their age."}
    :session-ttl-days {:family :session :type "integer" :default 14 :doc "Sessions older than this may be pruned once beyond the keep count."}
    :keep-ask-records {:family :logs :type "integer" :default 200
-                      :doc "Records of finished one-shot runs kept under .brainyard/sessions — bounded by count alone, since a run that ended cannot be resumed and the TTL is what lets them pile up (RFC-016)."}
+                      :doc "Records of finished one-shot runs kept with the project's sessions — bounded by count alone, since a run that ended cannot be resumed and the TTL is what lets them pile up (RFC-016)."}
    :resume {:family :session :type "string" :default nil :doc "Session id to continue; the CLI sets it from --resume."}
    :session-id {:family :session :type "string" :default nil
                 :doc "Names this run's spill directory under .brainyard/transcripts. Generated per run when unset; two runs in one project must not share it."}
@@ -311,7 +311,7 @@
    :event-log-max-bytes {:family :logs :type "integer" :default 52428800 :doc "Rotate the event log past this size. 50 MiB rather than 10 because the records are now whole prompts and replies — at the old limit a day of real work would roll the log, and with it anything derived from it."}
    :event-log-keep {:family :logs :type "integer" :default 3 :doc "Rotated event logs kept beside the live one."}
    :trajectory-log? {:type "boolean" :default true :family :logs
-                     :doc "Append one record per turn to .brainyard/sessions/<id>/trajectory.edn: what the turn did, and what it cost (RFC-025)."}
+                     :doc "Append one record per turn to trajectory.edn in the session's folder (byj session path ID): what the turn did, and what it cost (RFC-025)."}
    :prediction-notice-at {:family :loop :type "integer" :default 150 :doc "Say that a predictor has enough prediction records to compile, once per session, when the pool across sessions reaches this. 150 because the split is 60/20/20: brainyard measured its null on TWELVE val examples, 150 is the first pool whose val split (~30) is not the size already known to fail (RFC-021, byj-gly.57)."}
    ;; background tasks (RFC-019)
    :tasks? {:type "boolean" :default true :family :tasks

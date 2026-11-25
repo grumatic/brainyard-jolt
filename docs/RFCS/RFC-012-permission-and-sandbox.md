@@ -383,7 +383,8 @@ absolute, names no guarded file, yet took the loop, its attachments and
 the profile at once. The command gate refuses it as the profile's or the
 loop's when the directory holds them (`permission/removed-guarded-dirs`),
 and lets it be when it holds neither; what is under it in a directory of
-its own (`.brainyard/sessions`) is not guarded. The path gate has no such
+its own (`.brainyard/sessions`, where a byj before RFC-016's move kept them)
+is not guarded. The path gate has no such
 edge: no tool that takes a path removes or moves a directory.
 `permission-test/the-directory-holding-a-loop-or-the-profile-is-not-taken-away-whole`.
 

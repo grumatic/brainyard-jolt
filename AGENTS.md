@@ -242,10 +242,13 @@ add it to `brainyard.dev/test-order` too.
 
 **A test that runs a turn gives itself a temporary `:project-dir`.** Without
 one, `:project-dir` resolves to the git root — this repository — and every
-turn leaves a trajectory there; `test-runner/run` fails the suite if
-anything appears under the repository's own `.brainyard/sessions`. Nor does
-a test reach the person's other stores or the network: the runner points
-the memory store and the skills home at nothing, and a test that drives
+turn leaves a session for it; `test-runner/run` fails the suite if one
+appears for this repository. Sessions are kept in the home (RFC-016): the
+runner gives every process it starts a sessions home of its own, emptied as
+it starts, in the temporary directory, and fails a run that left one in the
+person's (provenance P-66). Nor does a test reach the person's other stores
+or the network: the runner points the memory store and the skills home at
+nothing, and a test that drives
 `/mcp find` turns `:mcp-registry?` off (provenance P-40). A test that starts
 a tmux server of its own names it with `random-uuid` (provenance P-61).
 

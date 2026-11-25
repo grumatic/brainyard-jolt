@@ -8,7 +8,10 @@ that `by` and byj keep one registry on a machine that runs both.
 ## Purpose
 
 A project's own state is in `<project>/.brainyard/`, which travels with the
-repository. What the *person* knows about their projects — which there are,
+repository; its sessions, a person's record of work in it, are in the person's
+home beside the registry, `~/.brainyard/sessions/<slug>/` (RFC-016), keyed as
+the registry is but never inside its folder, which `prune`/`remove` delete
+whole. What the *person* knows about their projects — which there are,
 where each is, when each was last opened — has no place there, and
 `~/.brainyard/` was flat. The registry gives each project a folder of its
 own in user scope, `~/.brainyard/projects/<slug>/`, and `byj projects` lists

@@ -76,7 +76,7 @@ measured.
 ### The dataset comes from what the agent did
 
 `program$build-dataset` reads the **prediction log** — every `:predictor/call`,
-appended to `<project>/.brainyard/sessions/<id>/predictions.edn`, one `pr-str`
+appended to `predictions.edn` in the session's folder (RFC-016), one `pr-str`
 map per line. Four kinds of record are dropped, and the counts are reported:
 errored, produced nothing, **clipped** (a record whose input was truncated asks
 a different question from the one its label answers), and duplicate inputs.

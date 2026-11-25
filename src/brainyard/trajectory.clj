@@ -8,7 +8,7 @@
   One EDN record per TURN, appended to the session's directory beside the
   prediction log (RFC-021):
 
-      <project-dir>/.brainyard/sessions/<session-id>/trajectory.edn
+      <the project's sessions folder>/<session-id>/trajectory.edn (persist/session-dir)
 
   A record is what the turn *did*: the question, every iteration with its
   reasoning and tool calls, the answer, how it ended, and what it cost. That is
