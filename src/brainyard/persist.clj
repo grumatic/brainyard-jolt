@@ -610,6 +610,42 @@
 
 (declare prune-empty!)
 
+(defn prune-gone!
+  "The sessions of every project that is gone — its folder's `project.edn`
+  path no longer a directory: a worktree removed, a temporary directory
+  deleted — kept until `:session-ttl-days` (14), the keep count protecting
+  none of them, since nothing will open them in place: each past it, with its
+  transcripts, is removed, never one a live process holds; and a project with
+  none left goes whole, its sessions, transcripts and tasks folders (RFC-016's
+  revision, byj-7sp.5). The ids removed."
+  [config]
+  (if-let [home (sessions-home)]
+    (let [ttl-ms (* (:session-ttl-days config 14) 24 60 60 1000)
+          now (System/currentTimeMillis)
+          root (io/file home "sessions")
+          own (.getCanonicalPath (home-dir config "sessions"))
+          at (fn [^java.io.File d]
+               (or (:updated-at (try (edn/read-string (slurp (io/file d "session.edn"))) (catch Throwable _ nil)))
+                   (.lastModified d)))]
+      (vec
+       (for [^java.io.File pd (or (.listFiles root) [])
+             :when (and (.isDirectory pd) (not= own (.getCanonicalPath pd)))
+             :let [path (:path (try (edn/read-string (slurp (io/file pd "project.edn"))) (catch Throwable _ nil)))]
+             :when (and path (not (.isDirectory (io/file path))))
+             removed (let [old (for [^java.io.File d (.listFiles pd)
+                                     :when (and (.isDirectory d) (> (- now (at d)) ttl-ms) (not (held-dir? d)))]
+                                 d)
+                           gone (vec (for [^java.io.File d old
+                                           :when (delete-tree! pd d)]
+                                       (do (delete-tree! (io/file home "transcripts" (.getName pd))
+                                                         (io/file home "transcripts" (.getName pd) (.getName d)))
+                                           (.getName d))))]
+                       (when-not (some #(.isDirectory ^java.io.File %) (.listFiles pd))
+                         (doseq [k kinds] (delete-tree! (io/file home k) (io/file home k (.getName pd)))))
+                       gone)]
+         removed)))
+    []))
+
 (defn prune!
   "Remove old session, transcript and task directories. Returns {:removed [ids]}.
 
@@ -628,7 +664,7 @@
         roots [[(sessions-dir config) session-opts]
                [(transcripts-dir config) opts]
                [(tasks-dir config) task-opts]]]
-    {:removed (into (prune-empty! config)
+    {:removed (into (into (prune-empty! config) (prune-gone! config))
                     (for [[root o] roots
                           dir (prunable config root o)
                           :when (delete-tree! root dir)]

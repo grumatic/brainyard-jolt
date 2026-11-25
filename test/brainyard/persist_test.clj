@@ -759,3 +759,43 @@
     (is (= ["1700000000005-eeeeeeee"] (map :id (persist/summaries c))) "listed where it is")
     (is (.isFile (io/file dir ".brainyard" "sessions" "1700000000005-eeeeeeee" "session.edn")) "and left there")
     (is (= 1 (:turn-count (persist/read-session c "1700000000005-eeeeeeee"))) "and read there")))
+
+(deftest a-gone-projects-sessions-are-kept-until-the-ttl-then-go
+  ;; byj-7sp.5: a worktree removed, a temporary project deleted — its sessions
+  ;; stay in the home until :session-ttl-days, no keep count saving them, and
+  ;; the project's folders go with its last
+  (let [gone (str (.getCanonicalPath (io/file "target/persist-test")) "/gone-" (System/nanoTime))
+        gc {:project-dir gone :working-dir gone}
+        sd (persist/sessions-dir gc)
+        old-ms (- (System/currentTimeMillis) (* 20 24 60 60 1000))
+        session! (fn [id at & [pid]]
+                   (let [d (io/file sd id)]
+                     (.mkdirs d)
+                     (spit (io/file d "session.edn") (pr-str {:id id :updated-at at}))
+                     (when pid (spit (io/file d "lock.edn") (pr-str {:pid pid :at 1})))
+                     (let [t (io/file (persist/transcripts-dir gc) id)] (.mkdirs t))
+                     d))
+        here (config (fresh-dir "prune-gone-here"))]
+    (.mkdirs sd)
+    (spit (io/file sd "project.edn") (pr-str {:path gone}))
+    (session! "1700000000010-aaaaaaaa" old-ms)
+    (session! "1700000000011-bbbbbbbb" (System/currentTimeMillis))
+    (session! "1700000000012-cccccccc" old-ms "1")
+    (testing "past the TTL it goes, with its transcripts; a recent one and a held one stay"
+      (is (= ["1700000000010-aaaaaaaa"] (filterv #(str/starts-with? % "17000000000") (:removed (persist/prune! here)))))
+      (is (not (.exists (io/file sd "1700000000010-aaaaaaaa"))))
+      (is (not (.exists (io/file (persist/transcripts-dir gc) "1700000000010-aaaaaaaa"))))
+      (is (.isDirectory (io/file sd "1700000000011-bbbbbbbb")))
+      (is (.isDirectory (io/file sd "1700000000012-cccccccc")) "held by a live process"))
+    (testing "the project's folders go with its last session"
+      (doseq [id ["1700000000011-bbbbbbbb" "1700000000012-cccccccc"]]
+        (let [d (io/file sd id)]
+          (io/delete-file (io/file d "lock.edn") true)
+          (spit (io/file d "session.edn") (pr-str {:id id :updated-at old-ms}))))
+      (persist/prune! here)
+      (is (not (.exists sd)))
+      (is (not (.exists (persist/transcripts-dir gc)))))
+    (testing "a project that is there keeps its sessions by the rules it had"
+      (persist/save! here "1700000000013-dddddddd" {:turn-count 1 :previous-turns turns})
+      (persist/prune! (config (fresh-dir "prune-gone-other")))
+      (is (.isFile (persist/session-file here "1700000000013-dddddddd"))))))
