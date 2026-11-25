@@ -1,6 +1,8 @@
 # RFC-016 — Session persistence and resume
 
-**Status:** implemented (`byj-gly.9`).
+**Status:** implemented (`byj-gly.9`). A revision that keeps sessions in the
+person's home rather than the project is proposed at the end (draft, not built:
+"Proposed revision"); nothing above changes until it is built.
 
 ## Purpose
 
@@ -336,3 +338,204 @@ someone with three and then shows them one (`byj-gly.75`).
 - **`ask` is not persisted** — a one-shot question has no session to continue.
 - **No `--resume` picker.** brainyard offers an interactive menu; here
   `--sessions` lists and `-r <id>` chooses.
+
+## Proposed revision: sessions in the person's home (draft)
+
+Decided 2026-11-25, not built (`byj-7sp`): sessions move to the person's
+home, a worktree keyed by its own path, a gone project's sessions kept until
+`:session-ttl-days`, and another project's sessions closed to an agent by
+default. Until it is built, everything above stands.
+
+### Why move them
+
+A session is kept in the project it was opened in. That is brainyard's choice,
+made on purpose (`agent/core/config.clj`: `"sessions" :project-only` — a
+session describes work in one codebase, "rather than a user-global junk drawer
+shared across every repo"), and byj's today. It costs four things:
+
+1. **A worktree takes its sessions with it.** A session opened in a worktree —
+   an editor's "new session in a new worktree", a fork into one (`fork!`
+   `:into`) — is kept in the worktree's `.brainyard/`, and
+   `worktree/remove!` runs `git worktree remove --force`: the worktree's
+   sessions, their turns, usage and trajectories, go with it.
+2. **The project folder holds a person's records.** A snapshot keeps what was
+   asked, the tools' output and files' contents. Only `.gitignore` keeps it
+   out of a commit; nothing keeps it out of a container build context, an
+   archive, a synced folder or a shared mount.
+3. **A project made again starts with nothing.** A folder deleted and cloned
+   again at the same path has lost every conversation held in it.
+4. **There is no one place for all of a person's sessions**, which
+   brainyard's `by sessions list --all-projects` reads project by project
+   (`byj-6og`).
+
+Claude Code and Codex both keep sessions in the person's home, keyed by
+directory: Claude Code under `~/.claude/projects/<cwd, every non-alphanumeric
+→ ->/<uuid>.jsonl` with the live ones in `~/.claude/sessions/<pid>.json`
+(RFC-033), Codex under `~/.codex/sessions/<y>/<m>/<d>/` with the cwd in each
+rollout (RFC-049).
+
+### What it costs
+
+- **A divergence from brainyard**, in a home `by` shares: `~/.brainyard/` is
+  both programs', and `by` keeps its sessions in the project.
+- **Records outlive their projects.** On one developer's machine, Claude
+  Code's home held 209 project folders, 142 of them for directories under the
+  system's temporary directory (tests and one-off runs) and 30 for worktrees.
+  Pruning has to reach a folder whose project is gone.
+- **Checkpoints stay in the project.** A turn's snapshot is a git ref in the
+  project's repository (RFC-069), so a session found again in a project made
+  again resumes its conversation but has no turn to diff, rewind or fork
+  before. Claude Code keeps its file backups in its home; byj does not.
+- **Every project's sessions are readable from any project**: `~/.brainyard`
+  is in `:allowed-dirs` by default (RFC-012).
+- **A protocol change**: RFC-070 names `.brainyard/sessions/<id>/` among what a
+  session leaves on disk, `contract/session/frames.edn` gives a trajectory's
+  `:path` under it, and programs built on byj read it there.
+
+### Layout
+
+```
+~/.brainyard/sessions/<project-slug>/
+  project.edn               {:path "/abs/project"}: whose sessions these are
+  last-run.edn              the full-screen run's set, per project as now
+  <session-id>/             session.edn lock.edn meta.edn notes.edn coach.edn
+                            trajectory.edn ask.sock — as now
+~/.brainyard/transcripts/<project-slug>/<session-id>/   (RFC-014)
+~/.brainyard/tasks/<project-slug>/<task-id>/            (RFC-019)
+```
+
+- **The key is the project's path**, as the registry's: `projects/project-slug`
+  of the canonical project directory (its name and a hash of its path). A
+  project made again at the same path finds its sessions; a project moved or
+  renamed does not, as in Claude Code.
+- **A tree of its own, beside the registry, never inside it.**
+  `~/.brainyard/projects/<slug>/` is removed whole by `byj projects
+  prune|remove` and by `by`; sessions there would go with a registry entry.
+- **Per project, as now.** Listing (`summaries`, `--sessions`, ACP
+  `session/list`), the live sessions (`channel/sessions`), `--resume-latest`,
+  `last-run.edn`, the pruning budgets, memory search and analytics each read
+  one project's folder, as they read `.brainyard/sessions` today; a flat
+  folder of every project's sessions would break all of them.
+- **Transcripts and tasks move with sessions**: they are pruned and deleted
+  with a session by its id.
+- **The root** is the `brainyard.sessions-home` property, then
+  `BY_SESSIONS_HOME`, then `$HOME`, as `projects/projects-root` resolves the
+  registry's, and carried to every process `fx/start` starts
+  (`fx/carried-env`, RFC-009), so a test run keeps every session it makes in
+  a home of its own.
+- **The socket** is `<session-dir>/ask.sock` as now. Past the platform's limit
+  (103 bytes on macOS) it falls back to the temporary directory, as RFC-031
+  says; a long project name makes that the rule rather than the exception.
+
+### Worktrees
+
+**A worktree is keyed by its own path**, as Claude Code keys one: its
+sessions are a project folder of their own, listed with the worktree as an
+editor groups them, and they survive the worktree's removal — the folder is
+then a gone project's, pruned as one. A team member and a workflow stage are
+kept where they are now, under the project that started them
+(`BY_PROJECT_DIR`), their `:working-dir` saying the worktree.
+`deps/session-places` looks in the project's folder and each of its
+worktrees' folders under the home, rather than in each worktree's
+`.brainyard/`; the SDK's fork into a worktree writes into the worktree's
+folder; `resume-working-dir` is unchanged.
+
+The alternative, the repository's main checkout as the key (one list per
+repository), was not taken: an editor lists a worktree's sessions as the
+worktree's, and the one list would have mixed them.
+
+### Pruning
+
+As now, per project: `:keep-sessions`, `:session-ttl-days`,
+`:keep-ask-records`, never a held session. **A project that is gone** — its
+`project.edn` path no longer there, a worktree removed, a temporary directory
+deleted — keeps its sessions until `:session-ttl-days`, the keep count no
+longer protecting them: nothing will open them in place, and the TTL is the
+time a person has to find one again. The folder goes with its last session.
+A held session is never removed. A project's prune reaches every gone
+project's folder, so they are pruned though their project never runs again.
+
+### Migration
+
+A session not found under the home is looked for in
+`<project>/.brainyard/sessions/`, and moved, with its transcripts and tasks,
+the first time it is opened (resume, load, fork, delete). Listing reads both
+until the old folder is empty, which is then removed. `byj session migrate
+[--all]` moves a project's, or every registered project's, at once. A live
+session is never moved.
+
+### Another project's sessions
+
+**An agent cannot reach another project's sessions by default.**
+`~/.brainyard` stays in `:allowed-dirs` (RFC-012) — its skills, memory and
+registry are the person's, for every project — but the path gate refuses a
+path under `~/.brainyard/sessions/`, `transcripts/` or `tasks/` outside the
+running project's own folder (and its worktrees' when it is a repository's
+main checkout), as it refuses `:denied-paths`. A person who wants it open
+says so in config (`:session-dirs-shared? true`). Reading one's own sessions
+is unchanged: `session$*` tools, memory search and analytics read the
+project's folder through `persist`, not through the gate.
+
+### Where programs find a session
+
+Before anything moves, the location becomes a protocol rather than a path a
+program builds:
+
+- `byj session list --json` gives each session's `dir` and `projectDir`;
+- `byj session path ID [--json]` gives one session's directory;
+- `meta.edn` names its `:project-dir`;
+- the contract's `:path` placeholder becomes `<sessions>/<sid>/trajectory.edn`,
+  `<sessions>` the session's project folder, whatever its root.
+
+Shipped first, with the location unchanged, so a program reading the folder
+can move to the command before the folder moves.
+
+### What changes in byj
+
+- `persist`: the one root (`sessions-dir`, the transcripts' and tasks' dirs);
+  every path built elsewhere goes through it — `trajectory` (`log-file`,
+  `read-entries`, `sessions`), `children/saved`, `sim/records-since`,
+  `context`'s transcript path.
+- `channel`: `meta.edn`'s `:project-dir`; `sessions` and `find-session` read
+  the project's folder under the home.
+- `deps`: `session-places`, as the worktree question decides.
+- ACP and the SDK: `session/list`, `session/load`, `session/delete` and the
+  fork into a worktree find the project's folder from the cwd given.
+- The CLI: `byj session list|path|migrate`, `--sessions`, the help.
+- The test runner: `brainyard.sessions-home` set to the run's own;
+  `own-sessions` watches the person's home for a project folder under this
+  repository or the temporary directory, as `person-registered` watches the
+  registry (provenance P-66); tests that build a session's path read it
+  through `persist`.
+- `permission`: the path gate's refusal of other projects' session folders,
+  and `:session-dirs-shared?`.
+- Docs: this RFC, RFC-025, RFC-031, RFC-070, RFC-074, RFC-012 (allowed dirs),
+  `contract/`, the CLI help, a divergence entry in `docs/divergences.md` and
+  `.edn`.
+
+### What it would promise
+
+- A session is kept under the person's home, in its project's folder, and
+  nothing of it under the project's `.brainyard/` once migrated.
+- A worktree removed leaves its sessions, listed under its own path until
+  pruned.
+- A project made again at its path lists the sessions it had.
+- No test writes a session in the person's home.
+- A session whose project is gone is kept until `:session-ttl-days`, then
+  pruned; a held session never is.
+- An agent's tool cannot read or write another project's sessions,
+  transcripts or tasks unless config shares them.
+- A session found in the old place is moved when opened, and listed until it is.
+- `byj session list --json` and `byj session path` say where a session is.
+
+### Steps
+
+1. The protocol (`byj-7sp.1`): `dir` and `projectDir` in `byj session list --json`, `byj
+   session path`, `:project-dir` in `meta.edn`; the location unchanged.
+2. One root (`byj-7sp.2`): every session path built through `persist`.
+3. The root's resolution and the test runner's home and guard (`byj-7sp.3`).
+4. The move (`byj-7sp.4`): the layout, transcripts and tasks with it, reading both places,
+   migration.
+5. Pruning a gone project's sessions (`byj-7sp.5`).
+6. The path gate closing other projects' sessions to an agent (`byj-7sp.6`).
+7. The docs, the contract recorded again, the divergence (`byj-7sp.7`).
