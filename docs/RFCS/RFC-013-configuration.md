@@ -63,6 +63,16 @@ started in `src/deep/` still uses the project's settings and may read the whole
 project. A worktree's `.git` file counts as a root here, where brainyard
 requires a directory (divergence `project-root-git-walk`).
 
+Outside git, byj looks once more before the working directory (`byj-84c.2`,
+RFC-016's second revision): the nearest directory above it whose
+`.brainyard/` holds something the project shares
+(`config/project-shared-entries`: `config.edn`, `profile.edn`, `agents/` and
+the rest — `config/find-brainyard-root`). One holding only what an older byj's
+run left there, `sessions/` or `logs/`, marks nothing; nor does byj's own home
+(`$HOME`, or the registry's home a test run is given). A project outside git
+is one project from any of its subdirectories, as its sessions are kept by
+the project's path (divergence `project-root-brainyard-walk`).
+
 ### The file
 
 brainyard's shape, so the same file serves both:
@@ -328,7 +338,7 @@ a config map by hand cannot store a relative path either.
 | default < user < project < caller < env, and a blank variable is not a layer. | `config-test/layers` |
 | The file is brainyard's shape, permissions are bridged, a persisted `false` shadows a `true` default; misplaced, unknown, wrong-typed and unreadable files are problems, not exceptions. | `config-test/the-file-is-brainyards-shape` |
 | A key's variable is `BY_` + its name, coerced by type. | `config-test/environment` |
-| The project root is the git root above the working dir (a worktree file counts), an explicit dir wins, and the config file, `.brainyard` roots and allowed dirs follow it. | `config-test/the-project-root-is-the-git-root` |
+| The project root is the git root above the working dir (a worktree file counts), else outside git the nearest directory whose `.brainyard/` the project shares (never one only a run left, nor byj's home), an explicit dir wins, and the config file, `.brainyard` roots and allowed dirs follow it. | `config-test/the-project-root-is-the-git-root` |
 | Features are a view over the schema; an unknown feature is off; every key has a family, the families listed are the ones used, and every switch is a feature. | `config-test/features-are-a-view-over-the-schema` |
 | A project's config.edn reaches a turn: it can switch a command off and set the iteration ceiling. | `config-test/a-project-config-file-reaches-the-loop` |
 | **No tool writes a permission key**, and neither is `:builtin-hooks?` or a per-run key written. | `configbox-test/a-permission-key-is-never-written-whoever-asks`, `configbox-test/the-hooks-that-install-the-gates-are-not-writable-either`, `configbox-test/a-key-that-describes-this-run-is-not-a-setting` |

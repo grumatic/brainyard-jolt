@@ -486,6 +486,15 @@ the rest matches brainyard: `.brainyard/` (tools, hooks, predictors, programs,
 config.edn) and the default `:allowed-dirs` all follow the project, not the
 directory the agent happened to start in.
 
+<!-- divergence: project-root-brainyard-walk -->
+**Outside git, a `.brainyard/` the project shares marks its root.** brainyard's
+walk ends at the working directory when no `.git` is above it, so a project
+outside git run from a subdirectory is another project there — another
+config, another folder of sessions. Here the nearest directory above whose
+`.brainyard/` holds something a repository shares (`config.edn`, `agents/`
+and the like) is the root first; one holding only what a run left, or byj's
+own home, is not (RFC-013, RFC-016's second revision).
+
 <!-- divergence: search-skips-agent-state -->
 **`grep` and `search` skip `.brainyard/`.** brainyard excludes nothing, so an
 agent searching its own project matches its own tools and hooks — in the Tool

@@ -20,6 +20,13 @@
     (.mkdirs d)
     (.getPath d)))
 
+(defn- fresh-tmp-dir
+  "A directory outside any git repository: in the temporary directory."
+  [name]
+  (let [d (io/file (System/getProperty "java.io.tmpdir") (str "byj-config-test-" name "-" (System/nanoTime)))]
+    (.mkdirs d)
+    (.getCanonicalPath d)))
+
 (defn- write-config! [dir m]
   (let [f (config/config-file dir)]
     (.mkdirs (.getParentFile f))
@@ -250,6 +257,22 @@
         (is (= (.getCanonicalPath (io/file wt)) (.getCanonicalPath (io/file (config/find-git-root wt)))))))
     (testing "with no .git anywhere above, the working dir is the project"
       (is (= (.getAbsolutePath (io/file "/")) (config/resolve-project-dir "/" nil))))
+    (testing "outside git, the nearest directory whose .brainyard/ the project shares (S2, byj-84c.2)"
+      (let [p (fresh-tmp-dir "no-git-project")
+            sub (doto (io/file p "src" "deep") .mkdirs)]
+        (is (= (.getCanonicalPath sub) (config/resolve-project-dir (.getPath sub) nil)) "no .brainyard/: the working dir")
+        (.mkdirs (io/file p ".brainyard" "sessions"))
+        (.mkdirs (io/file p ".brainyard" "logs"))
+        (is (= (.getCanonicalPath sub) (config/resolve-project-dir (.getPath sub) nil))
+            "one an older byj's run left, holding only sessions and logs, marks nothing")
+        (spit (io/file p ".brainyard" "config.edn") "{}")
+        (is (= (.getCanonicalPath (io/file p)) (config/resolve-project-dir (.getPath sub) nil)) "one it shares marks the project")
+        (is (= (.getCanonicalPath (io/file p)) (config/resolve-project-dir (.getPath sub) (.getPath (io/file p)))) "an explicit one still wins")
+        (let [h (io/file (System/getProperty "brainyard.projects-home"))
+              under (doto (io/file h "scratch") .mkdirs)]
+          (.mkdirs (io/file h ".brainyard" "agents"))
+          (is (= (.getCanonicalPath under) (config/resolve-project-dir (.getPath under) nil))
+              "byj's own home is never a project by its .brainyard/"))))
     (testing "the project config file, .brainyard roots and allowed-dirs follow the project, not the subdirectory"
       (write-config! root {:agent {:config {:max-iterations 3}}})
       (let [{:keys [config sources]} (config/load-config {:working-dir (.getPath sub)

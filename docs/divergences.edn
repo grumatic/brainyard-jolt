@@ -15,6 +15,9 @@
  {:id "project-root-git-walk"
   :brainyard "agent/core/config.clj find-git-root (.isDirectory check, so a worktree's .git file does not count)"
   :test "brainyard.config-test/the-project-root-is-the-git-root"}
+ {:id "project-root-brainyard-walk"
+  :brainyard "agent/core/config.clj resolve-project-dir (BY_PROJECT_DIR, the .git walk, else the working dir)"
+  :test "brainyard.config-test/the-project-root-is-the-git-root"}
  {:id "search-skips-agent-state"
   :brainyard "agent/common/tools.clj grep-files / reference.clj list-files (no exclusions)"
   :test "brainyard.discovery-test/searching-skips-the-agents-own-state"}

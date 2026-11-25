@@ -587,11 +587,48 @@
     (let [f (io/file (str d))]
       (try (.getCanonicalPath f) (catch Throwable _ (.getAbsolutePath f))))))
 
+(def project-shared-entries
+  "What a project's `.brainyard/` holds that its repository shares (RFC-016's
+  second revision): what a person or `/init` writes there, never what a run
+  leaves, which is kept in the project's folder of the registry."
+  #{"config.edn" "profile.edn" "deps.edn" "AGENTS.md" "BRAINYARD.md" ".env"
+    "agents" "commands" "skills" "hooks" "tools" "programs" "predictors" "teams"
+    "loops" "mcp" "analytics.edn" "prices.edn" "terminal.edn" "emacs"})
+
+(defn- byj-homes
+  "The directories whose `.brainyard/` is byj's home, not a project's: the
+  person's, and one the registry was given (a test run's)."
+  []
+  (set (keep #(some-> % str not-empty io/file .getCanonicalPath)
+             [(System/getenv "HOME") (System/getProperty "brainyard.projects-home")
+              (System/getenv "BY_PROJECTS_HOME")])))
+
+(defn find-brainyard-root
+  "The nearest directory at or above `dir` whose `.brainyard/` holds
+  something a repository shares (`project-shared-entries`), or nil: a
+  project outside git, run from a subdirectory of it, is one project
+  (RFC-016's second revision, S2; divergence `project-root-brainyard-walk`).
+  A `.brainyard/` holding only what an older byj's run left there
+  (`sessions/`, `logs/`) marks nothing, nor byj's own home's."
+  [dir]
+  (let [homes (byj-homes)]
+    (loop [d (some-> (io/file (or dir ".")) .getAbsoluteFile)]
+      (when d
+        (let [b (io/file d ".brainyard")]
+          (if (and (.isDirectory b)
+                   (not (homes (.getCanonicalPath d)))
+                   (some #(project-shared-entries (.getName ^java.io.File %)) (or (.listFiles b) [])))
+            (.getPath d)
+            (recur (.getParentFile d))))))))
+
 (defn resolve-project-dir
   "brainyard's `resolve-project-dir`: an explicit project dir, else the git root
-  above the working dir, else the working dir itself. Always canonical."
+  above the working dir, else — byj's (S2) — the nearest directory above it
+  whose `.brainyard/` the project shares (`find-brainyard-root`), else the
+  working dir itself. Always canonical."
   [working-dir explicit]
-  (canonical-dir (or explicit (find-git-root working-dir) (or working-dir "."))))
+  (canonical-dir (or explicit (find-git-root working-dir) (find-brainyard-root working-dir)
+                     (or working-dir "."))))
 
 (defn default-allowed-dirs
   "brainyard's `default-allowed-dirs`: /tmp, the system temp dir, the project
