@@ -64,7 +64,11 @@ processes begun together would write one file.
 - **What it takes:** every file git would add, tracked or not.
 - **What it leaves out:**
   - what `.gitignore` names;
-  - any `.brainyard/` directory, which is byj's own state;
+  - what byj's runs leave in any `.brainyard/` directory where an older byj
+    kept it (`sessions/`, `logs/`, `todos/` …), its `.env` and handovers —
+    but what the repository shares there (`config.edn`, `agents/`, the
+    loops …) is in a turn's change like any file (`byj-84c.6`, RFC-016's
+    second revision);
   - what Emacs leaves beside a file it visits: `.#F` (the lock of a buffer with unsaved edits, a symlink), `#F#` and `F~`;
   - a file git cannot take, such as a nested repository with no commit. That file is left out, not the whole snapshot.
 - **What it never touches:** HEAD, the person's index, their stash and the work tree.

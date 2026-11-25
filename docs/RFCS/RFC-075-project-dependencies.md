@@ -81,8 +81,10 @@ it, so one session can play design, implement and review one after another;
 `:worktree`, it is for that runner (the workbench's runs, or `/workflow`'s,
 which act on both, RFC-076); nothing here acts on it.
 
-`deps-local.edn`, this machine's, not committed (`/init`'s `.gitignore`
-ignores what is in `.brainyard/` but for the profile and the spec, RFC-040):
+`deps-local.edn`, this machine's, not committed: kept in the project's
+folder of the home, `~/.brainyard/projects/<slug>/deps-local.edn`, beside
+the sessions it binds (`deps/local-file`, `byj-84c.4`, RFC-016), and named
+in `.brainyard/.gitignore` where an older byj left it (RFC-040):
 
 ```clojure
 {:bindings {:design ["<session id>" …]}
@@ -264,7 +266,7 @@ The shape is byj's contract, `contract/deps/deps.json` (RFC-070).
 | `byj deps --json` and `byj deps write` give and take JSON, and exit 1 on a refusal | `main-test/byj-deps-gives-the-dependencies-as-data-and-writes-them-whole` |
 | A `:bead` give reads and is checked as it did, as the issue give in beads that says the same; the report, `byj doctor` and a write warn that it is deprecated | `deps-test/a-bead-give-reads-as-it-did-and-is-said-deprecated` |
 | The report's shape is byj's contract | `contract-test/the-dependencies-are-byjs-contract` |
-| The spec is not ignored by the `.gitignore` `/init` writes, and the local file is; a `.gitignore` an earlier `/init` wrote gets the spec's exception from the next, and the check says so until then (`byj-bo8`, RFC-040) | `init-test/the-gitignore-keeps-brainyard-s-state-but-not-the-profile` |
+| The spec is not ignored by what `/init` writes, and the local file, where an older byj left it in `.brainyard/`, is; a `.gitignore` an earlier `/init` wrote that kept `.brainyard/` from git has those lines taken out by the next, and the check says so until then (`byj-84c.6`, RFC-040) | `init-test/brainyard-is-the-repositorys-but-for-what-is-not` |
 
 ## Known gaps
 

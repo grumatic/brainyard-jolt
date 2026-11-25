@@ -126,7 +126,8 @@
     (tool! bin "codex" "echo 'codex-cli 0.159.2'")
     (spit (io/file project "AGENTS.md") "# Agent Instructions\n")
     (spit (io/file project "CLAUDE.md") "# Project instructions\n\n@AGENTS.md\n")
-    (spit (io/file project ".gitignore") "target/\n.brainyard/*\n!.brainyard/profile.edn\n!.brainyard/deps.edn\n")
+    (spit (io/file project ".gitignore") "target/\n")
+    (spit (doto (io/file project ".brainyard" ".gitignore") io/make-parents) ".env\nsessions/\n")
     (.mkdirs (io/file project ".beads"))
     (doseq [[root skill] [[".agents/skills" "beads"] [".claude/skills" "mine"]]]
       (.mkdirs (io/file project root skill))
@@ -151,78 +152,70 @@
       (testing "and nothing was written: not a file in the project, and bd asked only to check"
         (is (= before (listing project)))
         (is (every? #(or (str/ends-with? % "--check") (= "--version" %)) (str/split-lines (slurp bd-log))))))
-    (testing "a CLAUDE.md that does not import AGENTS.md, a .gitignore without .brainyard/"
+    (testing "a CLAUDE.md that does not import AGENTS.md; a .gitignore that keeps .brainyard/ from git"
       (is (false? (init/imports-agents-md? "see AGENTS.md")))
       (is (true? (init/imports-agents-md? "x\n@./AGENTS.md\n")))
-      (is (false? (init/ignores-brainyard? ".brainyard-old/\n")))
       (is (nil? (init/ignores-brainyard ".brainyard-old/\n")))
-      (testing "ignored whole, git cannot add the profile: not as /init writes it (byj-9ng)"
-        (is (= :whole (init/ignores-brainyard "/.brainyard\n")))
-        (is (= :whole (init/ignores-brainyard ".brainyard/\n!.brainyard/profile.edn\n")) "an exception under a directory ignored whole is none")
-        (is (= :whole (init/ignores-brainyard ".brainyard/*\n")))
-        (is (false? (init/ignores-brainyard? "/.brainyard\n"))))
-      (is (= :current (init/ignores-brainyard "/.brainyard/*\n!.brainyard/profile.edn\n!/.brainyard/deps.edn\n")))
-      (testing "but for the profile alone, as /init wrote it before RFC-075: the spec is ignored (byj-bo8)"
-        (is (= :profile-only (init/ignores-brainyard "/.brainyard/*\n!.brainyard/profile.edn\n")))
-        (is (false? (init/ignores-brainyard? ".brainyard/*\n!.brainyard/profile.edn\n")))))
+      (is (nil? (init/ignores-brainyard "target/\n.brainyard/.env\n")))
+      (doseq [t ["/.brainyard\n" ".brainyard/\n" ".brainyard/*\n!.brainyard/profile.edn\n!.brainyard/deps.edn\n"]]
+        (is (= :ignored (init/ignores-brainyard t)) t)))
     (testing "a required tool missing is said so"
       (is (= ["git" "bd"] (:missing-required (init/check {} {:dir project :path (fresh-dir "empty-bin")})))))))
 
 ;; --- writing the starting files (byj-gly.309.3) ------------------------------------------
 
-(deftest the-gitignore-keeps-brainyard-s-state-but-not-the-profile
-  ;; byj-9ng: .brainyard/ ignored whole, `git add .brainyard/profile.edn`,
-  ;; /init's own next step, was refused
+(deftest brainyard-is-the-repositorys-but-for-what-is-not
+  ;; byj-84c.6: what byj's runs leave is kept in the project's folder of the
+  ;; home (RFC-016's second revision), so .brainyard/ holds what the
+  ;; repository shares; .brainyard/.gitignore names what is not
   (let [git #(fx/sh {:dir %1 :out :string :err :string} "git" "check-ignore" "-q" %2)
         ignored? #(zero? (:exit (git %1 %2)))]
-    (testing "a new project: what is in .brainyard/ is ignored, but for the profile"
+    (testing "a new project: .brainyard/ is the repository's, but for its secrets and an older byj's leavings"
       (let [project (fresh-dir "gitignore-new")]
         (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
         (init/scaffold {} {:dir project})
-        (is (str/ends-with? (slurp (io/file project ".gitignore")) "but for its profile and dependencies\n.brainyard/*\n!.brainyard/profile.edn\n!.brainyard/deps.edn\n"))
-        (is (ignored? project ".brainyard/sessions/x.edn"))
-        (is (ignored? project ".brainyard/config.edn"))
-        (is (ignored? project ".brainyard/loops/react.edn") "a project's loop stays this machine's")
-        (is (not (ignored? project ".brainyard/profile.edn")))
-        (is (not (ignored? project ".brainyard/deps.edn")) "the dependencies' spec is committed (RFC-075)")
-        (is (ignored? project ".brainyard/deps-local.edn") "and this machine's bindings are not")))
-    (testing "an earlier /init's line becomes the one it writes now, with the exception after it, once"
-      (let [project (fresh-dir "gitignore-old")]
-        (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
-        (spit (io/file project ".gitignore") "target/\n# brainyard's per-project state (sessions, logs, config)\n.brainyard/\n\n*.log\n")
-        (init/scaffold {} {:dir project})
-        (is (= "target/\n# brainyard's per-project state (sessions, logs, config)\n.brainyard/*\n!.brainyard/profile.edn\n!.brainyard/deps.edn\n\n*.log\n"
-               (slurp (io/file project ".gitignore"))))
-        (is (not (ignored? project ".brainyard/profile.edn")))
-        (is (= :current (:gitignore (init/project-status project))))
-        (is (= :unchanged (:action (first (filter #(= ".gitignore" (:path %)) (init/plan-writes project))))) "a second run writes nothing")))
-    (testing "one /init wrote before RFC-075 gets the spec's exception, and says it needs it until then (byj-bo8)"
-      (let [project (fresh-dir "gitignore-profile-only")]
-        (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
-        (spit (io/file project ".gitignore") "target/\n.brainyard/*\n!.brainyard/profile.edn\n")
-        (is (= :profile-only (:gitignore (init/project-status project))))
-        (is (ignored? project ".brainyard/deps.edn"))
-        (let [l (some #(when (= :gitignore (:id %)) %) (init/project-checks (init/project-status project)))]
-          (is (= [false "but for its profile.edn, not its deps.edn: /init adds !.brainyard/deps.edn"] ((juxt :ok :detail) l))))
-        (init/scaffold {} {:dir project})
-        (is (= "target/\n.brainyard/*\n!.brainyard/deps.edn\n!.brainyard/profile.edn\n" (slurp (io/file project ".gitignore"))))
-        (is (not (ignored? project ".brainyard/deps.edn")))
-        (is (= :current (:gitignore (init/project-status project))))))))
+        (is (not (.exists (io/file project ".gitignore"))) "nothing to take out, so not made")
+        (doseq [f [".brainyard/config.edn" ".brainyard/profile.edn" ".brainyard/deps.edn" ".brainyard/loops/react.edn"
+                   ".brainyard/agents/a.edn" ".brainyard/programs/p.edn" ".brainyard/tools/t.edn" ".brainyard/loops/tasks/s.edn"]]
+          (is (not (ignored? project f)) f))
+        (doseq [f [".brainyard/.env" ".brainyard/handovers/h.md" ".brainyard/sessions/x/session.edn"
+                   ".brainyard/deps-local.edn" ".brainyard/logs/events.log" ".brainyard/loops/proposals/p.edn"
+                   ".brainyard/worktrees/bd-x/a.txt"]]
+          (is (ignored? project f) f))
+        (is (= :current (init/gitignore-state project)))))
+    (testing "an earlier /init's lines are taken out of .gitignore, the person's kept"
+      (doseq [[old after] [["target/\n# brainyard's per-project state (sessions, logs, config), but for its profile and dependencies\n.brainyard/*\n!.brainyard/profile.edn\n!.brainyard/deps.edn\n\n*.log\n"
+                            "target/\n\n*.log\n"]
+                           ["target/\n# brainyard's per-project state (sessions, logs, config)\n.brainyard/\n\n*.log\n"
+                            "target/\n\n*.log\n"]]]
+        (let [project (fresh-dir "gitignore-old")]
+          (fx/sh {:dir project :out :string :err :string} "git" "init" "-q")
+          (spit (io/file project ".gitignore") old)
+          (is (= :ignored (init/gitignore-state project)))
+          (let [l (some #(when (= :gitignore (:id %)) %) (init/project-checks (init/project-status project)))]
+            (is (= [false ".gitignore keeps it from git: /init takes .brainyard/* out and names .env in .brainyard/.gitignore"]
+                   ((juxt :ok :detail) l))))
+          (init/scaffold {} {:dir project})
+          (is (= after (slurp (io/file project ".gitignore"))))
+          (is (not (ignored? project ".brainyard/profile.edn")))
+          (is (= :current (init/gitignore-state project)))
+          (is (every? #{:unchanged} (map :action (filter #(#{".gitignore" ".brainyard/.gitignore"} (:path %)) (init/plan-writes project))))
+              "a second run writes nothing"))))))
 
 (deftest a-second-run-changes-nothing
   (let [project (fresh-dir "fresh")]
     (testing "a dry run says what it would write, and writes nothing"
       (let [r (init/scaffold {} {:dir project :dry-run true})]
-        (is (= [:create :create :create] (map :action (:writes r))))
+        (is (= [:create :create :create] (map :action (:writes r))) "no .gitignore: nothing to take out of one")
         (is (str/includes? (:text r) "AGENTS.md: would be created"))
         (is (empty? (listing project)))))
     (testing "a new project gets every file, from the templates"
       (let [r (init/scaffold {} {:dir project})]
-        (is (= [["AGENTS.md" :create] ["CLAUDE.md" :create] [".gitignore" :create]]
+        (is (= [["AGENTS.md" :create] ["CLAUDE.md" :create] [".brainyard/.gitignore" :create]]
                (map (juxt :path :action) (:writes r))))
         (is (nil? (:snapshot r)) "nothing was there to keep"))
       (is (init/imports-agents-md? (slurp (io/file project "CLAUDE.md"))))
-      (is (init/ignores-brainyard? (slurp (io/file project ".gitignore"))))
+      (is (init/gitignore-ok? project))
       (is (= ["BRAINYARD:project" "BRAINYARD"] (map first (init/marked-blocks (slurp (io/file project "AGENTS.md")))))
           "the project's section a placeholder until a draft replaces it"))
     (testing "run again, it writes nothing"
@@ -258,10 +251,10 @@
       (testing "the person's text and bd's block are kept as they were; brainyard's block is added"
         (is (str/starts-with? (agents) (str/trimr mine)))
         (is (= ["BRAINYARD"] (map first (init/marked-blocks (agents))))))
-      (testing "the import added to a CLAUDE.md without it, and .brainyard/ to .gitignore"
+      (testing "the import added to a CLAUDE.md without it, and .env named in .brainyard/.gitignore"
         (is (= "Read the docs.\n\n@AGENTS.md\n" (slurp (io/file project "CLAUDE.md"))))
-        (is (str/starts-with? (slurp (io/file project ".gitignore")) "target/\n"))
-        (is (init/ignores-brainyard? (slurp (io/file project ".gitignore")))))
+        (is (= "target/\n" (slurp (io/file project ".gitignore"))) "the person's own, untouched")
+        (is (init/gitignore-ok? project)))
       (testing "what was there is kept in a snapshot first"
         (is (= mine (slurp (io/file (:snapshot r) "AGENTS.md"))))
         (is (= "Read the docs.\n" (slurp (io/file (:snapshot r) "CLAUDE.md"))))))
@@ -464,7 +457,7 @@
     (init/scaffold {} {:dir project})
     (testing "after the scaffold: the section is the placeholder, and /init's files are uncommitted"
       (is (= :placeholder (:project-section (status))))
-      (is (= #{"AGENTS.md" "CLAUDE.md" ".gitignore"}
+      (is (= #{"AGENTS.md" "CLAUDE.md" ".brainyard/.gitignore"}
              (set (map #(str/replace % #"^\S+\s+" "") (:uncommitted (status))))))
       (is (str/includes? (init/report-text {:tools [] :project (status)}) "not drafted yet")))
     (testing "code appears; a draft replaces the placeholder; a commit leaves nothing uncommitted"
@@ -490,7 +483,7 @@
     (testing "an empty repository just set up: commit /init's files, say what to build"
       (is (= #{:commit :start-empty :help} (ids)))
       (is (str/starts-with? (:text (next!)) "Next:\n- Commit what /init wrote"))
-      (is (str/includes? (:text (next!)) "`git add -- .gitignore AGENTS.md CLAUDE.md && git commit -m \"Set up brainyard\"`")
+      (is (str/includes? (:text (next!)) "`git add -- .brainyard/.gitignore AGENTS.md CLAUDE.md && git commit -m \"Set up brainyard\"`")
           "naming the files git has not got")
       (is (str/includes? (:text (next!)) "\n  - \"I want to build <what>.") "example prompts under it")
       (is (= "I want to build" (:prompt (next!)))))
@@ -501,7 +494,7 @@
     (testing "drafted, committed, beads: the code's examples and beads, nothing to commit"
       (init/scaffold {} {:dir project :notes "## This project\n\nA demo."})
       (.mkdirs (io/file project ".beads"))
-      (fx/sh {:dir project :out :string :err :string} "git" "add" "AGENTS.md" "CLAUDE.md" ".gitignore" "package.json")
+      (fx/sh {:dir project :out :string :err :string} "git" "add" "AGENTS.md" "CLAUDE.md" ".brainyard/.gitignore" "package.json")
       (fx/sh {:dir project :out :string :err :string} "git" "-c" "user.name=t" "-c" "user.email=t@x.invalid" "commit" "-qm" "x")
       (is (= #{:start-code :beads :help} (ids)))
       (is (str/includes? (:text (next!)) "\"bd ready\" lists what is ready"))

@@ -1,0 +1,23 @@
+# not the repository's: this machine's secrets, a handover, and what an older byj's runs left here until it is moved to ~/.brainyard/projects (byj project path)
+/.env
+/handovers/
+/sessions/
+/transcripts/
+/tasks/
+/logs/
+/claude-agents/
+/codex-agents/
+/workflow-runs/
+/deps-snapshots/
+/init/
+/captures/
+/exports/
+/drive/
+/store.edn
+/todos/
+/rails.edn
+/schedule/
+/loops/proposals/
+/loops/evals/
+/deps-local.edn
+/worktrees/

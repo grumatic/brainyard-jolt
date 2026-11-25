@@ -272,7 +272,17 @@
     (held "session/list.json"
           (str (json/write-str (normal (json/read-str (with-out-str (#'brainyard.main/session-command {:questions ["list"] :json true} cfg))) top)) "\n"))
     (held "session/path.json"
-          (str (json/write-str (normal (json/read-str (with-out-str (#'brainyard.main/session-path id true cfg))) top)) "\n"))))
+          (str (json/write-str (normal (json/read-str (with-out-str (#'brainyard.main/session-path id true cfg))) top)) "\n"))
+    ;; and everything else a project's runs leave (byj-84c.6, RFC-016's
+    ;; second revision): its folder, and each kind's
+    ;; read with its keys as strings, a kind being a path (drive/claims.edn),
+    ;; which a keyword would split
+    (held "project/path.json"
+          (str (json/write-str (walk/postwalk #(if (map? %) (into (sorted-map) %) %)
+                                              (normal ((requiring-resolve 'clojure.data.json/read-str)
+                                                       (with-out-str (#'brainyard.main/project-command {:questions ["path"] :json true} cfg)))
+                                                      top)))
+               "\n"))))
 
 (deftest the-doctor-report-is-byjs-contract
   ;; byj-mmd: what the workbench's Doctor panel reads. Outside this

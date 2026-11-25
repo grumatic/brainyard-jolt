@@ -10,13 +10,27 @@
 ;;   :lines  — each line added when the file lacks it: after the entry's first
 ;;             line where the file has that one, else at the end under the
 ;;             header. `:replaces` turns a line an earlier /init wrote into the
-;;             line it writes now.
+;;             line it writes now; `:removes`, lines an earlier /init wrote
+;;             that it takes out.
 [{:path "AGENTS.md" :kind :block :template "AGENTS.md"}
  {:path "CLAUDE.md" :kind :import :template "CLAUDE.md" :line "@AGENTS.md"}
- ;; .brainyard/ is this machine's, but for the project's profile (RFC-073)
- ;; and its dependencies' spec (RFC-075, byj-bo8), which are committed. git
- ;; cannot except a file inside a directory ignored whole, so an earlier
- ;; ".brainyard/" becomes ".brainyard/*" (byj-9ng)
- {:path ".gitignore" :kind :lines :header "# brainyard's per-project state (sessions, logs, config), but for its profile and dependencies"
-  :lines [".brainyard/*" "!.brainyard/profile.edn" "!.brainyard/deps.edn"]
-  :replaces {".brainyard/" ".brainyard/*"}}]
+ ;; .brainyard/ is the repository's since RFC-016's second revision
+ ;; (byj-84c.6): what byj's runs leave is kept in the project's folder of
+ ;; ~/.brainyard/projects. What is not the repository's there — this
+ ;; machine's secrets, a handover for a Claude Code session, and what an
+ ;; older byj's runs left until it is moved to the home — is named in
+ ;; .brainyard/.gitignore
+ {:path ".brainyard/.gitignore" :kind :lines
+  :header "# not the repository's: this machine's secrets, a handover, and what an older byj's runs left here until it is moved to ~/.brainyard/projects (byj project path)"
+  ;; each anchored to .brainyard/ by its leading /: loops/tasks/ is shared
+  :lines ["/.env" "/handovers/" "/sessions/" "/transcripts/" "/tasks/" "/logs/" "/claude-agents/"
+          "/codex-agents/" "/workflow-runs/" "/deps-snapshots/" "/init/" "/captures/" "/exports/"
+          "/drive/" "/store.edn" "/todos/" "/rails.edn" "/schedule/" "/loops/proposals/"
+          "/loops/evals/" "/deps-local.edn" "/worktrees/"]}
+ ;; and the project's .gitignore no longer keeps .brainyard/ from git: the
+ ;; lines an earlier /init wrote there are taken out (`:removes`), and
+ ;; nothing is written when it has none
+ {:path ".gitignore" :kind :lines :lines []
+  :removes ["# brainyard's per-project state (sessions, logs, config), but for its profile and dependencies"
+            "# brainyard's per-project state (sessions, logs, config)"
+            ".brainyard/" ".brainyard/*" "!.brainyard/profile.edn" "!.brainyard/deps.edn"]}]

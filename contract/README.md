@@ -17,6 +17,7 @@ so it never reads byj's tree, and byj's own suite never reads its tree either.
 | `deps/deps.json` | `byj deps --json` in a project that depends on one project found by its path and one found nowhere, with two roles, a session bound to one and one gone, a handoff ready but for its branch, a deprecated `:bead` give among its gives, and bd's answer given | RFC-075 |
 | `session/list.json` | `byj session list --json` in a project outside git with one saved session: each row's `session-id`, `dir` and `project-dir` — where a program reads a session, never a path it builds (byj-7sp.1) | RFC-016 |
 | `session/path.json` | `byj session path ID --json` for that session: `{session-id dir project-dir exists}` | RFC-016 |
+| `project/path.json` | `byj project path --json` for that project: `{project-dir dir kinds}`, the folder in the home that keeps what its runs leave and each kind's place in it — where a program reads a log, a workflow run, a delegation's record (byj-84c) | RFC-016 |
 | `workflow/runs.json` | `byj workflow runs --json` in a project outside git whose run of a two-stage workflow handed its first stage on, stopped on its second's question, and has the person's verdict | RFC-076 |
 | `doctor/doctor.json` | `byj doctor --json` in a project with AGENTS.md alone, two copies of byj on PATH, a signed-in account, and every tool said missing so that it is not the machine's | RFC-040 |
 | `prices.edn` | the price table byj costs a run by | RFC-006 |

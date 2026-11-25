@@ -48,10 +48,10 @@
     (is (string? (changes/begin-turn! cfg 1 "change a and b\nand say why")))
     (spit a "one\nTWO\nthree\n")
     (testing "what bash writes is seen, since the work tree is"
-      (sh dir "sh" "-c" "mkdir -p sub ignored && printf 'new\\n' > sub/b.txt && printf x > ignored/big && mkdir -p .brainyard/logs && printf l > .brainyard/logs/events.log"))
+      (sh dir "sh" "-c" "mkdir -p sub ignored && printf 'new\\n' > sub/b.txt && printf x > ignored/big && mkdir -p .brainyard/logs && printf l > .brainyard/logs/events.log && printf '{}' > .brainyard/config.edn"))
     (testing "and what Emacs leaves beside a file it visits is not the turn's"
       (sh dir "sh" "-c" "ln -s someone@host.1:1 .#a.txt && printf s > '#a.txt#' && printf o > a.txt~ && printf o > sub/b.txt~"))
-    (is (= 2 (changes/end-turn! cfg)) "two files changed")
+    (is (= 3 (changes/end-turn! cfg)) "three files changed")
     (is (= [1] (changes/turns cfg "s-1")))
     (let [{:keys [turn ref before after root files diff]} (changes/diff cfg "s-1")]
       (is (= 1 turn) "the last turn that changed files, unless one is named")
@@ -59,7 +59,7 @@
       (is (= dir root))
       (is (= before (sh dir "git" "rev-parse" (str ref "^"))) "the turn's start is its parent")
       (is (= after (sh dir "git" "rev-parse" ref)))
-      (is (= ["a.txt" "sub/b.txt"] files) "named from the repository's top; what .gitignore names is not, nor byj's own .brainyard/, nor Emacs's lock, auto-save and backup files")
+      (is (= [".brainyard/config.edn" "a.txt" "sub/b.txt"] files) "named from the repository's top; what .gitignore names is not, nor what byj's runs left in .brainyard/ — but what the repository shares there is (byj-84c.6) — nor Emacs's lock, auto-save and backup files")
       (is (str/includes? diff "-two\n+TWO\n+three\n"))
       (is (str/includes? diff "+++ b/sub/b.txt\n@@ -0,0 +1 @@\n+new\n") "a file the turn made")
       (is (not (str/includes? diff "mine.txt")) "the person's work before the turn is not the turn's")
@@ -70,7 +70,7 @@
       (is (= #{"A  mine.txt" " M a.txt" "?? sub/" "?? .brainyard/" "?? vendored/" "?? .#a.txt" "?? #a.txt#" "?? a.txt~"}
              (set (str/split-lines (:out (fx/sh {:dir dir :out :string} "git" "status" "--porcelain")))))
           "mine.txt still staged, a.txt still not")
-      (is (= ["a.txt" "sub/b.txt"] (:files (changes/diff cfg "s-1"))) "a nested repository with no commit left out, not the snapshot")
+      (is (= [".brainyard/config.edn" "a.txt" "sub/b.txt"] (:files (changes/diff cfg "s-1"))) "a nested repository with no commit left out, not the snapshot")
       (is (= "" (sh dir "git" "stash" "list"))))
     (testing "what came after the turn is not the turn's"
       (spit a "later\n")
@@ -82,7 +82,7 @@
       (is (re-find #"changed no files" (:error (changes/diff cfg "s-1" 2))))
       (is (= 1 (:turn (changes/diff cfg "s-1"))) "the last turn that changed files, when none is named")
       (let [[r1 r2] (changes/rows cfg "s-1")]
-        (is (= {:turn 1 :files ["a.txt" "sub/b.txt"] :subject "change a and b"} (select-keys r1 [:turn :files :subject])))
+        (is (= {:turn 1 :files [".brainyard/config.edn" "a.txt" "sub/b.txt"] :subject "change a and b"} (select-keys r1 [:turn :files :subject])))
         (is (= {:turn 2 :files [] :subject ""} (select-keys r2 [:turn :files :subject])))
         (is (pos-int? (:at r2)))))
     (testing "the repository keeps its newest :changes-turns turns"

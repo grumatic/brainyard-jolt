@@ -129,11 +129,12 @@ another program's, which says itself how it is installed and signed in
 - whether `.beads/` exists;
 - what `bd setup claude --check` and `bd setup codex --check` say;
 - which skills are found (`skills/roots`);
-- how `.gitignore` lists `.brainyard/`: as `/init` writes it, ignored but
-  for the profile and the dependencies' spec (`:current`); but for the
-  profile alone, as `/init` wrote it before RFC-075 (`:profile-only`, a ✗
-  that says `/init` adds the spec's line, `byj-bo8`); ignored whole
-  (`:whole`); or not at all (`ignores-brainyard`);
+- how the project stands with git over `.brainyard/` (`gitignore-state`,
+  `byj-84c.6`): `:current` when its `.gitignore` keeps nothing of
+  `.brainyard/` from git and `.brainyard/.gitignore` names `.env`;
+  `:ignored` when its `.gitignore` keeps `.brainyard/` from git, as `/init`
+  wrote it before RFC-016's second revision (`ignores-brainyard`); `:unnamed`
+  when `.brainyard/.gitignore` does not name `.env`;
 - when `.brainyard/deps.edn` is there, the dependencies' trouble
   (`deps/health`, RFC-075): what reading it and `deps-local.edn` dropped,
   and the errors and warnings of its structure and its projects — a ✗ for
@@ -180,17 +181,19 @@ nothing.
     blocks are left as they are.
 - **CLAUDE.md:** written as `@AGENTS.md` when it is absent. When it exists,
   the import is added if it is missing.
-- **`.gitignore`:** `.brainyard/*` and, after it, `!.brainyard/profile.edn`
-  and `!.brainyard/deps.edn` are added if they are not there: brainyard's
-  state is this machine's, but for the project's profile (RFC-073) and its
-  dependencies' spec (RFC-075, `byj-bo8`), which are committed; the spec's
-  local file, `deps-local.edn`, stays ignored. An earlier
-  `/init`'s `.brainyard/`, which ignores the directory whole, becomes
-  `.brainyard/*`, since git cannot except a file inside a directory ignored
-  whole, and `/init`'s own next step, `git add -- .brainyard/profile.edn …`,
-  was refused (`byj-9ng`). A project's loops stay ignored: RFC-071 makes one
-  live only on a person's acceptance, which a commit pulled into another
-  clone would pass by. `init-test/the-gitignore-keeps-brainyard-s-state-but-not-the-profile`.
+- **`.brainyard/.gitignore`** (`byj-84c.6`, RFC-016's second revision):
+  `.brainyard/` is the repository's — its config, profile, dependencies'
+  spec, agents, commands, skills, tools, programs, loops and task sets —
+  since what byj's runs leave is kept in the project's folder of
+  `~/.brainyard/projects`. Its own `.gitignore` names, each anchored by a
+  leading `/`, what is not the repository's there: `.env`, handovers, and
+  the names an older byj's runs left (`sessions/`, `logs/`, `worktrees/` …)
+  until they are moved to the home or removed.
+- **`.gitignore`:** the lines an earlier `/init` wrote — `.brainyard/` or
+  `.brainyard/*`, its exceptions and its header — are taken out (a `:lines`
+  entry's `:removes`), the blank lines that leaves run together; the
+  person's own lines stay. With no `.gitignore`, none is made.
+  `init-test/brainyard-is-the-repositorys-but-for-what-is-not`.
 - **Skills for Claude Code** (`byj-gly.309.9`): each skill under
   `.agents/skills` that has nothing of its name under `.claude/skills` gets a
   relative link there (`../../.agents/skills/<name>`), as this repository
@@ -699,7 +702,7 @@ All of them are planned. Nothing enforces them until their beads are built.
 | A tool is found on PATH by a scan, its version read with its own flag; a missing one carries the install hints for the platform; every requirement names its command, need, purpose and a macOS hint. | `init-test/a-tool-is-found-with-its-version-or-said-how-to-install` |
 | A tool whose entry says how to ask (`:signed-in`) is said signed in or not; an optional one missing is never a failure; none of byj's requirements names a program built on byj (`byj-ahf.7`). | `init-test/a-tool-that-says-how-to-ask-is-checked-signed-in` |
 | A dry run writes nothing; a new project gets every file; a second run writes nothing and takes no snapshot. | `init-test/a-second-run-changes-nothing` |
-| The person's text in AGENTS.md and CLAUDE.md, and bd's blocks, are never changed. Only brainyard's blocks, the import line and missing `.gitignore` lines are written, after a snapshot; the one `.gitignore` line changed is an earlier `/init`'s `.brainyard/`. An edit inside brainyard's block is rewritten, and one outside it stays. The project's section is replaced, never added twice. | `init-test/only-the-brainyard-block-is-written` |
+| The person's text in AGENTS.md and CLAUDE.md, and bd's blocks, are never changed. Only brainyard's blocks, the import line and missing `.gitignore` lines are written, after a snapshot; the `.gitignore` lines taken out are an earlier `/init`'s. An edit inside brainyard's block is rewritten, and one outside it stays. The project's section is replaced, never added twice. | `init-test/only-the-brainyard-block-is-written` |
 | Each skill under `.agents/skills` without an entry of its name under `.claude/skills` is linked there; a real one is left; a second run links nothing. bd's skill is linked once bd has written it. | `init-test/skills-are-linked-for-claude-code`, `init-test/beads-is-set-up-by-bd` |
 | bd's files come from bd: init only without `.beads/`, a setup only where bd's check asks for it, and a second run only checks. bd's block in a CLAUDE.md that imports AGENTS.md is removed, and bd's commit is reported. With no bd, nothing runs. | `init-test/beads-is-set-up-by-bd` |
 | Nothing is installed without a yes from the person, every time; headless runs and a no only give the command; only a package manager that asks nothing is run; a tool already installed, an unknown one, or one only the person can install is only described. | `init-test/installing-asks` |

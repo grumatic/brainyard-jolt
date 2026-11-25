@@ -3,11 +3,8 @@ target/
 .jolt/
 *.so
 .omc/
-.brainyard/*
-# this repository's own agents are kept with it (byj-gly.316)
-!.brainyard/agents/
-# the project's profile (goal, scope, done criteria) is kept with it
-!.brainyard/profile.edn
+# .brainyard/ is the repository's: what byj's runs leave is kept in
+# ~/.brainyard/projects, and .brainyard/.gitignore names what is not (byj-84c.6)
 
 # A run whose working directory is this repo writes where its tools are told
 # to, and a user hook logging to a relative path lands here. One such log was

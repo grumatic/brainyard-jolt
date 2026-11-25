@@ -24,17 +24,20 @@
     older one is deleted and git's gc takes its objects.
   - What the person changes while a turn runs is in that turn's change: the
     snapshots see the work tree, not who wrote it.
-  - A `.brainyard/` directory is left out, at any depth, whether git ignores
-    it or not: it is byj's own state (logs, sessions, todos), written every
-    turn. What a turn writes there is not in its change. So are the files
-    Emacs leaves beside one it visits: `.#F` (the lock of a buffer with
-    unsaved edits), `#F#` (an auto-save) and `F~` (a backup).
+  - What byj's runs leave in a `.brainyard/` is left out, at any depth,
+    whether git ignores it or not — sessions, logs, todos … where an older
+    byj kept them, `.env`, a handover — but what the repository shares there
+    (`config.edn`, `agents/`, the loops …) is in a turn's change, a file
+    like any other (RFC-016's second revision, byj-84c.6). So are left out
+    the files Emacs leaves beside one it visits: `.#F` (the lock of a buffer
+    with unsaved edits), `#F#` (an auto-save) and `F~` (a backup).
   - An edit made in an Emacs buffer and not saved (`emacs$edit`) is not on
     disk, so not in the turn's change until it is saved.
 
   Mechanism only (RFC-001): what a review asks of the agent is byj.el's
   `byj-questions`."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.clock :as clock]
@@ -58,13 +61,15 @@
    "GIT_COMMITTER_NAME" "byj" "GIT_COMMITTER_EMAIL" "byj@localhost"})
 
 (def ^:private excluded
-  ;; never a turn's change, ignored by git or not: byj's own state under
-  ;; .brainyard/ (logs, sessions, todos), and what Emacs leaves beside a
-  ;; file — the lock of a buffer with unsaved edits (.#F, a symlink), an
-  ;; auto-save (#F#), a backup (F~) — which a review would otherwise show as
-  ;; the turn's
-  [":(exclude,glob)**/.brainyard/**" ":(exclude,glob)**/.#*"
-   ":(exclude,glob)**/#*#" ":(exclude,glob)**/*~"])
+  ;; never a turn's change, ignored by git or not: what byj's runs leave
+  ;; under .brainyard/ where an older byj kept it (sessions, logs, todos …,
+  ;; RFC-016's second revision), its secrets and handovers — but not what the
+  ;; repository shares there — and what Emacs leaves beside a file — the
+  ;; lock of a buffer with unsaved edits (.#F, a symlink), an auto-save
+  ;; (#F#), a backup (F~) — which a review would otherwise show as the turn's
+  (into (vec (for [k (concat ["sessions" "transcripts" "tasks" "handovers" ".env"] projects/runtime-kinds)]
+               (str ":(exclude,glob)**/.brainyard/" k (when-not (re-find #"\.(edn|env)$" k) "/**"))))
+        [":(exclude,glob)**/.#*" ":(exclude,glob)**/#*#" ":(exclude,glob)**/*~"]))
 
 (defn- on? [config]
   (and (:session-id config) (not (false? (:changes? config)))))
@@ -423,7 +428,7 @@
 ;; that snapshot, applied in one go: what differs is written, a file the
 ;; target lacks is removed, one it has is made. HEAD, the person's index and
 ;; their stash are not touched, as with the snapshots; nor is anything the
-;; snapshots leave out (.gitignore's, .brainyard/, Emacs's lock, auto-save
+;; snapshots leave out (.gitignore's, byj's runs' under .brainyard/, Emacs's lock, auto-save
 ;; and backup files).
 
 (defn- rewind-numbers [root id]
