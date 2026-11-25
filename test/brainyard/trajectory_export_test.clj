@@ -149,6 +149,9 @@
 (deftest an-export-that-cannot-be-written-is-reported
   (let [c (with-turns "export-unwritable" [a-turn])
         blocker (io/file (:project-dir c) ".brainyard" "exports")]
+    ;; the project's .brainyard/ is not made by its turns any more: their
+    ;; sessions are kept in the home (RFC-016's revision)
+    (io/make-parents blocker)
     (spit blocker "not a directory")
     (is (str/includes? (:error (ex/export! c {:sessions ["s1"]})) "could not write"))))
 

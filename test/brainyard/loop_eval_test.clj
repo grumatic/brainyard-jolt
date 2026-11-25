@@ -8,6 +8,7 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [brainyard.persist]
             [brainyard.effect :as fx]
             [brainyard.loop-eval :as le]
             [brainyard.loop-tasks :as loop-tasks]
@@ -95,7 +96,7 @@
         (is (= :not-better (:verdict (:report (le/evaluate! config {:lm mock :candidate writes-done})))))))
     (testing "the clones leave nothing in the project: no refs, no sessions, no clone"
       (is (= refs-before (refs dir)))
-      (is (not (.exists (io/file dir ".brainyard" "sessions"))))
+      (is (not (.exists (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions")))))
       (is (empty? (.list (io/file work))) "each clone removed after its run"))))
 
 (deftest the-report-says-what-was-measured

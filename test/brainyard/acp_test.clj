@@ -405,7 +405,7 @@
         (is (= (get-in live [:_meta :brainyard :startedAt]) startedAt))
         (is (= (get-in live [:_meta :brainyard :durationMs]) durationMs))))
     (testing "a call recorded before calls were timed has neither, and still loads"
-      (let [f (io/file dir ".brainyard" "sessions" sessionId "trajectory.edn")
+      (let [f (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") sessionId "trajectory.edn")
             untime (fn [r] (update r :iterations
                                    (fn [its] (mapv (fn [it] (cond-> it
                                                               (:tools it) (update :tools (fn [ts] (mapv #(dissoc % :started-at :duration-ms) ts)))))
@@ -548,8 +548,8 @@
       (call c "session/close" {:sessionId a})
       (call c "session/close" {:sessionId held})
       (is (= #{a b held} (listed)))
-      (io/make-parents (io/file dir ".brainyard" "transcripts" a "t.edn"))
-      (spit (io/file dir ".brainyard" "transcripts" a "t.edn") "[]")
+      (io/make-parents (io/file (brainyard.persist/state-dir {:project-dir dir} "transcripts") a "t.edn"))
+      (spit (io/file (brainyard.persist/state-dir {:project-dir dir} "transcripts") a "t.edn") "[]")
       ;; what a and b kept to rewind, as RFC-069 keeps it
       (let [git #(str/trim (:out (apply fx/sh {:dir dir :out :string :err :string} "git" %&)))]
         (git "init" "-q")
@@ -560,7 +560,7 @@
       (testing "a listed session is deleted, its transcript with it, and is listed no more"
         (is (= {} (:result (call c "session/delete" {:sessionId a}))))
         (is (not (.exists (persist/session-dir cfg a))))
-        (is (not (.exists (io/file dir ".brainyard" "transcripts" a))))
+        (is (not (.exists (io/file (brainyard.persist/state-dir {:project-dir dir} "transcripts") a))))
         (is (= #{b held} (listed))))
       (testing "and what it kept to rewind goes with it, another session's left (byj-ayk)"
         (let [refs (str/trim (:out (fx/sh {:dir dir :out :string} "git" "for-each-ref" "--format=%(refname)" "refs/byj/")))]

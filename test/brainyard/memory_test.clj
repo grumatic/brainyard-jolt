@@ -7,6 +7,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [brainyard.persist]
             [brainyard.agent :as agent]
             [brainyard.memory :as memory]
             [brainyard.tools :as tools]
@@ -133,7 +134,7 @@
 (deftest earlier-sessions-are-the-record-that-was-already-being-kept
   (let [dir (fresh-dir "history")
         write! (fn [id turns at]
-                 (let [f (io/file dir ".brainyard" "sessions" id "session.edn")]
+                 (let [f (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") id "session.edn")]
                    (.mkdirs (.getParentFile f))
                    (spit f (pr-str {:schema-version 1 :id id :created-at at :updated-at at
                                     :turn-count (count turns) :previous-turns turns}))))
@@ -169,7 +170,7 @@
 
     (testing "nothing was captured to make this work: the snapshots are RFC-016's"
       (is (= #{"older" "newer" "current"}
-             (set (map #(.getName %) (.listFiles (io/file dir ".brainyard" "sessions")))))
+             (set (map #(.getName %) (filter #(.isDirectory %) (.listFiles (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions")))))))
           "no extra store, no second copy of a turn"))))
 
 (deftest a-store-runs-in-the-sessions-project

@@ -10,6 +10,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [brainyard.persist]
             [brainyard.agent :as agent]
             [brainyard.flow :as flow]
             [brainyard.json :as json]
@@ -225,13 +226,13 @@
              :session-id "s1" :persist-session? false}]
     (agent/ask "q" {:lm (replying [{:reasoning "r" :tool-calls [] :answer "a"}]) :config cfg})
     (is (nil? (tr/log-file cfg)))
-    (is (not (.isDirectory (io/file dir ".brainyard" "sessions")))
+    (is (not (.isDirectory (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions"))))
         "nothing under sessions/ at all")))
 
 (deftest a-record-that-cannot-be-written-does-not-cost-the-turn
   (let [dir (fresh-dir "trajectory-unwritable")
         ;; a FILE where the session directory has to go, so .mkdirs fails
-        blocker (io/file dir ".brainyard" "sessions")]
+        blocker (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions"))]
     (.mkdirs (.getParentFile blocker))
     (spit blocker "not a directory")
     (let [cfg {:working-dir (.getPath dir) :project-dir (.getPath dir)

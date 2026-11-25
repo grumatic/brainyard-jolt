@@ -7,6 +7,7 @@
   agent$claude child joined to its Claude Code session."
   (:require [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing]]
+            [brainyard.persist]
             [brainyard.children :as children]))
 
 (defn- fresh-dir [name]
@@ -76,7 +77,7 @@
 
 (deftest a-saved-sessions-children-are-read-again-only-when-its-file-changes
   (let [dir (fresh-dir "saved")
-        f (io/file dir ".brainyard" "sessions" "s-1" "trajectory.edn")
+        f (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") "s-1" "trajectory.edn")
         config {:project-dir dir}]
     (is (= [] (children/saved config "s-1")) "no trajectory, no children")
     (io/make-parents f)

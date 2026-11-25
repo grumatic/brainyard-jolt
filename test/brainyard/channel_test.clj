@@ -282,9 +282,9 @@
         base (#'brainyard.main/resumed-base {:config config})]
     (testing "a fresh session is locked too, not only a resumed one: the lock is what says it is live"
       (is (some? base))
-      (is (.isFile (io/file dir ".brainyard/sessions/fresh-1/lock.edn"))))
+      (is (.isFile (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") "fresh-1/lock.edn"))))
     (testing "and another live process holding it refuses the run"
-      (spit (io/file dir ".brainyard/sessions/fresh-1/lock.edn") (pr-str {:pid 1 :at 0}))
+      (spit (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") "fresh-1/lock.edn") (pr-str {:pid 1 :at 0}))
       (is (nil? (#'brainyard.main/resumed-base {:config config}))))))
 
 ;; --- finding sessions, and asking one ---------------------------------------------------

@@ -59,7 +59,7 @@
         (is (some #(= :session.turn/end (first %)) @events)))
       (testing "it is locked while open, and leaves its trajectory and snapshot as any session"
         (is (.isFile (persist/lock-file (:config s) (:id s))))
-        (is (.isDirectory (io/file dir ".brainyard" "sessions" (:id s)))))
+        (is (.isDirectory (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") (:id s)))))
       (testing "a second prompt is a second turn of the same session"
         (is (= "forty-two" (get-in (answer s "again") [:result :answer]))))
       (finally (is (sdk/close! s))))
@@ -286,4 +286,5 @@
       (is (= [0 {:session-id id :dir kept :project-dir (.getCanonicalPath (io/file dir)) :exists true}]
              (update (path id true) 1 json/read-str)))
       (is (= 1 (first (path "1700000000000-deadbeef" false))))
+      (is (= [0 (.getCanonicalPath (persist/sessions-dir cfg))] (path nil false)) "with no id, the folder of them all")
       (is (false? (:exists (json/read-str (second (path "1700000000000-deadbeef" true)))))))))

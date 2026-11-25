@@ -333,6 +333,8 @@ someone with three and then shows them one (`byj-gly.75`).
 | A `session.edn` is what makes a directory resumable; transcripts keep the rule they had. | `persist-test/what-makes-a-directory-resumable-is-the-snapshot`, `persist-test/transcripts-keep-the-rule-they-had` |
 | Pruning never deletes anything that is not a direct child of its root. | `persist-test/pruning-refuses-to-escape-its-root` |
 | The sessions' home is a home given, the `brainyard.sessions-home` property, `BY_SESSIONS_HOME`, then `$HOME`; a test run's is its own, carried to every process it starts, and `test-run/run` fails a run that left a test's project folder in the person's. | `persist-test/the-sessions-home-is-the-runs-own-in-a-test`, `effect-test/a-process-started-keeps-off-the-persons-stores-as-this-one-does` |
+| A session is kept in `<home>/.brainyard/sessions/<project-slug>/`, which says its project (`project.edn`); a worktree is a project folder of its own. | `persist-test/a-session-is-kept-in-the-persons-home` |
+| A session kept before is moved, with its transcripts, the first time its project is touched, and the old folders go; one an older byj holds stays, is listed and read where it is, and `migrate!` says it left it. Only into the person's own home: a test run's never moves a project's on its own. | `persist-test/a-session-kept-before-is-moved-the-first-time-its-project-is-touched`, `persist-test/a-session-an-older-byj-holds-stays-and-is-listed-until-it-is-free`, `persist-test/a-test-run-never-moves-a-projects-sessions-on-its-own` |
 | Every path to a session's folder, transcripts and tasks is built by `persist/state-dir`, no other namespace. | `persist-test/only-persist-says-where-a-session-is-kept` |
 | A session says where it is kept: the list's `dir` and `project-dir`, `byj session path`, exit 1 for none; both shapes are byj's contract. | `sdk-test/a-session-says-where-it-is-kept`, `contract-test/a-projects-sessions-are-byjs-contract` |
 
@@ -548,7 +550,7 @@ placeholder changes with the move.
    session path`, `:project-dir` in `meta.edn`; the location unchanged.
 2. One root (`byj-7sp.2`, built): every session path built through `persist`.
 3. The root's resolution and the test runner's home and guard (`byj-7sp.3`, built: `persist/sessions-home`).
-4. The move (`byj-7sp.4`): the layout, transcripts and tasks with it, reading both places,
+4. The move (`byj-7sp.4`, built): the layout, transcripts and tasks with it, reading both places,
    migration.
 5. Pruning a gone project's sessions (`byj-7sp.5`).
 6. The path gate closing other projects' sessions to an agent (`byj-7sp.6`).

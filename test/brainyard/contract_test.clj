@@ -101,6 +101,9 @@
      (cond
        (map-entry? v) (if (and (keyword? (key v)) (varying (key v)) (some? (val v))) [(key v) "<varies>"] v)
        (string? v) (-> v
+                       ;; the project's sessions folder, wherever byj keeps it
+                       ;; (RFC-016's revision: the person's home), before <dir>
+                       (str/replace (.getCanonicalPath (persist/sessions-dir {:project-dir dir})) "<sessions>")
                        (str/replace dir "<dir>")
                        (str/replace #"[^\s\"]*/by-[0-9a-f]{16}\.sock" "<socket>")
                        (str/replace #"\b\d{13}-[0-9a-f]{8}\b" "<sid>")
@@ -108,7 +111,7 @@
                        ;; where the socket lives is byj's to choose: in the
                        ;; session's directory where its path fits a socket's
                        ;; (Linux), else a short one (macOS) (byj-ahf.29)
-                       (str/replace "<dir>/.brainyard/sessions/<sid>/ask.sock" "<socket>"))
+                       (str/replace "<sessions>/<sid>/ask.sock" "<socket>"))
        :else v))
    x))
 
@@ -156,7 +159,7 @@
 (deftest the-session-socket-and-the-trajectory-are-byjs-contract
   (let [dir (fresh-dir "turn")
         {:keys [status reply frames sid]} (a-turn dir)
-        sdir (io/file dir ".brainyard" "sessions" sid)]
+        sdir (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") sid)]
     (testing "the socket: the :status reply, the frames a turn streams, its answer"
       (is (= :ok (:status reply)) (pr-str reply))
       (held "session/status.edn" (lines-text [(normal status dir)]))
@@ -222,7 +225,7 @@
                                          :stages {:design {} :build {:role :implement :title "Build"}}
                                          :links [{:from :design :to :build :gives [{:kind :note}]}]}}}))
     (put! (deps/local-file dir) (pr-str {:bindings {:design [sid "gone-1"]}}))
-    (put! (io/file dir ".brainyard" "sessions" sid "session.edn")
+    (put! (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") sid "session.edn")
           (pr-str {:schema-version 1 :id sid :turn-count 1 :previous-turns [{:question "decide" :answer "done" :turn 1}]
                    :conversation-title "decide" :created-at 1700000000000 :updated-at 1700000000000}))
     (let [d (deps/report dir {:registry [] :path-env "" :issues [{:tracker :beads} {:tracker :github :github-repo "o/here"}]

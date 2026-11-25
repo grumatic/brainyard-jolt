@@ -15,6 +15,7 @@
             [clojure.test :as t]
             [brainyard.config :as config]
             [brainyard.effect :as fx]
+            [brainyard.persist :as persist]
             [brainyard.test-shards :as shards]))
 
 (defn- own-sessions
@@ -22,10 +23,15 @@
   rewind refs (refs/byj/…, RFC-069): what a turn leaves in its project."
   []
   (let [d (clojure.java.io/file ".brainyard" "sessions")
+        ;; and where a turn here keeps its session since RFC-016's revision:
+        ;; this repository's folder in the run's sessions home (byj-7sp.4)
+        home (persist/sessions-dir {:project-dir (.getCanonicalPath (clojure.java.io/file "."))})
         refs (try (->> (:out (fx/sh {:out :string :err :string} "git" "for-each-ref" "--format=%(refname)" "refs/byj/"))
                        str clojure.string/split-lines (remove clojure.string/blank?))
                   (catch Throwable _ nil))]
-    (into (set (when (.isDirectory d) (map #(.getName %) (.listFiles d)))) refs)))
+    (-> (set (when (.isDirectory d) (map #(.getName %) (.listFiles d))))
+        (into (when (.isDirectory home) (for [f (.listFiles home) :when (.isDirectory f)] (str "home:" (.getName f)))))
+        (into refs))))
 
 (defn- person-registered
   "The projects in the PERSON'S registry (~/.brainyard/projects, RFC-074) that
@@ -163,7 +169,14 @@
         ;; nor the person's sessions, once they are kept in the home (RFC-016's
         ;; revision, byj-7sp): a home of the run's own, carried to every
         ;; process the run starts (fx/carried-env)
-        _ (System/setProperty "brainyard.sessions-home" (.getCanonicalPath (doto (clojure.java.io/file "target/test-sessions-home") .mkdirs)))
+        ;; Emptied as the run starts, and one per process — a shard's, or the
+        ;; run's in one image — so a test's project made again at its path
+        ;; (fresh-dir) meets no session an earlier run or shard left there:
+        ;; deleting the project no longer deletes its sessions
+        _ (System/setProperty "brainyard.sessions-home"
+                              (let [d (clojure.java.io/file "target/test-sessions-home" (or (System/getenv "BY_TEST_SHARD") "main"))]
+                                (fx/sh {:out :string :err :string} "rm" "-rf" (.getPath d))
+                                (.getCanonicalPath (doto d .mkdirs))))
         ;; nor the person's own skills (~/.claude/skills, ~/.agents/skills), which
         ;; every turn's prompt lists and a test sized to a context window then
         ;; overflowed differently on each machine (byj-gly.467): an empty home

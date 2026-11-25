@@ -499,9 +499,7 @@
   `:last-question` a person picks one by. Live means its lock names a running
   process and its socket is there to answer."
   [config]
-  (let [dir (persist/sessions-dir config)]
-    (->> (when (.isDirectory dir) (.listFiles dir))
-         (filter #(.isDirectory %))
+  (->> (persist/session-dirs config)
          (keep (fn [d]
                  (let [id (.getName d)
                        {:keys [ask-socket-path ops label]} (read-meta config id)]
@@ -525,7 +523,7 @@
                         :last-question (:last-question snap)
                         :updated-at (or (:updated-at snap) (.lastModified (io/file d "meta.edn")))})))))
          (sort-by #(- (or (:updated-at %) 0)))
-         vec)))
+         vec))
 
 (defn find-session
   "The live session `target` names — its id, a prefix of one id, or its label

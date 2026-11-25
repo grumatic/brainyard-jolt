@@ -546,7 +546,7 @@
         {:keys [exit out]} (run-main "-p" "mock" "nosuch" "-C" dir "--json")]
     (is (= 1 exit))
     (is (= {:error "unknown command nosuch"} (json/read-str out)))
-    (is (not (.exists (io/file dir ".brainyard" "sessions"))) "no turn ran, no session was saved"))
+    (is (not (.exists (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions")))) "no turn ran, no session was saved"))
   (testing "without --json, said on stderr, exit 2, and how to ask instead (byj-gxh)"
     (let [{:keys [exit out err]} (run-main "-p" "mock" "what" "is" "this")]
       (is (= 2 exit))

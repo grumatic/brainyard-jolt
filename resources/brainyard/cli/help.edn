@@ -32,8 +32,10 @@
    :subcommands
    [{:subs [{:name "list" :args "[--live] [--json]"
              :summary "this project's sessions: those that listen, then saved ones; --json says where each is kept"}
-            {:name "path" :args "ID [--json]"
-             :summary "where a session is kept, for a program to read it there; exit 1 when there is none"}
+            {:name "path" :args "[ID] [--json]"
+             :summary "where a session is kept, for a program to read it there (exit 1 when there is none); with no ID, the folder of this project's sessions"}
+            {:name "migrate" :args "[--all] [--json]"
+             :summary "this project's sessions — every registered project's with --all — moved from .brainyard/ to ~/.brainyard, but those in use"}
             {:name "watch" :args "SESSION [--events E,…]"
              :summary "a live session's events as they happen, one EDN line each"}
             {:name "delegates" :args "[--json]"

@@ -7,6 +7,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [brainyard.persist]
             [brainyard.agent :as agent]
             [brainyard.config :as config]
             [brainyard.context :as context]
@@ -56,7 +57,7 @@
       (is (= [] steps))
       (is (false? over-budget?))
       (is (= (:before r) (:after r)))
-      (is (not (.exists (io/file dir ".brainyard" "transcripts"))) "and nothing is spilled"))))
+      (is (not (.exists (io/file (brainyard.persist/state-dir {:project-dir dir} "transcripts")))) "and nothing is spilled"))))
 
 (deftest tier-1-elides-old-content-results
   (let [dir (fresh-dir "elide")
@@ -272,9 +273,9 @@
         (is (some #(seq (:compactions (second %))) budgeted) "and it says what it did")))
     (testing "the spilled text is readable for the rest of the session"
       ;; the run names its own directory, so find it rather than guess it
-      (let [f (first (filter #(.isFile %) (file-seq (io/file dir ".brainyard" "transcripts"))))]
+      (let [f (first (filter #(.isFile %) (file-seq (io/file (brainyard.persist/state-dir {:project-dir dir} "transcripts")))))]
         (is (some? f))
-        (is (every? #(< 60000 (count (slurp %))) (filter #(.isFile %) (file-seq (io/file dir ".brainyard" "transcripts"))))
+        (is (every? #(< 60000 (count (slurp %))) (filter #(.isFile %) (file-seq (io/file (brainyard.persist/state-dir {:project-dir dir} "transcripts")))))
             "every spill is the WHOLE result — tier 1 eliding it later points at that file, not a copy of the cut")))))
 
 (deftest a-spilled-collection-is-a-line-an-entry

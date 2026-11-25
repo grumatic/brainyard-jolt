@@ -6,6 +6,16 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **Sessions are kept in your home, not the project.** A session, its
+  transcripts and its tasks are now under `~/.brainyard/sessions/<project>/`,
+  `~/.brainyard/transcripts/<project>/` and `~/.brainyard/tasks/<project>/`,
+  one folder per project path, so a worktree's sessions outlive the worktree
+  and a project made again at its path finds its sessions. A project's
+  `.brainyard/sessions` (and `transcripts`, `tasks`) is moved there the first
+  time byj runs in it, but for a session an older byj still holds, which is
+  read where it is until it is free. `byj session migrate [--all]` moves a
+  project's, or every registered project's, at once; `byj session path`
+  with no id says where this project's are (RFC-016).
 - **A program finds a session where byj says it is.** `byj session list
   --json` gives each session's `dir` and `project-dir`, and the new `byj
   session path ID [--json]` gives one session's folder (exit 1 when there is

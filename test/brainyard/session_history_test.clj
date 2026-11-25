@@ -8,6 +8,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [brainyard.persist]
             [brainyard.effect :as fx]
             [brainyard.session-history :as sh]))
 
@@ -53,7 +54,7 @@
         changed (do (spit (io/file dir "notes.md") "hi\n")
                     (sh! "git" "add" "notes.md")
                     (str/trim (:out (sh! "git" "write-tree"))))
-        f (io/file dir ".brainyard" "sessions" id "trajectory.edn")
+        f (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") id "trajectory.edn")
         kept-1 (ref! 1 "list the notes")
         _ (ref! 2 "a turn cancelled")
         _ (ref! 3 "read them" changed)]
@@ -88,7 +89,7 @@
   ;; sends it (byj-wmm)
   (let [dir (fresh-dir "children")
         id "1794746057066-0000beef"
-        f (io/file dir ".brainyard" "sessions" id "trajectory.edn")
+        f (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") id "trajectory.edn")
         rec (fn [m] (str (pr-str (merge {:v 3 :success true} m)) "\n"))]
     (io/make-parents f)
     (spit f (str

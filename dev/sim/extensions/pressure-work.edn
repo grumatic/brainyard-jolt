@@ -43,4 +43,4 @@
    :lines ["Work on the next ready bead (bd ready): build it, commit, and close the bead."]
    :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
             {:type :command :name "files" :run "node {{plan}}/../playground/checks/checks.cjs files" :timeout-s 60}
-            {:type :command :name "work-ran" :run "grep -q 'WORK (git and bd' .brainyard/sessions/*/trajectory.edn"}]}]}
+            {:type :command :name "work-ran" :run "grep -q 'WORK (git and bd' \"$(byj session path)\"/*/trajectory.edn"}]}]}

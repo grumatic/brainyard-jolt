@@ -57,5 +57,5 @@
    :lines ["Work on the next ready bead (bd ready): build it, make its tests pass, commit, and close the bead."]
    :checks [{:type :command :name "npm-test" :run "npm test" :timeout-s 300}
             {:type :command :name "files" :run "node {{plan}}/../playground/checks/checks.cjs files" :timeout-s 60}
-            {:type :command :name "lint-ran" :run "grep -q 'node --check' .brainyard/sessions/*/trajectory.edn"}
-            {:type :command :name "tests-ran" :run "grep -q 'run before your answer is final' .brainyard/sessions/*/trajectory.edn"}]}]}
+            {:type :command :name "lint-ran" :run "grep -q 'node --check' \"$(byj session path)\"/*/trajectory.edn"}
+            {:type :command :name "tests-ran" :run "grep -q 'run before your answer is final' \"$(byj session path)\"/*/trajectory.edn"}]}]}

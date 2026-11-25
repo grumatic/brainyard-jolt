@@ -518,11 +518,12 @@
   (let [dir (fresh-dir "prune-asks")
         c (assoc (config dir) :keep-ask-records 3)]
     (doseq [i (range 10)] (ask-record! c (str "ask-" i) 0))
-    (is (= 10 (count (.listFiles (persist/sessions-dir c)))))
+    ;; the folder also says whose it is (project.edn); sessions are folders
+    (is (= 10 (count (filter #(.isDirectory %) (.listFiles (persist/sessions-dir c))))))
 
     (let [{:keys [removed]} (persist/prune! c)]
       (is (= 7 (count removed)) "all but the newest :keep-ask-records, though none is old")
-      (is (= 3 (count (.listFiles (persist/sessions-dir c))))))))
+      (is (= 3 (count (filter #(.isDirectory %) (.listFiles (persist/sessions-dir c)))))))))
 
 (deftest a-resumable-session-is-never-pruned-to-make-room-for-records
   ;; counting the two together would be a worse bug than the one it fixes: a
@@ -679,3 +680,82 @@
       "the run's own")
   (is (not= (io/file (System/getenv "HOME") ".brainyard") (persist/sessions-home))
       "never the person's in a test"))
+
+;; --- sessions in the person's home (RFC-016's revision, byj-7sp.4) ---------------------
+
+(defn- legacy-session!
+  "A session as a byj before the revision kept it: under the project's own
+  .brainyard/, with a transcript beside it, held by `pid` when given."
+  [dir id & [pid]]
+  (let [d (io/file dir ".brainyard" "sessions" id)]
+    (.mkdirs d)
+    (spit (io/file d "session.edn")
+          (pr-str {:schema-version persist/schema-version :id id :created-at 1 :updated-at 2
+                   :working-dir (.getCanonicalPath (io/file dir)) :project-dir (.getCanonicalPath (io/file dir))
+                   :turn-count 1 :usage {} :previous-turns [{:question "what was here?" :answer "a file"}]}))
+    (when pid (spit (io/file d "lock.edn") (pr-str {:pid pid :at 1})))
+    (let [t (io/file dir ".brainyard" "transcripts" id "turn-1")] (.mkdirs t) (spit (io/file t "r.edn") "x"))
+    d))
+
+(deftest a-session-is-kept-in-the-persons-home
+  (let [dir (fresh-dir "home-kept")
+        c (config dir)
+        home (persist/sessions-home)]
+    (persist/save! c "1700000000001-aaaaaaaa" {:turn-count 1 :previous-turns turns})
+    (testing "under <home>/sessions/<the project's slug>, not the project's .brainyard/"
+      (is (.isFile (persist/session-file c "1700000000001-aaaaaaaa")))
+      (is (str/starts-with? (.getCanonicalPath (persist/session-dir c "1700000000001-aaaaaaaa"))
+                            (.getCanonicalPath (io/file home "sessions"))))
+      (is (not (.exists (io/file dir ".brainyard" "sessions")))))
+    (testing "the folder says whose it is"
+      (is (= {:path (persist/project-of c)}
+             (clojure.edn/read-string (slurp (io/file (persist/sessions-dir c) "project.edn"))))))
+    (testing "a worktree, another path, is a project folder of its own"
+      (let [wt (fresh-dir "home-kept-worktree")]
+        (is (not= (persist/sessions-dir c) (persist/sessions-dir (config wt))))
+        (is (empty? (persist/summaries (config wt))))))))
+
+(deftest a-session-kept-before-is-moved-the-first-time-its-project-is-touched
+  ;; on its own only into the person's home: a test's home stands in for it
+  ;; here, as auto-migrate? would refuse it (it is a home given)
+  (let [dir (fresh-dir "home-moved")
+        c (config dir)]
+    (legacy-session! dir "1700000000002-bbbbbbbb")
+    (is (= ["1700000000002-bbbbbbbb"] (map :id (with-redefs [persist/auto-migrate? (constantly true)] (persist/summaries c))))
+        "listed")
+    (testing "moved, with its transcripts, and the old folders gone"
+      (is (.isFile (io/file (persist/sessions-dir c) "1700000000002-bbbbbbbb" "session.edn")))
+      (is (.isFile (io/file (persist/transcripts-dir c) "1700000000002-bbbbbbbb" "turn-1" "r.edn")))
+      (is (not (.exists (io/file dir ".brainyard" "sessions"))))
+      (is (not (.exists (io/file dir ".brainyard" "transcripts")))))
+    (testing "and it resumes from there"
+      (is (= 1 (:turn-count (persist/read-session c "1700000000002-bbbbbbbb")))))))
+
+(deftest a-session-an-older-byj-holds-stays-and-is-listed-until-it-is-free
+  ;; pid 1 is alive and not ours: an older byj still writing where it always did
+  (let [dir (fresh-dir "home-held")
+        c (config dir)]
+    (legacy-session! dir "1700000000003-cccccccc" "1")
+    (legacy-session! dir "1700000000004-dddddddd")
+    (is (= #{"1700000000003-cccccccc" "1700000000004-dddddddd"}
+           (set (map :id (with-redefs [persist/auto-migrate? (constantly true)] (persist/summaries c))))))
+    (is (.isDirectory (io/file dir ".brainyard" "sessions" "1700000000003-cccccccc")) "the held one stayed")
+    (is (= (.getCanonicalPath (io/file dir ".brainyard" "sessions" "1700000000003-cccccccc"))
+           (.getCanonicalPath (persist/session-dir c "1700000000003-cccccccc")))
+        "and is read where it is")
+    (is (.isFile (io/file (persist/sessions-dir c) "1700000000004-dddddddd" "session.edn")) "the free one moved")
+    (testing "migrate! says what it left"
+      (is (= ["sessions/1700000000003-cccccccc"] (:left (persist/migrate! c)))))))
+
+(deftest a-test-run-never-moves-a-projects-sessions-on-its-own
+  ;; byj-7sp.4: a test that touched this repository (its git root, the project
+  ;; of a turn given no :project-dir) moved the developer's own sessions into
+  ;; the test run's home, which the next run empties. In a home given — a
+  ;; test's — they are read where they are and never moved on their own
+  (let [dir (fresh-dir "home-not-moved")
+        c (config dir)]
+    (legacy-session! dir "1700000000005-eeeeeeee")
+    (is (false? (persist/auto-migrate?)) "a test run's home is a home given")
+    (is (= ["1700000000005-eeeeeeee"] (map :id (persist/summaries c))) "listed where it is")
+    (is (.isFile (io/file dir ".brainyard" "sessions" "1700000000005-eeeeeeee" "session.edn")) "and left there")
+    (is (= 1 (:turn-count (persist/read-session c "1700000000005-eeeeeeee"))) "and read there")))

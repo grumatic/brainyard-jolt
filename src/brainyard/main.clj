@@ -539,14 +539,18 @@
       (concat listened (saved-rows config (map :session-id listened))))))
 
 (defn- session-path
-  "`byj session path ID [--json]` (byj-7sp.1): where session ID of this
+  "`byj session path [ID] [--json]` (byj-7sp.1): where session ID of this
   project is kept — its directory, or `--json` `{session-id dir project-dir
   exists}` — so a program finds it through byj rather than building the
-  path; exit 1 when there is no such session."
+  path; exit 1 when there is no such session. With no ID, the folder that
+  holds the project's sessions (`--json` `{dir project-dir}`), for a script
+  that reads them all."
   [id json config]
   (let [loc (when-not (str/blank? (str id)) (persist/location config (str/trim (str id))))]
     (cond
-      (nil? loc) (do (err-println "session path: give a session's id (byj session list)") 2)
+      (nil? loc) (let [d (.getCanonicalPath (persist/sessions-dir config))]
+                   (println (if json (json/write-str {:dir d :project-dir (persist/project-of config)}) d))
+                   0)
       json (do (println (json/write-str loc)) (if (:exists loc) 0 1))
       (:exists loc) (do (println (:dir loc)) 0)
       :else (do (err-println (str "no session " (:session-id loc) " in " (:project-dir loc))) 1))))
@@ -584,6 +588,20 @@
                    :else (println (str/join " " (:attach r))))
                  (System/exit (if (:error r) 1 0)))
       "path" (System/exit (session-path (second questions) json config))
+      ;; the project's sessions moved from where they were kept before RFC-016's
+      ;; revision; --all every registered project's (byj-7sp.4)
+      "migrate" (let [all? (:all opts)
+                      dirs (if all?
+                             (keep #(when-not (:missing? %) (:path %)) (projects/list-projects (projects/projects-root)))
+                             [(persist/project-of config)])
+                      rs (vec (for [d dirs] (assoc (persist/migrate! (assoc config :project-dir d :working-dir d)) :project-dir d)))]
+                  (if json
+                    (println (json/write-str rs))
+                    (doseq [{:keys [project-dir moved left]} rs
+                            :when (or (pos? moved) (seq left) (not all?))]
+                      (println (str project-dir ": " moved " moved"
+                                    (when (seq left) (str "; left, in use or already there: " (str/join ", " left)))))))
+                  (System/exit 0))
       "watch" (let [target (second questions)
                     s (channel/find-session (dissoc config :session-id) target
                                             " — `session list --live` names the live ones")]
@@ -594,7 +612,7 @@
                     (err-println (str "watching " (:session-id s) " — " (pr-str ack) " (ctrl-c stops)"))
                     @done
                     (System/exit 0))))
-      (do (err-println (str "session: unknown subcommand " (pr-str sub) " — list | path ID | watch SESSION | delegates | attach ID")) (System/exit 2)))
+      (do (err-println (str "session: unknown subcommand " (pr-str sub) " — list | path ID | migrate [--all] | watch SESSION | delegates | attach ID")) (System/exit 2)))
     (if (not= "list" sub)
       nil
       (let [rows (session-rows config live)]

@@ -9,6 +9,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [clojure.walk]
+            [brainyard.persist]
             [brainyard.changes :as changes]
             [brainyard.deps :as deps]
             [brainyard.effect :as fx]))
@@ -36,7 +37,7 @@
     (git! dir "rev-parse" "--short" "HEAD")))
 
 (defn- session! [dir id {:keys [turns title]}]
-  (let [f (io/file dir ".brainyard" "sessions" id "session.edn")]
+  (let [f (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") id "session.edn")]
     (io/make-parents f)
     (spit f (pr-str {:schema-version 1 :id id :turn-count turns
                      :previous-turns (vec (for [i (range turns)] {:question (str "q" i) :answer "a" :turn (inc i)}))

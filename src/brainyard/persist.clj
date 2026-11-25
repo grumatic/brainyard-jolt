@@ -24,6 +24,7 @@
             [clojure.pprint]
             [clojure.string :as str]
             [brainyard.effect :as fx]
+            [brainyard.projects :as projects]
             [brainyard.schema :as schema]
             [brainyard.version :as version]))
 
@@ -50,26 +51,74 @@
                     (System/getenv "HOME"))]
      (io/file h ".brainyard"))))
 
-(defn state-dir
-  "Where the project keeps what its sessions leave of `kind` —
-  `\"sessions\"`, `\"transcripts\"` (RFC-014), `\"tasks\"` (RFC-019): the one
-  root every such path is built from, so the place can move in one fn
-  (byj-7sp.2, RFC-016's revision)."
-  [config kind]
-  (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" kind))
-
-(defn sessions-dir [config] (state-dir config "sessions"))
-
-(defn session-dir [config id] (io/file (sessions-dir config) (str id)))
-
-(defn session-file [config id] (io/file (session-dir config id) "session.edn"))
-
-(defn lock-file [config id] (io/file (session-dir config id) "lock.edn"))
-
 (defn project-of
   "The project whose sessions `config` reads and writes, as a canonical path."
   [config]
   (config/canonical-dir (or (:project-dir config) (:working-dir config) ".")))
+
+(def kinds
+  "What a project's sessions leave, each kept in a folder of its own kind:
+  the sessions, their transcripts (RFC-014) and their tasks (RFC-019)."
+  ["sessions" "transcripts" "tasks"])
+
+(defn legacy-dir
+  "Where `kind` was kept before RFC-016's revision: `<project>/.brainyard/<kind>`.
+  Read until it is empty, and moved from (`migrate!`)."
+  [config kind]
+  (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" kind))
+
+(defn- home-dir
+  "`<sessions-home>/<kind>/<project-slug>`: the project's folder of `kind` in
+  the person's home, keyed by the project's path — a worktree's by its own —
+  as the registry's folder is (`projects/project-slug`); the legacy folder
+  when there is no home."
+  [config kind]
+  (if-let [home (sessions-home)]
+    (io/file home kind (projects/project-slug (project-of config)))
+    (legacy-dir config kind)))
+
+(declare migrate-once! mark-project!)
+
+(defn state-dir
+  "Where the project keeps what its sessions leave of `kind` —
+  `\"sessions\"`, `\"transcripts\"` (RFC-014), `\"tasks\"` (RFC-019): the one
+  root every such path is built from (byj-7sp.2), in the person's home since
+  RFC-016's revision (byj-7sp.4): `<home>/.brainyard/<kind>/<project-slug>/`.
+  The project's legacy folders are moved here the first time it is touched
+  (`migrate-once!`), and its sessions folder says whose it is (`project.edn`)."
+  [config kind]
+  (migrate-once! config)
+  (let [d (home-dir config kind)]
+    (when (= "sessions" kind) (mark-project! config d))
+    d))
+
+(defn sessions-dir [config] (state-dir config "sessions"))
+
+(defn session-dir
+  "Session `id`'s folder: the home's, unless only the legacy folder has it — a
+  session a live process of an older byj still holds, left there until it is
+  free (`migrate!`)."
+  [config id]
+  (let [h (io/file (sessions-dir config) (str id))
+        old (io/file (legacy-dir config "sessions") (str id))]
+    (if (or (.exists h) (not (.exists old))) h old)))
+
+(defn session-dirs
+  "Every session folder of the project: the home's, then the legacy folder's
+  that the home has not — what listing reads, so a session still left in the
+  old place is listed until it moves."
+  [config]
+  (let [home (sessions-dir config)
+        old (legacy-dir config "sessions")
+        hs (filter #(.isDirectory ^java.io.File %) (or (when (.isDirectory home) (.listFiles home)) []))
+        seen (set (map #(.getName ^java.io.File %) hs))
+        os (filter #(and (.isDirectory ^java.io.File %) (not (seen (.getName ^java.io.File %))))
+                   (or (when (and (.isDirectory old) (not= (.getCanonicalPath old) (.getCanonicalPath home))) (.listFiles old)) []))]
+    (vec (concat hs os))))
+
+(defn session-file [config id] (io/file (session-dir config id) "session.edn"))
+
+(defn lock-file [config id] (io/file (session-dir config id) "lock.edn"))
 
 (defn location
   "Where session `id` of the project is kept: `{:session-id :dir :project-dir
@@ -326,9 +375,7 @@
 (defn summaries
   "Every session under the project, newest first: what `--resume` lists."
   [config]
-  (let [dir (sessions-dir config)]
-    (->> (when (.isDirectory dir) (.listFiles dir))
-         (filter #(.isDirectory %))
+  (->> (session-dirs config)
          (keep (fn [d]
                  (let [m (read-session config (.getName d))]
                    (if (:problem m)
@@ -338,7 +385,7 @@
                          ;; a snapshot written before :last-question was kept
                          (update :last-question #(or % (:question (peek (vec (:previous-turns m)))))))))))
          (sort-by #(or (:updated-at %) 0) >)
-         vec)))
+         vec))
 
 (defn last-run-file
   "Where a full-screen run records the set it has open (byj-gly.178)."
@@ -368,6 +415,80 @@
   (:id (first (remove #(or (:problem %) (zero? (or (:turn-count %) 0))) (summaries config)))))
 
 ;; --- locking ----------------------------------------------------------------------
+
+(defn- held-dir?
+  "Does a live process other than this one hold the session in folder `d`?"
+  [^java.io.File d]
+  (let [f (io/file d "lock.edn")]
+    (when (.isFile f)
+      (let [{:keys [pid]} (try (edn/read-string (slurp f)) (catch Throwable _ nil))]
+        (boolean (and pid (not= (str pid) (own-pid)) (alive? pid)))))))
+
+(defn- move!
+  "`from` renamed to `to`, or moved by `mv` across file systems. true when done."
+  [^java.io.File from ^java.io.File to]
+  (.mkdirs (.getParentFile to))
+  (or (.renameTo from to)
+      (= 0 (:exit (sh "mv" (.getPath from) (.getPath to))))))
+
+(defn migrate!
+  "The project's legacy folders (`<project>/.brainyard/sessions|transcripts|tasks`)
+  moved into its folders in the home (RFC-016's revision, byj-7sp.4): each
+  entry the home has not, but a session another live process holds — an older
+  byj's, which still writes there — and the folder removed once empty.
+  `{:moved n :left [names]}`."
+  [config]
+  (let [r (atom {:moved 0 :left []})]
+    (doseq [kind kinds
+            :let [src (legacy-dir config kind)
+                  dst (home-dir config kind)]
+            :when (and (.isDirectory src) (not= (.getCanonicalPath src) (.getCanonicalPath dst)))]
+      (doseq [^java.io.File e (or (.listFiles src) [])
+              :let [to (io/file dst (.getName e))]]
+        (if (or (.exists to) (and (= "sessions" kind) (.isDirectory e) (held-dir? e)))
+          (swap! r update :left conj (str kind "/" (.getName e)))
+          (if (move! e to)
+            (swap! r update :moved inc)
+            (swap! r update :left conj (str kind "/" (.getName e))))))
+      (when (empty? (.listFiles src)) (.delete src)))
+    (when (pos? (:moved @r)) (mark-project! config (home-dir config "sessions")))
+    @r))
+
+(defonce ^:private migrated
+  ;; project path -> what its legacy folders looked like when last moved from
+  (atom {}))
+
+(defn auto-migrate?
+  "Is a project's legacy folder moved on its own the first time it is touched?
+  Only into the person's own home: never into a home a property or
+  `BY_SESSIONS_HOME` gave — a test run's — which would carry the sessions of
+  a real project a test touched (this repository's own, its git root) into a
+  home the next run empties. `migrate!`, called by name, moves anywhere."
+  []
+  (boolean (and (System/getenv "HOME")
+                (empty? (System/getProperty "brainyard.sessions-home"))
+                (empty? (System/getenv "BY_SESSIONS_HOME")))))
+
+(defn- migrate-once!
+  "`migrate!` the project when its legacy folders are there and have changed
+  since this process last moved from them: a stat per kind, and a move only
+  the first time a project is touched (or when an older byj added to them);
+  only where `auto-migrate?` says so."
+  [config]
+  (let [stamp (vec (for [k kinds :let [d (legacy-dir config k)]] (when (.isDirectory d) (.lastModified d))))]
+    (when (and (some some? stamp) (auto-migrate?) (not= stamp (get @migrated (project-of config))))
+      (swap! migrated assoc (project-of config) stamp)
+      (try (migrate! config) (catch Throwable _ nil)))))
+
+(defn- mark-project!
+  "The project's sessions folder `d` says whose it is — `project.edn`
+  `{:path}` — once it is there, so a folder whose project is gone can be
+  told (RFC-016's revision)."
+  [config ^java.io.File d]
+  (when (.isDirectory d)
+    (let [f (io/file d "project.edn")]
+      (when-not (.isFile f)
+        (try (spit f (pr-str {:path (project-of config)})) (catch Throwable _ nil))))))
 
 (defn holder
   "The live process holding `id`, or nil. A lock whose pid is gone is stale and

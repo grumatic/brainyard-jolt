@@ -10,6 +10,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [brainyard.persist]
             [brainyard.changes :as changes]
             [brainyard.coach :as coach]
             [brainyard.config :as config]
@@ -740,7 +741,7 @@
       (is (= {:goal "Add a --json flag to session list" :level "practitioner" :subject "code" :slug "coach-add-a-json-flag-to-session"}
              (dissoc m :started-at)) "practitioner unless asked, the code unless Emacs")
       (is (= m (coach/stance cfg)) "kept in the session's own directory")
-      (is (.isFile (io/file dir ".brainyard" "sessions" "s-coach" "coach.edn"))))
+      (is (.isFile (io/file (brainyard.persist/state-dir {:project-dir dir} "sessions") "s-coach" "coach.edn"))))
     (is (= "beginner" (:level (coach/set-stance! cfg {:goal "learn transducers" :level "beginner"}))))
     (testing "every turn is told the goal and how to coach while it is on"
       (let [st (atom {})]

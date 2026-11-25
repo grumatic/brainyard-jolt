@@ -345,10 +345,7 @@
 (defn sessions
   "Session ids that have a trajectory, newest-written first."
   [{:keys [project-dir]}]
-  (let [d (persist/sessions-dir {:project-dir project-dir})]
-    (if-not (.isDirectory d)
-      []
-      (->> (.listFiles d)
-           (filter #(.isFile (io/file % filename)))
-           (sort-by #(- (.lastModified (io/file % filename))))
-           (mapv #(.getName %))))))
+  (->> (persist/session-dirs {:project-dir project-dir})
+       (filter #(.isFile (io/file % filename)))
+       (sort-by #(- (.lastModified (io/file % filename))))
+       (mapv #(.getName %))))

@@ -144,9 +144,9 @@
                          (> (System/currentTimeMillis) deadline) s
                          :else (recur))))]
         (is (= :completed status) (str "run " i ": the task settled"))
-        (is (.isFile (io/file dir ".brainyard" "tasks" task-id "meta.edn"))
+        (is (.isFile (io/file (brainyard.persist/state-dir {:project-dir dir} "tasks") task-id "meta.edn"))
             (str "run " i ": meta.edn exists the moment the status does"))
-        (is (.isFile (io/file dir ".brainyard" "tasks" task-id "output.log"))
+        (is (.isFile (io/file (brainyard.persist/state-dir {:project-dir dir} "tasks") task-id "output.log"))
             (str "run " i ": output.log exists the moment the status does"))))))
 
 (deftest task-run-starts-a-job
@@ -158,8 +158,8 @@
         (is (= :completed (:status done)))
         (is (= {:exit-code 0} (:result done)))
         (is (str/includes? (:output done) "hello"))
-        (is (.isFile (io/file dir ".brainyard" "tasks" task-id "output.log")))
-        (is (.isFile (io/file dir ".brainyard" "tasks" task-id "meta.edn")))))
+        (is (.isFile (io/file (brainyard.persist/state-dir {:project-dir dir} "tasks") task-id "output.log")))
+        (is (.isFile (io/file (brainyard.persist/state-dir {:project-dir dir} "tasks") task-id "meta.edn")))))
 
     (testing "a tool job runs any registered tool, through the same gates"
       (let [{:keys [task-id]} (cmd ctx "task$run" {:job-type "tool" :tool-id "list-dir" :tool-args {:path "."}})
@@ -333,7 +333,7 @@
   (let [dir (fresh-dir "prune")
         old (- (System/currentTimeMillis) (* 30 24 60 60 1000))
         mk (fn [id at]
-             (let [d (io/file dir ".brainyard" "tasks" id)]
+             (let [d (io/file (brainyard.persist/state-dir {:project-dir dir} "tasks") id)]
                (.mkdirs d)
                (spit (io/file d "output.log") "x")
                (.setLastModified d at)

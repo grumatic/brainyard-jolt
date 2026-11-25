@@ -369,7 +369,7 @@
   "Every trajectory record in project `dir` written at or after `since` (ms),
   across its sessions — a stage's root turns and its subagents' alike."
   [dir since]
-  (let [sessions (or (.listFiles (persist/sessions-dir {:project-dir dir})) [])]
+  (let [sessions (persist/session-dirs {:project-dir dir})]
     (vec (sort-by :ts (for [s sessions
                             :when (.isDirectory ^java.io.File s)
                             r (try (trajectory/read-trajectories {:project-dir dir} (.getName ^java.io.File s))
