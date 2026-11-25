@@ -474,6 +474,15 @@
           (is (re-matches #"\d{4}-\d\d-\d\dT.*Z" (str (:updatedAt (second sessions)))))
           (is (= 1 (get-in (second sessions) [:_meta :brainyard :turnCount])))
           (is (nil? nextCursor))))
+      (testing "one kept here that worked elsewhere says where (byj-cm4.6): a workflow stage in a worktree"
+        (let [wt (.getCanonicalPath (doto (io/file dir "wt") .mkdirs))]
+          (persist/save! {:project-dir dir :working-dir wt} "1790000000000-elsewh01" {:turn-count 1 :previous-turns [] :question "q"})
+          (let [rows (:sessions (:result (call c "session/list" {:cwd dir})))
+                row (some #(when (= "1790000000000-elsewh01" (:sessionId %)) %) rows)]
+            (is (= wt (get-in row [:_meta :brainyard :workingDir])))
+            (is (= dir (:cwd row)) "listed, and loaded, where it is kept")
+            (is (not-any? #(get-in % [:_meta :brainyard :workingDir]) (remove #{row} rows)) "one that worked here says nothing"))
+          (persist/delete! {:project-dir dir} "1790000000000-elsewh01")))
       (testing "a page at a time, the cursor the next page's"
         (with-redefs [acp/list-page 2]
           (let [p1 (:result (call c "session/list" {:cwd dir}))

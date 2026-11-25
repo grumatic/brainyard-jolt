@@ -269,7 +269,7 @@
                    (if (:problem m)
                      {:id (.getName d) :problem (:problem m)}
                      (-> (select-keys m [:id :updated-at :created-at :turn-count :usage :last-question
-                                         :conversation-title :model])
+                                         :conversation-title :model :working-dir])
                          ;; a snapshot written before :last-question was kept
                          (update :last-question #(or % (:question (peek (vec (:previous-turns m)))))))))))
          (sort-by #(or (:updated-at %) 0) >)

@@ -915,8 +915,14 @@
 (defn- session-info
   "A saved session as ACP's `SessionInfo`: its title the conversation's name,
   else its last question."
-  [cwd {:keys [id updated-at conversation-title last-question turn-count created-at model]}]
-  (let [held (persist/holder {:project-dir cwd} id)]
+  [cwd {:keys [id updated-at conversation-title last-question turn-count created-at model working-dir]}]
+  (let [held (persist/holder {:project-dir cwd} id)
+        ;; where it worked, when not where it is kept: a workflow stage or a
+        ;; team member in a worktree of the project (byj-cm4.6); :cwd stays
+        ;; the project's, which a session/load finds it in
+        elsewhere (when (and (string? working-dir) (not (str/blank? working-dir))
+                             (not= (config/canonical-dir working-dir) (config/canonical-dir cwd)))
+                    working-dir)]
     {:sessionId id
      :cwd cwd
      :title (some-> (or conversation-title last-question) str/trim (str/replace #"\s+" " ") (clip 80))
@@ -927,7 +933,8 @@
                           ;; own (`/model`), as a label; else it asks whatever
                           ;; opens it (byj-66y)
                           model (assoc :model model)
-                          held (assoc :heldBy (str held)))}}))
+                          held (assoc :heldBy (str held))
+                          elsewhere (assoc :workingDir elsewhere))}}))
 
 (defn- delete-session
   "ACP's `session/delete`: a saved session deleted, closed first when this
