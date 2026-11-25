@@ -468,6 +468,8 @@
           {:n (:n run) :workflow (id-name (:workflow run))
            :title (if (given (:title def)) (str " (" (:title def) ")") "")
            :work (:work-text run) :profile (profile-words w p)
+           ;; a run built on a branch says so (byj-cm4.3)
+           :builds (if-let [f (given (:from run))] (str (fill (:builds w) {:from f}) "\n\n") "")
            :flow (str/join " → " (map (comp id-name :stage) stages))
            :stage (id-name s)
            ;; the brief ends the role with its own full stop
@@ -570,7 +572,10 @@
   the project has no profile, the workflow is not there or cannot be
   written, or there is no work. `:worktree` true runs it in a worktree of
   its own, on a branch `workflow/<workflow>-<n>`, each stage in a session
-  there. `{:stop :stopped :run :brief :master :elsewhere}`, `:elsewhere`
+  there. `:from` names the branch or commit that worktree starts from (HEAD
+  when absent; byj-cm4.3), and asks for one: refused before opening when it
+  is not a commit; the record keeps it as `:from`, its commit as `:base`, and
+  each brief says what the run builds on. `{:stop :stopped :run :brief :master :elsewhere}`, `:elsewhere`
   whether the first stage works in a session of its own."
   [config ctx args]
   (let [dir (dir-of config args)
@@ -582,7 +587,10 @@
         wf (get-in spec [:workflows wid])
         work (str/trim (str (:work args)))
         errs (filter #(= wid (get-in % [:target :workflow])) (workflow-errors dir spec))
-        isolate? (contains? #{true "true" "yes"} (cond-> (:worktree args) (string? (:worktree args)) (-> str/trim str/lower-case)))
+        from (given (some-> (:from args) str str/trim))
+        ;; a branch to build on asks for a worktree of its own (byj-cm4.3)
+        isolate? (or (some? from)
+                     (contains? #{true "true" "yes"} (cond-> (:worktree args) (string? (:worktree args)) (-> str/trim str/lower-case))))
         stop (fn [why] {:stop true :stopped why :run "" :brief "" :master "" :elsewhere false})]
     (when p (settle-left! config dir tl w))
     (cond
@@ -594,17 +602,19 @@
                                       ": /workflow adds one")}))
       (seq errs) (stop (fill (get-in w [:stops :errors]) {:workflow (id-name wid) :errors (str/join "; " (map :message errs))}))
       (str/blank? work) (stop (get-in w [:stops :no-work]))
+      (and from (nil? (git-out dir "rev-parse" "--verify" "--quiet" (str from "^{commit}"))))
+      (stop (fill (get-in w [:stops :no-ref]) {:ref from}))
       :else
       (let [item (item-of tl work)
             {:keys [Kind]} (when item (get-in (drive/words) [:kinds (if (drive/github-id? (:id item)) :github :beads)]))
             n (inc (reduce max 0 (map :n (runs dir))))
             wt (when isolate?
-                 (worktree/add! dir (io/file (runs-dir dir) (str n) "worktree") (str "workflow/" (id-name wid) "-" n)))
+                 (worktree/add! dir (io/file (runs-dir dir) (str n) "worktree") (str "workflow/" (id-name wid) "-" n) from))
             stages (order wf)
             role-of #(deps/stage-role % (get-in wf [:stages %]))
             roles (into {} (for [r (distinct (concat (map role-of stages) (when (:master wf) [(:master wf)])))]
                              [r (get-in spec [:roles r])]))
-            head (or (git-out dir "rev-parse" "HEAD") "")
+            head (or (git-out dir "rev-parse" (str (or from "HEAD") "^{commit}")) "")
             claimed? (boolean (when (and item (not= "closed" (:status item)) (not (:error wt)))
                                 (:ok? (drive/claim! tl (:id item)))))
             run {:n n :workflow wid :status :running
@@ -624,7 +634,7 @@
                  :stages (vec (for [s stages] {:stage s :role (role-of s) :status :pending :attempts 0}))}]
         (if (:error wt)
           (stop (:error wt))
-          (let [run (begin-stage w p dir run 0)
+          (let [run (begin-stage w p dir (cond-> run from (assoc :from from)) 0)
                 place (get-in run [:stages 0 :place])]
             (write-run! dir run)
             (when-not (elsewhere? place) (note-begun! dir run 0 (:session-id config)))
@@ -1050,7 +1060,8 @@
      {:name "workflow$start" :kind :command
       :description "/workflow's run: open a run of a workflow on a piece of work, and give its first stage's brief — or why it cannot run."
       :input-schema [:map dir (opt :workflow "the workflow's id") (opt :work "what the run works on: words, or an issue's id first: its id in beads, or #N")
-                     (opt :worktree "yes to run it in a worktree of its own")]
+                     (opt :worktree "yes to run it in a worktree of its own")
+                     (opt :from "a branch or commit its worktree starts from, not HEAD; asks for a worktree of its own")]
       :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (start-run config ctx args))}

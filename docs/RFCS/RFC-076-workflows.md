@@ -198,6 +198,14 @@ A run asked to work apart (`/workflow run … in a worktree`; the route's
 on `workflow/<workflow>-<n>` (key `:root`). There every stage works in a
 session, since a turn here cannot change its directory.
 
+That worktree starts from HEAD, or from a branch or commit the run is to
+build on (`byj-cm4.3`): `/workflow run fix … from BRANCH`, the route's
+`from`, `workflow$start`'s `:from`. Naming one asks for a worktree of its
+own. One that is no commit stops the run before it opens. The record keeps
+it as `:from` and its commit as `:base`, and each stage's brief says what the
+run builds on and how to read it from the main checkout
+(`git log HEAD..BRANCH`).
+
 `workflow$check` reads the stage's own work tree. A session that is still
 live is asked again, as a retry or an `:upstream` stage. Each stage's
 session is bound to its role in `deps-local.edn`, and on a stage's first
@@ -249,7 +257,8 @@ A run's record:
 {:n 3 :workflow :fix :status :running        ; :running | :done | :stopped
  :work "byj-abc keep it small" :work-text "…" :item "byj-abc" :claimed? true
  :session "<session id>" :pid 123 :started-at "…" :ended-at "…"
- :base "<HEAD when it opened>" :branch "main"
+ :base "<HEAD when it opened, or :from's commit>" :branch "main"
+ :from "unmerged"                            ; only when it builds on one (byj-cm4.3)
  :def {…the workflow…} :roles {…its roles…}
  :root {:key :here}                          ; or {:key :root :dir "<worktree>" :branch "workflow/fix-3"}
  :sessions {:root {:session-id "…" :task-id "…" :label "workflow-3/root" :dir "…"}}
@@ -311,6 +320,7 @@ Config:
 | Any other request is one turn, asked what was asked | `workflow-test/any-other-request-is-a-turn-over-the-workflow-commands` |
 | The profile's `:usd` and `:failures` end a run, a stage's spend counted | `workflow-test/the-profiles-limits-end-a-run` |
 | A stage works where its role's `:session` says — this turn, or a session of its own in a worktree — and a run asked to work apart works in its own worktree; the session is bound to its role | `workflow-test/a-stage-works-where-its-role-says-and-is-bound-to-it` |
+| A run built on a branch works in a worktree starting there, its record keeping the branch and its commit, its briefs saying so; one that is no commit is refused before the run opens | `workflow-test/a-run-in-a-worktree-builds-on-a-branch` |
 | A stage in a session of its own is asked its brief there, the same session again while it is live; the report closes it and says the worktree | `workflow-test/a-stage-in-a-session-of-its-own-is-asked-there` |
 | What a stage's own session spent is the run's, toward the profile's `:usd`, and counted once | `workflow-test/a-stage-worked-elsewhere-spends-the-runs-budget` |
 | `byj workflow runs --json` gives the runs as data, one or all, and `byj workflow verdict` keeps the person's word; a run not there, or a verdict refused, exits 1 | `main-test/byj-workflow-gives-the-runs-as-data-and-keeps-a-verdict` |

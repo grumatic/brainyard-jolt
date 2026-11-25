@@ -24,7 +24,9 @@
  ;; --- a run (byj-edw.2) ------------------------------------------------------
  ;; each stage's brief: the run, the profile's goal and scope, the stage's
  ;; role, what was handed to it, and what it hands on
- :brief "Run #{n} of workflow {workflow}{title}: {work}\n\n{profile}The run goes {flow}, each stage a turn of its own, handed on in turn. You play stage {stage} now, as {role}.\n\n{handed}{next}\n\nDo your part, and only yours: a later stage does its own. Check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what the person decides: keep to it. Where it says to ask before a commit, an issue filed or closed, a decision record or a push, run the command or write the file — byj asks the person then and waits for their answer. Put a question in your answer only for a change of goal, scope, stack or done criteria, or a decision the profile does not let you make. End by saying what you did, how you checked it, and {end}."
+ :brief "Run #{n} of workflow {workflow}{title}: {work}\n\n{builds}{profile}The run goes {flow}, each stage a turn of its own, handed on in turn. You play stage {stage} now, as {role}.\n\n{handed}{next}\n\nDo your part, and only yours: a later stage does its own. Check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what the person decides: keep to it. Where it says to ask before a commit, an issue filed or closed, a decision record or a push, run the command or write the file — byj asks the person then and waits for their answer. Put a question in your answer only for a change of goal, scope, stack or done criteria, or a decision the profile does not let you make. End by saying what you did, how you checked it, and {end}."
+ ;; a run whose worktree starts from a branch, not HEAD (byj-cm4.3)
+ :builds "It builds on {from}, which the project's main line may not have yet: its worktree starts there. From the main checkout, git log HEAD..{from} and git diff HEAD...{from} show what that adds."
  :profile "This project's goal: {goal}\n{scope}\n"
  :scope-in "In scope: {in}\n"
  :scope-out "Out of scope: {out}\n"
@@ -57,6 +59,7 @@
          :no-workflow "No workflow {workflow} in .brainyard/deps.edn{known}."
          :errors "Workflow {workflow} cannot run: {errors}."
          :no-work "Say what the run is to work on: words, or an issue — its id in beads, or #N on GitHub."
+         :no-ref "{ref} is no branch or commit here: a run builds on one that is."
          :finished "Every stage is done."
          :stage-spent "Stage {stage} was not finished in {k} turns: {why}"
          :asks "Stage {stage} needs you: {question}"

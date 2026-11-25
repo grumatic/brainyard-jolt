@@ -448,3 +448,25 @@
         (is (str/includes? (:answer (workflow/delegate-stage cfg {} {:run run :brief "b"})) "the run was stopped"))))
     (is (false? (:ok (workflow/stop-run cfg {:run run}))) "a run not running")
     (is (false? (:ok (workflow/stop-run cfg {:run 9}))) "a run not there")))
+
+(deftest a-run-in-a-worktree-builds-on-a-branch
+  ;; byj-cm4.3: its worktree starts from the branch named, not HEAD
+  (let [{:keys [dir cfg]} (run-setup "from" {:preset :collaborator :issues [{:tracker :beads}]})]
+    (git! dir "checkout" "-qb" "unmerged")
+    (spit (io/file dir "fix.txt") "the unmerged fix\n")
+    (git! dir "add" "fix.txt") (git! dir "commit" "-qm" "unmerged work")
+    (git! dir "checkout" "-q" "-")
+    (let [{:keys [run stopped elsewhere brief]} (workflow/start-run cfg {} {:workflow "docs" :work "y" :from "unmerged"})
+          kept (workflow/read-run dir run)
+          wt (get-in kept [:root :dir])]
+      (is (true? elsewhere) (str "a branch to build on asks for a worktree of its own: " stopped))
+      (is (= "unmerged" (:from kept)))
+      (is (= (str/trim (:out (fx/sh {:dir dir :out :string} "git" "rev-parse" "unmerged"))) (:base kept)))
+      (is (.isFile (io/file wt "fix.txt")) "the worktree starts where the branch is")
+      (is (str/includes? brief "It builds on unmerged, which the project's main line may not have yet")))
+    (testing "one not there is refused before the run opens"
+      (is (= "nope is no branch or commit here: a run builds on one that is."
+             (:stopped (workflow/start-run cfg {} {:workflow "docs" :work "y" :from "nope"})))))
+    (testing "a run with none names none"
+      (let [{:keys [run]} (workflow/start-run cfg {} {:workflow "docs" :work "z"})]
+        (is (not (contains? (workflow/read-run dir run) :from)))))))
