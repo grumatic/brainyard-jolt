@@ -969,7 +969,7 @@
 (defn- session-info
   "A saved session as ACP's `SessionInfo`: its title the conversation's name,
   else its last question."
-  [cwd {:keys [id updated-at conversation-title last-question turn-count created-at model working-dir]}]
+  [cwd {:keys [id updated-at conversation-title last-question turn-count created-at model working-dir leader]}]
   (let [held (persist/holder {:project-dir cwd} id)
         ;; where it worked, when not where it is kept: a workflow stage or a
         ;; team member in a worktree of the project (byj-cm4.6); :cwd stays
@@ -988,7 +988,9 @@
                           ;; opens it (byj-66y)
                           model (assoc :model model)
                           held (assoc :heldBy (str held))
-                          elsewhere (assoc :workingDir elsewhere))}}))
+                          elsewhere (assoc :workingDir elsewhere)
+                          ;; the session leading it, a member's (byj-cm4.13)
+                          leader (assoc :leader leader))}}))
 
 (defn- delete-session
   "ACP's `session/delete`: a saved session deleted, closed first when this

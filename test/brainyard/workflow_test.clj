@@ -15,6 +15,7 @@
             [brainyard.effect :as fx]
             [brainyard.flow :as flow]
             [brainyard.json :as json]
+            [brainyard.persist :as persist]
             [brainyard.tasks :as tasks]
             [brainyard.workflow :as workflow]))
 
@@ -401,6 +402,7 @@
         (is (str/includes? (:answer r) "count the files") (pr-str r))
         (is (re-matches #"\d{13}-[0-9a-f]{8}" (str sid)) (pr-str (:sessions kept)))
         (is (= "workflow-1/root" (get-in kept [:sessions :root :label])))
+        (is (= "1790000000400-wfleader" (:leader (persist/read-session {:project-dir dir} sid))) "it keeps its leader (byj-cm4.13)")
         (is (= [sid] (get-in (:value (deps/read-local dir)) [:bindings :design])) "the session is bound to the stage's role")
         (testing "what it did is kept with the stage, watched in its session (byj-cm4.7)"
           (let [p (get-in kept [:stages 0 :progress])]

@@ -512,6 +512,8 @@
                         ;; a headless member's given name, else what the
                         ;; conversation came to be called
                         :label (or label (:conversation-title snap))
+                        ;; the session leading it, a member's (byj-cm4.13)
+                        :leader (:leader snap)
                         :last-question (:last-question snap)
                         :updated-at (or (:updated-at snap) (.lastModified (io/file d "meta.edn")))})))))
          (sort-by #(- (or (:updated-at %) 0)))

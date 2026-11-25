@@ -113,7 +113,30 @@
    ;; the session this one was forked from (byj-g5n.12), and the turn it
    ;; was cut before when it was (RFC-069)
    [:forked-from {:optional true} [:maybe :string]]
+   ;; the session that leads this one, a team member or a workflow stage
+   ;; started with --leader (RFC-032, byj-cm4.13)
+   [:leader {:optional true} [:maybe :string]]
    [:forked-before-turn {:optional true} [:maybe :int]]])
+
+(declare read-session)
+
+(defn resume-working-dir
+  "Where session `id`, resumed in the project `config` names, goes on working
+  (byj-cm4.12): the `:working-dir` its snapshot keeps, when it is the project's
+  session, that folder is still there and is not the project's own — a
+  workflow stage or a team member, kept under the project, that worked in a
+  worktree of it. nil keeps the folder the resume was given. Resumed with the
+  project as its working dir, such a session was saved so, and its tools went
+  on in the main checkout."
+  [config id]
+  (let [snap (read-session config id)
+        wd (:working-dir snap)
+        pd (config/canonical-dir (:project-dir config))]
+    (when (and (not (:problem snap)) (string? wd) (not (str/blank? wd))
+               (.isDirectory (io/file wd))
+               (= (config/canonical-dir (:project-dir snap)) pd)
+               (not= (config/canonical-dir wd) pd))
+      wd)))
 
 (defn read-session
   "A snapshot, or `{:problem …}` — never throws. An unreadable file is left on
@@ -195,6 +218,9 @@
                      :recaps (kept-recaps recaps)
                      ;; kept across saves: where a fork came from
                      :forked-from (:forked-from existing)
+                     ;; and the session that leads it, a member's (byj-cm4.13):
+                     ;; kept when it is opened again with no leader
+                     :leader (or (not-empty (str (:session-leader config))) (:leader existing))
                      :forked-before-turn (:forked-before-turn existing)})
       f)
     (catch Throwable _ nil)))
@@ -269,7 +295,7 @@
                    (if (:problem m)
                      {:id (.getName d) :problem (:problem m)}
                      (-> (select-keys m [:id :updated-at :created-at :turn-count :usage :last-question
-                                         :conversation-title :model :working-dir])
+                                         :conversation-title :model :working-dir :leader])
                          ;; a snapshot written before :last-question was kept
                          (update :last-question #(or % (:question (peek (vec (:previous-turns m)))))))))))
          (sort-by #(or (:updated-at %) 0) >)

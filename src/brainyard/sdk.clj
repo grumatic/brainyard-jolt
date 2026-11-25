@@ -164,7 +164,11 @@
         ;; the directory given IS the project: the CLI takes the git root above
         ;; its working directory, and a session opened in a subdirectory of a
         ;; repository wrote its trajectory into the repository's (byj-g5n.3)
-        overrides (cond-> (merge {:project-dir wd :working-dir wd} (:config opts))
+        ;; resumed where it is kept, a session goes on in the folder it worked
+        ;; in: a stage's or a member's worktree (byj-cm4.12)
+        rwd (when (and resume (not (:fork-from opts)) (not wt))
+              (persist/resume-working-dir {:project-dir wd :working-dir wd} resume))
+        overrides (cond-> (merge {:project-dir wd :working-dir (or rwd wd)} (:config opts))
                     permission-mode (assoc :permission-mode permission-mode)
                     (seq mcp-servers) (update :mcp-servers merge mcp-servers))
         load (fn []

@@ -1134,11 +1134,14 @@
   `-main` closed over a nil id and silently wrote nothing — and a `--resume`
   rebound the id after those sinks had already been built (`byj-gly.76`)."
   [opts config command]
-  (let [rid (when (= :run command) (resume-id opts config))]
+  (let [rid (when (= :run command) (resume-id opts config))
+        ;; resumed where it is kept, it goes on where it worked (byj-cm4.12)
+        rwd (when rid (persist/resume-working-dir config rid))]
     (cond-> (assoc config :session-id (or rid
                                           (:session-id config)
                                           (context/session-id)))
-      rid (assoc :resume rid))))
+      rid (assoc :resume rid)
+      rwd (assoc :working-dir rwd))))
 
 (defn- resumed-base
   "The base, once its session is locked to this process, or nil when another
@@ -1695,7 +1698,9 @@
         ;; one to ask, and a gate that would ask refuses (RFC-012)
         base (cond-> base
                leader (assoc :permission-fn (channel/forwarding-permission-fn (:config base) leader
-                                                                              (or label agent))))
+                                                                              (or label agent)))
+               ;; and kept with it, so a client lists it under its leader (byj-cm4.13)
+               leader (assoc-in [:config :session-leader] (str leader)))
         wakeups (tasks/wakeups)
         task-registry (tasks/registry)
         cancellers (atom {})

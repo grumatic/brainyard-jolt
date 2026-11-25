@@ -477,10 +477,14 @@
           (is (nil? nextCursor))))
       (testing "one kept here that worked elsewhere says where (byj-cm4.6): a workflow stage in a worktree"
         (let [wt (.getCanonicalPath (doto (io/file dir "wt") .mkdirs))]
-          (persist/save! {:project-dir dir :working-dir wt} "1790000000000-elsewh01" {:turn-count 1 :previous-turns [] :question "q"})
+          (persist/save! {:project-dir dir :working-dir wt :session-leader "1790000000000-leader01"} "1790000000000-elsewh01" {:turn-count 1 :previous-turns [] :question "q"})
+          (testing "and the session leading it, kept when it is saved again with none (byj-cm4.13)"
+            (persist/save! {:project-dir dir :working-dir wt} "1790000000000-elsewh01" {:turn-count 1 :previous-turns [] :question "q"})
+            (is (= "1790000000000-leader01" (:leader (persist/read-session {:project-dir dir} "1790000000000-elsewh01")))))
           (let [rows (:sessions (:result (call c "session/list" {:cwd dir})))
                 row (some #(when (= "1790000000000-elsewh01" (:sessionId %)) %) rows)]
             (is (= wt (get-in row [:_meta :brainyard :workingDir])))
+            (is (= "1790000000000-leader01" (get-in row [:_meta :brainyard :leader])))
             (is (= dir (:cwd row)) "listed, and loaded, where it is kept")
             (is (not-any? #(get-in % [:_meta :brainyard :workingDir]) (remove #{row} rows)) "one that worked here says nothing"))
           (persist/delete! {:project-dir dir} "1790000000000-elsewh01")))
@@ -1468,4 +1472,26 @@
             (call c3 "_byj/session/history" {:sessionId sessionId :cwd dir})
             (is (not-any? note? (updates c3 sessionId)))
             (finally (acp/end! (:conn c3))))))
+      (finally (acp/end! (:conn c))))))
+
+(deftest a-session-loaded-where-it-is-kept-works-where-it-worked
+  ;; byj-cm4.12: a stage's session, kept under the project, worked in a
+  ;; worktree; loaded with the project as cwd, it goes on in the worktree
+  (let [dir (fresh-dir "resume-wd")
+        wt (.getCanonicalPath (doto (io/file dir "wt") .mkdirs))
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1})
+        model (script! dir [{:answer "one"}])
+        sid "1790000000000-resumwd1"]
+    (persist/save! {:project-dir dir :working-dir wt} sid {:turn-count 1 :previous-turns [{:question "q" :answer "a"}] :question "q"})
+    (try
+      (is (:result (call c "session/load" {:sessionId sid :cwd dir :mcpServers []
+                                           :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false}}}})))
+      (is (= wt (get-in @(:state (:conn c)) [:sessions sid :config :working-dir])) "its tools go on in the worktree")
+      (call c "session/close" {:sessionId sid})
+      (is (= wt (:working-dir (persist/read-session {:project-dir dir} sid))) "and it is saved so")
+      (testing "a folder gone, or the project's own, is the folder given"
+        (is (nil? (persist/resume-working-dir {:project-dir dir} "1790000000000-nothere2")))
+        (persist/save! {:project-dir dir :working-dir dir} "1790000000000-resumwd2" {:turn-count 0 :previous-turns []})
+        (is (nil? (persist/resume-working-dir {:project-dir dir} "1790000000000-resumwd2"))))
       (finally (acp/end! (:conn c))))))

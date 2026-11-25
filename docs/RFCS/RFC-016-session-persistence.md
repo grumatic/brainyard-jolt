@@ -295,6 +295,7 @@ someone with three and then shows them one (`byj-gly.75`).
 
 | invariant | enforced by |
 |---|---|
+| A session resumed where it is kept goes on in the folder its snapshot says it worked in, when that is still there and not the project's own (a workflow stage's or team member's worktree), and is saved so; a session keeps the session leading it across saves | `acp-test/a-session-loaded-where-it-is-kept-works-where-it-worked`, `acp-test/saved-sessions-are-listed-for-an-editor-to-import` |
 | At exit, each saved session with a turn is named with the command that resumes it, and nothing is said for one without. | `main-test/the-run-says-how-to-resume-what-it-saved` |
 | A resume hands the front end what was said, the last answer included even when the session never reached `/quit`, before its resume line, with each tool iteration's thought before its calls and the last next-user-prompt; the snapshot keeps only the newest entries. | `persist-test/a-resume-says-again-what-was-said` |
 | The inline front end prints a resumed session's history on a terminal and not into a pipe, and passes every event on. | `main-test/an-inline-resume-prints-what-was-said-on-a-terminal-only` |

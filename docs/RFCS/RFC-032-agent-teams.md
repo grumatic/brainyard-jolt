@@ -142,6 +142,7 @@ Config (RFC-013): `:team-tools?` (true), `:max-team-members` (4),
 
 | invariant | enforced by |
 |---|---|
+| A member keeps the session leading it in its snapshot (`:leader`), which `byj session list` and `session/list` say, so a client lists it under its leader (`byj-cm4.13`) | `workflow-test/a-stage-in-a-session-of-its-own-is-asked-there`, `acp-test/saved-sessions-are-listed-for-an-editor-to-import` |
 | A team hands its leader the protocol; a member is a live session found by its team label; an assignment returns at once and lands as the leader's completed task; status shows members, answers and what each spent; a member in a worktree has its own branch; closing stops every member and leaves the worktree. Members are real `--serve` processes on the mock model. | `teams-test/a-leader-runs-a-team-of-live-sessions` |
 | Tasks on the board go to the next free member; one dispatcher works them all and lands once every one is answered, with the answers; both members worked. | `teams-test/the-board-hands-each-task-to-the-next-free-member` |
 | A resumed leader sees its member down and what it was waiting on lost; `team$resume` brings the member back as the same session with its history, and leaves a live one alone. | `teams-test/a-resumed-leader-brings-its-team-back` |
