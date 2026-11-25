@@ -44,6 +44,24 @@
                    :when (and (map? rec) (under? (:path rec)))]
                [(.getName f) (:path rec)]))))
 
+(defn- person-sessions
+  "The project folders of the PERSON'S sessions home (~/.brainyard/sessions,
+  RFC-016's revision) whose project a test could have made — under this
+  repository or the temporary directory — as `{folder path}`, each folder's
+  `project.edn` saying its project. Read from $HOME, not
+  `persist/sessions-home`, which the run points at a home of its own."
+  [root]
+  (let [d (some-> (System/getenv "HOME") (clojure.java.io/file ".brainyard" "sessions"))
+        tmp (System/getProperty "java.io.tmpdir")
+        unders (distinct (remove clojure.string/blank?
+                                 [root tmp (some-> tmp clojure.java.io/file .getCanonicalPath)]))
+        under? (fn [p] (some #(clojure.string/starts-with? (str p) (str %)) unders))]
+    (into {} (for [f (some-> d .listFiles)
+                   :let [rec (try (clojure.edn/read-string (slurp (clojure.java.io/file f "project.edn")))
+                                  (catch Throwable _ nil))]
+                   :when (and (map? rec) (under? (:path rec)))]
+               [(.getName f) (:path rec)]))))
+
 (defn nested-deftests
   "`file:line` for every `deftest` that is not at the start of a line.
 
@@ -142,6 +160,10 @@
         ;; which every session and question a test starts registers in: a
         ;; home of the run's own
         _ (System/setProperty "brainyard.projects-home" (.getCanonicalPath (doto (clojure.java.io/file "target/test-projects-home") .mkdirs)))
+        ;; nor the person's sessions, once they are kept in the home (RFC-016's
+        ;; revision, byj-7sp): a home of the run's own, carried to every
+        ;; process the run starts (fx/carried-env)
+        _ (System/setProperty "brainyard.sessions-home" (.getCanonicalPath (doto (clojure.java.io/file "target/test-sessions-home") .mkdirs)))
         ;; nor the person's own skills (~/.claude/skills, ~/.agents/skills), which
         ;; every turn's prompt lists and a test sized to a context window then
         ;; overflowed differently on each machine (byj-gly.467): an empty home
@@ -152,6 +174,7 @@
         _ (System/setProperty "brainyard.changes-skip-root" (repo-root))
         before (own-sessions)
         registered (person-registered (repo-root))
+        kept-before (person-sessions (repo-root))
         nested (nested-deftests)
         times (atom {})
         {:keys [fail] :as summary} (reduce (fn [acc n]
@@ -165,8 +188,12 @@
         leaked (sort (clojure.set/difference (own-sessions) before))
         ;; a byj a test started registered its project in the person's registry
         ;; (byj-9og, provenance P-66): the processes a run starts get its projects home (fx/carried-env)
-        strays (sort (for [[slug path] (apply dissoc (person-registered (repo-root)) (keys registered))]
-                       (str slug " (" path ")")))
+        strays (sort (concat
+                      (for [[slug path] (apply dissoc (person-registered (repo-root)) (keys registered))]
+                        (str slug " (" path ")"))
+                      ;; a session a test's byj kept in the person's sessions home
+                      (for [[slug path] (apply dissoc (person-sessions (repo-root)) (keys kept-before))]
+                        (str "sessions/" slug " (" path ")"))))
         ;; every result any test produced, from a tool with an :output-schema,
         ;; held to it: the suite is the conformance check (RFC-030, byj-gly.199)
         mismatched (->> (schema/recorded-outputs) (filter :problems) (group-by :tool-name))]
@@ -187,8 +214,8 @@
     (when (seq strays)
       (binding [*out* *err*]
         (println (str "\n" (count strays) " project(s) a test made were registered in your own registry"
-                      " (~/.brainyard/projects, RFC-074) during the suite — a process the test started"
-                      " did not get the run's projects home (byj-9og): "
+                      " (~/.brainyard/projects, RFC-074) or kept sessions in your own home (~/.brainyard/sessions,"
+                      " RFC-016) during the suite — a process the test started did not get the run's homes (byj-9og): "
                       (clojure.string/join ", " (take 3 strays))
                       "\n(byj projects remove SLUG --yes forgets one)"))
         (flush)))

@@ -669,3 +669,13 @@
                         :when (re-find #"\"\.brainyard\"\s+\"(sessions|transcripts|tasks)\"" line)]
                     (str (.getName f) ":" (inc i) " " (str/trim line)))]
     (is (empty? offenders) (str/join "\n" offenders))))
+
+(deftest the-sessions-home-is-the-runs-own-in-a-test
+  ;; byj-7sp.3: where sessions are kept once they are in the home resolves as
+  ;; the registry does — a home given, the property, BY_SESSIONS_HOME, $HOME —
+  ;; and a test run's is its own, never the person's
+  (is (= (io/file "/x" ".brainyard") (persist/sessions-home "/x")) "a home given wins")
+  (is (= (io/file (System/getProperty "brainyard.sessions-home") ".brainyard") (persist/sessions-home))
+      "the run's own")
+  (is (not= (io/file (System/getenv "HOME") ".brainyard") (persist/sessions-home))
+      "never the person's in a test"))

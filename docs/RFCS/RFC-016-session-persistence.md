@@ -332,6 +332,7 @@ someone with three and then shows them one (`byj-gly.75`).
 | **A resumable session is never pruned to make room for records**, and a held one is left alone whichever budget it falls under. | `persist-test/a-resumable-session-is-never-pruned-to-make-room-for-records`, `persist-test/a-record-held-by-a-live-process-is-left-alone` |
 | A `session.edn` is what makes a directory resumable; transcripts keep the rule they had. | `persist-test/what-makes-a-directory-resumable-is-the-snapshot`, `persist-test/transcripts-keep-the-rule-they-had` |
 | Pruning never deletes anything that is not a direct child of its root. | `persist-test/pruning-refuses-to-escape-its-root` |
+| The sessions' home is a home given, the `brainyard.sessions-home` property, `BY_SESSIONS_HOME`, then `$HOME`; a test run's is its own, carried to every process it starts, and `test-run/run` fails a run that left a test's project folder in the person's. | `persist-test/the-sessions-home-is-the-runs-own-in-a-test`, `effect-test/a-process-started-keeps-off-the-persons-stores-as-this-one-does` |
 | Every path to a session's folder, transcripts and tasks is built by `persist/state-dir`, no other namespace. | `persist-test/only-persist-says-where-a-session-is-kept` |
 | A session says where it is kept: the list's `dir` and `project-dir`, `byj session path`, exit 1 for none; both shapes are byj's contract. | `sdk-test/a-session-says-where-it-is-kept`, `contract-test/a-projects-sessions-are-byjs-contract` |
 
@@ -546,7 +547,7 @@ placeholder changes with the move.
 1. The protocol (`byj-7sp.1`, built): `dir` and `project-dir` in `byj session list --json`, `byj
    session path`, `:project-dir` in `meta.edn`; the location unchanged.
 2. One root (`byj-7sp.2`, built): every session path built through `persist`.
-3. The root's resolution and the test runner's home and guard (`byj-7sp.3`).
+3. The root's resolution and the test runner's home and guard (`byj-7sp.3`, built: `persist/sessions-home`).
 4. The move (`byj-7sp.4`): the layout, transcripts and tasks with it, reading both places,
    migration.
 5. Pruning a gone project's sessions (`byj-7sp.5`).

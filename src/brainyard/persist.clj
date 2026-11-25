@@ -35,6 +35,21 @@
 
 ;; --- paths ------------------------------------------------------------------------
 
+(defn sessions-home
+  "`<home>/.brainyard`, the root a session's folder, transcripts and tasks are
+  kept under (RFC-016's revision, byj-7sp): `home` when given, else the
+  `brainyard.sessions-home` property, else — in a process a test started —
+  the environment's `BY_SESSIONS_HOME`, both the test run's own home
+  (`fx/carried-env` carries the one to the other), so no test writes in the
+  person's; else $HOME. nil when there is no home. Not created."
+  ([] (sessions-home nil))
+  ([home]
+   (when-let [h (or (not-empty (str (or home "")))
+                    (not-empty (System/getProperty "brainyard.sessions-home"))
+                    (not-empty (System/getenv "BY_SESSIONS_HOME"))
+                    (System/getenv "HOME"))]
+     (io/file h ".brainyard"))))
+
 (defn state-dir
   "Where the project keeps what its sessions leave of `kind` —
   `\"sessions\"`, `\"transcripts\"` (RFC-014), `\"tasks\"` (RFC-019): the one
