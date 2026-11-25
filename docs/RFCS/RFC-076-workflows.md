@@ -179,6 +179,18 @@ counted once and the limit still holds.
 Stages that do not depend on each other are still worked one after another,
 in `order`.
 
+### The master's session (`byj-cm4.5`)
+
+The master role judges each stage (`workflow/judge`). Beside the judge, a
+session that plays the master role — the last live one `deps-local.edn`
+binds to it (RFC-075), never the run's own — is told how the run goes: that
+it has started (the work, the stages, the master role it plays), each stage
+handed on (or, handed on by hand, that the run waits) with that stage's
+answer, and how it ended, with its log. Each is queued as a turn of that
+session's own (the channel's `:inject :as :turn`, `:await? false`), taken
+when it is idle and never waited for: the judge still decides. Each telling
+is a line of the run's log. With no such session, no one is told.
+
 ### Going on with a run (`byj-cm4.1`)
 
 `/workflow resume N [what to add]` (the route's `resume`, `of` and `note`)
@@ -360,6 +372,7 @@ Config:
 | A stage judged unfinished goes again with what it got to, until its turns are spent; then the run stops and releases its claim | `workflow-test/a-stage-goes-again-until-its-turns-are-spent` |
 | A stage that needs the person ends the run with the question | `workflow-test/a-stage-that-needs-the-person-ends-the-run-with-the-question` |
 | An ended run is run again: the same workflow and work, where it worked (its worktree while there), each stage told the verdict and what to change — the person's words now over the verdict's note; its issue claimed again unless closed; a run not ended is refused | `workflow-test/an-ended-run-is-run-again-where-it-worked` |
+| The session bound to the master role is told the start, each handoff and the end, each queued as its own turn and not waited for, and logged; with none bound and live, no one is | `workflow-test/the-masters-session-is-told-how-the-run-goes` |
 | A run handed on by hand waits after each stage judged done, the next brief kept, its claim held, left as it is by the next run's start; resumed, it goes on from that stage with what the person adds; a run that is done, or that another live session runs, is not resumed; one stopped with a stage left is | `workflow-test/a-run-handed-on-by-hand-waits-and-is-resumed` |
 | Any other request is one turn, asked what was asked | `workflow-test/any-other-request-is-a-turn-over-the-workflow-commands` |
 | The profile's `:usd` and `:failures` end a run, a stage's spend counted | `workflow-test/the-profiles-limits-end-a-run` |

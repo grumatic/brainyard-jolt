@@ -80,6 +80,12 @@
          :not-ended "Run #{n} has not ended: /workflow resume {n} goes on with it, or byj workflow stop {n} ends it."
          :not-running "Run #{n} is not running: it is {status}."}
 
+ ;; the session playing the master role, told how a run goes (byj-cm4.5):
+ ;; each a turn of its own, not waited for
+ :tell-start "Run #{n} of workflow {workflow}{title} has started, on: {work}\n\nIts stages: {flow}. You play its master, {master}: you are told as each stage is handed on, and how the run ends. Nothing is asked of you now; say what the person should know, when it matters."
+ :tell-handed "Run #{n}: stage {stage} is done ({summary}) and handed on to stage {next}. It ended saying:\n\n{answer}"
+ :tell-waits "Run #{n}: stage {stage} is done ({summary}); the run waits for the person before stage {next}. It ended saying:\n\n{answer}"
+ :tell-end "Run #{n} of workflow {workflow} has ended: {stopped}\n\n{log}\n\nSay what the person should know of it: what was done, what is left, and whether it passes."
  :report-head "/workflow run #{n} — {workflow}{title}: {work}"
  :report-paused "Kept as .brainyard/workflow-runs/{n}.edn. /workflow resume {n} hands it on to the next stage — say what to add for it, if anything."
  ;; what the person added, handing a waiting run on (byj-cm4.1)

@@ -545,3 +545,28 @@
     (testing "a run not ended is not"
       (let [{:keys [run]} (workflow/start-run (assoc cfg :session-id "s-live") {} {:workflow "fix" :work "x"})]
         (is (str/includes? (:stopped (workflow/again-run cfg {} {:run run})) "has not ended"))))))
+
+(deftest the-masters-session-is-told-how-the-run-goes
+  ;; byj-cm4.5: beside the judge, the session bound to the master role is
+  ;; told the start, each handoff and the end, each a turn not waited for
+  (let [{:keys [dir cfg]} (run-setup "master" {:preset :collaborator :issues [{:tracker :beads}]})
+        told (atom [])
+        live {"s-master" {:session-id "s-master" :label "lead" :ask-socket-path "/nowhere/s-master.sock"}}]
+    (with-redefs [channel/find-session (fn [_ id & _] (or (live id) {:error "no live session"}))
+                  channel/request! (fn [path msg & _] (swap! told conj [path msg]) {:status :ok :injected :turn :queued true})]
+      (testing "no session plays the master: no one is told"
+        (ask-loop cfg {:intent "run" :workflow "fix" :work "t-2"} (fn [_] {:status "done" :summary "ok"}) (fn [_] "Done.") (atom []))
+        (is (empty? @told)))
+      (deps/write! dir :local {:bindings {:ci ["s-gone" "s-master"]}})
+      (let [r (ask-loop cfg {:intent "run" :workflow "fix" :work "make it fast"}
+                        (fn [_] {:status "done" :summary "did its part"}) (fn [_] "Done it.") (atom []))
+            msgs (map second @told)]
+        (is (= 3 (count @told)) "the start, the one handoff, the end")
+        (is (every? #(= "/nowhere/s-master.sock" (first %)) @told))
+        (is (every? #(and (= :inject (:op %)) (= :turn (:as %)) (false? (:await? %))) msgs) "queued, not waited for")
+        (is (str/includes? (:text (first msgs)) "Run #2 of workflow fix (Fix) has started, on: make it fast"))
+        (is (str/includes? (:text (first msgs)) "You play its master, ci (CI) — Supervises runs."))
+        (is (str/includes? (:text (second msgs)) "Run #2: stage implement is done (did its part) and handed on to stage review. It ended saying:\n\nDone it."))
+        (is (str/includes? (:text (nth msgs 2)) "Run #2 of workflow fix has ended: Every stage is done."))
+        (is (= 3 (count (filter #(= "→ lead (the master) told" %) (:log (workflow/read-run dir 2))))))
+        (is (str/includes? (:answer r) "→ lead (the master) told"))))))

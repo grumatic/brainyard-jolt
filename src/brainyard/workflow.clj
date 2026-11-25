@@ -573,6 +573,32 @@
                              (and from (zero? (or k 0)))
                              (update :handed (fnil conj []) {:from (:role from) :to r :session sid :at (java.util.Date.)})))))))
 
+(defn- master-session
+  "The live session playing run `run`'s master role, as deps-local.edn binds
+  sessions to roles (RFC-075): the last bound that is live, never this one;
+  nil when none is."
+  [config dir run]
+  (when-let [m (get-in run [:def :master])]
+    (let [{local :value} (try (deps/read-local dir) (catch Throwable _ nil))]
+      (some #(let [s (channel/find-session config %)] (when-not (:error s) s))
+            (reverse (get-in local [:bindings m]))))))
+
+(defn- tell-master!
+  "Run `run`'s master session told `text` (byj-cm4.5): queued as a turn of
+  its own, taken when it is idle, not waited for — the master's judge still
+  decides; this tells the session that supervises. A line for the run's log,
+  or nil when no session plays the master."
+  [config dir run text]
+  (when-let [s (master-session config dir run)]
+    (let [r (try (channel/request! (:ask-socket-path s)
+                                   {:op :inject :as :turn :text text :await? false :from (:session-id config)}
+                                   5000)
+                 (catch Throwable e {:status :error :error (ex-message e)}))
+          who (or (given (:label s)) (:session-id s))]
+      (if (= :ok (:status r))
+        (str "→ " who " (the master) told")
+        (str "→ " who " (the master) not told: " (or (:error r) "no answer"))))))
+
 (defn start-run
   "`workflow$start`: open a run of workflow `:workflow` on `:work` — words,
   or a bead id or GitHub issue (`#N`) first, which the run claims and, when
@@ -659,7 +685,14 @@
                                            by-hand? (assoc :by-hand true)
                                            again (merge again))
                                  0)
-                place (get-in run [:stages 0 :place])]
+                place (get-in run [:stages 0 :place])
+                ;; the session supervising it told it has started (byj-cm4.5)
+                told (tell-master! config dir run (fill (:tell-start w) {:n n :workflow (id-name wid)
+                                                                         :title (if (given (:title wf)) (str " (" (:title wf) ")") "")
+                                                                         :work (:work-text run)
+                                                                         :flow (str/join " → " (map id-name stages))
+                                                                         :master (master-words w run)}))
+                run (cond-> run told (update :log conj told))]
             (write-run! dir run)
             (when-not (elsewhere? place) (note-begun! dir run 0 (:session-id config)))
             {:stop false :stopped "" :run n :brief (get-in run [:stages 0 :brief]) :master (master-words w run)
@@ -790,7 +823,14 @@
             (let [run (-> run
                           (update-in [:stages i] assoc :status :done :summary summary :answer answer :ended-at (now))
                           (assoc :failures 0)
-                          (line (str "✓ " sname " — " summary)))]
+                          (line (str "✓ " sname " — " summary)))
+                  ;; the master's session told each handoff (byj-cm4.5)
+                  told (when (< (inc i) (count (:stages run)))
+                         (tell-master! config dir run (fill (if (:by-hand run) (:tell-waits w) (:tell-handed w)) {:n n :stage sname
+                                                                              :next (id-name (:stage (nth (:stages run) (inc i))))
+                                                                              :summary summary
+                                                                              :answer (or (not-empty answer) (:no-progress w))})))
+                  run (cond-> run told (line told))]
               (if (< (inc i) (count (:stages run)))
                 (cond
                   usd-hit? (end run usd-why)
@@ -950,6 +990,12 @@
                   (write-run! dir (assoc run :status :stopped :ended-at (now)
                                          :stopped (if (str/blank? stopped) "the step limit was reached." stopped)))
                   run)
+            ;; the master's session told how it ended (byj-cm4.5)
+            told (when-not (= :paused (:status run))
+                   (tell-master! config dir run (fill (:tell-end w) {:n (:n run) :workflow (id-name (:workflow run))
+                                                                   :stopped (:stopped run)
+                                                                   :log (if (seq (:log run)) (str/join "\n" (:log run)) "nothing was done.")})))
+            run (if told (write-run! dir (update run :log (fnil conj []) told)) run)
             closed (close-sessions! ctx run)
             ;; where its work is: the project, or the worktrees its stages worked in
             places (distinct (for [st (:stages run) :let [pl (:place st)] :when (and (:dir pl) (not= (str dir) (:dir pl)))] (:dir pl)))
