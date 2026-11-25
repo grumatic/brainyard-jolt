@@ -921,7 +921,7 @@
   [config dir n i sid]
   (let [s (channel/find-session (dissoc config :session-id) sid)]
     (if (or (:error s) (not (given (:ask-socket-path s))))
-      (fn [] nil)
+      (fn [& _] nil)
       (let [prog (atom {:steps 0 :usd 0})
             written (atom 0)
             write! (fn [force?]
@@ -941,15 +941,22 @@
                            (write! false))
                          :agent.think/reasoning
                          (when (given (:reasoning payload)) (swap! prog assoc :thought (clip (:reasoning payload) 300)))
-                         :session.turn/end
-                         (do (when-let [c (some-> payload :usage :cost)]
-                               (when (number? c) (swap! prog update :usd + c)))
-                             (write! true))
+                         ;; each model call's spend as it comes: the turn's own
+                         ;; end is told after the stage's ask is answered,
+                         ;; when the watch has stopped (byj-cm4.11)
+                         :agent.llm/response
+                         (when-let [c (some-> payload :usage :cost)]
+                           (when (and (number? c) (pos? c)) (swap! prog update :usd + c)))
+                         :session.turn/end (write! true)
                          nil))
-            sub (try (channel/subscribe! (:ask-socket-path s) [:agent.tools/calls :agent.think/reasoning :session.turn/end] on-frame)
+            sub (try (channel/subscribe! (:ask-socket-path s)
+                                         [:agent.tools/calls :agent.think/reasoning :agent.llm/response :session.turn/end] on-frame)
                      (catch Throwable _ nil))]
-        (fn []
+        ;; stopped with what the stage's turn spent, as its ask's reply says
+        ;; it: that, the whole turn's, is what is kept
+        (fn [& [spent]]
           (when-let [stop (:stop! sub)] (try (stop) (catch Throwable _ nil)))
+          (when (and (number? spent) (pos? spent)) (swap! prog assoc :usd spent))
           (when sub (write! true)))))))
 
 (defn delegate-stage
@@ -1008,8 +1015,9 @@
                     ;; what the stage does while it does it, kept with it (byj-cm4.7)
                     stop-progress (watch-progress! config dir n i (:session-id sess))
                     r (try ((:fn ask) {:session (:session-id sess) :question (:brief args) :timeout-ms t} ctx)
-                           (finally (stop-progress)))
-                    cost (some-> r :usage :cost)]
+                           (catch Throwable e (stop-progress) (throw e)))
+                    cost (some-> r :usage :cost)
+                    _ (stop-progress cost)]
                 ;; session$ask counted it as this session's spend already; the
                 ;; run's own :usd, which the profile's :usd limit is held to,
                 ;; takes it here, as workflow$settle takes an in-turn stage's

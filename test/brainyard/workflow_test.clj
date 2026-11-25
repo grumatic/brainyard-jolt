@@ -433,6 +433,27 @@
         (is (= {} (:usage r)) "not said as this tool's spend: session$ask counted it already")
         (is (= 0.25 (:usd (workflow/read-run dir run))))))))
 
+(deftest a-stage-worked-elsewhere-says-what-it-spent-as-it-works
+  ;; byj-cm4.11: each model call's spend as it comes, the turn's own at the end
+  (let [{:keys [dir cfg]} (run-setup "delegate-progress" {:preset :collaborator :issues [{:tracker :beads}]})
+        {:keys [run]} (workflow/start-run cfg {} {:workflow "fix" :work "x"})
+        _ (#'workflow/write-run! dir (assoc (workflow/read-run dir run) :sessions {:here {:session-id "1790000000600-wfstage2"}}))
+        frame (atom nil)
+        mid (atom nil)
+        stub {:name "session$ask"
+              :fn (fn [_ _]
+                    (@frame {:event :agent.llm/response :payload {:usage {:cost 0.1}}})
+                    (@frame {:event :agent.tools/calls :payload {:tool-calls [{:tool-name "bash" :tool-args {:command "ls"}}]}})
+                    (reset! mid (get-in (workflow/read-run dir run) [:stages 0 :progress]))
+                    {:status :ok :answer "fixed" :usage {:cost 0.25}})}]
+    (with-redefs [channel/find-session (fn [_ sid & _] {:session-id sid :ask-socket-path "/nowhere/stage.sock"})
+                  channel/subscribe! (fn [_ _ on-frame] (reset! frame on-frame) {:stop! (fn [] nil)})
+                  channel/commands (fn [_] [stub])]
+      (workflow/delegate-stage cfg {} {:run run :brief "fix it"})
+      (is (= 0.1 (:usd @mid)) "what the model calls spent, while it works")
+      (is (= 1 (:steps @mid)))
+      (is (= 0.25 (get-in (workflow/read-run dir run) [:stages 0 :progress :usd])) "the turn's own at the end"))))
+
 (deftest a-run-stopped-from-outside-ends-at-its-next-step
   ;; byj-cm4.4: byj workflow stop marks it; its own session ends it there
   (let [{:keys [bin dir cfg]} (run-setup "stop" {:preset :collaborator :issues [{:tracker :beads}]})
