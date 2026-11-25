@@ -45,7 +45,8 @@ commands, and its instruction is `prompts/agents/workflow.md`.
 
 Its loop, `loops/workflow.edn`, first asks the predictor `workflow/route`
 whether the request is to run a workflow — and which, on what — to go on
-with a run (`resume`, below), or to manage them. It decides from the request, the line the person typed, and
+with a run (`resume`, below), to run an ended one again (`again`, below), or
+to manage them. It decides from the request, the line the person typed, and
 `workflow$list`. A request to manage them is one ReAct turn, asked what was
 asked, over the commands below. One ReAct scope serves both that turn and a
 run's stages, so the tree holds the ReAct loop once.
@@ -191,6 +192,20 @@ It is refused while another live session runs it (`byj workflow stop`
 first), and for a run that is done (`/workflow again`). A waiting run's
 report says how to hand it on.
 
+### Running one again (`byj-cm4.2`)
+
+`/workflow again N [what to change]` (the route's `again`, `of` and `note`)
+runs an ended run — done or stopped — again through **`workflow$again`**: a
+new run of the same workflow on the same work, opened as `workflow$start`
+opens one and kept as `:again N`, the earlier run's verdict as
+`:again-verdict` and what to change as `:again-note` (the person's words
+now, else the verdict's note). It works where the earlier run did: in its
+worktree and on its branch while that is there, else in a new worktree when
+it worked apart (from what it built on), else here. Every stage's brief
+opens with the run it is again of, its verdict and what to change. Its issue
+is claimed again unless it was closed; a run handed on by hand is again. A
+run still running or waiting is refused (`/workflow resume`).
+
 ### Where a stage works
 
 A stage works in a place.
@@ -259,6 +274,8 @@ or remove, and lists the commits in each.
   args also `:from` (`byj-cm4.3`) and `:by-hand` (`byj-cm4.1`).
 - `resume-run [config ctx args]` → as `start-run` (`byj-cm4.1`): args
   `:run`, `:note`.
+- `again-run [config ctx args]` → as `start-run` (`byj-cm4.2`): args
+  `:run`, `:note`.
 - `check-stage [config args]` → `{:text}`.
 - `settle-stage [config ctx args]` → `{:stop :stopped :brief :stage
   :usage-cost-usd?}`.
@@ -267,7 +284,7 @@ or remove, and lists the commits in each.
   `stage-timeout-ms [config]`.
 - `commands [config]`: `workflow$list`, `workflow$show`, `workflow$save`,
   `workflow$remove`, `workflow$runs`, `workflow$verdict`, `workflow$start`,
-  `workflow$resume`, `workflow$check`, `workflow$settle`, `workflow$report`,
+  `workflow$resume`, `workflow$again`, `workflow$check`, `workflow$settle`, `workflow$report`,
   `workflow$delegate`.
 
 `brainyard.deps/run-give-row [dir give evidence opts]`: a link's give as a
@@ -279,6 +296,7 @@ A run's record:
 ```clojure
 {:n 3 :workflow :fix :status :running        ; :running | :paused | :done | :stopped
  :by-hand true                               ; only when it waits after each stage (byj-cm4.1)
+ :again 2 :again-verdict :changes :again-note "…"  ; only for a run run again (byj-cm4.2)
  :work "byj-abc keep it small" :work-text "…" :item "byj-abc" :claimed? true
  :session "<session id>" :pid 123 :started-at "…" :ended-at "…"
  :base "<HEAD when it opened, or :from's commit>" :branch "main"
@@ -341,6 +359,7 @@ Config:
 | Each stage is a turn of its own, handed what the last one said; a bead the work names is claimed, and closed when the run is done as the profile allows | `workflow-test/a-run-works-each-stage-and-hands-on` |
 | A stage judged unfinished goes again with what it got to, until its turns are spent; then the run stops and releases its claim | `workflow-test/a-stage-goes-again-until-its-turns-are-spent` |
 | A stage that needs the person ends the run with the question | `workflow-test/a-stage-that-needs-the-person-ends-the-run-with-the-question` |
+| An ended run is run again: the same workflow and work, where it worked (its worktree while there), each stage told the verdict and what to change — the person's words now over the verdict's note; its issue claimed again unless closed; a run not ended is refused | `workflow-test/an-ended-run-is-run-again-where-it-worked` |
 | A run handed on by hand waits after each stage judged done, the next brief kept, its claim held, left as it is by the next run's start; resumed, it goes on from that stage with what the person adds; a run that is done, or that another live session runs, is not resumed; one stopped with a stage left is | `workflow-test/a-run-handed-on-by-hand-waits-and-is-resumed` |
 | Any other request is one turn, asked what was asked | `workflow-test/any-other-request-is-a-turn-over-the-workflow-commands` |
 | The profile's `:usd` and `:failures` end a run, a stage's spend counted | `workflow-test/the-profiles-limits-end-a-run` |

@@ -9,6 +9,7 @@
 
 - run: to run, start or take a piece of work through one of the workflows. workflow: its id as listed; when they name none and the project has only one, that one; when it is unclear which, empty. work: what the run is to work on, in their words — an issue's id first when they name one (its id in beads, such as byj-abc, or #N on GitHub), then the rest of what they said about the work; empty when they said nothing of it. isolate: yes when they ask for the run to work apart from the project's own checkout — in a worktree, on a branch of its own, isolated — else no. from: the branch or commit the run is to build on when they name one (from it, on top of it, building on it), else empty. by-hand: yes when they want to hand each stage on themselves — by hand, step by step, waiting after each stage for them — else no.
 - resume: to go on with, continue, resume or hand on a run that waits for them or stopped with a stage left. of: the run's number (#N or N). note: what they add for the stage it goes on to, in their words; empty when they add nothing.
+- again: to run an ended run again, over, once more — after a verdict, with what to change. of: the run's number. note: what to change, in their words; empty when they say nothing of it.
 - manage: anything else — listing the workflows, showing one, adding, changing or removing one, listing runs, saying how a run went — and a question about how to run one.
 
 When the typed line is given, it is what the person typed, word for word: it wins over the request, which another agent put in its own words."
@@ -17,11 +18,11 @@ When the typed line is given, it is what the person typed, word for word: it win
   [:typed {:desc "The line the person typed, word for word; empty when there is none"} :string]
   [:workflows {:desc "The project's workflows, as workflow$list says them"} :string]]
  :outputs
- [[:intent {:desc "run, resume or manage"} :string]
+ [[:intent {:desc "run, resume, again or manage"} :string]
   [:workflow {:desc "For run: the workflow's id; else empty"} :string]
   [:work {:desc "For run: what the run works on; else empty"} :string]
   [:isolate {:desc "For run: yes to work in a worktree of its own, else no"} :string]
   [:from {:desc "For run: the branch or commit it builds on, when named; else empty"} :string]
   [:by-hand {:desc "For run: yes to wait after each stage for the person to hand it on, else no"} :string]
-  [:of {:desc "For resume: the run's number; else empty"} :string]
-  [:note {:desc "For resume: what the person adds for the next stage; else empty"} :string]]}
+  [:of {:desc "For resume and again: the run's number; else empty"} :string]
+  [:note {:desc "For resume: what the person adds for the next stage; for again: what to change; else empty"} :string]]}

@@ -472,7 +472,13 @@
            :title (if (given (:title def)) (str " (" (:title def) ")") "")
            :work (:work-text run) :profile (profile-words w p)
            ;; a run built on a branch says so (byj-cm4.3)
-           :builds (if-let [f (given (:from run))] (str (fill (:builds w) {:from f}) "\n\n") "")
+           :builds (str (when-let [of (:again run)]
+                          ;; run again (byj-cm4.2): the verdict and what to change, before all else
+                          (str (fill (:again w) {:of of
+                                                 :verdict (if-let [v (:again-verdict run)] (fill (:again-verdict w) {:verdict (id-name v)}) "")
+                                                 :note (or (given (:again-note run)) (fill (:no-note w) {:of of}))})
+                               "\n\n"))
+                        (when-let [f (given (:from run))] (str (fill (:builds w) {:from f}) "\n\n")))
            :flow (str/join " → " (map (comp id-name :stage) stages))
            :stage (id-name s)
            ;; the brief ends the role with its own full stop
@@ -594,6 +600,10 @@
         work (str/trim (str (:work args)))
         errs (filter #(= wid (get-in % [:target :workflow])) (workflow-errors dir spec))
         from (given (some-> (:from args) str str/trim))
+        ;; workflow$again's (byj-cm4.2): the worktree of the run it is again
+        ;; of, and that run
+        given-root (::root args)
+        again (::again args)
         yes? (fn [v] (contains? #{true "true" "yes"} (cond-> v (string? v) (-> str/trim str/lower-case))))
         by-hand? (yes? (:by-hand args))
         ;; a branch to build on asks for a worktree of its own (byj-cm4.3)
@@ -616,13 +626,13 @@
       (let [item (item-of tl work)
             {:keys [Kind]} (when item (get-in (drive/words) [:kinds (if (drive/github-id? (:id item)) :github :beads)]))
             n (inc (reduce max 0 (map :n (runs dir))))
-            wt (when isolate?
+            wt (when (and isolate? (not given-root))
                  (worktree/add! dir (io/file (runs-dir dir) (str n) "worktree") (str "workflow/" (id-name wid) "-" n) from))
             stages (order wf)
             role-of #(deps/stage-role % (get-in wf [:stages %]))
             roles (into {} (for [r (distinct (concat (map role-of stages) (when (:master wf) [(:master wf)])))]
                              [r (get-in spec [:roles r])]))
-            head (or (git-out dir "rev-parse" (str (or from "HEAD") "^{commit}")) "")
+            head (or (git-out (or (:dir given-root) dir) "rev-parse" (str (or (when-not given-root from) "HEAD") "^{commit}")) "")
             claimed? (boolean (when (and item (not= "closed" (:status item)) (not (:error wt)))
                                 (:ok? (drive/claim! tl (:id item)))))
             run {:n n :workflow wid :status :running
@@ -638,11 +648,17 @@
                  :started-at (now) :base head
                  :branch (git-out dir "rev-parse" "--abbrev-ref" "HEAD")
                  :def wf :roles roles :at 0 :failures 0 :usd 0 :log []
-                 :root (if (:dir wt) {:key :root :dir (:dir wt) :branch (:branch wt)} {:key :here})
+                 :root (cond given-root given-root
+                             (:dir wt) {:key :root :dir (:dir wt) :branch (:branch wt)}
+                             :else {:key :here})
                  :stages (vec (for [s stages] {:stage s :role (role-of s) :status :pending :attempts 0}))}]
         (if (:error wt)
           (stop (:error wt))
-          (let [run (begin-stage w p dir (cond-> run from (assoc :from from) by-hand? (assoc :by-hand true)) 0)
+          (let [run (begin-stage w p dir (cond-> run
+                                           from (assoc :from from)
+                                           by-hand? (assoc :by-hand true)
+                                           again (merge again))
+                                 0)
                 place (get-in run [:stages 0 :place])]
             (write-run! dir run)
             (when-not (elsewhere? place) (note-begun! dir run 0 (:session-id config)))
@@ -997,6 +1013,39 @@
                 {:text (str "Kept with run #" n ": " (name v)
                             (when (given (:note args)) (str " — " (str/trim (str (:note args))))) ".")}))))
 
+(defn again-run
+  "`workflow$again` (byj-cm4.2): run `:run` — ended, done or stopped — again:
+  a new run of the same workflow on the same work, as `workflow$start` opens
+  one, kept as `:again N`. It works where that run did: in its worktree and
+  branch when it had one still there, else in a new one when it worked
+  apart (from what it built on), else here. Each stage's brief opens with
+  the run it is again of, its verdict, and what to change — `:note`, else
+  the verdict's note. Its issue is claimed again unless it was closed; a run
+  handed on by hand is again. Refused for a run still running or waiting (`/workflow resume`).
+  As `workflow$start`."
+  [config ctx args]
+  (let [dir (dir-of config args)
+        w (words)
+        n (num-of (:run args))
+        old (when n (read-run dir n))
+        stop (fn [why] {:stop true :stopped why :run "" :brief "" :master "" :elsewhere false})]
+    (cond
+      (nil? old) (stop (str "No run " (:run args) "."))
+      (#{:running :paused} (:status old)) (stop (fill (get-in w [:stops :not-ended]) {:n n}))
+      :else
+      (let [root (:root old)
+            kept? (and (:dir root) (.isDirectory (io/file (str (:dir root)))))
+            apart? (= :root (:key root))]
+        (start-run config ctx
+                   (cond-> {:dir (:dir args) :workflow (id-name (:workflow old)) :work (:work old)
+                            ::again (cond-> {:again n}
+                                      (:verdict old) (assoc :again-verdict (:verdict old))
+                                      (or (given (some-> (:note args) str str/trim)) (given (:note old)))
+                                      (assoc :again-note (or (given (some-> (:note args) str str/trim)) (given (:note old)))))}
+                     (:by-hand old) (assoc :by-hand "yes")
+                     kept? (assoc ::root root :worktree "yes")
+                     (and apart? (not kept?)) (assoc :worktree "yes" :from (:from old))))))))
+
 (defn stop-run
   "`byj workflow stop N` (byj-cm4.4): end run `:run`, running or paused,
   from outside the session running it — a client listing the runs, the
@@ -1131,6 +1180,12 @@
       :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (start-run config ctx args))}
+     {:name "workflow$again" :kind :command
+      :description "/workflow's again: run an ended run again — the same workflow and work, where it worked — each stage told its verdict and what to change; or why it cannot."
+      :input-schema [:map dir (opt :run "the number of the run to run again") (opt :note "what to change, in the person's words; else the verdict's note")]
+      :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
+      :effects #{:fs/read :fs/write :process}
+      :fn (fn [args ctx] (again-run config ctx args))}
      {:name "workflow$resume" :kind :command
       :description "/workflow's resume: go on with a run waiting to be handed on, or stopped with a stage left, from the stage it is at — or why it cannot."
       :input-schema [:map dir (opt :run "the run's number") (opt :note "what the person adds for the stage, else nothing")]

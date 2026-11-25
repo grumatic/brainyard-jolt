@@ -9,6 +9,8 @@
 ;;                                         written on the person's yes
 ;;   a run handed on, or gone on with   → workflow$resume (byj-cm4.1): from
 ;;                                         the stage it waits at
+;;   an ended run run again             → workflow$again (byj-cm4.2): where
+;;                                         it worked, told what to change
 ;;   a run's opening                    → workflow$start (mechanism: the
 ;;                                         profile, the workflow, its work —
 ;;                                         an issue claimed — kept
@@ -59,6 +61,12 @@
   [:sequence {:id :workflow/resume}
    [:condition {:id :workflow/resume? :fn :mem/match? :key :intent :pattern "^\\s*[Rr][Ee][Ss][Uu][Mm][Ee]\\s*$"}]
    [:action {:id :workflow/resumed :fn :tool/run :tool "workflow$resume"
+             :in {:run :of :note :note}
+             :out {:stop :stop :stopped :stopped :run :run :brief :brief :master :master :elsewhere :elsewhere}}]]
+  ;; an ended run run again, where it worked, told what to change (byj-cm4.2)
+  [:sequence {:id :workflow/again}
+   [:condition {:id :workflow/again? :fn :mem/match? :key :intent :pattern "^\\s*[Aa][Gg][Aa][Ii][Nn]\\s*$"}]
+   [:action {:id :workflow/again-start :fn :tool/run :tool "workflow$again"
              :in {:run :of :note :note}
              :out {:stop :stop :stopped :stopped :run :run :brief :brief :master :master :elsewhere :elsewhere}}]]
   ;; anything else: one turn over the workflow$* commands, asked what was asked

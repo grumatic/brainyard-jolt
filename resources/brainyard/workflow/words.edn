@@ -25,6 +25,10 @@
  ;; each stage's brief: the run, the profile's goal and scope, the stage's
  ;; role, what was handed to it, and what it hands on
  :brief "Run #{n} of workflow {workflow}{title}: {work}\n\n{builds}{profile}The run goes {flow}, each stage a turn of its own, handed on in turn. You play stage {stage} now, as {role}.\n\n{handed}{next}\n\nDo your part, and only yours: a later stage does its own. Check it as the project's instructions say: run its tests, keep to its decisions and rules. AGENTS.md's profile says what you do on your own here and what the person decides: keep to it. Where it says to ask before a commit, an issue filed or closed, a decision record or a push, run the command or write the file — byj asks the person then and waits for their answer. Put a question in your answer only for a change of goal, scope, stack or done criteria, or a decision the profile does not let you make. End by saying what you did, how you checked it, and {end}."
+ ;; a run run again (byj-cm4.2): before the rest of each brief
+ :again "This run is run #{of} again{verdict}. What to change: {note}"
+ :again-verdict ", which the person judged {verdict}"
+ :no-note "the person said nothing more; see how run #{of} went with workflow$runs."
  ;; a run whose worktree starts from a branch, not HEAD (byj-cm4.3)
  :builds "It builds on {from}, which the project's main line may not have yet: its worktree starts there. From the main checkout, git log HEAD..{from} and git diff HEAD...{from} show what that adds."
  :profile "This project's goal: {goal}\n{scope}\n"
@@ -73,6 +77,7 @@
          :paused "Run #{n} waits for you before stage {stage}: /workflow resume {n} hands it on."
          :running-elsewhere "Run #{n} is running in session {session}: stop it there, or with byj workflow stop {n}, first."
          :done-already "Run #{n} is done: /workflow again {n} runs it again."
+         :not-ended "Run #{n} has not ended: /workflow resume {n} goes on with it, or byj workflow stop {n} ends it."
          :not-running "Run #{n} is not running: it is {status}."}
 
  :report-head "/workflow run #{n} — {workflow}{title}: {work}"

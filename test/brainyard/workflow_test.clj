@@ -513,3 +513,35 @@
           (is (false? (:stop r)))
           (is (= :running (:status (workflow/read-run dir run))))
           (is (not (contains? (workflow/read-run dir run) :stopped))))))))
+
+(deftest an-ended-run-is-run-again-where-it-worked
+  ;; byj-cm4.2: the same work, told its verdict and what to change
+  (let [{:keys [bin dir cfg]} (run-setup "again" {:preset :collaborator :issues [{:tracker :beads}]})
+        briefs (atom [])
+        judge (fn [_] {:status "done" :summary "did its part"})
+        _ (ask-loop cfg {:intent "run" :workflow "fix" :work "t-2 keep it small"} judge (fn [_] "Did it.") briefs)
+        _ (workflow/record-verdict cfg {:run 1 :verdict "changes" :note "the parser drops a token"})
+        r (ask-loop cfg {:intent "again" :of "1" :note ""} judge (fn [_] "Did it again.") briefs)
+        kept (workflow/read-run dir 2)]
+    (is (= :done (:status kept)))
+    (is (= 1 (:again kept)))
+    (is (= "t-2 keep it small" (:work kept)) "the same work")
+    (is (= :fix (:workflow kept)))
+    (is (str/includes? (nth @briefs 2) "This run is run #1 again, which the person judged changes. What to change: the parser drops a token\n\nThis project's goal"))
+    (is (str/includes? (nth @briefs 3) "This run is run #1 again") "every stage is told")
+    (is (= 1 (count (filter #(= "update t-2 --claim" %) (bd-calls bin)))) "the run before closed it: a closed issue is not claimed again")
+    (is (str/includes? (:answer r) "/workflow run #2 — fix (Fix): t-2 keep it small"))
+    (testing "what the person says now wins over the verdict's note"
+      (let [{:keys [brief]} (workflow/again-run cfg {} {:run 1 :note "keep the old API"})]
+        (is (str/includes? brief "What to change: keep the old API"))))
+    (testing "a run that worked in its own worktree runs again there"
+      (let [{:keys [run]} (workflow/start-run cfg {} {:workflow "docs" :work "w" :worktree "yes"})
+            wt (get-in (workflow/read-run dir run) [:root :dir])]
+        (workflow/stop-run cfg {:run run})
+        (let [r (workflow/again-run cfg {} {:run run})]
+          (is (true? (:elsewhere r)))
+          (is (= wt (get-in (workflow/read-run dir (:run r)) [:root :dir])) "the same worktree")
+          (is (str/includes? (:brief r) "What to change: the person said nothing more; see how run #")))))
+    (testing "a run not ended is not"
+      (let [{:keys [run]} (workflow/start-run (assoc cfg :session-id "s-live") {} {:workflow "fix" :work "x"})]
+        (is (str/includes? (:stopped (workflow/again-run cfg {} {:run run})) "has not ended"))))))
