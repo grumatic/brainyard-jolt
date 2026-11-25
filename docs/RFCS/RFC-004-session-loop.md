@@ -478,7 +478,7 @@ turn's into the session's, and both are windowed at `agent/max-usage-calls`.
 **`/capture`** writes what was said to a file — the session's own transcript,
 recorded as it emits, so it reads the same under any front end (divergence
 `capture-is-the-sessions-transcript`). With no path it names one under
-`.brainyard/captures/`.
+`captures/` in the project's folder of the home (RFC-016).
 
 They are **data**: `session/commands` is `[[command doc] …]`, `help-text` is
 rendered from it, and a front end completes from the same list (RFC-028's input
@@ -537,7 +537,7 @@ drift the moment one of them is edited.
 ## Known gaps
 
 - Persistence and resume are RFC-016: a snapshot per session under
-  `~/.brainyard/sessions/<project-slug>/`, `-r <id>` / `--resume-latest` / `--sessions`, and
+  `~/.brainyard/projects/<project-slug>/sessions/`, `-r <id>` / `--resume-latest` / `--sessions`, and
   startup pruning. Not ported: `/clear` rotation, batched history demotion.
 - History is demoted by a fixed full-depth, not brainyard's batched demotion (`append-turn` `:full-depth 10 :summary-depth 30 :demote-batch 10`), which keeps the history zone cache-stable.
 - No full-screen TUI — `byj-gly.20`; no streaming output while a turn runs — `byj-gly.8`.

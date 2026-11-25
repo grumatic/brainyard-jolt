@@ -315,7 +315,7 @@ which are brainyard's own numbers.
 
 `brainyard.schedule` ports brainyard's `agent/common/schedule.clj`: its
 names (`schedule$add|list|remove|enable|disable|run-now`), its store
-(`.brainyard/schedule/<id>/spec.edn`, `:id :title :prompt :cron :fire-at
+(`schedule/<id>/spec.edn` in the project's folder of the home, RFC-016, `:id :title :prompt :cron :fire-at
 :enabled :next-fire :last-run :last-status :created`), and its five-field
 cron. It also ports Claude Code's `/loop`.
 

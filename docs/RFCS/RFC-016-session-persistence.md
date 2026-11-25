@@ -1,8 +1,10 @@
 # RFC-016 — Session persistence and resume
 
 **Status:** implemented (`byj-gly.9`); sessions kept in the person's home
-since `byj-7sp` ("Sessions in the person's home", at the end; divergence
-`sessions-are-kept-in-the-home`).
+since `byj-7sp` ("Sessions in the person's home"), and with everything else a
+project's runs leave in its folder of the registry since `byj-84c` ("The
+project's home", at the end; divergence
+`a-projects-runs-are-kept-in-its-home-folder`).
 
 ## Purpose
 
@@ -372,7 +374,10 @@ someone with three and then shows them one (`byj-gly.75`).
 Decided 2026-11-25 and built (`byj-7sp`): sessions moved to the person's
 home, a worktree keyed by its own path, a gone project's sessions kept until
 `:session-ttl-days`, and another project's sessions closed to an agent by
-default. What follows is why, what it cost, and how it is laid out.
+default. What follows is why, what it cost, and how it was laid out; its
+layout, root and worktree placement are replaced by "The project's home"
+below (`byj-84c`), before either was published, and its reasons, pruning,
+migration and gate stand.
 
 ### Why move them
 
@@ -572,9 +577,9 @@ contract writes the folder `<sessions>`.
 
 ## The project's home
 
-Decided 2026-11-26, not built (`byj-84c`): the second revision. byj-7sp's
+Decided 2026-11-26 and built (`byj-84c`): the second revision. byj-7sp's
 layout above — a tree per kind beside the registry — is replaced before it
-is published by **one folder per project, the registry's**, holding
+was published by **one folder per project, the registry's**, holding
 everything a run leaves, sessions among it. The steps below replace that
 section's layout, root and worktree placement; its pruning, migration and
 the gate's reasons stand.
@@ -610,8 +615,9 @@ Everything a run leaves goes to `~/.brainyard/projects/<slug>/`:
 
 brainyard names this folder "the project's user-scope folder"
 (`projects/project-user-dir`) and keeps only the record in it; byj keeps
-the project's runtime there. A divergence, widening
-`sessions-are-kept-in-the-home`.
+the project's runtime there. A divergence,
+`a-projects-runs-are-kept-in-its-home-folder` (byj-7sp's
+`sessions-are-kept-in-the-home`, widened).
 
 ### The slug
 
@@ -657,7 +663,8 @@ the project's runtime there. A divergence, widening
 - **A new worktree is made in the home; one made before stays** (built,
   `byj-84c.5`). A delegation's, the SDK's fork, a team member's — each is
   `worktrees/<branch>` in the project's folder (`projects/runtime-path`), a
-  workflow run's under its run in `workflow-runs/`. One an older byj made
+  workflow run's under its run in `workflow-runs/`. It is not `git worktree
+  move`d, as was decided first. One an older byj made
   under `.brainyard/worktrees/` or a run's folder is never moved: git keeps
   its path, and Claude Code and Codex keep a delegated session by the
   directory it ran in, so a worktree moved would lose its resume; it is
@@ -665,22 +672,32 @@ the project's runtime there. A divergence, widening
   it is removed. tmux sessions started in the project's folder of the home
   are the project's (`agent-host/running-in`). The gate opens a project's own
   tree though it lies in another's folder (`byj-84c.7`).
-- **Programs built on byj** read sessions, workflow runs, delegations and
-  worktrees from the project's `.brainyard/` today; they ask `byj project
-  path` before this ships.
+- **Programs built on byj** that read sessions, workflow runs, delegations
+  and worktrees from the project's `.brainyard/` ask `byj project path`
+  (`contract/project/path.json`) before a byj with this runs where they do.
+- **`.brainyard/` is in a turn's change** for what the repository shares
+  there (RFC-069): an agent's edit of `config.edn` is rewound with the turn.
+- **Outside git, a `.brainyard/` holding only an older byj's runtime marks
+  no project** (S2): found under `~/Projects/Grumatic` and `/tmp` on one
+  machine, it would have made every directory beneath them one project.
+- **A handover stays in the project** (`.brainyard/handovers/`, named in its
+  `.gitignore`): the Claude Code session it is written for reads it there.
 
 ### Steps
 
 1. One home, sessions, transcripts and tasks under `projects/<slug>/`, one
-   record per folder (`byj-84c.1`).
-2. The project root's `.brainyard/` step (`byj-84c.2`).
+   record per folder (`byj-84c.1`, built: `persist/project-home`,
+   `projects/ensure-record!`).
+2. The project root's `.brainyard/` step (`byj-84c.2`, built:
+   `config/find-brainyard-root`).
 3. The registry keeps runtime: prune and remove by the TTL, `byj projects
-   move`, `:worktree-of` (`byj-84c.3`).
-4. The rest of what a run leaves, through one function, with migration
-   (`byj-84c.4`).
-5. Worktrees under the project's folder, moved with `git worktree move`
-   (`byj-84c.5`).
-6. `byj project path`, and `.brainyard/` out of `.gitignore` (`byj-84c.6`).
+   move`, `:worktree-of` (`byj-84c.3`, built: RFC-074).
+4. The rest of what a run leaves, through one function, with migration, and
+   `byj project path` (`byj-84c.4`, built: `projects/runtime-path`).
+5. New worktrees under the project's folder; old ones left where they are
+   (`byj-84c.5`, built).
+6. `.brainyard/.gitignore`, `.brainyard/` out of `.gitignore`, the turn
+   snapshot's rule, the contract (`byj-84c.6`, built: RFC-040, RFC-069).
 7. Another project's whole folder closed to an agent; `:project-homes-shared?`
-   (`byj-84c.7`).
+   (`byj-84c.7`, built: RFC-012).
 8. Docs, contract, divergence (`byj-84c.8`).

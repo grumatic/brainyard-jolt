@@ -93,7 +93,7 @@ something and nothing.
 
 ### The log
 
-`<project-dir>/.brainyard/logs/events.log` — one `pr-str` map per line:
+`~/.brainyard/projects/<slug>/logs/events.log` (the project's folder of the home, RFC-016; `byj project path logs`) — one `pr-str` map per line:
 
 ```clojure
 {:ts 1789904076224 :event :tools/user-tool-skipped :level :problem

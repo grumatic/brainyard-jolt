@@ -457,7 +457,7 @@
  {:id "a-run-resumes-as-a-set"
   :brainyard "bases/agent-tui core.clj :resume-session / format-resume-hint (one session per --resume; the exit hint lists each tab's id)"
   :test "brainyard.persist-test/a-run-remembers-the-set-it-had-open"}
- {:id "sessions-are-kept-in-the-home"
+ {:id "a-projects-runs-are-kept-in-its-home-folder"
   :brainyard "components/agent/src/ai/brainyard/agent/core/config.clj (\"sessions\" :project-only: <project>/.brainyard/sessions/)"
   :test "brainyard.persist-test/a-session-is-kept-in-the-persons-home"}
  {:id "the-default-model-is-config"

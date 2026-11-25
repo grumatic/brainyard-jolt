@@ -368,7 +368,7 @@ Four things follow brainyard's renderer rather than the line one:
       a `:mark` among them puts the mark nowhere. The fold state is a `cell`
       the caller passes (`tui/cell` in `main`), so a fold repaints the rail.
     - The rails are kept across restarts, per project, in
-      `.brainyard/rails.edn` (`brainyard.rail-state`, byj-gly.457): each
+      `rails.edn` in the project's folder of the home (`brainyard.rail-state`, byj-gly.457, RFC-016): each
       rail's open?, view and width (`frame/kept-rails`), and each view's
       folds — the stack's sections by title, Project's kinds, Issues' epics,
       Memory's sources, Files' directories, Source's sections and

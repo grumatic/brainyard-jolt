@@ -64,7 +64,7 @@ brainyard's `/capture <file-path>` dumps `layout/!scrollback`, which only its
 full-screen renderer has — the same command under `--inline` would capture
 nothing. Here the session records what it said as it says it, so `/capture`
 writes the same conversation under the full-screen renderer, a pipe or a test,
-and takes an optional path (defaulting to `.brainyard/captures/`) rather than
+and takes an optional path (defaulting to `captures/` in the project's folder of the home) rather than
 refusing without one. What it therefore does NOT hold is the event narration a
 `-v` run prints: those go to the event stream (RFC-026) and the event log, not
 through `:emit`.
@@ -346,7 +346,7 @@ and an `atom` keeps state. Tool Lisp's tier D (`:reach`, off by default) gives
 `pmap` over `fx/bounded` — `:parallel` at a time, at most 1000 items, every call
 on the body's own step and tool-call budget, cancelled with its turn — and no
 atoms: state between calls is `store$get`/`store$put`/`store$keys`, a project's
-`.brainyard/store.edn`, whose effects the gates and tool distillation see.
+`store.edn` in the project's folder of the home, whose effects the gates and tool distillation see.
 
 <!-- divergence: user-tool-output-schema-declared -->
 **A user tool declares its result as a malli schema.** brainyard's user tools
@@ -972,11 +972,12 @@ reason:
   are. A paragraph format cannot be read a line at a time and cannot survive a
   torn tail — a reader racing the writer gets a half-written paragraph and loses
   the whole file behind it, where a half-written line costs one record.
-- **In the project** (`.brainyard/logs/events.log`), not the home directory.
-  `.brainyard/` belongs to the project here (RFC-013), and a per-project log
-  answers *what happened in this repository* without a global file interleaving
-  every project the agent has ever run in. It is deliberately outside
-  `sessions/`, which is pruned.
+- **Per project** (`~/.brainyard/projects/<slug>/logs/events.log`, the
+  project's folder of the home since RFC-016's second revision; `byj project
+  path logs` names it), not one global file. A per-project log answers *what
+  happened in this repository* without a global file interleaving every
+  project the agent has ever run in. It is deliberately outside `sessions/`,
+  which is pruned.
 - **10 MiB, three backups**, against brainyard's 50 MiB. One line per event is
   far denser than a pretty-printed paragraph, and the file is now per project
   rather than shared, so the same history costs less.
@@ -1658,16 +1659,21 @@ run also records the sessions it has open and the one in front
 with the same one in front. The session list also offers saved sessions to
 resume. Each session is still its own, and `--resume <id>` still continues one.
 
-<!-- divergence: sessions-are-kept-in-the-home -->
-**A session is kept in the person's home, not the project.** brainyard keeps
-sessions project-only, on purpose (`"sessions" :project-only`: work in one
-codebase, "rather than a user-global junk drawer"). Here a session, its
-transcripts and its tasks are under `~/.brainyard/<kind>/<project-slug>/`,
-keyed by the project's path as the registry is and beside it: a worktree
-removed with `--force` took its sessions with it, the project folder held a
-person's records, and a project made again lost them (RFC-016, `byj-7sp`).
-A project's old `.brainyard/sessions` is moved the first time it is touched;
-`by`, which shares the home, keeps its own in the project.
+<!-- divergence: a-projects-runs-are-kept-in-its-home-folder -->
+**What a project's runs leave is kept in its folder of the registry, not the
+project.** brainyard keeps sessions project-only, on purpose (`"sessions"
+:project-only`: work in one codebase, "rather than a user-global junk
+drawer"), and names `~/.brainyard/projects/<slug>/` "the project's
+user-scope folder" but keeps only its record there. Here that folder keeps
+everything a project's runs leave — sessions, transcripts, tasks, the event
+log, delegations' records, workflow runs, todos, the store, worktrees —
+keyed by the project's path: a worktree removed with `--force` took its
+sessions with it, the project folder held a person's records, and a project
+made again lost them (RFC-016, `byj-7sp`, `byj-84c`). A project's
+`.brainyard/` keeps what its repository shares, and git sees it. What a
+project's old `.brainyard/` held is moved the first time it is touched,
+never a worktree; `by`, which shares the home, keeps its own in the project,
+and its `projects prune|remove` delete the folder whole.
 
 <!-- divergence: the-default-model-is-config -->
 **The model a run asks is a config key, `:default-lm`, and by default

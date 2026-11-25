@@ -74,7 +74,7 @@ A tree's blackboard lives for one turn. RFC-016 persists a session's
 implementation work is *what is left to do* — has to be somewhere else.
 
 ```
-<project-dir>/.brainyard/todos/<slug>.md
+~/.brainyard/projects/<project-slug>/todos/<slug>.md   (byj project path todos, RFC-016)
 ```
 
 ```markdown

@@ -454,7 +454,7 @@ said there. What Emacs adds:
   (`emacs/places!`, `session/places-text`); Emacs's alone, said so when it
   is not up.
 - **The checklist.** The session's `/todo` and coaching checklists are
-  RFC-023's markdown files under `.brainyard/todos/`, already a list of
+  RFC-023's markdown files in the project's todos folder (`byj project path todos`), already a list of
   checkboxes, so `byj-todo` (`l`) opens the newest — a prefix picks — beside
   the person's work with `auto-revert-mode`, rather than an org copy that
   would be a second source of the same list (as first planned). In it,

@@ -50,7 +50,7 @@ Every subsystem port, in this order:
 | core.async | not on the runtime path (no cancellation); only memory capture's fan-in may use jolt's core.async (RFC-009) |
 | sqlite-jdbc | `jolt-lang/db` (jdbc.core over system libsqlite3) |
 | SCI | not ported: agent-written code is Tool Lisp, interpreted (RFC-010); the code channel is replaced by `tool$run` — `byj-gly.11` |
-| mulog | `:on-event`, declared and levelled, written to `.brainyard/logs/events.log` with `log$events` / `log$search` to read it back (RFC-026), plus an append-only record per TURN (RFC-025) |
+| mulog | `:on-event`, declared and levelled, written to the project's `logs/events.log` in its folder of the home with `log$events` / `log$search` to read it back (RFC-026), plus an append-only record per TURN (RFC-025) |
 | aws-api | the aws CLI as a subprocess — jolt has no SigV4 (divergence `bedrock-via-cli`) |
 | GraalVM native image | `jolt build` (`jolt build:byj`) |
 

@@ -282,7 +282,7 @@ hold, and neither does the default.
 
 ## Exporting it
 
-`trajectory$export` writes `.brainyard/exports/trajectories-<ms>.{jsonl,edn}`.
+`trajectory$export` writes `exports/trajectories-<ms>.{jsonl,edn}` in the project's folder of the home (RFC-016).
 `openai-jsonl` is one `{"messages": [...]}` per turn in the OpenAI tool-calling
 shape; `edn` is the records themselves, lossless.
 

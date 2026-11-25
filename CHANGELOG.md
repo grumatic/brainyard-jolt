@@ -6,25 +6,48 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
-- **Sessions are kept in your home, not the project.** A session, its
-  transcripts and its tasks are now under `~/.brainyard/sessions/<project>/`,
-  `~/.brainyard/transcripts/<project>/` and `~/.brainyard/tasks/<project>/`,
-  one folder per project path, so a worktree's sessions outlive the worktree
-  and a project made again at its path finds its sessions. A project's
-  `.brainyard/sessions` (and `transcripts`, `tasks`) is moved there the first
-  time byj runs in it, but for a session an older byj still holds, which is
-  read where it is until it is free. `byj session migrate [--all]` moves a
-  project's, or every registered project's, at once; `byj session path`
-  with no id says where this project's are (RFC-016). The sessions of a
-  project that is gone — a worktree removed, a folder deleted — are kept
-  until `:session-ttl-days` (14), then pruned. An agent's tools cannot read
-  another project's sessions there; `:session-dirs-shared? true` lets them.
+- **What byj's runs leave is kept in your home, one folder per project;
+  `.brainyard/` is the repository's.** A project's sessions, transcripts,
+  tasks, event log, Claude Code and Codex delegation records, workflow runs,
+  todos, store, `deps-local.edn` and new git worktrees are kept in
+  `~/.brainyard/projects/<project>/` — the folder the project registry
+  already keeps for it — so a worktree's sessions outlive the worktree and a
+  project made again at its path finds them. What a project's `.brainyard/`
+  held of these is moved there the first time byj runs in it, but for a
+  session an older byj still holds (read where it is until it is free) and a
+  git worktree (left where it is, so git and a delegated session's resume
+  still find it). `byj project path [KIND] [--json]` says where (`byj
+  project path logs`); `byj session path` and `byj session migrate [--all]`
+  as before (RFC-016).
+- **`.brainyard/` is no longer kept from git.** It holds what the project
+  shares — config, profile, dependencies' spec, agents, commands, skills,
+  tools, programs, loops. `/init` takes the `.brainyard/*` lines an earlier
+  `/init` wrote out of `.gitignore` and writes `.brainyard/.gitignore`
+  naming what is not the repository's (`.env`, handovers, and what an older
+  byj left there); `byj doctor` says where a project stands. An edit a turn
+  makes to `.brainyard/config.edn` is now part of the turn's change, and
+  rewound with it.
+- **`byj projects` keeps what it holds.** `prune` keeps a missing project's
+  folder while a session in it is younger than `:session-ttl-days` or open,
+  and says how many sessions go; `remove` counts them and refuses while one
+  is open; new `byj projects move OLD-SLUG [DIR]` adopts a moved or renamed
+  project's folder and its sessions at DIR. A git worktree is listed as a
+  project of its own, with its main checkout's slug (`worktree-of`), and
+  `byj projects list` shows worktrees and the folders of unregistered runs
+  only with `--all`. The sessions of a project that is gone are kept until
+  `:session-ttl-days` (14), then pruned.
+- **A project outside git is one project from any of its subdirectories**:
+  the nearest directory above whose `.brainyard/` holds something the
+  project shares (`config.edn`, `agents/` …) is its root.
+- **An agent's tools cannot read another project's folder** in
+  `~/.brainyard/projects` — its sessions, log, records; `:project-homes-shared?
+  true` lets them.
 - **A program finds a session where byj says it is.** `byj session list
   --json` gives each session's `dir` and `project-dir`, and the new `byj
   session path ID [--json]` gives one session's folder (exit 1 when there is
-  none); a live session's `meta.edn` names its `:project-dir`. Read sessions
-  through these rather than building `.brainyard/sessions/<id>`: sessions are
-  to move to `~/.brainyard/sessions/<project>/` (RFC-016's revision).
+  none); a live session's `meta.edn` names its `:project-dir`; `byj project
+  path --json` gives the project's folder and each kind's. Read through
+  these rather than building `.brainyard/sessions/<id>`.
 - **A `:bead` give in `.brainyard/deps.edn` is deprecated: write it as an
   issue.** A bead is an issue, and `{:kind :issue :tracker :beads :id …}`
   (or `:parent`) says the same. A `:bead` give still reads and is checked

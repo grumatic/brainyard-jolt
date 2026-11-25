@@ -271,7 +271,7 @@ task answers a dialog the session waits on), then a round per turn of
 `codex$await`, predictor `codex/progress` (done, guide, ask-person) and
 `codex$say`, up to `:codex-max-rounds`; finished work on a branch gets
 `claude/pr`'s title and description and `codex$handoff`; `codex$finish`
-records how it ended in `.brainyard/codex-agents/<thread>.edn`. `/codex`
+records how it ended in `codex-agents/<thread>.edn`, in the project's folder of the home (RFC-016). `/codex`
 (`commands/codex.edn`) stands for it as `/claude` does for agent$claude.
 
 What differs from agent$claude is what the sandbox decides (decision 7). A

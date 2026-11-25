@@ -161,7 +161,7 @@ client                                   byj acp
 
 Standard output carries the protocol and nothing else; anything byj would
 print goes to standard error and the event log
-(`<project>/.brainyard/logs/events.log`, on unless `:event-log? false`).
+(`~/.brainyard/projects/<slug>/logs/events.log`, `byj project path logs`, on unless `:event-log? false`).
 
 ### 3. ACP's methods, as byj answers them
 

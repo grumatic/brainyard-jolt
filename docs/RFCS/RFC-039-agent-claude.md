@@ -210,7 +210,7 @@ sets `:claude-tools?`, which is what registers the `claude$*` commands
   same instance again for what is missing, so the follow-ups go to one Claude
   Code session.
 - **Guidance** is typed when it is one line of at most 300 characters;
-  otherwise it is a file under `.brainyard/claude-agents/<id>/`, which the
+  otherwise it is a file under `claude-agents/<id>/` in the project's folder of the home (RFC-016), which the
   session may read (`--add-dir`), and the typed line points at it.
 - **Cost:** the turn reader counts each reply's tokens once, by model;
   `claude$await` prices them and reports what the delegation has spent since
@@ -220,7 +220,7 @@ sets `:claude-tools?`, which is what registers the `claude$*` commands
   share of the claude agent capped its callers' cost at nothing. Against
   `:claude-max-cost-usd` ($5), and past it the verdict is
   `ask-person`.
-- **The record**, `.brainyard/claude-agents/<id>.edn`: task, instance, the
+- **The record**, `claude-agents/<id>.edn` in the project's folder of the home (RFC-016): task, instance, the
   session that delegated it (`:parent-session`, byj-gly.298.1), worktree and
   branch, round, state (`working`, the last settle, `done`, `needs-person`),
   cost, verdict and report — for the agent page (`.5`).

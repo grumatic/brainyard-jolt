@@ -203,7 +203,7 @@ read it.
     unproved rather than replaying it.
   - State between calls is not an atom but the `store$get`, `store$put` and
     `store$keys` tools (`brainyard.store`). They hold a project's
-    `.brainyard/store.edn`, a string key to EDN data, written atomically, one
+    `store.edn` in the project's folder of the home (RFC-016), a string key to EDN data, written atomically, one
     writer at a time, capped at 1,000,000 characters. Their effects are
     `:fs/read :store/read` and `:fs/write :store/write`, so the gates see a
     write and a replay is refused. They are bound only while the tier is.

@@ -101,7 +101,7 @@ person's word on one — `pass`, `changes` or `fail`, and a note.
      error naming it, or no work.
    - An issue the work names is read for its title and description,
      and claimed.
-   - The run is kept as `.brainyard/workflow-runs/<n>.edn` (under
+   - The run is kept as `workflow-runs/<n>.edn` in the project's folder of the home (RFC-016, `byj project path workflow-runs`; under
      `.brainyard/`, which `/init`'s `.gitignore` ignores). It holds the
      workflow and its roles as they were when it opened, so a later edit
      does not change a running run.

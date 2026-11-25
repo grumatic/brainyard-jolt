@@ -123,7 +123,7 @@ registry's, and the run goes on.
 - `prune-projects! [root] [root keep?]` — every missing record removed, its folder whole, but one `keep?` says to keep; the records removed.
 - `move-project! [root old-slug new-path]` — the old folder made the new path's; `{:record}` or `{:error}`.
 - `main-checkout [path]` — a linked worktree's main checkout, or nil.
-- `runtime-path [project kind & more]` — where the project keeps `kind` of what its runs leave (`runtime-kinds`: logs, claude-agents, codex-agents, workflow-runs, deps-snapshots, init/snapshots, captures, exports, drive/claims.edn, store.edn, todos, rails.edn, schedule, loops/proposals, loops/evals, deps-local.edn): `<root>/<slug>/<kind>`, the one function every such path is built by (RFC-016's second revision, `byj-84c.4`); what the project's `.brainyard/` kept of it moved there the first time, into the person's own home only (`auto-migrate?`, `migrate-kind!`).
+- `runtime-path [project kind & more]` — where the project keeps `kind` of what its runs leave (`runtime-kinds`: logs, claude-agents, codex-agents, workflow-runs, deps-snapshots, init/snapshots, captures, exports, drive/claims.edn, store.edn, todos, rails.edn, schedule, loops/proposals, loops/evals, deps-local.edn, worktrees): `<root>/<slug>/<kind>`, the one function every such path is built by (RFC-016's second revision, `byj-84c.4`); what the project's `.brainyard/` kept of it moved there the first time, into the person's own home only (`auto-migrate?`, `migrate-kind!`).
 - `remove-project! [root slug]` — one record removed; it, or nil.
 - `refresh-index! [root]`, `parse-origin-url [text]`, `table [rows offset]`.
 
@@ -164,7 +164,12 @@ Config: `:register-project?` (boolean, true).
 ## Divergences
 
 `--json` gives an instant as ISO-8601 (divergence
-`projects-json-gives-iso-instants`).
+`projects-json-gives-iso-instants`). A project's folder keeps what its runs
+leave, where brainyard keeps only its record (divergence
+`a-projects-runs-are-kept-in-its-home-folder`): a record a run writes for a
+project never registered is `:listed? false`, a worktree's says
+`:worktree-of`, and prune keeps a folder with a young or open session;
+`byj projects move` is byj's.
 
 ## Known gaps
 
