@@ -455,6 +455,8 @@
                             "~/.claude/settings.local.json" "~/.codex/auth.json" "~/.config/byj-exam" "~/.ssh" "~/.aws"
                             "~/.netrc" "~/.config/gh/hosts.yml" "~/.docker/config.json"]
                   :doc "Files and directories no path tool reads or writes, in any mode, nor names a directory holding: a person's logins and keys (byj-1wv.115.40), the connections the agent builder keeps among them (byj-1wv.115.44). ~ is the home. A shell's arguments are not paths the gate sees."}
+   :session-dirs-shared? {:type "boolean" :default false :family :permissions
+                          :doc "Another project's sessions, transcripts and tasks in ~/.brainyard are open to this project's tools. Off, a tool reaches its own project's only (and a main checkout's, its worktrees'): a path in another's, or one holding them all, is refused (RFC-016)."}
    :path-permission? {:type "boolean" :default true :family :permissions
                       :doc "Check the paths a tool is given against :allowed-dirs, asking or refusing when they fall outside."}
    :predictor-roots {:family :paths :type "vector" :default nil :doc "Directories searched for predictor specs; derived from the working dir when unset."}

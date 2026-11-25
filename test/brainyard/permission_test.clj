@@ -13,6 +13,7 @@
             [brainyard.config :as config]
             [brainyard.effect :as fx]
             [brainyard.permission :as permission]
+            [brainyard.persist :as persist]
             [brainyard.profile]
             [brainyard.project-loops :as project-loops]
             [brainyard.sandbox :as sandbox]
@@ -406,6 +407,38 @@
         "so a message with one in it is not refused")
     (is (= "~/.ssh" (permission/denied-path ["~/.ssh"] (permission/home-paths "ls ~" "/h") "/h"))
         "the home itself still holds one")))
+
+(deftest another-projects-sessions-are-closed-to-this-ones-tools
+  ;; byj-7sp.6: sessions are kept in the person's home, which a tool may
+  ;; reach (:allowed-dirs); another project's — what it was asked, its files'
+  ;; contents — are closed to this one's unless :session-dirs-shared?
+  (let [a (fresh-dir "sessions-a")
+        b (fresh-dir "sessions-b")
+        mine (doto (io/file (persist/sessions-dir {:project-dir a}) "1700000000020-aaaaaaaa") .mkdirs)
+        theirs (doto (io/file (persist/sessions-dir {:project-dir b}) "1700000000021-bbbbbbbb") .mkdirs)
+        _ (spit (io/file mine "session.edn") "{}")
+        _ (spit (io/file theirs "session.edn") "{:last-question \"a secret\"}")
+        root (.getPath (io/file (persist/sessions-home) "sessions"))
+        c (fn [& {:as cfg}] (ctx (merge {:working-dir a :project-dir a :permission-mode :auto-approve
+                                         :allowed-dirs [a (.getPath (persist/sessions-home))]}
+                                        cfg)))
+        why #(str (:error %))]
+    (is (str/includes? (why (call (c) "read-file" {:path (.getPath (io/file theirs "session.edn"))}))
+                       "another project's sessions"))
+    (is (not (str/includes? (why (call (c) "read-file" {:path (.getPath (io/file mine "session.edn"))}))
+                            "another project's"))
+        "its own are its to read")
+    (is (str/includes? (why (call (c) "grep" {:pattern "secret" :path root})) "another project's sessions")
+        "a folder holding them all: a recursive read would open them")
+    (is (not (str/includes? (why (call (c) "list-dir" {:path root})) "another project's"))
+        "listing their names opens nothing of them")
+    (is (str/includes? (why (call (c) "bash" {:command (str "cat " (.getPath (io/file theirs "session.edn")))}))
+                       "names another project's sessions")
+        "a shell naming one is refused too")
+    (is (not (str/includes? (why (call (c) "bash" {:command (str "ls " root)})) "another project's")))
+    (is (not (str/includes? (why (call (c :session-dirs-shared? true) "read-file" {:path (.getPath (io/file theirs "session.edn"))}))
+                            "another project's"))
+        ":session-dirs-shared? opens them")))
 
 ;; byj-all: sessions were refused for ls -la ~/.brainyard, ls of
 ;; ~/.brainyard/share and list-dir of ~/.brainyard, which hold the share

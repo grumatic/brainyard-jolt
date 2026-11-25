@@ -554,5 +554,5 @@ placeholder changes with the move.
 4. The move (`byj-7sp.4`, built): the layout, transcripts and tasks with it, reading both places,
    migration.
 5. Pruning a gone project's sessions (`byj-7sp.5`, built: `persist/prune-gone!`).
-6. The path gate closing other projects' sessions to an agent (`byj-7sp.6`).
+6. The path gate closing other projects' sessions to an agent (`byj-7sp.6`, built: RFC-012).
 7. The docs, the contract recorded again, the divergence (`byj-7sp.7`).

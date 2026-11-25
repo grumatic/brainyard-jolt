@@ -17,7 +17,8 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   project's, or every registered project's, at once; `byj session path`
   with no id says where this project's are (RFC-016). The sessions of a
   project that is gone — a worktree removed, a folder deleted — are kept
-  until `:session-ttl-days` (14), then pruned.
+  until `:session-ttl-days` (14), then pruned. An agent's tools cannot read
+  another project's sessions there; `:session-dirs-shared? true` lets them.
 - **A program finds a session where byj says it is.** `byj session list
   --json` gives each session's `dir` and `project-dir`, and the new `byj
   session path ID [--json]` gives one session's folder (exit 1 when there is

@@ -173,8 +173,13 @@
         ;; run's in one image — so a test's project made again at its path
         ;; (fresh-dir) meets no session an earlier run or shard left there:
         ;; deleting the project no longer deletes its sessions
+        ;; Outside the repository, so a recursive read of it holds no
+        ;; sessions folder a gate would refuse (byj-7sp.6): in the temporary
+        ;; directory, named for this checkout
         _ (System/setProperty "brainyard.sessions-home"
-                              (let [d (clojure.java.io/file "target/test-sessions-home" (or (System/getenv "BY_TEST_SHARD") "main"))]
+                              (let [d (clojure.java.io/file (System/getProperty "java.io.tmpdir")
+                                                            (str "byj-test-sessions-" (Math/abs (hash (repo-root))))
+                                                            (or (System/getenv "BY_TEST_SHARD") "main"))]
                                 (fx/sh {:out :string :err :string} "rm" "-rf" (.getPath d))
                                 (.getCanonicalPath (doto d .mkdirs))))
         ;; nor the person's own skills (~/.claude/skills, ~/.agents/skills), which

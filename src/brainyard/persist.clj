@@ -26,6 +26,7 @@
             [brainyard.effect :as fx]
             [brainyard.projects :as projects]
             [brainyard.schema :as schema]
+            [brainyard.worktree :as worktree]
             [brainyard.version :as version]))
 
 (def schema-version
@@ -119,6 +120,16 @@
 (defn session-file [config id] (io/file (session-dir config id) "session.edn"))
 
 (defn lock-file [config id] (io/file (session-dir config id) "lock.edn"))
+
+(defn own-folders
+  "The names of the project folders in the home a tool of `config`'s project
+  may reach (RFC-016's revision, byj-7sp.6): its own, and — for a
+  repository's main checkout — each of its worktrees'. A worktree's reaches
+  its own only."
+  [config]
+  (let [p (project-of config)
+        wts (try (worktree/dirs p) (catch Throwable _ [p]))]
+    (set (map projects/project-slug (if (= p (first wts)) wts [p])))))
 
 (defn location
   "Where session `id` of the project is kept: `{:session-id :dir :project-dir
