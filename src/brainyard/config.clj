@@ -363,6 +363,9 @@
                              :doc "How many turns one stage of a /workflow run gets: one its master judges unfinished after its last ends the run, for the person (RFC-076)."}
    :workflow-stage-timeout-ms {:type "integer" :default 3600000 :family :agents
                                :doc "How long a /workflow run waits for a stage worked in a session of its own — a run in a worktree, or a role whose :session is :own — to answer (RFC-076)."}
+   :workflow-master-tell {:type "keyword" :default :end :family :agents
+                          :enum [:end :note :turn]
+                          :doc "How the session playing a /workflow run's master role is told how the run goes (RFC-076, byj-cm4.8): :end, its start and handoffs as notes for people only and its end as a turn of its own; :note, all as notes, never a turn; :turn, each a turn of its own."}
    :init-tools? {:type "boolean" :default false :family :agents
                  :doc "Register the init$* commands, which check and prepare a project for brainyard (RFC-040). agent$init's own config turns them on for its turn; off elsewhere."}
    :profile-tools? {:type "boolean" :default true :family :agents

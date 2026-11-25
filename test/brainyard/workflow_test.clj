@@ -402,6 +402,11 @@
         (is (re-matches #"\d{13}-[0-9a-f]{8}" (str sid)) (pr-str (:sessions kept)))
         (is (= "workflow-1/root" (get-in kept [:sessions :root :label])))
         (is (= [sid] (get-in (:value (deps/read-local dir)) [:bindings :design])) "the session is bound to the stage's role")
+        (testing "what it did is kept with the stage, watched in its session (byj-cm4.7)"
+          (let [p (get-in kept [:stages 0 :progress])]
+            (is (map? p) (pr-str (get-in kept [:stages 0])))
+            (is (contains? p :steps))
+            (is (string? (:at p)))))
         (testing "asked again, the same session answers"
           (workflow/delegate-stage cfg ctx {:run run :brief "and again"})
           (is (= sid (get-in (workflow/read-run dir run) [:sessions :root :session-id]))))
@@ -558,7 +563,7 @@
         (ask-loop cfg {:intent "run" :workflow "fix" :work "t-2"} (fn [_] {:status "done" :summary "ok"}) (fn [_] "Done.") (atom []))
         (is (empty? @told)))
       (deps/write! dir :local {:bindings {:ci ["s-gone" "s-master"]}})
-      (let [r (ask-loop cfg {:intent "run" :workflow "fix" :work "make it fast"}
+      (let [r (ask-loop (assoc cfg :workflow-master-tell :turn) {:intent "run" :workflow "fix" :work "make it fast"}
                         (fn [_] {:status "done" :summary "did its part"}) (fn [_] "Done it.") (atom []))
             msgs (map second @told)]
         (is (= 3 (count @told)) "the start, the one handoff, the end")
@@ -570,3 +575,19 @@
         (is (str/includes? (:text (nth msgs 2)) "Run #2 of workflow fix has ended: Every stage is done."))
         (is (= 3 (count (filter #(= "→ lead (the master) told" %) (:log (workflow/read-run dir 2))))))
         (is (str/includes? (:answer r) "→ lead (the master) told"))))))
+
+(deftest the-masters-session-is-told-in-notes-but-the-end
+  ;; byj-cm4.8: by default the start and the handoffs are notes, never a turn;
+  ;; the end is a turn of its own; :note makes every one a note
+  (let [{:keys [dir cfg]} (run-setup "master-notes" {:preset :collaborator :issues [{:tracker :beads}]})
+        told (atom [])
+        live {"s-master" {:session-id "s-master" :label "lead" :ask-socket-path "/nowhere/s-master.sock"}}]
+    (with-redefs [channel/find-session (fn [_ id & _] (or (live id) {:error "no live session"}))
+                  channel/request! (fn [_ msg & _] (swap! told conj msg) {:status :ok})]
+      (deps/write! dir :local {:bindings {:ci ["s-master"]}})
+      (ask-loop cfg {:intent "run" :workflow "fix" :work "w"} (fn [_] {:status "done" :summary "ok"}) (fn [_] "Done.") (atom []))
+      (is (= [:note :note :turn] (map :as @told)) "the start and the handoff in notes, the end a turn")
+      (is (= 2 (count (filter #(= "→ lead (the master) told in a note" %) (:log (workflow/read-run dir 1))))))
+      (reset! told [])
+      (ask-loop (assoc cfg :workflow-master-tell :note) {:intent "run" :workflow "fix" :work "w2"} (fn [_] {:status "done" :summary "ok"}) (fn [_] "Done.") (atom []))
+      (is (= [:note :note :note] (map :as @told)) ":note: never a turn"))))

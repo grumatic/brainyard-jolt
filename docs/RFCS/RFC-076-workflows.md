@@ -186,10 +186,26 @@ session that plays the master role — the last live one `deps-local.edn`
 binds to it (RFC-075), never the run's own — is told how the run goes: that
 it has started (the work, the stages, the master role it plays), each stage
 handed on (or, handed on by hand, that the run waits) with that stage's
-answer, and how it ended, with its log. Each is queued as a turn of that
-session's own (the channel's `:inject :as :turn`, `:await? false`), taken
-when it is idle and never waited for: the judge still decides. Each telling
-is a line of the run's log. With no such session, no one is told.
+answer, and how it ended, with its log. How, `:workflow-master-tell` says
+(`byj-cm4.8`): `:end`, the default, tells the start and each handoff in a note
+for people only (the channel's `:inject :as :note`: recorded, shown and
+published, never a turn, so it costs nothing) and the end as a turn of that
+session's own (`:inject :as :turn`, `:await? false`), so the master answers
+once, about the whole run; `:note` tells every one in a note; `:turn` each as
+a turn. A turn is taken when the session is idle and never waited for: the
+judge still decides. Each telling is a line of the run's log. With no such
+session, no one is told.
+
+### A stage worked elsewhere, while it works (`byj-cm4.7`)
+
+While `workflow$delegate` waits on a stage's session, it watches that session
+(`channel/subscribe!`, RFC-031): each tool call counted, the last one and the
+last thought kept, and what its turns spent, written to the stage's
+`:progress` — `{:steps :last :thought :usd :at}` — at most every five seconds
+and once at the end. Only `:progress` is written, over the record as it is
+then, and only while the run is running, so a stop from outside stands. A
+session that cannot be watched is not. `byj workflow runs --json` says it.
+(A stage worked in this turn is the session's own turn: its client sees it.)
 
 ### Going on with a run (`byj-cm4.1`)
 
@@ -320,6 +336,7 @@ A run's record:
  :stages [{:stage :implement :role :implement :status :done   ; :pending | :working | :done
            :attempts 1 :head "<HEAD when it began>" :brief "…" :answer "…" :summary "…"
            :place {:key :here}               ; where it works
+           :progress {:steps 4 :last "bash {…}" :thought "…" :usd 0.12 :at "…"}  ; worked elsewhere (byj-cm4.7)
            :question "…" :gives [{:to :review :ready true :gives [{:kind :note :ready true :detail "…"}]}]}]
  :log ["✓ implement — …"] :stopped "Every stage is done."
  :verdict :pass :note "…" :verdict-at "…"}
@@ -354,6 +371,8 @@ Config:
 - `:workflow-stage-attempts` (3) caps the turns one stage gets.
 - `:workflow-stage-timeout-ms` (3600000) is how long a stage in a session of
   its own is waited for.
+- `:workflow-master-tell` (`:end`; `:note`, `:turn`) is how the master's
+  session is told (`byj-cm4.8`).
 
 ## Invariants
 
@@ -373,6 +392,8 @@ Config:
 | A stage that needs the person ends the run with the question | `workflow-test/a-stage-that-needs-the-person-ends-the-run-with-the-question` |
 | An ended run is run again: the same workflow and work, where it worked (its worktree while there), each stage told the verdict and what to change — the person's words now over the verdict's note; its issue claimed again unless closed; a run not ended is refused | `workflow-test/an-ended-run-is-run-again-where-it-worked` |
 | The session bound to the master role is told the start, each handoff and the end, each queued as its own turn and not waited for, and logged; with none bound and live, no one is | `workflow-test/the-masters-session-is-told-how-the-run-goes` |
+| By default the master's session is told the start and the handoffs in notes, never a turn, and the end as a turn; `:note` makes every one a note | `workflow-test/the-masters-session-is-told-in-notes-but-the-end` |
+| A stage worked in a session of its own keeps what it does, watched there, as its `:progress` | `workflow-test/a-stage-in-a-session-of-its-own-is-asked-there` |
 | A run handed on by hand waits after each stage judged done, the next brief kept, its claim held, left as it is by the next run's start; resumed, it goes on from that stage with what the person adds; a run that is done, or that another live session runs, is not resumed; one stopped with a stage left is | `workflow-test/a-run-handed-on-by-hand-waits-and-is-resumed` |
 | Any other request is one turn, asked what was asked | `workflow-test/any-other-request-is-a-turn-over-the-workflow-commands` |
 | The profile's `:usd` and `:failures` end a run, a stage's spend counted | `workflow-test/the-profiles-limits-end-a-run` |

@@ -583,20 +583,34 @@
       (some #(let [s (channel/find-session config %)] (when-not (:error s) s))
             (reverse (get-in local [:bindings m]))))))
 
+(defn master-tell
+  "How the master's session is told (byj-cm4.8): config's
+  `:workflow-master-tell` — `:turn`, each telling a turn of its own; `:note`,
+  each a note for people only, which costs nothing and is never a turn; or
+  `:end`, the default, the run's start and handoffs as notes and its end as a
+  turn, so the master answers once, about the whole run."
+  [config]
+  (let [m (some-> (:workflow-master-tell config) given name keyword)]
+    (if (#{:turn :note :end} m) m :end)))
+
 (defn- tell-master!
-  "Run `run`'s master session told `text` (byj-cm4.5): queued as a turn of
-  its own, taken when it is idle, not waited for — the master's judge still
-  decides; this tells the session that supervises. A line for the run's log,
-  or nil when no session plays the master."
-  [config dir run text]
+  "Run `run`'s master session told `text` (byj-cm4.5): `end?` for how the run
+  ended. As `master-tell` says, a turn of its own (queued, taken when it is
+  idle, not waited for) or a note for people only (RFC-043, never a turn) —
+  the master's judge still decides. A line for the run's log, or nil when no
+  session plays the master."
+  [config dir run text & [end?]]
   (when-let [s (master-session config dir run)]
-    (let [r (try (channel/request! (:ask-socket-path s)
-                                   {:op :inject :as :turn :text text :await? false :from (:session-id config)}
-                                   5000)
+    (let [mode (master-tell config)
+          turn? (or (= :turn mode) (and end? (= :end mode)))
+          msg (if turn?
+                {:op :inject :as :turn :text text :await? false :from (:session-id config)}
+                {:op :inject :as :note :text text :from (:session-id config)})
+          r (try (channel/request! (:ask-socket-path s) msg 5000)
                  (catch Throwable e {:status :error :error (ex-message e)}))
           who (or (given (:label s)) (:session-id s))]
       (if (= :ok (:status r))
-        (str "→ " who " (the master) told")
+        (str "→ " who " (the master) told" (when-not turn? " in a note"))
         (str "→ " who " (the master) not told: " (or (:error r) "no answer"))))))
 
 (defn start-run
@@ -890,6 +904,54 @@
   (when (given sid)
     (let [s (channel/find-session config sid)] (when-not (:error s) s))))
 
+(def progress-every-ms
+  "How often a stage's progress, watched in its session, is written to its run."
+  5000)
+
+(defn- watch-progress!
+  "Stage `i` of run `n`, worked in live session `sid`, watched while it works
+  (`channel/subscribe!`, RFC-031): each tool call counted, the last one and
+  the last thought kept, and what its turns spent, written to the stage's
+  `:progress` at most every `progress-every-ms` and once at the end — so
+  `byj workflow runs` says what a stage worked elsewhere is doing while it
+  does it, not only when it ends (byj-cm4.7). Only `:progress` is written,
+  over the record as it is then, and only while the run is running. Returns
+  the fn that stops it; a session that cannot be watched is not, and stops
+  nothing."
+  [config dir n i sid]
+  (let [s (channel/find-session (dissoc config :session-id) sid)]
+    (if (or (:error s) (not (given (:ask-socket-path s))))
+      (fn [] nil)
+      (let [prog (atom {:steps 0 :usd 0})
+            written (atom 0)
+            write! (fn [force?]
+                     (let [t (System/currentTimeMillis)]
+                       (when (or force? (>= (- t @written) progress-every-ms))
+                         (reset! written t)
+                         (when-let [r (read-run dir n)]
+                           (when (= :running (:status r))
+                             (write-run! dir (assoc-in r [:stages i :progress] (assoc @prog :at (now)))))))))
+            on-frame (fn [{:keys [event payload]}]
+                       (case event
+                         :agent.tools/calls
+                         (let [cs (:tool-calls payload)
+                               c (last cs)]
+                           (swap! prog #(cond-> (update % :steps + (count cs))
+                                          c (assoc :last (clip (str (:tool-name c) " " (pr-str (or (:tool-args c) {}))) 200))))
+                           (write! false))
+                         :agent.think/reasoning
+                         (when (given (:reasoning payload)) (swap! prog assoc :thought (clip (:reasoning payload) 300)))
+                         :session.turn/end
+                         (do (when-let [c (some-> payload :usage :cost)]
+                               (when (number? c) (swap! prog update :usd + c)))
+                             (write! true))
+                         nil))
+            sub (try (channel/subscribe! (:ask-socket-path s) [:agent.tools/calls :agent.think/reasoning :session.turn/end] on-frame)
+                     (catch Throwable _ nil))]
+        (fn []
+          (when-let [stop (:stop! sub)] (try (stop) (catch Throwable _ nil)))
+          (when sub (write! true)))))))
+
 (defn delegate-stage
   "`workflow$delegate`: the current stage of run `:run` worked in the
   session its place names (`place-of`): the one it already has when it is
@@ -943,7 +1005,10 @@
           (do (note-begun! dir run i (:session-id sess))
               (let [ask (some #(when (= "session$ask" (:name %)) %) (channel/commands config))
                     t (stage-timeout-ms config)
-                    r ((:fn ask) {:session (:session-id sess) :question (:brief args) :timeout-ms t} ctx)
+                    ;; what the stage does while it does it, kept with it (byj-cm4.7)
+                    stop-progress (watch-progress! config dir n i (:session-id sess))
+                    r (try ((:fn ask) {:session (:session-id sess) :question (:brief args) :timeout-ms t} ctx)
+                           (finally (stop-progress)))
                     cost (some-> r :usage :cost)]
                 ;; session$ask counted it as this session's spend already; the
                 ;; run's own :usd, which the profile's :usd limit is held to,
@@ -994,7 +1059,8 @@
             told (when-not (= :paused (:status run))
                    (tell-master! config dir run (fill (:tell-end w) {:n (:n run) :workflow (id-name (:workflow run))
                                                                    :stopped (:stopped run)
-                                                                   :log (if (seq (:log run)) (str/join "\n" (:log run)) "nothing was done.")})))
+                                                                   :log (if (seq (:log run)) (str/join "\n" (:log run)) "nothing was done.")})
+                                 true))
             run (if told (write-run! dir (update run :log (fnil conj []) told)) run)
             closed (close-sessions! ctx run)
             ;; where its work is: the project, or the worktrees its stages worked in
