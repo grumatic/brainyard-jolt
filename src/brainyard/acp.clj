@@ -44,7 +44,7 @@
 (def extensions
   "byj's extensions (RFC-053 'byj's extensions'), advertised at `initialize`
   and used only with a client that asked for them there."
-  ["tools" "hooks" "events" "predict" "live" "turns" "share"])
+  ["tools" "hooks" "events" "predict" "live" "turns" "share" "history"])
 
 (def default-hook-timeout-ms
   "How long a client's hook is waited for before its entry's failure rule
@@ -511,6 +511,29 @@
 
 (defn- row-json [{:keys [turn ref before after files subject at]}]
   {:turn turn :ref ref :before before :after after :files files :question subject :endedAt at})
+
+(defn- session-history
+  "`_byj/session/history {sessionId cwd}` (byj-cm4.9): a saved session's
+  finished turns, read only — sent as `session/update`s, as `session/load`
+  replays them (`replay-turns!`) — without opening it: no lock taken or
+  minded, nothing written, no channel, no prompt. So a client can show a
+  session another process holds, as a workflow stage's headless session is
+  held by its own byj (RFC-076): what it has done so far, its running turn not
+  yet in the record (`byj session watch` follows that). The files are read as
+  any reader may: each written whole and renamed, the trajectory appended a
+  line at a time, a torn last line skipped. Answers `{turnCount heldBy?}`."
+  [conn {:keys [sessionId cwd]}]
+  (when-not (and (string? sessionId) (re-matches #"[A-Za-z0-9-]+" sessionId))
+    (throw (rpc-error -32602 "sessionId is required")))
+  (let [cwd (if (str/blank? (str cwd)) (System/getProperty "user.dir") (str cwd))
+        config {:project-dir cwd :working-dir cwd}
+        snap (persist/read-session config sessionId)]
+    (when (:problem snap) (throw (rpc-error -32602 (:problem snap))))
+    (let [turns (try (session-history/turns config sessionId) (catch Throwable _ []))
+          tool-effects (into {} (for [t tools/builtin-tools] [(:name t) (:effects t)]))
+          held (persist/holder config sessionId)]
+      (replay-turns! conn sessionId #(get tool-effects % #{}) turns)
+      (cond-> {:turnCount (count turns)} held (assoc :heldBy (str held))))))
 
 (defn- turns-list
   "`_byj/turns/list {sessionId}`: the turns byj keeps of an open session,
@@ -1077,6 +1100,7 @@
    "session/prompt" prompt!
    "session/list" list-sessions
    "_byj/turns/list" turns-list
+   "_byj/session/history" session-history
    ;; a share of the session (RFC-043, byj-p2q): `/share ARGS` run between its
    ;; turns — start [--target T] [--record], stop, pause, resume, kick USER,
    ;; record on|off, or none for who watches — answered with what it said. Its

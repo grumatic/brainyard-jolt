@@ -5,7 +5,8 @@
   "`byj acp`, the Agent Client Protocol front end (RFC-053, byj-g5n.4): an ACP
   v1 client's view of byj, in process over the connection's line fns, and once
   as a process for what only a process shows — its stdout, its end."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.acp :as acp]
@@ -1401,3 +1402,32 @@
         (testing "and answers the next prompt the last turn offered"
           (is (= "push it?" (get-in r [:result :_meta :brainyard :nextUserPrompt]))))
         (finally (acp/end! (:conn c)))))))
+
+(deftest a-session-another-process-holds-is-read-not-opened
+  ;; byj-cm4.9: _byj/session/history replays its finished turns, read only
+  (let [dir (fresh-dir "history")
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1 :_meta {:brainyard {}}})
+        model (script! dir [{:answer "the first answer"}])
+        sid (:sessionId (new-session c dir model))
+        _ (call c "session/prompt" {:sessionId sid :prompt [{:type "text" :text "the question"}]})
+        _ (call c "session/close" {:sessionId sid})
+        cfg {:project-dir dir :working-dir dir}
+        sdir (persist/session-dir cfg sid)]
+    (try
+      ;; held by another live process, as a workflow stage's headless session is
+      (spit (persist/lock-file cfg sid) (pr-str {:pid "1" :at 0}))
+      (let [before (into {} (for [f (.listFiles sdir)] [(.getName f) (.lastModified f)]))
+            r (call c "_byj/session/history" {:sessionId sid :cwd dir})
+            ups (updates c sid)]
+        (is (= {:turnCount 1 :heldBy "1"} (:result r)))
+        (is (some #(and (= "user_message_chunk" (:sessionUpdate %)) (= "the question" (get-in % [:content :text]))) ups))
+        (is (some #(and (= "agent_message_chunk" (:sessionUpdate %)) (= "the first answer" (get-in % [:content :text]))) ups))
+        (is (= before (into {} (for [f (.listFiles sdir)] [(.getName f) (.lastModified f)]))) "nothing written, no socket made")
+        (is (= "1" (str (:pid (edn/read-string (slurp (persist/lock-file cfg sid)))))) "its lock as it was"))
+      (testing "session/load still refuses it"
+        (is (:error (call c "session/load" {:sessionId sid :cwd dir :mcpServers []
+                                            :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false}}}}))))
+      (testing "one that is not there is refused"
+        (is (= -32602 (get-in (call c "_byj/session/history" {:sessionId "1790000000000-nothere1" :cwd dir}) [:error :code]))))
+      (finally (acp/end! (:conn c))))))

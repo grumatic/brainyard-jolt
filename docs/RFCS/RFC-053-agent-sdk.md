@@ -186,7 +186,7 @@ print goes to standard error and the event log
 ### 4. byj's extensions
 
 Built (`byj-g5n.5`). Advertised as `agentCapabilities._meta.brainyard`
-`{protocol 1, extensions ["tools" "hooks" "events" "predict" "live" "turns" "share"]}`. A client asks
+`{protocol 1, extensions ["tools" "hooks" "events" "predict" "live" "turns" "share" "history"]}`. A client asks
 for them by sending `_meta.brainyard` with its `initialize`; one that does not
 is sent no `_byj/event` and no `_meta` on a prompt's answer. Session options,
 client tools and hooks are the client's own requests and need no asking.
@@ -308,6 +308,19 @@ back what it did; what the command refuses is a JSON-RPC error in its
 words. A prompt that is a slash command is still refused without
 `commands`: the methods are not a way to type one. The extension is
 `turns`; a client library does not require it.
+
+**A session read, not opened** (built, `byj-cm4.9`): `_byj/session/history
+{sessionId cwd}` sends a saved session's finished turns as `session/update`s,
+as `session/load` replays them, and answers `{turnCount heldBy?}` — without
+opening it: no lock taken or minded, nothing written, no channel, no prompt.
+So a client shows a session another process holds, which `session/load`
+refuses and must (it would open the session twice: its lock, its snapshot,
+its channel socket) — a workflow stage's headless session, held by its own
+byj (RFC-076) — up to its last finished turn; its running turn is not in the
+record yet, and `byj session watch` follows it. The files are read as any
+reader may: written whole and renamed, the trajectory appended a line at a
+time, a torn last line skipped. A session not there is refused. The
+extension is `history`.
 
 **A structured answer** (built, `byj-g5n.10`): `session/prompt`'s
 `_meta.brainyard.outputSchema`, a JSON Schema, asks for the turn's answer as
@@ -678,6 +691,7 @@ Planned:
 | A replayed call carries the start and duration its record kept, a live one's update byj's own, and a call recorded before neither | `acp-test/a-replayed-call-says-when-it-began-and-how-long-it-ran` |
 | `session/load` replays every turn from the first, not only the snapshot's window, each update naming its turn | `acp-test/a-loaded-session-replays-every-turn-not-only-the-snapshots-window`, `session-history-test/every-turn-is-put-together-from-what-the-session-left` |
 | A record written before records carried `:turn` is numbered by its question among the turn refs, else by position | `session-history-test/a-record-is-numbered-by-its-turn-or-by-the-turn-refs-question` |
+| `_byj/session/history` replays a saved session's finished turns whoever holds it, writing nothing — its files and lock as they were, no socket made — and answers its turn count and holder; `session/load` still refuses a held one; one not there is refused. | `acp-test/a-session-another-process-holds-is-read-not-opened` |
 | `session/list` gives the project's saved sessions that ran a turn, newest first, as `SessionInfo`, a page at a time; a cursor it did not give is refused; a listed session loads; one kept here that worked elsewhere says where (`workingDir`). | `acp-test/saved-sessions-are-listed-for-an-editor-to-import`; `dev/acp-interop.sh`'s official client |
 | `session/resume` opens a saved session with nothing of its history sent, and its next turn goes on from it; one already open is refused. | `acp-test/a-saved-session-is-resumed-without-its-history`; `dev/acp-interop.sh`'s official client |
 | `session/delete` removes a listed session, its transcript and its turn and rewind refs (another's left), closing it first when open here; one another live process holds is refused and kept; an id not in a session id's shape is refused. | `acp-test/a-saved-session-is-deleted`; `dev/acp-interop.sh`'s official client |
