@@ -353,7 +353,10 @@
 
 (defn- now [] (str (java.time.Instant/ofEpochMilli (System/currentTimeMillis))))
 
-(defn- num-of [x] (cond (number? x) x (string? x) (parse-long (str/trim x)) :else nil))
+(defn- num-of
+  "A run's number as given: a number, or a string of one, `#` before it or not."
+  [x]
+  (cond (number? x) x (string? x) (parse-long (str/replace (str/trim x) #"^#" "")) :else nil))
 
 (defn- clip [s n]
   (let [s (str/trim (str s))] (if (> (count s) n) (str (subs s 0 n) "…") s)))
@@ -575,8 +578,11 @@
   there. `:from` names the branch or commit that worktree starts from (HEAD
   when absent; byj-cm4.3), and asks for one: refused before opening when it
   is not a commit; the record keeps it as `:from`, its commit as `:base`, and
-  each brief says what the run builds on. `{:stop :stopped :run :brief :master :elsewhere}`, `:elsewhere`
-  whether the first stage works in a session of its own."
+  each brief says what the run builds on. `:by-hand` yes has the run wait
+  after each stage judged done, `:paused`, for the person to hand it on
+  (`workflow$resume`; byj-cm4.1). `{:stop :stopped :run :brief :master
+  :elsewhere}`, `:elsewhere` whether the first stage works in a session of
+  its own."
   [config ctx args]
   (let [dir (dir-of config args)
         w (words)
@@ -588,6 +594,8 @@
         work (str/trim (str (:work args)))
         errs (filter #(= wid (get-in % [:target :workflow])) (workflow-errors dir spec))
         from (given (some-> (:from args) str str/trim))
+        yes? (fn [v] (contains? #{true "true" "yes"} (cond-> v (string? v) (-> str/trim str/lower-case))))
+        by-hand? (yes? (:by-hand args))
         ;; a branch to build on asks for a worktree of its own (byj-cm4.3)
         isolate? (or (some? from)
                      (contains? #{true "true" "yes"} (cond-> (:worktree args) (string? (:worktree args)) (-> str/trim str/lower-case))))
@@ -634,7 +642,7 @@
                  :stages (vec (for [s stages] {:stage s :role (role-of s) :status :pending :attempts 0}))}]
         (if (:error wt)
           (stop (:error wt))
-          (let [run (begin-stage w p dir (cond-> run from (assoc :from from)) 0)
+          (let [run (begin-stage w p dir (cond-> run from (assoc :from from) by-hand? (assoc :by-hand true)) 0)
                 place (get-in run [:stages 0 :place])]
             (write-run! dir run)
             (when-not (elsewhere? place) (note-begun! dir run 0 (:session-id config)))
@@ -768,8 +776,20 @@
                           (assoc :failures 0)
                           (line (str "✓ " sname " — " summary)))]
               (if (< (inc i) (count (:stages run)))
-                (if usd-hit?
-                  (end run usd-why)
+                (cond
+                  usd-hit? (end run usd-why)
+                  ;; handed on by hand (byj-cm4.1): the next stage's brief kept,
+                  ;; the run waiting for /workflow resume
+                  (:by-hand run)
+                  (let [nxt (id-name (:stage (nth (:stages run) (inc i))))
+                        why (fill (get-in w [:stops :paused]) {:n n :stage nxt})
+                        run (-> (begin-stage w p dir (assoc run :at (inc i)) (inc i))
+                                (assoc-in [:stages (inc i) :status] :pending)
+                                (assoc :status :paused :stopped why)
+                                (line (str "‖ " why)))]
+                    (write-run! dir run)
+                    {:stop true :stopped why :brief "" :stage "" :elsewhere false})
+                  :else
                   (let [run (begin-stage w p dir (assoc run :at (inc i)) (inc i))
                         place (get-in run [:stages (inc i) :place])]
                     (write-run! dir run)
@@ -930,7 +950,7 @@
                       (str "\nWorktrees, kept for you to merge or remove:\n"
                            (str/join "\n" (for [d places] (str "  " d (when-let [b (git-out d "rev-parse" "--abbrev-ref" "HEAD")] (str " (" b ")")))))))
                     (when (seq closed) (str "\nIts sessions:\n" (str/join "\n" closed)))
-                    "\n\n" (fill (:report-tail w) {:n (:n run)}))}))))
+                    "\n\n" (fill (if (= :paused (:status run)) (:report-paused w) (:report-tail w)) {:n (:n run)}))}))))
 
 (defn runs-report
   "`byj workflow runs --json` (byj-edw.4): the project's runs as data,
@@ -1006,6 +1026,51 @@
         (write-run! dir run)
         {:ok true :text (str "Run #" n " stopped: " why (when released (str "\n" released)))}))))
 
+(defn resume-run
+  "`workflow$resume` (byj-cm4.1): go on with run `:run` from the stage it is
+  at — one waiting to be handed on by hand (`:paused`), or one that stopped
+  with a stage left (an ask, a limit, its session over, stopped from
+  outside) — in this session. The stage is begun again (where it works, the
+  HEAD there, its brief), its turns counted afresh, `:note` — what the person
+  adds — put before its brief, and the run's issue claimed again. Refused
+  while another live session runs it, and for a run that is done
+  (`/workflow again`). `{:stop :stopped :run :brief :master :elsewhere}`, as
+  `workflow$start`."
+  [config ctx args]
+  (let [dir (dir-of config args)
+        w (words)
+        n (num-of (:run args))
+        run (when n (read-run dir n))
+        stop (fn [why] {:stop true :stopped why :run "" :brief "" :master "" :elsewhere false})]
+    (cond
+      (nil? run) (stop (str "No run " (:run args) "."))
+      (and (= :running (:status run)) (not (over? config run)))
+      (stop (fill (get-in w [:stops :running-elsewhere]) {:n n :session (:session run)}))
+      (or (= :done (:status run)) (>= (:at run 0) (count (:stages run))))
+      (stop (fill (get-in w [:stops :done-already]) {:n n}))
+      :else
+      (let [p (profile/read-profile dir)
+            tl (drive/tools config args dir p)
+            i (:at run)
+            note (given (some-> (:note args) str str/trim))
+            it (when-let [id (:item run)] (when (drive/reachable? tl id) (drive/show-item tl id)))
+            claimed? (boolean (or (and (:claimed? run) (= "in_progress" (:status it)))
+                                  (when (and it (not= "closed" (:status it))) (:ok? (drive/claim! tl (:item run))))))
+            run (-> run
+                    (assoc :status :running :session (str (:session-id config)) :pid (persist/own-pid) :claimed? claimed?)
+                    (dissoc :stopped :ended-at)
+                    (assoc-in [:stages i :attempts] 0))
+            run (begin-stage w p dir run i)
+            run (cond-> run
+                  note (update-in [:stages i :brief] #(str (fill (:resume-note w) {:note note}) "\n\n" %)))
+            sname (id-name (:stage (nth (:stages run) i)))
+            run (update run :log (fnil conj []) (str "▶ " sname " — " (if note (str "handed on: " note) "handed on")))
+            place (get-in run [:stages i :place])]
+        (write-run! dir run)
+        (when-not (elsewhere? place) (note-begun! dir run i (:session-id config)))
+        {:stop false :stopped "" :run n :brief (get-in run [:stages i :brief]) :master (master-words w run)
+         :elsewhere (elsewhere? place)}))))
+
 ;; --- the commands -------------------------------------------------------------------
 
 (defn commands
@@ -1061,10 +1126,17 @@
       :description "/workflow's run: open a run of a workflow on a piece of work, and give its first stage's brief — or why it cannot run."
       :input-schema [:map dir (opt :workflow "the workflow's id") (opt :work "what the run works on: words, or an issue's id first: its id in beads, or #N")
                      (opt :worktree "yes to run it in a worktree of its own")
-                     (opt :from "a branch or commit its worktree starts from, not HEAD; asks for a worktree of its own")]
+                     (opt :from "a branch or commit its worktree starts from, not HEAD; asks for a worktree of its own")
+                     (opt :by-hand "yes to wait after each stage for the person to hand it on (workflow$resume)")]
       :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (start-run config ctx args))}
+     {:name "workflow$resume" :kind :command
+      :description "/workflow's resume: go on with a run waiting to be handed on, or stopped with a stage left, from the stage it is at — or why it cannot."
+      :input-schema [:map dir (opt :run "the run's number") (opt :note "what the person adds for the stage, else nothing")]
+      :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
+      :effects #{:fs/read :fs/write :process}
+      :fn (fn [args ctx] (resume-run config ctx args))}
      {:name "workflow$check" :kind :command
       :description "What a run's stage's turn left: uncommitted files, commits since the stage began, whether what it hands on is ready, and what the profile expects."
       :input-schema [:map dir (opt :run "the run's number") (opt :answer "the stage's answer")]

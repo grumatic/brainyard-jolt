@@ -470,3 +470,46 @@
     (testing "a run with none names none"
       (let [{:keys [run]} (workflow/start-run cfg {} {:workflow "docs" :work "z"})]
         (is (not (contains? (workflow/read-run dir run) :from)))))))
+
+(deftest a-run-handed-on-by-hand-waits-and-is-resumed
+  ;; byj-cm4.1: it waits after each stage judged done; /workflow resume hands it on
+  (let [{:keys [bin dir cfg]} (run-setup "by-hand" {:preset :collaborator :issues [{:tracker :beads}]})
+        briefs (atom [])
+        judge (fn [_] {:status "done" :summary "did its part"})
+        answer (fn [b] (if (str/includes? b "stage implement now") "Implemented." "Reviewed: it passes."))
+        r (ask-loop cfg {:intent "run" :workflow "fix" :work "t-2 keep it small" :by-hand "yes"} judge answer briefs)
+        kept (workflow/read-run dir 1)]
+    (is (= 1 (count @briefs)) "implement's turn, and no more")
+    (is (= :paused (:status kept)))
+    (is (= 1 (:at kept)))
+    (is (= [:done :pending] (map :status (:stages kept))))
+    (is (str/includes? (get-in kept [:stages 1 :brief]) "Handed to you from stage implement") "the next brief is kept")
+    (is (str/includes? (:answer r) "‖ Run #1 waits for you before stage review: /workflow resume 1 hands it on."))
+    (is (str/includes? (:answer r) "/workflow resume 1 hands it on to the next stage"))
+    (is (not (some #(= "unclaim t-2" %) (bd-calls bin))) "a waiting run keeps its claim")
+    (testing "a waiting run is not stopped by the next run's start"
+      (workflow/start-run (assoc cfg :session-id "s-9") {} {:workflow "docs" :work "other"})
+      (is (= :paused (:status (workflow/read-run dir 1)))))
+    (testing "resumed, it goes on from the stage it waits at, with what the person adds"
+      (let [r2 (ask-loop cfg {:intent "resume" :of "#1" :note "look at the parser's edge cases"} judge answer briefs)
+            kept (workflow/read-run dir 1)]
+        (is (= 2 (count @briefs)))
+        (is (str/includes? (second @briefs) "The person, handing the run on to you, adds: look at the parser's edge cases\n\nRun #1 of workflow fix"))
+        (is (= :done (:status kept)))
+        (is (= [:done :done] (map :status (:stages kept))))
+        (is (some #(= "▶ review — handed on: look at the parser's edge cases" %) (:log kept)))
+        (is (str/includes? (:answer r2) "Ended: Every stage is done."))))
+    (testing "a run that is done is not resumed, but run again"
+      (is (= "Run #1 is done: /workflow again 1 runs it again."
+             (:stopped (workflow/resume-run cfg {} {:run 1})))))
+    (testing "nor one another live session runs"
+      (let [{:keys [run]} (workflow/start-run (assoc cfg :session-id "s-live") {} {:workflow "fix" :work "x"})]
+        (is (str/includes? (:stopped (workflow/resume-run (assoc cfg :session-id "s-other") {} {:run run}))
+                           (str "Run #" run " is running in session s-live")))))
+    (testing "a stopped one with a stage left goes on"
+      (let [{:keys [run]} (workflow/start-run cfg {} {:workflow "fix" :work "y"})]
+        (workflow/stop-run cfg {:run run})
+        (let [r (workflow/resume-run (assoc cfg :session-id "s-2") {} {:run run})]
+          (is (false? (:stop r)))
+          (is (= :running (:status (workflow/read-run dir run))))
+          (is (not (contains? (workflow/read-run dir run) :stopped))))))))

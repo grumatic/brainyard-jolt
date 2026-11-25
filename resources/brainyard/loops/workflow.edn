@@ -7,6 +7,8 @@
 ;;                                         asked what was asked, over the
 ;;                                         workflow$* commands, each change
 ;;                                         written on the person's yes
+;;   a run handed on, or gone on with   → workflow$resume (byj-cm4.1): from
+;;                                         the stage it waits at
 ;;   a run's opening                    → workflow$start (mechanism: the
 ;;                                         profile, the workflow, its work —
 ;;                                         an issue claimed — kept
@@ -36,7 +38,7 @@
 [:sequence {:id :workflow/turn}
  [:action {:id :workflow/init :fn :react/init}]
  [:action {:id :workflow/seed :fn :mem/set
-           :set {:workflows "" :typed "" :intent "" :workflow "" :work "" :isolate "" :from "" :master "" :managing false :elsewhere false
+           :set {:workflows "" :typed "" :intent "" :workflow "" :work "" :isolate "" :from "" :by-hand "" :of "" :note "" :master "" :managing false :elsewhere false
                  :stop false :stopped "" :run "" :stage "" :brief "" :work-answer "" :stage-usage {}
                  :check "" :status "" :ask-question "" :summary ""}}]
  [:action {:id :workflow/known :fn :tool/run :tool "workflow$list" :out {:workflows :text}}]
@@ -44,12 +46,20 @@
  [:action {:id :workflow/typed :fn :mem/join :in {:a :person-words} :out {:typed :joined}}]
  [:action {:id :workflow/route :fn :predictor/run :predictor "workflow/route"
            :in {:request :question :typed :typed :workflows :workflows}
-           :out {:intent :intent :workflow :workflow :work :work :isolate :isolate :from :from}}]
+           :out {:intent :intent :workflow :workflow :work :work :isolate :isolate :from :from
+                  :by-hand :by-hand :of :of :note :note}}]
  [:fallback {:id :workflow/open}
   [:sequence {:id :workflow/run}
    [:condition {:id :workflow/run? :fn :mem/match? :key :intent :pattern "^\\s*[Rr][Uu][Nn]\\s*$"}]
    [:action {:id :workflow/start :fn :tool/run :tool "workflow$start"
-             :in {:workflow :workflow :work :work :worktree :isolate :from :from}
+             :in {:workflow :workflow :work :work :worktree :isolate :from :from :by-hand :by-hand}
+             :out {:stop :stop :stopped :stopped :run :run :brief :brief :master :master :elsewhere :elsewhere}}]]
+  ;; a run waiting to be handed on, or stopped with a stage left, goes on
+  ;; from its stage (byj-cm4.1)
+  [:sequence {:id :workflow/resume}
+   [:condition {:id :workflow/resume? :fn :mem/match? :key :intent :pattern "^\\s*[Rr][Ee][Ss][Uu][Mm][Ee]\\s*$"}]
+   [:action {:id :workflow/resumed :fn :tool/run :tool "workflow$resume"
+             :in {:run :of :note :note}
              :out {:stop :stop :stopped :stopped :run :run :brief :brief :master :master :elsewhere :elsewhere}}]]
   ;; anything else: one turn over the workflow$* commands, asked what was asked
   [:sequence {:id :workflow/manage}

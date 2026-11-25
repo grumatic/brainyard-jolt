@@ -69,7 +69,14 @@
          :left "The run ended without its report: its session is over."
          ;; byj workflow stop (byj-cm4.4)
          :by-person "Stopped by the person."
+         ;; handed on by hand, and resumed (byj-cm4.1)
+         :paused "Run #{n} waits for you before stage {stage}: /workflow resume {n} hands it on."
+         :running-elsewhere "Run #{n} is running in session {session}: stop it there, or with byj workflow stop {n}, first."
+         :done-already "Run #{n} is done: /workflow again {n} runs it again."
          :not-running "Run #{n} is not running: it is {status}."}
 
  :report-head "/workflow run #{n} — {workflow}{title}: {work}"
+ :report-paused "Kept as .brainyard/workflow-runs/{n}.edn. /workflow resume {n} hands it on to the next stage — say what to add for it, if anything."
+ ;; what the person added, handing a waiting run on (byj-cm4.1)
+ :resume-note "The person, handing the run on to you, adds: {note}"
  :report-tail "Kept as .brainyard/workflow-runs/{n}.edn. Say how it went — pass, changes or fail, with a note — and /workflow keeps it with the run."}
