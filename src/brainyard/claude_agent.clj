@@ -182,25 +182,44 @@
   [sid o]
   {:in (or (:transcript-id o) sid) :n (or (some-> o :activity last :n) 0)})
 
+(defn guidance-message
+  "What `say` sends a delegation's inbox for `text`: the whole of it, under a
+  line saying whose it is."
+  [text]
+  (str "[byj] From the person who gave you this task, through byj:\n\n" text))
+
 (defn say
-  "Deliver `text` to session `sid` as the person's own words: typed when it is
-  one short line, else written to a file and a line typed that points at it.
-  Where its steps stood before the line went is recorded (`:activity-mark`),
-  so the wait that follows streams what it did with it from there, even what
-  it did before the wait began (byj-gly.482)."
+  "Deliver `text` to session `sid`: through its inbox when it has one
+  (byj-bzo, `claude-host/send-message`) — the whole of it, however long, no
+  file — unless `:claude-say-via` is `:typed`; else as the person's own
+  words, typed when it is one short line, else written to a file and a line
+  typed that points at it. Through the inbox Claude Code tells the model it
+  came from another session, a teammate's request and not its user's, and
+  that a peer cannot have it edit its permission settings, CLAUDE.md or
+  config: guidance that must is typed (`:claude-say-via :typed`). Where its
+  steps stood before it went is recorded (`:activity-mark`), so the wait that
+  follows streams what it did with it from there, even what it did before
+  the wait began (byj-gly.482)."
   [config sid text]
   (let [text (str/trim (str text))
-        line (if (or (> (count text) typed-chars) (str/includes? text "\n"))
-               (str "Read " (guidance-file config sid text) " and follow it — it is from the person who gave you this task.")
-               text)]
+        h (home config)
+        box? (and (not= :typed (keyword (name (:claude-say-via config :inbox))))
+                  (some? (host/inbox sid h)))
+        line (when-not box?
+               (if (or (> (count text) typed-chars) (str/includes? text "\n"))
+                 (str "Read " (guidance-file config sid text) " and follow it — it is from the person who gave you this task.")
+                 text))]
     (if (str/blank? text)
       {:error "nothing to say"}
-      (let [mark (activity-mark sid (host/observe sid {:home (home config) :dir (:dir (read-record config sid))}))
-            r (run (host/type-line sid line {:home (home config)}) 15000)]
+      (let [mark (activity-mark sid (host/observe sid {:home h :dir (:dir (read-record config sid))}))
+            r (run (if box?
+                     (host/send-message sid (guidance-message text) {:home h})
+                     (host/type-line sid line {:home h}))
+                   15000)]
         (if (:error r)
           r
           (do (update-record! config sid assoc :state "working" :activity-mark mark)
-              {:sent true :via (if (= line text) "typed" "file")}))))))
+              {:sent true :via (cond box? "inbox" (= line text) "typed" :else "file")}))))))
 
 (defn- arg-list [args]
   (cond (sequential? args) (vec (map str args))

@@ -14,6 +14,7 @@
             [brainyard.channel :as channel]
             [brainyard.agent-host :as ah]
             [brainyard.claude-host :as host]
+            [brainyard.claude-agent]
             [brainyard.claude-reach :as reach]
             [brainyard.effect :as fx]
             [brainyard.persist :as persist]
@@ -230,4 +231,28 @@
                                :messagingSocketPath "/tmp/none.sock" :peerProtocol 1}))
         (is (str/includes? (:error (fx/run-value!! (host/send-message id "x" {:home home}))) "busy, not idle"))
         (is (nil? @got)))
+      (finally (stop!)))))
+
+(deftest a-delegations-guidance-goes-through-its-inbox
+  ;; byj-bzo: agent$claude's say, to a session it drives that has an inbox —
+  ;; the whole of it, no guidance file; :claude-say-via :typed keeps to typing
+  (let [home (fresh-dir "home")
+        project (fresh-dir "project")
+        config {:project-dir project :working-dir project :session-id "byj-me" :claude-home home}
+        id "abab7777-0000-4000-8000-000000000007"
+        got (atom nil)
+        {:keys [stop!]} (fake-inbox! home project id got peer-turn!)]
+    (try
+      (let [text "Step one: read the parser.\nStep two: run its tests."]
+        (is (= {:sent true :via "inbox"} (brainyard.claude-agent/say config id text)))
+        (is (= (brainyard.claude-agent/guidance-message text)
+               (get-in (json/read-str (second @got)) [:message :content]))
+            "the whole of it, under a line saying whose it is")
+        (is (not (.exists (io/file (brainyard.claude-agent/records-dir config) id))) "no guidance file"))
+      (testing ":claude-say-via :typed sends nothing to the inbox"
+        (reset! got nil)
+        (Thread/sleep 400)
+        (let [r (brainyard.claude-agent/say (assoc config :claude-say-via :typed) id "now the tests")]
+          (is (not= "inbox" (:via r)) (pr-str r))
+          (is (nil? @got))))
       (finally (stop!)))))
