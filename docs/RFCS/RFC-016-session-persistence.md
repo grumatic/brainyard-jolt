@@ -653,9 +653,17 @@ the project's runtime there. A divergence, widening
   younger than the TTL; `by`'s does not, and is asked first.
 - **`by projects list` lists a record `:listed? false`**: `by` does not know
   the key, and shows the runs byj hides.
-- **A worktree moves.** Its checkout is under the home, so an editor, a tmux
-  pane or a program that found it at `.brainyard/worktrees/` looks again;
-  the gate opens a project's own tree though it lies in another's folder.
+- **A new worktree is made in the home; one made before stays** (built,
+  `byj-84c.5`). A delegation's, the SDK's fork, a team member's — each is
+  `worktrees/<branch>` in the project's folder (`projects/runtime-path`), a
+  workflow run's under its run in `workflow-runs/`. One an older byj made
+  under `.brainyard/worktrees/` or a run's folder is never moved: git keeps
+  its path, and Claude Code and Codex keep a delegated session by the
+  directory it ran in, so a worktree moved would lose its resume; it is
+  found where it is (`claude-agent/add-worktree`, the stranded sweep) until
+  it is removed. tmux sessions started in the project's folder of the home
+  are the project's (`agent-host/running-in`). The gate opens a project's own
+  tree though it lies in another's folder (`byj-84c.7`).
 - **Programs built on byj** read sessions, workflow runs, delegations and
   worktrees from the project's `.brainyard/` today; they ask `byj project
   path` before this ships.

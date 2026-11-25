@@ -5,7 +5,8 @@
   "Running Claude Code sessions from the agent page (byj-gly.287.3): what Enter
   on a row plans, and the tmux sessions it starts — on a tmux server of the
   test's own, with a stand-in for Claude Code."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.projects :as projects]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent-host :as ah]
@@ -287,7 +288,8 @@
     (let [label (str "byj-test-" (random-uuid))
           base (.getCanonicalPath (doto (io/file "target/claude-host-test/projects") .mkdirs))
           mine (.getCanonicalPath (doto (io/file base "mine") .mkdirs))
-          wt (.getCanonicalPath (doto (io/file mine ".brainyard/worktrees/bd-x") .mkdirs))
+          ;; its worktrees are in its folder of the home (byj-84c.5)
+          wt (.getCanonicalPath (doto (projects/runtime-path mine "worktrees" "bd-x") .mkdirs))
           other (.getCanonicalPath (doto (io/file base "mine-too-not") .mkdirs))]
       (binding [ah/*tmux* ["tmux" "-L" label]]
         (try

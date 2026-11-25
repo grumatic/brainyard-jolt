@@ -331,7 +331,17 @@
         (projects/runtime-path p "logs")
         (is (= "older\n" (slurp (projects/runtime-path p "logs" "events.log.1"))))
         (is (= "old events\n" (slurp (projects/runtime-path p "logs" "events.log"))))
-        (is (= "clash\n" (slurp (io/file b "logs" "events.log"))) "left where it was")))))
+        (is (= "clash\n" (slurp (io/file b "logs" "events.log"))) "left where it was"))
+      (testing "a git worktree is never moved, where git and a delegated session keep its path (byj-84c.5)"
+        (put! "workflow-runs/1.edn" "{:n 1}")
+        (put! "workflow-runs/1/worktree/.git" "gitdir: /x/.git/worktrees/w")
+        (put! "worktrees/bd-x/.git" "gitdir: /x/.git/worktrees/bd-x")
+        (projects/runtime-path p "workflow-runs")
+        (projects/runtime-path p "worktrees")
+        (is (.isFile (projects/runtime-path p "workflow-runs" "1.edn")) "the run moved")
+        (is (.isFile (io/file b "workflow-runs" "1" "worktree" ".git")) "its worktree left")
+        (is (.isFile (io/file b "worktrees" "bd-x" ".git")))
+        (is (not (.exists (projects/runtime-path p "worktrees" "bd-x"))))))))
 
 (deftest byj-project-path-says-where-a-projects-runs-leave-what
   ;; byj-84c.4 (S3): a program, an editor or a script asks byj, never

@@ -5,7 +5,8 @@
   "`byj acp`, the Agent Client Protocol front end (RFC-053, byj-g5n.4): an ACP
   v1 client's view of byj, in process over the connection's line fns, and once
   as a process for what only a process shows — its stdout, its end."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
@@ -907,7 +908,8 @@
         fork! #(call c "session/new" {:cwd dir :mcpServers []
                                       :_meta {:brainyard (merge {:provider "mock" :model model :config {:builtin-agents? false}} %)}})
         refs #(git "for-each-ref" "--format=%(refname)" (str "refs/byj/rewinds/" sessionId "/"))
-        worktrees (io/file dir ".brainyard" "worktrees")]
+        ;; in the project's folder of the home (byj-84c.5)
+        worktrees (projects/runtime-path dir "worktrees")]
     (ask! sessionId "write a") (ask! sessionId "write b")
     (try
       (testing "a fork's worktree holds the turn's start: not files kept as they are"
@@ -964,7 +966,7 @@
                         {:answer "wrote c" :goal-achieved true}])
         open! #(call c "session/new" {:cwd dir :mcpServers []
                                       :_meta {:brainyard {:provider "mock" :model model :config {:builtin-agents? false} :worktree %}}})
-        worktrees (io/file dir ".brainyard" "worktrees")
+        worktrees (projects/runtime-path dir "worktrees")
         at #(str/trim (str (:out (fx/sh {:dir %1 :out :string :err :string} "git" "rev-parse" %2))))]
     (try
       (testing "on HEAD: a new branch, a clean checkout, the session there"

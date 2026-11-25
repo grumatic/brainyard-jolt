@@ -20,7 +20,8 @@
   session channel answers only once its turn is saved (provenance P-26). A
   line the session ran no turn for (a refused or a slash command) is answered
   with what the session said instead."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.agent :as agent]
@@ -65,13 +66,14 @@
 (defn- worktree-place
   "Where a worktree asked for as `w` (`{:branch :path}`) goes: its branch,
   `default-branch` when not named, and its directory, `path` relative to
-  the project `src`, or `.brainyard/worktrees/<branch>` under it."
+  the project `src`, or `worktrees/<branch>` in the project's folder of the
+  home (`projects/runtime-path`, byj-84c.5)."
   [src w default-branch]
   (let [branch (or (not-empty (str/trim (str (:branch w)))) default-branch)]
     {:branch branch
      :dir (if-let [p (not-empty (str (:path w)))]
             (let [f (io/file p)] (if (.isAbsolute f) f (io/file src p)))
-            (io/file src ".brainyard" "worktrees" (slug branch)))}))
+            (projects/runtime-path src "worktrees" (slug branch)))}))
 
 (defn new-worktree!
   "A git worktree for a new session to start in, no session forked
@@ -96,7 +98,7 @@
   `:project-dir`, cut before `:fork-before-turn` or as it stands, written
   as a new session into a worktree whose files are the turn's start — or,
   with no turn, the project's as they are now (`changes/worktree!`). The
-  worktree is `.brainyard/worktrees/<branch>` under the project unless
+  worktree is `worktrees/<branch>` in the project's folder of the home unless
   `:worktree`'s `:path` names one (relative to the project), on a new
   branch `byj/fork-<id>` unless its `:branch` names one. The new session is
   told where it now works, its earlier turns' paths being the project's.

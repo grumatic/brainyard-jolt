@@ -6,7 +6,8 @@
   that drives a Claude Code session with them — on a stand-in for Claude Code
   (test/fixtures/fake-claude) and a tmux server of the test's own, with the
   two predictors answered by a mock model."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.projects :as projects]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
@@ -77,7 +78,8 @@
        (let [o (ca/open (assoc config :agent-instance-id "claude/x-1")
                         {:session "new" :worktree true :branch "bd/t-1" :brief "write the parser" :task "the parser"})
              sid (:session-id o)
-             wt (.getCanonicalPath (io/file project ".brainyard" "worktrees" "bd-t-1"))]
+             ;; in the project's folder of the home (byj-84c.5)
+             wt (.getCanonicalPath (projects/runtime-path project "worktrees" "bd-t-1"))]
          (testing "a new session, in a worktree of its own on the branch, briefed by its argument"
            (is (= ["new" wt] ((juxt :how :dir) o)))
            (is (= "auto" (:permission-mode (ca/read-record config sid))) "in the mode asked for, auto by default")
@@ -198,7 +200,7 @@
                            :on-event (fn [e d] (when (= "agent.tree" (namespace e)) (swap! events conj [e d])))
                            :config (assoc config :claude-max-rounds 4 :session-id "loop-1")})
              rec (first (ca/records config))
-             wt (.getCanonicalPath (io/file project ".brainyard" "worktrees" "bd-byj-9"))]
+             wt (.getCanonicalPath (projects/runtime-path project "worktrees" "bd-byj-9"))]
          (testing "planned against the sessions there were, then judged each turn on what it answered"
            (is (= [[:plan true]
                    [:progress "Fix the parser for bead byj-9."]
@@ -560,7 +562,9 @@
   ;; byj-gly.321, sim plan2-claude-sonnet: Claude Code's `node server.js &
   ;; … kill %1` missed, and the server outlived the session and its worktree
   (let [{:keys [config project]} (world "left-in-worktree")
-        wt (.getCanonicalPath (doto (io/file project ".brainyard" "worktrees" "bd-y") .mkdirs))
+        ;; one in the project's folder of the home (byj-84c.5); bd-x above is
+        ;; where an older byj added them, swept too
+        wt (.getCanonicalPath (doto (projects/runtime-path project "worktrees" "bd-y") .mkdirs))
         f (io/file (ca/records-dir config) "s-y.edn")
         _ (io/make-parents f)
         _ (spit f (pr-str {:session-id "s-y" :dir wt :state "done" :updated-at 1}))

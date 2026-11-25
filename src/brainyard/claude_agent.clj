@@ -140,15 +140,25 @@
                                    " | " (or (:title r) "untitled")
                                    (some->> (:task r) (str " | was given: "))))))}))
 
+(defn- legacy-worktree
+  "Where a byj before RFC-016's second revision added `branch`'s worktree:
+  under the project's own `.brainyard/worktrees/`, left there (byj-84c.5)."
+  [config branch]
+  (io/file (project config) ".brainyard" "worktrees" (slug branch)))
+
 (defn add-worktree
-  "A worktree for `branch` under `.brainyard/worktrees/`, or the one already
-  there for it — a delegation continued finds its worktree again."
+  "A worktree for `branch` in the project's folder of the home,
+  `worktrees/<branch>` (RFC-016's second revision, byj-84c.5), or the one
+  already there for it — or in the project's `.brainyard/worktrees/`, where an
+  older byj added it — so a delegation continued finds its worktree again."
   [config branch]
   (let [branch (str/trim (str branch))
-        dir (io/file (project config) ".brainyard" "worktrees" (slug branch))]
+        dir (projects/runtime-path (project config) "worktrees" (slug branch))
+        old (when-not (str/blank? branch) (legacy-worktree config branch))]
     (cond
       (str/blank? branch) {:error "a worktree needs a branch name"}
       (worktree/common-dir dir) {:dir (.getCanonicalPath dir) :branch branch :existing true}
+      (and old (worktree/common-dir old)) {:dir (.getCanonicalPath old) :branch branch :existing true}
       :else (worktree/add! (project config) dir branch))))
 
 (defn- guidance-file [config sid text]
@@ -725,11 +735,15 @@
 
 (defn- removed-worktree?
   "Is `r`'s directory a worktree of this project's that is gone? Only one
-  under `.brainyard/worktrees`: the project itself is never swept."
+  under its worktrees — in the project's folder of the home, or its own
+  `.brainyard/worktrees` where an older byj added them: the project itself is
+  never swept."
   [config r]
   (let [d (str (:dir r))
-        wts (str (.getCanonicalPath (io/file (project config) ".brainyard" "worktrees")) "/")]
-    (and (str/starts-with? d wts) (not (.isDirectory (io/file d))))))
+        roots [(projects/runtime-path (project config) "worktrees")
+               (io/file (project config) ".brainyard" "worktrees")]]
+    (and (some #(str/starts-with? d (str (.getCanonicalPath ^java.io.File %) "/")) roots)
+         (not (.isDirectory (io/file d))))))
 
 (defn stop-stranded!
   "Stop each of this project's running Claude Code sessions that a delegation

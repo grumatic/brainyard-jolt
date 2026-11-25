@@ -9,7 +9,8 @@
   sandbox) and says how to publish it. On the stand-in for Codex
   (test/fixtures/fake-codex), with a Codex home and a tmux server of the
   test's own."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.projects :as projects]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
@@ -91,7 +92,7 @@
                            :tree (agent/load-tree "brainyard/loops/codex.edn")
                            :config (assoc config :codex-max-rounds 4 :session-id "loop-1")})
              rec (first (cxa/records config))
-             wt (.getCanonicalPath (io/file project ".brainyard" "worktrees" "bd-byj-9"))]
+             wt (.getCanonicalPath (projects/runtime-path project "worktrees" "bd-byj-9"))]
          (testing "planned against the sessions there were, then judged each turn on what it answered"
            (is (= [[:plan true] [:progress "Fix the parser for bead byj-9."] [:progress "Now run the parser test."] [:pr]]
                   @seen)))

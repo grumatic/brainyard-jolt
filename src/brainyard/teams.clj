@@ -22,7 +22,8 @@
   `resources/brainyard/prompts/team-lead.md`, handed to the leader when it
   creates a team, the way a skill's procedure arrives when it is called
   (RFC-017)."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.channel :as channel]
@@ -88,7 +89,8 @@
   members editing code at once never edit the same files."
   [config team-id member]
   (let [project (or (:project-dir config) (:working-dir config))]
-    (worktree/add! project (io/file (teams-dir config) (str team-id) "worktrees" member)
+    ;; in the project's folder of the home, not the roster's (byj-84c.5)
+    (worktree/add! project (projects/runtime-path project "worktrees" (str "team-" team-id) member)
                    (str "team/" team-id "/" member))))
 
 (defn- await-live

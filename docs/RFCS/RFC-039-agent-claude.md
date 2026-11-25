@@ -192,7 +192,7 @@ sets `:claude-tools?`, which is what registers the `claude$*` commands
 |---|---|---|
 | list | the sessions a task could go to: running here, in another terminal, saved; which this instance already drives (`YOURS`), with its task and branch | `claude$sessions` |
 | plan | the session (`new`, or an id), model, extra CLI options, worktree and branch, the brief, what done looks like; a `choice` when the session it continues waits on a dialog | predictor `claude/plan` |
-| start | the person's `choice` to the dialog (`claude$choose`), or the brief: a new session (in a worktree of its own on the branch, `.brainyard/worktrees/<branch>`), one running here, or a saved one resumed (`claude$open`). One running elsewhere — a terminal of its own, a tmux pane byj did not start — is neither resumed, which would be a second process on one session, nor driven: the refusal says so and names `session$send claude:<id>`, which hands it a task when it runs in tmux (RFC-031, byj-gly.429) | commands |
+| start | the person's `choice` to the dialog (`claude$choose`), or the brief: a new session (in a worktree of its own on the branch, `worktrees/<branch>` in the project's folder of the home (RFC-016)), one running here, or a saved one resumed (`claude$open`). One running elsewhere — a terminal of its own, a tmux pane byj did not start — is neither resumed, which would be a second process on one session, nor driven: the refusal says so and names `session$send claude:<id>`, which hands it a task when it runs in tmux (RFC-031, byj-gly.429) | commands |
 | watch | each turn, up to `:claude-max-rounds` (8): wait for it (`claude$await`, at most `:claude-turn-timeout-ms`, 30 min), judge it (`claude/progress`: `done`, `guide` with the next instruction, or `ask-person`), and say the guidance (`claude$say`) or stop | the loop |
 | end | the verdict and report recorded (`claude$finish`); the answer is Claude Code's last reply, then the report | the loop's `:cc/compose` |
 
@@ -331,7 +331,7 @@ workflow. Nothing in a delegation asks to publish.
   after both the session and its worktree were gone. A process whose working
   directory is inside a delegation's removed worktree is found with `lsof`,
   which still names a deleted directory. It is sent TERM, and the record is
-  marked `:swept`. Only a directory under `.brainyard/worktrees` counts; the
+  marked `:swept`. Only a directory under `worktrees/` in the project's folder of the home (RFC-016), or the project's `.brainyard/worktrees/` where an older byj added one, counts; the
   project itself is never swept.
 - **When the task tells the session to publish** — `claude/plan`'s `publish`,
   true only when the task explicitly says to push or open a pull request — the

@@ -15,7 +15,8 @@
   confirming the session took it, and polling until a turn is over. What a
   CLI's screen and files say — ready, busy, a dialog, a turn's end — is the
   adapter's, handed in as functions."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.projects :as projects]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [ebb.core :as m]
             [brainyard.effect :as fx]))
@@ -128,20 +129,22 @@
     (catch Throwable _ #{})))
 
 (defn running-in
-  "The running ones (`running`) started in `project-dir` or under it — its
-  worktrees are under `.brainyard/worktrees` — by the directory tmux started
-  each in (`#{session_path}`). Another project's running sessions are no
-  business of this one's page (byj-gly.310)."
+  "The running ones (`running`) started in `project-dir` or under it, or in
+  the project's folder of the home, where its worktrees are (byj-84c.5) — by
+  the directory tmux started each in (`#{session_path}`). Another project's
+  running sessions are no business of this one's page (byj-gly.310)."
   [prefix project-dir]
   (try
     (let [root (canonical project-dir)
+          home (some-> (projects/project-user-dir (projects/projects-root) root) canonical)
           {:keys [exit out]} (apply sh (conj *tmux* "list-sessions" "-F" (tmux-format "#{session_name}" "#{session_path}")))]
       (if (zero? exit)
         (into #{} (keep (fn [l]
                           (let [[n p] (tmux-fields l 2)
                                 p (canonical p)]
                             (when (and (str/starts-with? (str n) prefix)
-                                       (or (= p root) (str/starts-with? p (str root "/"))))
+                                       (or (= p root) (str/starts-with? p (str root "/"))
+                                           (and home (str/starts-with? p (str home "/")))))
                               (subs n (count prefix))))))
               (str/split-lines (str out)))
         #{}))

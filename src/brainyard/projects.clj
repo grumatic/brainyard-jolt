@@ -377,7 +377,7 @@
   ["logs" "claude-agents" "codex-agents" "workflow-runs" "deps-snapshots"
    "init/snapshots" "captures" "exports" "drive/claims.edn"
    "store.edn" "todos" "rails.edn" "schedule" "loops/proposals" "loops/evals"
-   "deps-local.edn"])
+   "deps-local.edn" "worktrees"])
 
 (defn auto-migrate?
   "Is what a project's `.brainyard/` kept of its runs moved on its own the
@@ -408,23 +408,35 @@
                (.isDirectory d) (empty? (.listFiles d)) (.delete d))
       (recur (.getParentFile d)))))
 
+(defn- holds-worktree?
+  "Is there a linked git worktree — a folder whose `.git` is a file — at `f`
+  or within `depth` folders under it?"
+  [^java.io.File f depth]
+  (and (.isDirectory f)
+       (or (.isFile (io/file f ".git"))
+           (and (pos? depth)
+                (boolean (some #(holds-worktree? % (dec depth)) (or (.listFiles f) [])))))))
+
 (defn migrate-kind!
   "`kind` of what the project at `cp` kept in its own `.brainyard/` moved to
-  `to`: whole when `to` is not there, else entry by entry what `to` lacks,
-  the rest left where it is; the folders it leaves empty removed. The
-  entries moved."
+  `to`: a file whole when `to` is not there; a folder entry by entry, what
+  `to` lacks; the rest left where it is, and the folders it leaves empty
+  removed. An entry holding a git worktree is never moved (byj-84c.5): git
+  keeps its path, and Claude Code and Codex keep a delegated session by the
+  directory it ran in, so a worktree moved would lose both; it stays until it
+  is removed, and new ones are made in the home. The entries moved."
   [cp kind ^java.io.File to]
   (let [from (io/file cp ".brainyard" kind)]
     (if-not (and (.exists from) (not= (.getCanonicalPath from) (.getCanonicalPath to)))
       0
       (let [n (cond
-                (not (.exists to)) (if (move-path! from to) 1 0)
-                (and (.isDirectory from) (.isDirectory to))
+                (.isFile from) (if (.exists to) 0 (if (move-path! from to) 1 0))
+                (.isFile to) 0
+                :else
                 (count (filter true? (for [^java.io.File e (or (.listFiles from) [])
                                            :let [t (io/file to (.getName e))]
-                                           :when (not (.exists t))]
-                                       (move-path! e t))))
-                :else 0)]
+                                           :when (and (not (.exists t)) (not (holds-worktree? e 3)))]
+                                       (move-path! e t)))))]
         (remove-empty-up! (if (.exists from) from (.getParentFile from)) (io/file cp ".brainyard"))
         n))))
 

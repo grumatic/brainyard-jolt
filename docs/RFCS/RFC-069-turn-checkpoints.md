@@ -252,7 +252,7 @@ session forked from. One made in a **worktree of its own** leaves both as
 they were: `sdk/fork-worktree!`, ACP's `session/new` with `worktree`.
 
 - **The worktree** (`changes/worktree!`) is added on a new branch from
-  HEAD: `byj/fork-<id>` under `.brainyard/worktrees/` by default, which
+  HEAD: `byj/fork-<id>` under `worktrees/` in the project's folder of the home (RFC-016) by default, which
   the snapshots leave out. Its files are then made the turn's start (with
   no turn, the project's work tree as it is now, a snapshot) by git's
   binary diff from HEAD, applied there and left uncommitted. So the
