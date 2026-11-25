@@ -346,27 +346,37 @@
            d)))
 
 (defn foreign-sessions
-  "What path `p` reaches of another project's sessions, transcripts or tasks
-  in the home (RFC-016's revision, byj-7sp.6): kept in each project's folder
-  of the registry since its second revision (byj-84c.1),
-  `<projects-root>/<slug>/<kind>`. Another project's `<kind>` folder it is
-  in, or a folder above them (the registry's, or another project's own) it
-  would read them all through; nil for this project's own
-  (`persist/own-folders`), anything else, or when `:session-dirs-shared?`
-  opens them. `{:folder :holds?}`, `:holds?` when `p` is a folder above
-  them: what lists names alone opens nothing of them there."
+  "What path `p` reaches of another project's folder in the registry, which
+  keeps everything that project's runs leave — its sessions, transcripts,
+  tasks, logs, delegations' records, workflow runs, worktrees (RFC-016's
+  second revision, byj-84c.7): another project's folder or anything in it,
+  or the registry's folder above them all (a recursive read would open
+  every project's). nil for this project's own folder, and a main
+  checkout's worktrees' (`persist/own-folders`); for anything under this
+  project's own directory, though it lies in another's folder (a worktree is
+  checked out in its main checkout's); for the registry's records of where
+  each project is (`index.edn`, a folder's `project.edn`); for anything
+  else; or when `:project-homes-shared?` opens them. `{:folder :holds?}`,
+  `:holds?` when `p` is the registry's folder or above it: what lists names
+  alone opens nothing of them there."
   [ctx p]
-  (when-not (config ctx :session-dirs-shared? false)
+  (when-not (config ctx :project-homes-shared? false)
     (when-let [root (some-> (projects/projects-root) canonical)]
       (let [cp (canonical p)]
         (cond
           (under? cp root) {:folder root :holds? true}
-          (under? root cp)
-          (let [[slug kind] (str/split (subs cp (inc (count root))) #"/")]
-            (when-not ((persist/own-folders (:config ctx)) slug)
-              (cond
-                (nil? kind) {:folder (str root "/" slug) :holds? true}
-                ((set persist/kinds) kind) {:folder (str root "/" slug "/" kind) :holds? false}))))))))
+          (not (under? root cp)) nil
+          ;; this project's own tree, checked out in another's folder (a
+          ;; worktree in its main checkout's) — not a project above the
+          ;; registry, the person's home, whose tree holds every folder
+          (let [pd (persist/project-of (:config ctx))]
+            (and (under? root pd) (under? pd cp))) nil
+          :else
+          (let [[slug f & more] (str/split (subs cp (inc (count root))) #"/")]
+            (when-not (or (= "index.edn" slug)
+                          (and (= projects/project-file f) (empty? more))
+                          ((persist/own-folders (:config ctx)) slug))
+              {:folder (str root "/" slug) :holds? false})))))))
 
 (defn holds-only?
   "Does `path` only hold `:denied-paths` entry `d` — a directory above it,
@@ -702,9 +712,10 @@
                               (str "A person's logins and keys are read by no tool. " p " holds " d
                                    ": list-dir may list it; search a directory under it that does not hold one.")
                               "A person's logins and keys are read by no tool; name a narrower path that does not hold one.")})))
-   ;; another project's sessions in the home, closed to this one's tools
-   ;; unless :session-dirs-shared? (RFC-016's revision, byj-7sp.6); a tool
-   ;; that lists names alone may list the folder holding them
+   ;; another project's folder in the home — its sessions, logs, records —
+   ;; closed to this one's tools unless :project-homes-shared? (RFC-016's
+   ;; second revision, byj-84c.7); a tool that lists names alone may list
+   ;; the folder holding them
    (let [tool (some-> (:tools ctx) deref (get tool-name))
          paths (call-paths tool args (config ctx :working-dir "."))]
      (when-let [[f p] (first (for [p paths
@@ -712,11 +723,12 @@
                                    :when (and folder (not (and (:names-only? tool) holds?)))]
                                [folder p]))]
        (deny-replace {:by "path-permission-gate" :display p
-                      :reason (str "it is another project's sessions (" f ")")
+                      :reason (str "it is another project's sessions and records (" f ")")
                       :reason-prefix "Path refused"
                       :error-prefix "Tool call refused (path)"
-                      :hint (str "A project's tools reach its own sessions only; byj session list and session$* tools read them."
-                                 " :session-dirs-shared? true in config opens the others.")})))
+                      :hint (str "A project's tools reach its own folder in ~/.brainyard/projects only (byj project path names it);"
+                                 " byj session list and session$* tools read its sessions."
+                                 " :project-homes-shared? true in config opens the others.")})))
    (when (config ctx :path-permission? true)
     (let [tool (some-> (:tools ctx) deref (get tool-name))
           working-dir (config ctx :working-dir ".")
@@ -1042,7 +1054,7 @@
                                          p " (ls, find without -exec, stat, du, tree), with no xargs, $(…) or read loop, may name it;"
                                          " to search files, name a directory under it that does not hold " d ".")
                                     "A person's logins and keys are read by no tool.")}))))
-       ;; another project's sessions, named in a command (byj-7sp.6): a
+       ;; another project's folder in the home, named in a command (byj-7sp.6, byj-84c.7): a
        ;; tripwire, as the deny list is; a line that only lists names may
        ;; name the folder holding them
        (let [home (System/getenv "HOME")]
@@ -1053,11 +1065,11 @@
                                        :when (and folder (not (and holds? (lists-names-only? seg c))))]
                                    [folder p]))]
            (deny-replace {:by "bash-command-gate" :display tool-name
-                          :reason (str "it names another project's sessions (" f "): " p)
+                          :reason (str "it names another project's sessions and records (" f "): " p)
                           :reason-prefix "Command refused"
                           :error-prefix "Tool call refused (command)"
-                          :hint (str "A project's tools reach its own sessions only."
-                                     " :session-dirs-shared? true in config opens the others.")})))
+                          :hint (str "A project's tools reach its own folder in ~/.brainyard/projects only."
+                                     " :project-homes-shared? true in config opens the others.")})))
        ;; the paths it names
        (when (config ctx :path-permission? true)
          (let [working-dir (config ctx :working-dir ".")

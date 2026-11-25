@@ -500,7 +500,8 @@ registry are the person's, for every project — but the path gate refuses a
 path under `~/.brainyard/sessions/`, `transcripts/` or `tasks/` outside the
 running project's own folder (and its worktrees' when it is a repository's
 main checkout), as it refuses `:denied-paths`. A person who wants it open
-says so in config (`:session-dirs-shared? true`). Reading one's own sessions
+says so in config (`:session-dirs-shared? true`, since `byj-84c.7`
+`:project-homes-shared?`, over the project's whole folder). Reading one's own sessions
 is unchanged: `session$*` tools, memory search and analytics read the
 project's folder through `persist`, not through the gate.
 
@@ -537,7 +538,7 @@ contract writes the folder `<sessions>`.
   registry (provenance P-66); tests that build a session's path read it
   through `persist`.
 - `permission`: the path gate's refusal of other projects' session folders,
-  and `:session-dirs-shared?`.
+  and `:session-dirs-shared?` (`:project-homes-shared?` since `byj-84c.7`).
 - Docs: this RFC, RFC-025, RFC-031, RFC-070, RFC-074, RFC-012 (allowed dirs),
   `contract/`, the CLI help, a divergence entry in `docs/divergences.md` and
   `.edn`.

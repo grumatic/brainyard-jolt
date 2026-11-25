@@ -412,7 +412,7 @@
 (deftest another-projects-sessions-are-closed-to-this-ones-tools
   ;; byj-7sp.6: sessions are kept in the person's home, which a tool may
   ;; reach (:allowed-dirs); another project's — what it was asked, its files'
-  ;; contents — are closed to this one's unless :session-dirs-shared?
+  ;; contents — are closed to this one's unless :project-homes-shared?
   (let [a (fresh-dir "sessions-a")
         b (fresh-dir "sessions-b")
         mine (doto (io/file (persist/sessions-dir {:project-dir a}) "1700000000020-aaaaaaaa") .mkdirs)
@@ -437,9 +437,33 @@
                        "names another project's sessions")
         "a shell naming one is refused too")
     (is (not (str/includes? (why (call (c) "bash" {:command (str "ls " root)})) "another project's")))
-    (is (not (str/includes? (why (call (c :session-dirs-shared? true) "read-file" {:path (.getPath (io/file theirs "session.edn"))}))
+    (is (not (str/includes? (why (call (c :project-homes-shared? true) "read-file" {:path (.getPath (io/file theirs "session.edn"))}))
                             "another project's"))
-        ":session-dirs-shared? opens them")))
+        ":project-homes-shared? opens them")
+    (testing "and the rest of another project's folder: its log, its delegations' records (byj-84c.7)"
+      (let [log (doto (projects/runtime-path b "logs" "events.log") io/make-parents (spit "a prompt"))]
+        (is (str/includes? (why (call (c) "read-file" {:path (.getPath log)})) "another project's sessions and records"))
+        (is (str/includes? (why (call (c) "grep" {:pattern "prompt" :path (.getPath (persist/project-home {:project-dir b}))}))
+                           "another project's"))
+        (is (not (str/includes? (why (call (c) "read-file" {:path (.getPath (projects/runtime-path a "logs" "events.log"))}))
+                                "another project's"))
+            "its own log is its to read"))
+      (testing "but the registry's records of where each project is"
+        (is (not (str/includes? (why (call (c) "read-file" {:path (.getPath (io/file (persist/project-home {:project-dir b}) "project.edn"))}))
+                                "another project's")))
+        (is (not (str/includes? (why (call (c) "read-file" {:path (.getPath (io/file root "index.edn"))})) "another project's")))))
+    (testing "a worktree checked out in its main checkout's folder: its own tree open, the main's sessions not"
+      (let [wt (.getCanonicalPath (doto (projects/runtime-path a "worktrees" "bd-w") .mkdirs))
+            f (doto (io/file wt "src.txt") (spit "x"))
+            cw (fn [] (ctx {:working-dir wt :project-dir wt :permission-mode :auto-approve
+                            :allowed-dirs [wt (.getParent (io/file root))]}))]
+        (is (not (str/includes? (why (call (cw) "read-file" {:path (.getPath f)})) "another project's")))
+        (is (str/includes? (why (call (cw) "read-file" {:path (.getPath (io/file mine "session.edn"))})) "another project's"))))
+    (testing "a project above the registry — the person's home — opens nothing by its own tree"
+      (let [home (.getParent (.getParentFile (io/file root)))]
+        (is (str/includes? (why (call (ctx {:working-dir home :project-dir home :permission-mode :auto-approve :allowed-dirs [home]})
+                                      "read-file" {:path (.getPath (io/file theirs "session.edn"))}))
+                           "another project's"))))))
 
 ;; byj-all: sessions were refused for ls -la ~/.brainyard, ls of
 ;; ~/.brainyard/share and list-dir of ~/.brainyard, which hold the share

@@ -295,17 +295,22 @@ takes the mode's route: `:auto-approve` abstains, `:deny-by-default` refuses,
 `--allow-path DIR` and `[:permissions :allowed-dirs]` extend the list;
 `:path-permission? false` switches the gate off.
 
-**Another project's sessions are closed to this one's tools** (`byj-7sp.6`,
-RFC-016's revision): sessions, transcripts and tasks are kept in
-`~/.brainyard/projects/<project-slug>/<kind>/` (byj-84c.1), inside the
-default `:allowed-dirs`. The gate refuses a path in another project's
-`<kind>` folder there — this project's own, and a main checkout's
-worktrees', are its to read (`persist/own-folders`) — or a folder above
-them, another project's folder or the registry's (a recursive read would
-open them all), in every mode, as it refuses `:denied-paths`; a
-tool that lists names alone may list a folder holding them; the command gate
-refuses a line naming one, as a tripwire. `:session-dirs-shared? true` opens
-them (`permission/foreign-sessions`).
+**Another project's folder is closed to this one's tools** (`byj-7sp.6`,
+`byj-84c.7`, RFC-016's second revision): everything a project's runs leave
+— sessions, transcripts, tasks, its event log, delegations' records,
+workflow runs, worktrees — is kept in its folder of the registry,
+`~/.brainyard/projects/<project-slug>/`, inside the default
+`:allowed-dirs`. The gate refuses a path in another project's folder there,
+or the registry's folder or one above it (a recursive read would open them
+all), in every mode, as it refuses `:denied-paths`. Open: this project's
+own folder, and a main checkout's worktrees' (`persist/own-folders`); this
+project's own tree though it lies in another's folder (a worktree checked
+out in its main checkout's — never a project above the registry, such as
+the person's home); and the registry's records of where each project is
+(`index.edn`, a folder's `project.edn`). A tool that lists names alone may
+list a folder holding them; the command gate refuses a line naming one, as
+a tripwire. `:project-homes-shared? true` opens them
+(`permission/foreign-sessions`).
 
 **A person's logins and keys are read by no path tool** (`:denied-paths`,
 byj-1wv.115.40; divergence `logins-and-keys-are-denied-paths`): the share sidecar's
@@ -747,7 +752,7 @@ takes `:permission-mode-box`, and a subagent inherits both.
 | A separator inside single or double quotes is text, and an escaped one too. A real second command is still held to the list. Substitution is refused inside quotes too, and an unclosed quote is refused. | `permission-test/a-separator-inside-quotes-is-text`, `permission-test/an-allow-list-refuses-what-it-cannot-read` |
 | The gate covers every tool declaring `:command-params`, `task$run` included, and a deny list ignores the mode. | `permission-test/the-command-gate-covers-every-tool-that-names-a-command` |
 | A path a command names is checked against `:allowed-dirs`; one that does not exist is not a violation. | `permission-test/a-command-may-not-name-a-path-it-could-not-open` |
-| Another project's sessions, transcripts and tasks in the home are refused to a path tool and a command, its own are not, a folder holding them all is listable but not readable, and `:session-dirs-shared?` opens them. | `permission-test/another-projects-sessions-are-closed-to-this-ones-tools` |
+| Another project's folder in the home — its sessions, log and records — is refused to a path tool and a command, its own is not, nor a worktree's own tree in its main checkout's folder, nor the registry's records; a folder holding them all is listable but not readable; a project above the registry opens nothing by its own tree; and `:project-homes-shared?` opens them. | `permission-test/another-projects-sessions-are-closed-to-this-ones-tools` |
 | A command naming a `:denied-paths` entry, or a directory holding one, is refused in every mode, saying which word reached it; a word of slashes alone (`a // b`) names no path. | `permission-test/a-login-or-a-key-is-read-by-no-tool` |
 | A segment that only lists names (`ls`, `find` without `-exec`, `stat`, `du`, …), in a line with nothing that could open what it lists, and `list-dir`, may name a directory holding an entry, never the entry or what is under it; a quoted bare `~` and bash's `=~` name no home | `permission-test/listing-a-directory-that-holds-a-login-opens-nothing-of-it` |
 | A bd-only agent's shell — this repository's bead-keeper, `.brainyard/agents/beads` — runs `bd` and nothing else. | `agents-test/the-bead-keeper-runs-bd-and-nothing-else` |
