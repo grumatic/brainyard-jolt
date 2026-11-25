@@ -152,22 +152,25 @@
              :summary "a codex command line that carries it as a session hook, trusted for that session alone"}]}]
    :options [:log :socket :idle]}
   {:name "projects"
-   :summary "The person's projects, one folder each under ~/.brainyard/projects — the registry by keeps too (RFC-074)"
+   :summary "The person's projects, one folder each under ~/.brainyard/projects, keeping what their runs leave — the registry by keeps too (RFC-074)"
    :subcommands
-   [{:subs [{:name "list" :args "[--json]"
+   [{:subs [{:name "list" :args "[--all] [--json]"
              :summary "every registered project, the last opened first; one whose directory is gone marked (missing)"
-             :doc "A project is registered as a session (byj, byj run) or a question (byj ask) starts in it, and by byj projects add; brainyard's by registers the same way, in the same folders, so the list is both programs'. Each is ~/.brainyard/projects/SLUG/project.edn, SLUG the directory's name and 8 hex of the SHA-256 of its canonical path. A directory moved, deleted or on a volume not mounted now is listed as (missing), never dropped. --json gives [{path, slug, name, git-remote, created-at, last-opened-at, schema-version, missing?}]."}
+             :doc "A project is registered as a session (byj, byj run) or a question (byj ask) starts in it, and by byj projects add; brainyard's by registers the same way, in the same folders, so the list is both programs'. Each is ~/.brainyard/projects/SLUG/project.edn, SLUG the directory's name and 8 hex of the SHA-256 of its canonical path; the folder keeps the project's sessions too (RFC-016). A directory moved, deleted or on a volume not mounted now is listed as (missing), never dropped. A git worktree is a project of its own, its record naming its main checkout's slug (worktree-of), and a folder a run that is never registered kept its sessions in is listed? false: --all lists both. --json gives [{path, slug, name, git-remote, created-at, last-opened-at, schema-version, missing?, worktree-of, listed?}]."}
             {:name "path" :args "SLUG"
              :summary "the project directory a slug stands for, read from its record; exit 1 when none"}
             {:name "add" :args "[DIR] [--json]"
              :summary "register a project — DIR, or the working directory — without starting a session in it"
              :doc "Registering again keeps the project's created-at and stamps last-opened-at; a DIR that is not a directory is refused, so no typo is kept as a missing project. --json gives the record."}
             {:name "prune" :args "[--yes] [--json]"
-             :summary "forget every project whose directory is missing; asks first"
-             :doc "Only the registry's folders are removed, never a project. A missing directory may be a volume that comes back, so nothing prunes unless asked: it names them and asks, --yes answers for a script, and with nothing to answer nothing is removed. --json gives the records removed."}
+             :summary "forget every project whose directory is missing, with the sessions kept for it; asks first"
+             :doc "Only the registry's folders are removed, never a project — but a folder keeps the project's sessions, so one holding a session younger than :session-ttl-days, or one a live byj has open, is kept and named. A missing directory may be a volume that comes back, so nothing prunes unless asked: it names them, says how many sessions go, and asks; --yes answers for a script, and with nothing to answer nothing is removed. --json gives the records removed."}
             {:name "remove" :args "SLUG [--yes] [--json]"
-             :summary "forget one project, whether its directory is there or not; asks first"
-             :doc "Only the project's folder in the registry is removed, never the project; registering it again brings back the same slug. --json gives the record removed."}]}]}
+             :summary "forget one project, whether its directory is there or not, with its sessions; asks first"
+             :doc "Only the project's folder in the registry is removed, never the project, but with it the sessions kept there, which it counts as it asks; refused while a live byj has one open. Registering it again brings back the same slug. --json gives the record removed."}
+            {:name "move" :args "OLD-SLUG [DIR] [--json]"
+             :summary "a moved or renamed project's folder, and its sessions, adopted at DIR (the working directory)"
+             :doc "A project moved is a new slug, its old folder listed (missing) until pruned. move renames that folder to DIR's slug, registers DIR keeping created-at, and rewrites each session's project-dir and working-dir under the old path, so they resume at DIR. DIR's own folder may hold its record alone, which is replaced; one holding sessions of its own is refused, as is a session open in a live byj. Nothing is matched by guessing. --json gives the record with moved-from and sessions."}]}]}
   {:name "config"
    :summary "The settings: every key as data, and one written as /config writes it (RFC-013)"
    :usage "byj config [set KEY VALUE | unset KEY] [--scope project|user] [--json]"

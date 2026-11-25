@@ -186,3 +186,94 @@
         (if before
           (System/setProperty "brainyard.projects-home" before)
           (System/clearProperty "brainyard.projects-home"))))))
+
+(defn- session-in!
+  "A session kept in `slug`'s folder of `root`, last saved `at` (epoch ms),
+  its snapshot and meta.edn naming project `p`."
+  [root slug id at p]
+  (let [d (io/file root slug "sessions" id)]
+    (.mkdirs d)
+    (spit (io/file d "session.edn") (pr-str {:id id :updated-at at :project-dir p :working-dir (str p "/src")}))
+    (spit (io/file d "meta.edn") (pr-str {:session-id id :project-dir p}))
+    d))
+
+(deftest the-registry-keeps-a-projects-runtime
+  ;; byj-84c.3: the project's folder in the registry keeps what its runs
+  ;; left (RFC-016's second revision): prune keeps it while a session in it is
+  ;; young, remove says what it holds, move adopts it, a worktree says whose
+  (let [home (temp-dir "proj-home")
+        root (root-in home)
+        old-ms (- (System/currentTimeMillis) (* 20 24 60 60 1000))
+        before (System/getProperty "brainyard.projects-home")]
+    (System/setProperty "brainyard.projects-home" home)
+    (try
+      (testing "prune keeps a missing project whose sessions are young, and removes one whose are past the TTL, whole"
+        (let [young (temp-dir "proj-young") stale (temp-dir "proj-stale")
+              ys (:slug (projects/register-project! root young))
+              ss (:slug (projects/register-project! root stale))]
+          (session-in! root ys "1700000000001-aaaaaaaa" (System/currentTimeMillis) young)
+          (session-in! root ss "1700000000002-bbbbbbbb" old-ms stale)
+          (.delete (io/file young)) (.delete (io/file stale))
+          (let [{:keys [out]} (run-main nil "projects" "prune")]
+            (is (str/includes? out "and the 1 session(s) kept for them") "it says what goes with them"))
+          (let [{:keys [out]} (run-main nil "projects" "prune" "--yes")]
+            (is (str/includes? out "Pruned 1 entry."))
+            (is (str/includes? out (str "Kept 1, whose sessions are younger than 14 days or open: " ys))))
+          (is (not (.exists (io/file root ss))) "the stale one's folder, sessions and all")
+          (is (.isDirectory (io/file root ys "sessions" "1700000000001-aaaaaaaa")))
+          (is (= [ys] (mapv :slug (filter :missing? (projects/list-projects root)))) "listed missing still")))
+      (testing "remove says how many sessions go with the project"
+        (let [p (temp-dir "proj-rm")
+              s (:slug (projects/register-project! root p))]
+          (session-in! root s "1700000000003-cccccccc" old-ms p)
+          (is (str/includes? (:out (run-main nil "projects" "remove" s)) "and the 1 session(s) kept for it?"))
+          (is (.isDirectory (io/file root s)) "unanswered, nothing goes")))
+      (testing "move: a moved project's folder adopted at its new path, its sessions told"
+        (let [from (temp-dir "proj-from")
+              s (:slug (projects/register-project! root from))
+              _ (session-in! root s "1700000000004-dddddddd" old-ms from)
+              to (temp-dir "proj-to")]
+          (.delete (io/file from))
+          ;; a run at the new path since the move registered it: its folder
+          ;; holds its record alone, which the old one replaces
+          (projects/register-project! root to)
+          (let [{:keys [exit out]} (run-main nil "projects" "move" s to)
+                ns (projects/project-slug to)]
+            (is (= 0 exit) out)
+            (is (str/includes? out "1 session(s) told their new place"))
+            (is (not (.exists (io/file root s))))
+            (is (= to (:path (edn/read-string (slurp (io/file root ns "project.edn"))))))
+            (let [snap (edn/read-string (slurp (io/file root ns "sessions" "1700000000004-dddddddd" "session.edn")))
+                  meta (edn/read-string (slurp (io/file root ns "sessions" "1700000000004-dddddddd" "meta.edn")))]
+              (is (= to (:project-dir snap)))
+              (is (= (str to "/src") (:working-dir snap)))
+              (is (= to (:project-dir meta))))
+            (testing "refused when the new path's folder holds what its own runs left"
+              (let [other (temp-dir "proj-other")
+                    os (:slug (projects/register-project! root other))]
+                (session-in! root os "1700000000005-eeeeeeee" old-ms other)
+                (let [{:keys [exit err]} (run-main nil "projects" "move" ns other)]
+                  (is (= 1 exit))
+                  (is (str/includes? err "has a folder of its own already")))
+                (is (.isDirectory (io/file root ns "sessions" "1700000000004-dddddddd")) "nothing moved"))))))
+      (testing "a worktree says whose it is, and the list shows worktrees and unlisted folders with --all only"
+        (let [main-dir (temp-dir "proj-main")
+              wt (temp-dir "proj-wt")
+              gd (io/file main-dir ".git" "worktrees" "wt")]
+          (.mkdirs gd)
+          (spit (io/file gd "commondir") "../..")
+          (spit (io/file wt ".git") (str "gitdir: " (.getPath gd)))
+          (is (= main-dir (projects/main-checkout wt)))
+          (is (nil? (projects/main-checkout main-dir)) "a main checkout is no one's worktree")
+          (projects/register-project! root main-dir)
+          (is (= (projects/project-slug main-dir) (:worktree-of (projects/register-project! root wt))))
+          (projects/ensure-record! root (temp-dir "proj-unlisted"))
+          (let [paths #(set (map :path (json/read-str (:out (apply run-main nil "projects" "list" "--json" %)))))]
+            (is (contains? (paths []) main-dir))
+            (is (not (contains? (paths []) wt)))
+            (is (contains? (paths ["--all"]) wt))
+            (is (= 1 (- (count (paths ["--all"])) (count (paths [])) 1)) "and the unlisted one"))))
+      (finally
+        (if before
+          (System/setProperty "brainyard.projects-home" before)
+          (System/clearProperty "brainyard.projects-home"))))))

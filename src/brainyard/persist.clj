@@ -660,6 +660,57 @@
          removed)))
     []))
 
+(defn- session-folders [pd]
+  (filter #(.isDirectory ^java.io.File %) (or (.listFiles (io/file pd "sessions")) [])))
+
+(defn held-in?
+  "Does a live process other than this one hold a session kept in project
+  folder `pd`?"
+  [pd]
+  (boolean (some held-dir? (session-folders pd))))
+
+(defn keeps-folder?
+  "Is project folder `pd` kept from a person's `byj projects prune` (RFC-016's
+  second revision, byj-84c.3): a session in it younger than `ttl-days`, or
+  one a live process holds. What the gone-project prune would keep is kept
+  from a prune by hand too, until it is past."
+  [ttl-days pd]
+  (let [ttl-ms (* (or ttl-days 14) 24 60 60 1000)
+        now (System/currentTimeMillis)]
+    (boolean (some #(or (< (- now (or (:updated-at (try (edn/read-string (slurp (io/file % "session.edn"))) (catch Throwable _ nil)))
+                                      (.lastModified ^java.io.File %)))
+                           ttl-ms)
+                        (held-dir? %))
+                   (session-folders pd)))))
+
+(defn session-count
+  "How many sessions project folder `pd` keeps."
+  [pd]
+  (count (session-folders pd)))
+
+(defn rehome!
+  "Each session kept in project folder `pd` told its project moved from
+  `old` to `new` (S6, `byj projects move`): its snapshot's and its
+  `meta.edn`'s `:project-dir` and `:working-dir` under `old` rewritten under
+  `new`, so a resume opens it there. A file that will not read is left as it
+  is. The number of sessions rewritten."
+  [pd old new]
+  (let [old (str old) new (str new)
+        moved (fn [v] (if (and (string? v) (or (= v old) (str/starts-with? v (str old "/"))))
+                        (str new (subs v (count old)))
+                        v))]
+    (count
+     (for [d (session-folders pd)
+           :let [n (count (for [f ["session.edn" "meta.edn"]
+                                :let [file (io/file d f)
+                                      m (when (.isFile file) (try (edn/read-string (slurp file)) (catch Throwable _ nil)))]
+                                :when (map? m)
+                                :let [m2 (reduce (fn [m k] (cond-> m (contains? m k) (update k moved))) m [:project-dir :working-dir])]
+                                :when (not= m m2)]
+                            (write-edn! file m2)))]
+           :when (pos? n)]
+       d))))
+
 (defn prune!
   "Remove old session, transcript and task directories. Returns {:removed [ids]}.
 

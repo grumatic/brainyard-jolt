@@ -53,6 +53,7 @@ registration saw (RFC-075, `byj-339`).
  :created-at     #inst "…"                 ; kept across registrations
  :last-opened-at #inst "…"                 ; stamped at each
  :listed?        false                     ; only on a record ensure-record! wrote; a registration drops it
+ :worktree-of    "my-app-acd543c9"         ; a linked worktree's main checkout's slug (S4); none otherwise
  :schema-version 1}
 ```
 
@@ -79,7 +80,23 @@ registration saw (RFC-075, `byj-339`).
   registration lists it.
 - **Missing is listed, not dropped.** A record whose directory is not there
   now — deleted, moved (a moved project is a new slug), or on a volume not
-  mounted — is listed `(missing)`. It is removed only when a person asks.
+  mounted — is listed `(missing)`. It is removed only when a person asks,
+  and its folder with it, sessions and all (RFC-016's second revision): so
+  `byj projects prune` keeps a folder holding a session younger than
+  `:session-ttl-days` or one a live process holds (`persist/keeps-folder?`),
+  and says so; `remove` says how many sessions go, and refuses while one is
+  open. `by`'s prune and remove know only the record and delete the folder
+  whole.
+- **A moved project is adopted by name, never by guess** (S6). `byj projects
+  move OLD-SLUG [DIR]` renames the old folder to DIR's slug, registers it at
+  DIR keeping `:created-at`, and rewrites each session's `:project-dir` and
+  `:working-dir` under the old path (`persist/rehome!`). DIR's own folder
+  may hold its record alone — a run there since the move — which is
+  replaced; one holding more is refused.
+- **A worktree is a project of its own** (S4), keyed by its own path; its
+  record says `:worktree-of` its main checkout's slug, read from its
+  `.git` file and `commondir` (`main-checkout`). `byj projects list` leaves
+  worktrees and `:listed? false` records out unless `--all`.
 
 ### When a project is registered
 
@@ -103,23 +120,27 @@ registry's, and the run goes on.
 - `ensure-record! [root path]` — a record `:listed? false` written when the folder has none; the record, or nil.
 - `list-projects [root] [root {:unlisted?}]` — the records, the last opened first, each with `:missing?`; `:listed? false` ones only with `:unlisted?`.
 - `project-path-for-slug [root slug]`.
-- `prune-projects! [root]` — every missing record removed; the records removed.
+- `prune-projects! [root] [root keep?]` — every missing record removed, its folder whole, but one `keep?` says to keep; the records removed.
+- `move-project! [root old-slug new-path]` — the old folder made the new path's; `{:record}` or `{:error}`.
+- `main-checkout [path]` — a linked worktree's main checkout, or nil.
 - `remove-project! [root slug]` — one record removed; it, or nil.
 - `refresh-index! [root]`, `parse-origin-url [text]`, `table [rows offset]`.
 
 The CLI, brainyard's `by projects`:
 
 ```
-byj projects [list] [--json]         every project, the last opened first
+byj projects [list] [--all] [--json]   every project, the last opened first; --all adds worktrees and unlisted folders
 byj projects path SLUG               its directory; exit 1 when not registered
 byj projects add [DIR] [--json]      register DIR (the working directory) without a session
 byj projects prune [--yes] [--json]  forget every missing project; asks first
 byj projects remove SLUG [--yes] [--json]   forget one, there or not; asks first
+byj projects move OLD-SLUG [DIR] [--json]    a moved project's folder adopted at DIR (the working directory)
 ```
 
-prune and remove ask on the terminal, as brainyard's do; `--yes` answers
-for a script, and with nothing to answer nothing is removed. Neither ever
-touches a project, only its folder in the registry.
+prune and remove ask on the terminal, as brainyard's do, saying how many
+sessions go with the folder; `--yes` answers for a script, and with nothing
+to answer nothing is removed. Neither ever touches a project, only its folder
+in the registry and what byj keeps there of its runs.
 
 Config: `:register-project?` (boolean, true).
 
@@ -130,6 +151,7 @@ Config: `:register-project?` (boolean, true).
 | The slug is brainyard's: SHA-256 over the canonical path's UTF-8, its first 4 bytes | `projects-test/the-slug-is-brainyards-byte-for-byte` |
 | A registration keeps `:created-at` and keys it does not know; the index is the records' | `projects-test/a-registration-keeps-created-at-and-what-it-does-not-know` |
 | A record `by` wrote is read, and kept, as byj's own | `projects-test/a-record-by-wrote-is-read-as-byjs` |
+| The registry keeps a project's runtime: prune keeps a folder with a young session and removes a stale one whole, remove says what goes, move adopts a moved project's folder and tells its sessions, a worktree says whose it is, and the list shows worktrees and unlisted folders with `--all` | `projects-test/the-registry-keeps-a-projects-runtime` |
 | A missing project is listed, and removed only by prune or remove | `projects-test/a-missing-project-is-listed-and-only-pruned-when-asked` |
 | A slug read off disk never aims the delete outside the registry | `projects-test/a-slug-off-disk-never-aims-the-delete-elsewhere` |
 | `byj projects` lists, adds and forgets; prune asks, and removes nothing unanswered | `projects-test/byj-projects-lists-adds-and-forgets` |

@@ -746,12 +746,12 @@
   (into {} (map (fn [[k v]] [k (if (inst? v) (subs (pr-str v) 7 36) v)])) r))
 
 (defn- projects-command
-  "`byj projects list|path|add|prune|remove` — brainyard's `by projects`
+  "`byj projects list|path|add|prune|remove|move` — brainyard's `by projects`
   (`cmd-projects-*`), over the registry both keep, `~/.brainyard/projects`
   (RFC-074). prune and remove ask first, as brainyard's do, and `--yes`
   answers for a script; with no terminal to answer, nothing is removed. The
   exit code."
-  [{:keys [questions json yes working-dir]}]
+  [{:keys [questions json yes working-dir] :as opts}]
   (let [[named arg] questions
         sub (or named "list")
         root (projects/projects-root)
@@ -760,9 +760,15 @@
                   (or yes
                       (do (print (str question " [y/N] ")) (flush)
                           (boolean (#{"y" "yes"} (some-> (read-line) str/trim str/lower-case))))))
-        never "This drops only the user-scope registry folder, never the project itself."]
+        never "This drops the project's folder in the registry, with what byj keeps there of its runs, never the project itself."
+        ttl (try (:session-ttl-days (:config (config/load-config {:working-dir (or working-dir ".")})) 14)
+                 (catch Throwable _ 14))
+        folder #(io/file root (str (:slug %)))]
     (case sub
-      "list" (let [rows (projects/list-projects root)]
+      "list" (let [rows (cond->> (projects/list-projects root {:unlisted? (:all opts)})
+                          ;; a worktree is a project of its own (S4), listed
+                          ;; with its main checkout's only when asked
+                          (not (:all opts)) (remove :worktree-of))]
                (cond json (out rows)
                      (empty? rows) (println "No registered projects.")
                      :else (doseq [l (projects/table rows)] (println l)))
@@ -779,31 +785,56 @@
                 :else (if-let [rec (projects/register-project! root (str dir))]
                         (do (if json (out rec) (println (:slug rec) (:path rec))) 0)
                         (do (err-println (str "Could not register " dir " (is ~/.brainyard writable?)")) 1))))
-      "prune" (let [gone (filterv :missing? (projects/list-projects root))
-                    n (count gone)]
+      "prune" (let [gone (filterv :missing? (projects/list-projects root {:unlisted? true}))
+                    keep? #(persist/keeps-folder? ttl (folder %))
+                    kept (filterv keep? gone)
+                    gone (filterv (complement keep?) gone)
+                    n (count gone)
+                    say-kept #(when (and (seq kept) (not json))
+                                (println (str "Kept " (count kept) ", whose sessions are younger than "
+                                              ttl " days or open: " (str/join ", " (map :slug kept)))))]
                 (cond
-                  (empty? gone) (do (if json (out []) (println "Nothing to prune — every registered project still exists.")) 0)
-                  (not (confirm (str "Remove " n " registry entr" (if (= 1 n) "y" "ies") " for missing project(s)?\n  "
+                  (empty? gone) (do (if json (out []) (do (println "Nothing to prune — every registered project still exists, or keeps sessions.") (say-kept))) 0)
+                  (not (confirm (str "Remove " n " registry entr" (if (= 1 n) "y" "ies") " for missing project(s), and the "
+                                     (reduce + (map #(persist/session-count (folder %)) gone)) " session(s) kept for them?\n  "
                                      (str/join "\n  " (map :path gone)) "\n" never)))
                   (do (println "Cancelled.") 0)
-                  :else (let [pruned (projects/prune-projects! root)
+                  :else (let [pruned (projects/prune-projects! root keep?)
                               k (count pruned)]
                           (if json
                             (out pruned)
                             (do (doseq [r pruned] (println "removed" (:slug r) (:path r)))
-                                (println (str "Pruned " k " entr" (if (= 1 k) "y" "ies") "."))))
+                                (println (str "Pruned " k " entr" (if (= 1 k) "y" "ies") "."))
+                                (say-kept)))
                           0)))
       "remove" (let [slug (some-> arg str str/trim not-empty)
-                     rec (when slug (first (filter #(= slug (:slug %)) (projects/list-projects root))))]
+                     rec (when slug (first (filter #(= slug (:slug %)) (projects/list-projects root {:unlisted? true}))))]
                  (cond
                    (nil? slug) (do (err-println "usage: byj projects remove SLUG  (byj projects list names them)") 1)
                    (nil? rec) (do (err-println (str "No such registered project: " slug)) 1)
-                   (not (confirm (str "Forget \"" (:name rec) "\" (" (:path rec) ")?\n" never)))
+                   (persist/held-in? (folder rec)) (do (err-println (str slug " has a session open in a live byj; close it first")) 1)
+                   (not (confirm (str "Forget \"" (:name rec) "\" (" (:path rec) ") and the "
+                                      (persist/session-count (folder rec)) " session(s) kept for it?\n" never)))
                    (do (println "Cancelled.") 0)
                    :else (if-let [removed (projects/remove-project! root slug)]
                            (do (if json (out removed) (println "Removed:" (:slug removed) (:path removed))) 0)
                            (do (err-println (str "Could not remove " slug " (is ~/.brainyard writable?)")) 1))))
-      (do (err-println (str "projects: unknown subcommand " (pr-str sub) " — list, path, add, prune, remove")) 2))))
+      "move" (let [slug (some-> arg str str/trim not-empty)
+                   dir (or (second (rest questions)) working-dir ".")
+                   rec (when slug (first (filter #(= slug (:slug %)) (projects/list-projects root {:unlisted? true}))))]
+               (cond
+                 (nil? slug) (do (err-println "usage: byj projects move OLD-SLUG [DIR]  (DIR: the working directory)") 1)
+                 (and rec (persist/held-in? (folder rec))) (do (err-println (str slug " has a session open in a live byj; close it first")) 1)
+                 :else (let [{:keys [record error]} (projects/move-project! root slug dir)]
+                         (if error
+                           (do (err-println error) 1)
+                           (let [n (persist/rehome! (folder record) (:path rec) (:path record))]
+                             (if json
+                               (out (assoc record :moved-from (:path rec) :sessions n))
+                               (println (str "Moved " slug " -> " (:slug record) " (" (:path record) "), "
+                                             n " session(s) told their new place.")))
+                             0)))))
+      (do (err-println (str "projects: unknown subcommand " (pr-str sub) " — list, path, add, prune, remove, move")) 2))))
 
 (defn- loops-command
   "`byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD]`: a

@@ -174,6 +174,28 @@
         (when (.isFile cfg) (parse-origin-url (slurp cfg)))))
     (catch Throwable _ nil)))
 
+(defn main-checkout
+  "The main checkout of the repository whose linked worktree `path` is — its
+  `.git` a `gitdir:` file naming `<common>/worktrees/<name>`, whose
+  `commondir` names `<main>/.git` — or nil: a main checkout, a project
+  outside git, a submodule. Read from the files, as the origin is."
+  [path]
+  (try
+    (when-let [gd (git-dir path)]
+      (let [cd (io/file gd "commondir")]
+        (when (and (.isFile (io/file path ".git")) (.isFile cd))
+          (let [common (.getCanonicalFile (io/file gd (str/trim (slurp cd))))]
+            (when (= ".git" (.getName common))
+              (.getParent common))))))
+    (catch Throwable _ nil)))
+
+(defn- worktree-of
+  "`{:worktree-of <its main checkout's slug>}` for a linked worktree, else {}:
+  a worktree is a project of its own, keyed by its own path (RFC-016's second
+  revision, S4), and says whose it is."
+  [cp]
+  (if-let [m (main-checkout cp)] {:worktree-of (project-slug m)} {}))
+
 ;; --- the registry ---------------------------------------------------------------
 
 (defn- opened-ms
@@ -229,15 +251,21 @@
       (catch Throwable _ false))))
 
 (defn prune-projects!
-  "Every record whose directory is missing removed, then the index rewritten;
-  the records removed, as `list-projects` gave them. Only when a person asks:
-  a missing directory may be a volume that comes back."
-  [root]
-  (if root
-    (let [removed (filterv #(delete-record-dir! root (:slug %)) (filter :missing? (list-projects root)))]
-      (when (seq removed) (refresh-index! root))
-      removed)
-    []))
+  "Every record whose directory is missing removed, its folder whole, then
+  the index rewritten; the records removed, as `list-projects` gave them.
+  Only when a person asks: a missing directory may be a volume that comes
+  back. The folder keeps what the project's runs left (RFC-016's second
+  revision), so one `keep?` says to keep — a session younger than the TTL,
+  or one a live process holds (`persist/keeps-folder?`) — is left, its
+  record listed missing still."
+  ([root] (prune-projects! root (constantly false)))
+  ([root keep?]
+   (if root
+     (let [removed (filterv #(and (not (keep? %)) (delete-record-dir! root (:slug %)))
+                            (filter :missing? (list-projects root {:unlisted? true})))]
+       (when (seq removed) (refresh-index! root))
+       removed)
+     [])))
 
 (defn remove-project!
   "The record of `slug` removed, whether its directory is there or not, then
@@ -263,7 +291,8 @@
             f (io/file dir project-file)
             prev (read-record f)
             now (java.util.Date.)
-            rec (merge (dissoc (or prev {}) :listed?)
+            rec (merge (dissoc (or prev {}) :listed? :worktree-of)
+                       (worktree-of cp)
                        {:path cp
                         :slug (project-slug cp)
                         :name (.getName (io/file cp))
@@ -295,6 +324,7 @@
                        :slug (project-slug cp)
                        :name (.getName (io/file cp))
                        :listed? false
+                       :worktree-of (:worktree-of (worktree-of cp))
                        :created-at now
                        :last-opened-at now
                        :schema-version schema-version}]
@@ -303,6 +333,38 @@
               (refresh-index! root)
               rec)
             (catch Throwable _ nil))))))
+
+(defn move-project!
+  "The folder of `old-slug` — a project moved or renamed, its runs' records
+  in it — made `new-path`'s (RFC-016's second revision, S6): renamed to
+  `new-path`'s slug, and the record registered at the new path, keeping its
+  `:created-at` and what it does not know. `new-path`'s own folder may be
+  there holding its record alone (a run there since the move registered
+  it), which the old one replaces; one holding more is refused, as is an
+  unknown slug, a path that is not a directory, or the same slug.
+  `{:record}` or `{:error}`. Nothing is matched by guessing: the person
+  names both."
+  [root old-slug new-path]
+  (let [cp (canonical-path new-path)
+        new-slug (some-> cp project-slug)
+        old (when (and root (string? old-slug) (= old-slug (.getName (io/file old-slug))))
+              (io/file root old-slug))
+        to (when (and root new-slug) (io/file root new-slug))]
+    (cond
+      (nil? root) {:error "no home to keep a registry in"}
+      (not (and old (.isFile (io/file old project-file)))) {:error (str "No such registered project: " old-slug)}
+      (not (and cp (.isDirectory (io/file cp)))) {:error (str "Not a directory: " new-path)}
+      (= old-slug new-slug) {:error (str old-slug " is already " cp "'s")}
+      (and (.exists to) (seq (remove #(= project-file (.getName ^java.io.File %)) (.listFiles to))))
+      {:error (str cp " has a folder of its own already, " new-slug ", holding what its runs left; "
+                   "forget one of the two first (byj projects remove)")}
+      :else
+      (do (when (.exists to) (delete-record-dir! root new-slug))
+          (if (.renameTo old to)
+            (if-let [rec (register-project! root cp)]
+              {:record rec}
+              {:error (str "moved to " new-slug ", but its record could not be written")})
+            {:error (str "could not rename " old " to " to)})))))
 
 (defn project-path-for-slug
   "The path `slug`'s record names, or nil when it names none. Read from the
