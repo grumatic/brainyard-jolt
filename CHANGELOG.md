@@ -6,6 +6,14 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A live Claude Code session is handed work through its inbox.** With
+  Claude Code 2.1.224 or later, `session$send`, `session$ask` and `/handover`
+  write to the session's own messaging socket instead of typing into its
+  tmux pane: a session in a terminal of its own is reachable now, and a long
+  brief goes whole, with no file in `.brainyard/handovers/`. It is sent only
+  while the session is idle — a message sent during a turn is taken into that
+  turn and goes unanswered, and byj says so. An older Claude Code is typed to
+  in tmux as before.
 - **What byj's runs leave is kept in your home, one folder per project;
   `.brainyard/` is the repository's.** A project's sessions, transcripts,
   tasks, event log, Claude Code and Codex delegation records, workflow runs,

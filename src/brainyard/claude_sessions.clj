@@ -88,13 +88,42 @@
   "What Claude Code writes as the person's line when a turn is stopped."
   "[Request interrupted by user")
 
+(def peer-head
+  "What Claude Code writes before a message another session sent to a
+  session's inbox, as its turn's user line (Claude Code 2.1.332, byj-bzo)."
+  "Another Claude session sent a message:\n")
+
+(def peer-footer
+  "Where Claude Code's own words after such a message begin."
+  "\n\nThis came from another Claude session")
+
+(defn peer-line?
+  "Is `line` the user line of a turn another session's message started
+  through the session's inbox: `isMeta`, its origin `{kind peer}`
+  (`dev/claude-peer-spike.sh`)?"
+  [line]
+  (and (= "user" (:type line)) (= "peer" (get-in line [:origin :kind])) (not (:isSidechain line))))
+
+(defn peer-message
+  "The message a peer line holds: Claude Code's head and footer taken off."
+  [text]
+  (let [t (str text)
+        t (if (str/starts-with? t peer-head) (subs t (count peer-head)) t)]
+    (if-let [i (str/index-of t peer-footer)] (subs t 0 i) t)))
+
+(defn- prompt-text
+  "A question line's prompt: its words, or a peer's message."
+  [line]
+  (cond-> (message-text line) (peer-line? line) peer-message))
+
 (defn- question?
   "A line a person typed as a question — not what a slash command leaves
   (`<command-name>…`, `<local-command-caveat>…`), not a tool's result, not
-  empty."
+  empty — or the message another session sent the session's inbox, which
+  starts a turn as a question does (`peer-line?`, byj-bzo)."
   [line]
   (let [t (some-> (message-text line) str/trim)]
-    (and (= "user" (:type line)) (not (:isMeta line)) (not (:isSidechain line))
+    (and (= "user" (:type line)) (or (not (:isMeta line)) (peer-line? line)) (not (:isSidechain line))
          ;; what Claude Code writes when it compacts, or when a turn is
          ;; stopped, is no one's question (eval-claude/prompt? says the same)
          (not (:isCompactSummary line))
@@ -113,7 +142,7 @@
         head (json-lines (read-range f 0 (min n head-bytes)))
         tail (if (> n head-bytes) (json-lines (read-range f (max 0 (- n tail-bytes)) (min n tail-bytes))) head)
         title (or (some :aiTitle (reverse (filter #(= "ai-title" (:type %)) (concat head tail))))
-                  (some-> (first (filter question? head)) message-text)
+                  (some-> (first (filter question? head)) prompt-text)
                   (some :lastPrompt (reverse (filter #(= "last-prompt" (:type %)) (concat head tail)))))]
     {:id (str/replace (.getName f) #"\.jsonl$" "")
      :title (some-> title (one-line 120))
@@ -140,7 +169,9 @@
    ;; Claude Code's own mark that a turn is over (byj-gly.290.10)
    "\"subtype\":\"turn_duration\""
    ;; the session went on under another id, in the same process (byj-gly.290.10)
-   "\"type\":\"continued-in\""])
+   "\"type\":\"continued-in\""
+   ;; a message sent to the inbox, taken into a running turn (byj-bzo)
+   "absorbed_mid_turn"])
 
 (defn- add-usage
   "A reply's tokens into the session's, by model — once a reply, though each of
@@ -194,7 +225,12 @@
   "Fold one transcript line into a turn's state."
   [st l]
   (cond
-    (question? l) (assoc st :prompt (some-> (message-text l) str/trim) :answer nil :ended? false)
+    (question? l) (assoc st :prompt (some-> (prompt-text l) str/trim) :answer nil :ended? false)
+    ;; a message sent to the inbox while a turn ran is taken into that turn,
+    ;; never one of its own, and nothing answers it (byj-bzo): the last few,
+    ;; so a sender can tell
+    (and (= "queue-operation" (:type l)) (= "remove" (:operation l)) (= "absorbed_mid_turn" (:reason l)))
+    (update st :absorbed #(vec (take-last 5 (conj (vec %) (str (:content l))))))
     (and (= "user" (:type l)) (some-> (message-text l) (str/includes? interrupted-text)))
     (assoc st :ended? true)
     ;; written once a turn is over, after its reply and stop hooks: a turn

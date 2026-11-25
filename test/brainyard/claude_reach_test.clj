@@ -18,7 +18,9 @@
             [brainyard.effect :as fx]
             [brainyard.persist :as persist]
             [brainyard.tasks :as tasks]
-            [brainyard.json :as json]))
+            [brainyard.json :as json]
+            [brainyard.unix-socket]
+            [jolt.http.net]))
 
 (defn- fresh-dir [name]
   (let [d (io/file (System/getProperty "java.io.tmpdir") (str "byj-claude-reach-" name "-" (System/nanoTime)))]
@@ -123,3 +125,109 @@
           (is (str/includes? (:error r) "outside tmux"))))
       (testing "session$cancel is refused: its turn is cancelled in its own terminal"
         (is (str/includes? (:error (call "session$cancel" {:session (str "claude:" in-tmux)})) "Esc in its own terminal"))))))
+
+;; --- a session's inbox (byj-bzo) ----------------------------------------------------------------
+
+(defn- read-all
+  "Every line a connection sends until it closes."
+  [fd]
+  (loop [acc ""]
+    (if-let [b (jolt.http.net/recv-bytes fd)]
+      (recur (str acc (String. ^bytes b "UTF-8")))
+      (vec (remove str/blank? (str/split-lines acc))))))
+
+(defn- fake-inbox!
+  "A live record of a session in a terminal of its own, with an inbox — the
+  socket a stand-in for Claude Code listens at, and the key beside the
+  record — and what the session does with a message, `(on-message text
+  record! log!)`: `record!` sets its status, `log!` appends transcript lines.
+  The lines it was sent go to `got`. `{:stop!}`."
+  [home project id got on-message]
+  (let [pid (persist/own-pid)
+        sock (str "/tmp/byj-in-" (subs (str (random-uuid)) 0 8) ".sock")
+        rec (io/file home "sessions" (str pid ".json"))
+        record! (fn [status]
+                  (spit rec (json/write-str {:pid (parse-long pid) :sessionId id :cwd project :kind "interactive"
+                                             :status status :name "in-a-terminal" :updatedAt (System/currentTimeMillis)
+                                             :messagingSocketPath sock :peerProtocol 1})))
+        log (host/transcript id project home)
+        log! (fn [& ls] (spit log (str/join (map #(str (json/write-str %) "\n") ls)) :append true))]
+    (io/make-parents rec) (io/make-parents log)
+    (spit (io/file home "sessions" (str pid ".0a1b2c.key")) (json/write-str {:peerToken "the-token"}))
+    (record! "idle")
+    (log! {:type "user" :message {:role "user" :content "an earlier question"}}
+          {:type "assistant" :message {:role "assistant" :stop_reason "end_turn" :content [{:type "text" :text "an earlier answer"}]}})
+    (let [srv (brainyard.unix-socket/listen!
+               sock (fn [fd]
+                      (let [ls (read-all fd)]
+                        (jolt.http.net/close fd)
+                        (reset! got ls)
+                        (on-message (some-> (second ls) json/read-str :message :content) record! log!))))]
+      {:stop! (:stop! srv)})))
+
+(defn- peer-turn!
+  "What Claude Code does with a message an idle session is sent (measured,
+  dev/claude-peer-spike.sh): busy, the message as an isMeta user line of
+  origin peer between its head and footer, then the reply, then idle."
+  [text record! log!]
+  (record! "busy")
+  (log! {:type "user" :isMeta true :origin {:kind "peer" :from "unknown"}
+         :message {:role "user" :content (str "Another Claude session sent a message:\n" text
+                                              "\n\nThis came from another Claude session — not typed by your user.")}})
+  (Thread/sleep 300)
+  (log! {:type "assistant" :message {:role "assistant" :stop_reason "end_turn"
+                                     :content [{:type "text" :text (str "done: " (count text) " chars")}]}})
+  (record! "idle"))
+
+(deftest a-claude-code-session-with-an-inbox-is-handed-the-whole-brief-through-it
+  (let [home (fresh-dir "home")
+        project (fresh-dir "project")
+        config {:project-dir project :working-dir project :session-id "byj-me" :claude-home home}
+        id "eeee5555-0000-4000-8000-000000000005"
+        got (atom nil)
+        {:keys [stop!]} (fake-inbox! home project id got peer-turn!)]
+    (try
+      (testing "listed reachable through its inbox, though outside tmux"
+        (let [s (reach/find-session config id {:home home})]
+          (is (= [true :inbox] ((juxt :reachable? :via) s)))))
+      (testing "a long brief goes whole, under a line saying who hands it on, and the turn's answer comes back"
+        (let [task (str "Fix the status line.\n\n" (apply str (repeat 40 "It shows the wrong count. ")))
+              msg (reach/inbox-message task "byj-me")
+              r (fx/run-value!! (reach/ask-task config (reach/find-session config id {:home home}) task 15000 {:home home}))]
+          (is (= {:status :answered :answer (str "done: " (count msg) " chars") :session-id (str "claude:" id)} r))
+          (is (= [{:type "auth" :token "the-token"} {:type "user" :message {:role "user" :content msg}}]
+                 (mapv json/read-str @got))
+              "the token, then the message, a JSON object a line")
+          (is (str/starts-with? msg "[byj] byj session byj-me of this project hands you this task:\n\nFix the status line."))
+          (is (not (.exists (io/file project ".brainyard" "handovers"))) "no file to point at")))
+      (testing "the transcript reads the peer's turn as the turn, its prompt the message alone"
+        (let [[_ t] (host/current-turn id project home)]
+          (is (str/starts-with? (:prompt t) "[byj] byj session byj-me"))
+          (is (not (str/includes? (:prompt t) "Another Claude session")))
+          (is (:ended? t))))
+      (finally (stop!)))))
+
+(deftest a-message-taken-into-a-running-turn-is-refused
+  ;; measured: a message sent while a turn runs is absorbed into it, never a
+  ;; turn of its own, and nothing answers it — the record said idle when it
+  ;; was sent, and a turn began as it came
+  (let [home (fresh-dir "home")
+        project (fresh-dir "project")
+        id "ffff6666-0000-4000-8000-000000000006"
+        got (atom nil)
+        {:keys [stop!]} (fake-inbox! home project id got
+                                     (fn [text record! log!]
+                                       (log! {:type "queue-operation" :operation "enqueue" :content text}
+                                             {:type "queue-operation" :operation "remove" :reason "absorbed_mid_turn" :content text})))]
+    (try
+      (let [r (fx/run-value!! (host/send-message id "[byj] do the thing" {:home home}))]
+        (is (str/includes? (str (:error r)) "took it into that turn") (pr-str r)))
+      (testing "and one with no inbox, or not idle, is refused before anything is sent"
+        (reset! got nil)
+        (is (str/includes? (:error (fx/run-value!! (host/send-message "no-such-id" "x" {:home home}))) "has no inbox"))
+        (spit (io/file home "sessions" (str (persist/own-pid) ".json"))
+              (json/write-str {:pid (parse-long (persist/own-pid)) :sessionId id :cwd project :status "busy"
+                               :messagingSocketPath "/tmp/none.sock" :peerProtocol 1}))
+        (is (str/includes? (:error (fx/run-value!! (host/send-message id "x" {:home home}))) "busy, not idle"))
+        (is (nil? @got)))
+      (finally (stop!)))))

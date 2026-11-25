@@ -289,14 +289,34 @@ Port-only, each with its own divergence entry when built:
 ### A live Claude Code session as a target (byj-gly.429)
 
 The session tools reach a live Claude Code session of the project too, named
-`claude:<id>` (`brainyard.claude-reach`). It has no channel byj can use: it is
-reached the way a person reaches it, by typing into its terminal.
+`claude:<id>` (`brainyard.claude-reach`). It is reached through its inbox when
+it has one (`byj-bzo`), else the way a person reaches it, by typing into its
+terminal.
 
-- **Reachable** when it runs in tmux: this run's `byj-cc-<id>`, or the pane its
-  live record names (`"tmux": "work:@8.%8"`, `claude-host/target`) — so one a
-  person started in their own tmux is reachable too. One outside tmux, in a
-  terminal of its own, is not: nothing can type into it. `session$list` lists
-  both, the unreachable one with why.
+- **Its inbox** (Claude Code 2.1.224+, cross-session messaging): the record
+  names `messagingSocketPath` and `peerProtocol` 1, the person's own key
+  beside it (`sessions/<pid>.<hex>.key`) holds the token, and a process of the
+  person's writes `{type auth token}` then `{type user message {role user
+  content}}`, a JSON object a line, reading nothing back
+  (`claude-host/inbox`, `send-message`, `unix-socket/send-lines!`). Measured
+  (`dev/claude-peer-spike.sh`, 2.1.332): an idle session starts a turn with
+  it at once, in the default permission mode, the message whole however long
+  (2000 characters over 29 lines), told to Claude as a teammate's request and
+  never as the person's approval of a pending prompt; the transcript keeps it
+  as a user line, `isMeta`, origin `{kind peer}`, between Claude Code's head
+  and footer (`claude-sessions/peer-line?`, `peer-message`), and the reply is
+  the turn's. A message sent while a turn runs is absorbed into it
+  (`queue-operation` remove `absorbed_mid_turn`) and nothing answers it: so it
+  is sent only while the record says idle, and one absorbed is refused ("took
+  it into that turn"). The brief goes whole, under a line naming the byj
+  session that hands it on (`claude-reach/inbox-message`): no file.
+- **Reachable** through its inbox, wherever it runs — its liveness its
+  record's process (`claude-host/running?`) — or, with none, in tmux: this
+  run's `byj-cc-<id>`, or the pane its live record names (`"tmux":
+  "work:@8.%8"`, `claude-host/target`) — so one a person started in their own
+  tmux is reachable too. One with no inbox outside tmux, in a terminal of its
+  own, is not: nothing can reach it. `session$list` lists both, `:via`
+  `:inbox` or `:tmux`, the unreachable one with why.
 - **Named** by `claude:<id>`, a prefix of the id, or its label; a name no byj
   session has is looked for among Claude Code's.
 - **`session$send` and `session$ask`** wait for it to be idle (a line typed
@@ -311,10 +331,10 @@ reached the way a person reaches it, by typing into its terminal.
 - **Unreachable is refused at once**, with what to do instead: run it inside
   tmux or from byj's agent page, or hand the task to a new session
   (agent$claude).
-- **Not used:** Claude Code's peer-messaging socket
-  (`messagingSocketPath`). Its protocol is Claude Code's own, and a peer's
-  message is information to the session that gets it, not its person's
-  instruction — a handover delivered that way would not be acted on.
+- **Typed, a longer brief is a file in its project**, `.brainyard/handovers/`:
+  the one place it reads without asking. The temporary directory, `/tmp` or
+  the per-user `$TMPDIR`, put up a permission dialog for the read, measured
+  (`dev/claude-peer-spike.sh` M3).
 
 ### A live Codex session as a target (byj-gly.430.5)
 
@@ -392,6 +412,7 @@ channel; RFC-039 "For a program" (`byj-oer`).
 | Live sessions are listed newest first and named by id or prefix; an ambiguous name and asking oneself are refused; `session$ask` returns the peer's answer, and the peer sees who asked; `session$send` returns at once and its answer lands as a completed background task; a closed session is listed as not live; the CLI asks by prefix, prints brainyard's JSON, and lists. | `channel-test/a-session-finds-and-asks-its-peers` |
 | A live Claude Code session is listed as `claude:<id>`, reachable when it runs in any tmux — by the pane its record names — and not when it runs outside, with why; it is found by id, prefix or label; a short task is typed into its pane and a long one is a file the typed line points at, and the turn's answer comes back; one outside tmux is refused with what to do instead. | `claude-reach-test/a-claude-code-session-in-any-tmux-is-reached-and-one-outside-is-not` |
 | `session$list` names Claude Code sessions with byj's; `session$status` reads one; `session$send` hands one a task as a background task whose result is its answer, and refuses one outside tmux at once; `session$cancel` refuses. | `claude-reach-test/the-session-tools-hand-a-claude-code-session-work` |
+| A Claude Code session with an inbox is reachable through it outside tmux; it is handed the whole brief under a line naming the byj session, the token then the message a JSON line each, and the turn's answer comes back; the transcript reads the peer's turn as the turn, its prompt the message alone; no handover file is written. A message taken into a running turn is refused; one with no inbox, or not idle, is refused before anything is sent. | `claude-reach-test/a-claude-code-session-with-an-inbox-is-handed-the-whole-brief-through-it`, `claude-reach-test/a-message-taken-into-a-running-turn-is-refused` |
 | A live Codex session is listed as `codex:<thread>`, found by thread, prefix or label; one in this run's tmux is typed into and one anywhere else is queued to, each answered from its rollout; a long brief is a file the line points at; the session tools route `codex:` names to it. | `codex-reach-test/a-codex-session-in-byjs-tmux-is-typed-into-and-answers`, `a-codex-session-anywhere-else-is-queued-to` |
 | The mailbox alternative delivers 200 concurrent requests exactly once, and the socket stops in ~100 ms. | `dev/brainyard/dev/handoff_spike.clj` (a spike, not a test) |
 

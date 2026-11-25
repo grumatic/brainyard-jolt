@@ -31,7 +31,9 @@
             [brainyard.agent-host :as ah]
             [brainyard.claude-sessions :as cs]
             [brainyard.effect :as fx]
-            [brainyard.json :as json]))
+            [brainyard.json :as json]
+            [brainyard.persist :as persist]
+            [brainyard.unix-socket :as us]))
 
 (def prefix
   "What this run's tmux sessions for Claude Code are named with."
@@ -310,6 +312,21 @@
         (recur next-id (inc n) usage)
         [sid (cond-> t (seq usage) (assoc :usage usage))]))))
 
+(defn- inbox-record
+  "Session `id`'s record when it names a messaging socket of Claude Code's
+  peer protocol 1, else nil."
+  [id home]
+  (let [r (record id home)]
+    (when (and r (= 1 (:peerProtocol r)) (:pid r) (not (str/blank? (str (:messagingSocketPath r)))))
+      r)))
+
+(defn running?
+  "Is session `id` still running: in a tmux pane byj can reach, or — one with
+  an inbox, in a terminal of its own (byj-bzo) — its record's process alive?"
+  [id & [home]]
+  (boolean (or (target id home)
+               (when-let [r (inbox-record id home)] (persist/alive? (:pid r))))))
+
 (defn observe
   "Where session `id` stands now: `{:id :running? :status :prompt :answer
   :ended?}` — its live record's status (`idle`, `busy`, or `waiting` while a
@@ -322,7 +339,7 @@
   (let [r (record id home)
         [sid t] (current-turn id (or (:cwd r) dir) home)
         status (some-> (:status r) keyword)]
-    (cond-> (merge {:id id :running? (some? (target id home)) :status status} (dissoc t :continued-in))
+    (cond-> (merge {:id id :running? (running? id home) :status status} (dissoc t :continued-in))
       (not= sid id) (assoc :transcript-id sid)
       (= :waiting status) (assoc :screen (pane id home)))))
 
@@ -397,6 +414,73 @@
                                       (or busy-ms 2000) nil)
                 :taken? #(taken? id dir home before line)
                 :pause-ms 300 :max-enters 3 :what (str "session " id)})))))))
+
+;; --- a session's inbox (byj-bzo) ------------------------------------------------------
+
+(def peer-protocol
+  "The version of Claude Code's cross-session messaging this speaks
+  (code.claude.com/docs/en/cross-session-messaging, 2.1.224+); a session
+  saying another is not written to."
+  1)
+
+(defn inbox
+  "Session `id`'s inbox, `{:socket :token}`, or nil: its record names a
+  messaging socket of `peer-protocol`, and its key file beside it
+  (`sessions/<pid>.<hex>.key`, the person's own, as for a peer session of
+  theirs) holds the token. Measured by `dev/claude-peer-spike.sh`."
+  [id & [home]]
+  (let [r (inbox-record id home)]
+    (when r
+      (let [pre (str (:pid r) ".")]
+        (when-let [token (some (fn [^java.io.File f]
+                                 (let [n (.getName f)]
+                                   (when (and (str/starts-with? n pre) (str/ends-with? n ".key"))
+                                     (some-> (try (json/read-str (slurp f)) (catch Throwable _ nil))
+                                             :peerToken not-empty))))
+                               (or (.listFiles (io/file (cs/claude-home home) "sessions")) []))]
+          {:socket (str (:messagingSocketPath r)) :token token})))))
+
+(defn- absorbed?
+  "Has session `id`'s running turn taken `text` in — sent while it ran, so
+  never a turn of its own?"
+  [id dir home text]
+  (let [[_ t] (current-turn id dir home)]
+    (boolean (some #(= (str/trim (str text)) (str/trim %)) (:absorbed t)))))
+
+(defn send-message
+  "A Task: `text` sent to session `id`'s inbox, as another session of the
+  person's would — told to Claude as a teammate's request, never as the
+  person's approval of anything — and confirmed taken: the turn it starts
+  holds it (`taken?`). `{:sent true}`, or `{:error}`: no inbox, not idle,
+  the socket refused, taken into a turn that began meanwhile (measured: a
+  message sent while a turn runs is absorbed into it and not answered), or
+  not taken within `taken-ms` (5 s). Refused unless idle, as `type-line` is.
+  The whole of `text` goes, however long: no file to point at."
+  [id text & [{:keys [home taken-ms]}]]
+  (m/sp
+   (let [r (m/? (fx/task-of #(record id home)))
+         box (m/? (fx/task-of #(inbox id home)))]
+     (cond
+       (nil? box) {:error (str "session " id " has no inbox of Claude Code's peer protocol " peer-protocol)}
+       (not= "idle" (:status r)) {:error (str "session " id " is " (or (:status r) "not up") ", not idle")}
+       :else
+       (let [dir (:cwd r)
+             before (m/? (fx/task-of #(transcript-mark id dir home)))
+             sent (m/? (fx/task-of #(try (us/send-lines! (:socket box)
+                                                         [(json/write-str {:type "auth" :token (:token box)})
+                                                          (json/write-str {:type "user" :message {:role "user" :content text}})])
+                                         (catch Throwable e {:error (ex-message e)}))))]
+         (if (:error sent)
+           {:error (str "could not reach session " id "'s inbox: " (:error sent))}
+           (let [o (m/? (fx/timeout (fx/poll-until 100 ::not-yet
+                                                   #(cond (taken? id dir home before text) :taken
+                                                          (absorbed? id dir home text) :absorbed
+                                                          :else ::not-yet))
+                                    (or taken-ms 5000) ::timeout))]
+             (case o
+               :taken {:sent true}
+               :absorbed {:error (str "session " id " began a turn as the message came, and took it into that turn, where nothing answers it")}
+               {:error (str "session " id " did not take the message within " (or taken-ms 5000) " ms")}))))))))
 
 (defn choose
   "A Task: answer the dialog on session `id`'s screen with the choice numbered

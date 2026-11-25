@@ -20,7 +20,7 @@
 #       the record says busy, a message. Is it taken into the running turn,
 #       or does it start one of its own once that turn is over?
 #
-# Measured with Claude Code 2.1.332 on 2026-11-26 (one M1 run, two M2):
+# Measured with Claude Code 2.1.332 on 2026-11-26 (one M1 run, two M2, two M3):
 #
 #   - the record (~/.claude/sessions/<pid>.json) names messagingSocketPath
 #     (/tmp/cc-socks/<pid>.sock), peerProtocol 1, peerFeatures
@@ -44,6 +44,13 @@
 #     turn, once saying it would answer by SendMessage but had no from=
 #     address. No user line, no turn of its own: a sender reading the
 #     transcript for its reply waits for one that never comes.
+#
+#   - M3 (SPIKE_ONLY=M3, SPIKE_TMP=/tmp or the per-user $TMPDIR): a brief
+#     written to a 0600 file in a 0700 folder of the temporary directory,
+#     the message saying to read it. Both times Claude's Read of it put up a
+#     permission dialog ("Yes, allow reading from … during this session"),
+#     and the session waited on it: outside the project, a file is no way to
+#     hand over a brief unasked. Through the inbox none is needed.
 #
 # So: send only while the record says idle, as typing does; read a peer
 # turn's user line (isMeta, origin kind peer) as its prompt; take a
@@ -146,7 +153,7 @@ if not r:
 print("record:", json.dumps({k: r.get(k) for k in ("pid", "status", "peerProtocol", "peerFeatures", "messagingSocketPath", "version", "kind", "tmux")}))
 
 # --- M1: idle, a long many-line message ------------------------------------------
-only_m2 = os.environ.get("SPIKE_ONLY") == "M2"
+only_m2 = os.environ.get("SPIKE_ONLY") in ("M2", "M3")
 word = f"zebra-{random.randrange(10**6):06d}"
 filler = "\n".join(f"Line {i}: this line is here only so the message is long and spans many lines." for i in range(1, 25))
 msg1 = f"[byj] A spike's message to measure delivery, not your user's.\n\n{filler}\n\nReply with exactly the one word named on the last line, nothing else.\nThe word is: {word}"
@@ -165,6 +172,30 @@ if not only_m2:
     print("  transcript lines after the send:"); show(lines)
     ok = ok and any(d.get("type") == "assistant" and word in text_of(d) for d in lines)
     time.sleep(4)
+
+# --- M3: a brief in a file in the temporary directory, outside the project -------
+if os.environ.get("SPIKE_ONLY") == "M3":
+    import tempfile, stat
+    d = os.path.join(os.environ.get("SPIKE_TMP") or tempfile.gettempdir(), f"byj-handovers-{os.getuid()}")
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    f = os.path.join(d, f"handover-spike-{random.randrange(10**6):06d}.md")
+    w3 = f"walrus-{random.randrange(10**6):06d}"
+    with open(f, "w") as h:
+        h.write(f"A spike's brief, in a file outside your project.\n\nReply with exactly the one word: {w3}\n")
+    os.chmod(f, 0o600)
+    r = record(); n0 = len(transcript(r))
+    send(r, f"[byj] Read {f} and do the task in it.")
+    tl = timeline(90, lambda: any(d.get("type") == "assistant" and w3 in text_of(d) for d in transcript(r)[n0:])
+                              or (record() or {}).get("status") == "waiting")
+    lines = transcript(r)[n0:]
+    print(f"\nM3 a brief in {f}: status timeline {tl}")
+    print("  replied with the file's word:", any(d.get("type") == "assistant" and w3 in text_of(d) for d in lines))
+    print("  a permission dialog came up:", any(st == "waiting" for _, st in tl))
+    print("  transcript lines after the send:"); show(lines)
+    os.remove(f)
+    print("\nscreen at the end:")
+    print(subprocess.run(["tmux", "-L", srv, "capture-pane", "-p", "-t", "s"], capture_output=True, text=True).stdout.rstrip()[-1200:])
+    sys.exit(0 if any(d.get("type") == "assistant" and w3 in text_of(d) for d in lines) else 1)
 
 # --- M2: a message while a typed turn runs ---------------------------------------
 r = record()

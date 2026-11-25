@@ -135,6 +135,21 @@
           {:status :error :error "no response from session"})
       (finally (ffi/free addr) (net/close fd)))))
 
+(defn send-lines!
+  "Write each of `lines` to the socket at `path`, a line each, then close,
+  reading nothing: for a socket of another program's protocol that answers
+  nothing — Claude Code's inbox (byj-bzo). Throws when it cannot connect."
+  [path lines]
+  (let [fd (net/c-socket af-unix sock-stream 0)
+        [addr len] (sockaddr path)]
+    (try
+      (when (neg? (net/c-connect fd addr len))
+        (throw (ex-info (str "could not reach " path " (errno " (poller/errno) ")")
+                        {:path path :errno (poller/errno)})))
+      (doseq [l lines] (net/send-bytes fd (.getBytes (str l "\n") "UTF-8")))
+      true
+      (finally (ffi/free addr) (net/close fd)))))
+
 (defn stream!
   "Send `msg` and read the stream it opens: returns the ack, and calls
   `(on-frame m)` for each frame after it on a thread of its own until the

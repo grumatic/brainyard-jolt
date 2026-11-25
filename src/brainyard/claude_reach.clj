@@ -7,20 +7,26 @@
   `session$ask` hand one a task, `session$status` says how it stands.
 
   A byj session is reached through its session channel. A Claude Code session
-  has none byj can use: it is reached the way a person reaches it, by typing
-  into its terminal — its tmux pane (`claude-host/target`), this run's
-  `byj-cc-<id>` or the pane its live record names. A brief of one short line
+  is reached through its inbox when it has one (byj-bzo): Claude Code's
+  cross-session messaging (2.1.224+) gives each interactive session a socket
+  another process of the person's writes to, and an idle session starts a
+  turn with what it is sent — the whole brief, however long — told to Claude
+  as a teammate's request, never as the person's approval of anything
+  (`claude-host/send-message`, measured by `dev/claude-peer-spike.sh`). A
+  session with none is reached the way a person reaches it, by typing into
+  its terminal — its tmux pane (`claude-host/target`), this run's
+  `byj-cc-<id>` or the pane its live record names: a brief of one short line
   is typed as it is; a longer one is written to a file in the session's
-  project (`.brainyard/handovers/`) and a line typed that points at it, as
-  agent$claude guides its sessions (RFC-039: a paste is taken for data, a long
-  one arrives cut). The answer is the turn's reply, read from the session's
-  transcript once the turn is over (`claude-host/await-settled`).
+  project (`.brainyard/handovers/`, the one place it reads without asking —
+  the temporary directory raised a permission dialog, measured) and a line
+  typed that points at it, as agent$claude guides its sessions (RFC-039: a
+  paste is taken for data, a long one arrives cut). Either way the answer is
+  the turn's reply, read from the session's transcript once the turn is over
+  (`claude-host/await-settled`).
 
-  A session outside tmux, in a terminal of its own, cannot be reached: nothing
-  can type into it. It is listed, unreachable, with why, and a send to it is
-  refused with what to do instead. Claude Code's peer-messaging socket is not
-  used: its protocol is Claude Code's own, and a peer's message is information
-  to the session that gets it, not its person's instruction.
+  A session with no inbox, outside tmux, in a terminal of its own, cannot be
+  reached: nothing can type into it. It is listed, unreachable, with why, and
+  a send to it is refused with what to do instead.
 
   Mechanism only (RFC-001): when to hand a session work, and what to say, is
   the agent's."
@@ -48,10 +54,13 @@
   of reach. `home` is Claude Code's (`~/.claude` unless given)."
   [config & [{:keys [home]}]]
   (vec (for [{:keys [id title status]} (cs/live (project config) home)
-             :let [t (host/target id home)]]
+             :let [box (host/inbox id home)
+                   t (when-not box (host/target id home))]]
          (cond-> {:session-id (str prefix id) :label title :live? true :kind "claude-code"
-                  :status status :reachable? (some? t)}
-           (nil? t) (assoc :why "it runs outside tmux, in a terminal of its own: nothing can type into it")))))
+                  :status status :reachable? (boolean (or box t))}
+           box (assoc :via :inbox)
+           t (assoc :via :tmux)
+           (not (or box t)) (assoc :why "it has no inbox (Claude Code before 2.1.224) and runs outside tmux, in a terminal of its own: nothing can reach it")))))
 
 (defn claude-target?
   "Whether `s` names a Claude Code session: `claude:<id or prefix or name>`."
@@ -83,6 +92,13 @@
     (spit f text)
     (.getCanonicalPath f)))
 
+(defn inbox-message
+  "What session `from` sends a Claude Code session's inbox for `question`:
+  the whole of it, under a line saying who hands it on."
+  [question from]
+  (str "[byj] " (if from (str "byj session " from) "another session") " of this project hands you this task:\n\n"
+       (str/trim (str question))))
+
 (defn brief-line
   "The line typed to the session for `question`: the question itself when it
   is one short line, else a line pointing at the file it is written to in
@@ -109,10 +125,10 @@
     (m/sp
      (if-not (:reachable? s)
        (err (str (:session-id s) " cannot be reached: " (:why s)
-                 ". Run it inside tmux, or from byj's agent page, to hand it work; or give the task to a new Claude Code session (agent$claude)."))
+                 ". Run it inside tmux, or from byj's agent page, or update Claude Code to 2.1.224 or later, to hand it work; or give the task to a new Claude Code session (agent$claude)."))
        (let [idle (m/? (fx/timeout (fx/poll-until 500 ::busy #(let [st (:status (host/record id home))]
                                                                 (cond (= "idle" st) :idle
-                                                                      (nil? (host/target id home)) :gone
+                                                                      (not (host/running? id home)) :gone
                                                                       :else ::busy)))
                                    (left) ::timeout))]
          (cond
@@ -120,7 +136,9 @@
            (= :gone idle) (err (str (:session-id s) " is no longer running"))
            :else
            (let [dir (or (:cwd (host/record id home)) (project config))
-                 sent (m/? (host/type-line id (brief-line dir question (:session-id config)) {:home home}))]
+                 sent (m/? (if (= :inbox (:via s))
+                             (host/send-message id (inbox-message question (:session-id config)) {:home home})
+                             (host/type-line id (brief-line dir question (:session-id config)) {:home home})))]
              (if (:error sent)
                (err (:error sent))
                (let [o (m/? (fx/timeout (host/await-settled id {:home home :dir dir}) (left) ::timeout))]
