@@ -26,6 +26,7 @@
             [brainyard.context :as context]
             [brainyard.effect :as fx]
             [brainyard.session-history :as session-history]
+            [brainyard.trajectory :as trajectory]
             [brainyard.hooks :as hooks]
             [brainyard.json :as json]
             [brainyard.llm :as llm]
@@ -222,6 +223,24 @@
                                :recap (cond-> {:recap recap} (seq next-step) (assoc :nextStep next-step))}
                         turn (assoc :turn turn))}})
 
+(declare json-safe)
+
+(defn- note-update
+  "A note for people (`:inject :as :note`, RFC-043) as a client is told it
+  (byj-cm4.10): an `agent_message_chunk` marked `_meta.brainyard.notice`
+  `note`, with who put it in (`from`), never part of an answer."
+  [text from]
+  {:sessionUpdate "agent_message_chunk" :content (text-block text)
+   :_meta {:brainyard (cond-> {:notice "note"} (some? from) (assoc :from (json-safe from)))}})
+
+(defn- notes-after
+  "Session `sid`'s notes for people, by how many of its turn records came
+  before each in its trajectory: what a replay puts it after (byj-cm4.10)."
+  [config sid]
+  (let [n (atom 0)]
+    (reduce (fn [m rec] (if (trajectory/note? rec) (update m @n (fnil conj []) rec) (do (swap! n inc) m)))
+            {} (try (trajectory/read-entries config sid) (catch Throwable _ [])))))
+
 (defn- replay-turns!
   "A loaded session's history (`session-history/turns`) as `session/update`s, every
   turn from its first, each update naming its turn in `_meta.brainyard.turn`
@@ -234,8 +253,13 @@
   `_meta.brainyard.checkpoint {ref before after filesChanged}`: what a
   rewind of it goes back to (byj-d8c.1); one with none can be taken back
   to no more."
-  [conn sid effects-of turns]
-  (doseq [{:keys [turn question answer steps checkpoint recap]} turns]
+  [conn sid effects-of turns & [notes]]
+  ;; a client that asked for byj's extensions is told the notes for people too,
+  ;; each after the turns before it (byj-cm4.10)
+  (let [notes (when (ext? conn) notes)
+        say-notes! (fn [k] (doseq [r (get notes k)] (update! conn sid (note-update (:text r) (:from r)))))]
+  (say-notes! 0)
+  (doseq [[k {:keys [turn question answer steps checkpoint recap]}] (map-indexed vector turns)]
     (let [first? (atom true)
           ;; the turn's first update, whatever it is, carries its checkpoint
           meta #(cond-> %
@@ -254,7 +278,8 @@
         (up! {:sessionUpdate "agent_message_chunk" :content (text-block answer)}))
       ;; and its recap, after its answer as it came live (byj-s5h)
       (when (and recap (ext? conn))
-        (update! conn sid (recap-update turn recap))))))
+        (update! conn sid (recap-update turn recap)))
+      (say-notes! (inc k))))))
 
 (defn- in-turn
   "Update `u` naming the turn session `sid` is in, from the connection's
@@ -367,6 +392,11 @@
                 (when (ext? conn)
                   (notify! conn "_byj/turn" (cond-> {:sessionId sid :turn (:turn data) :state "started"}
                                               (:injected-by data) (assoc :injectedBy (json-safe (:injected-by data))))))))
+          :session.share/note
+          ;; a note for people (RFC-043): told when it comes, a turn running
+          ;; or not, marked a note with who put it in (byj-cm4.10)
+          (when (and (not who) (ext? conn) (seq (str (:text data))))
+            (update! conn sid (note-update (:text data) (:from data))))
           :session.turn/recap
           ;; after the prompt was answered (byj-2pr), so told on its own,
           ;; naming its turn (byj-s5h)
@@ -428,7 +458,8 @@
             (let [turns (try (session-history/turns {:project-dir project-dir :working-dir project-dir} (or (:id data) sid))
                              (catch Throwable _ nil))]
               (if (seq turns)
-                (replay-turns! conn sid effects-of turns)
+                (replay-turns! conn sid effects-of turns
+                               (notes-after {:project-dir project-dir :working-dir project-dir} (or (:id data) sid)))
                 (doseq [[kind x] (:transcript data)]
                   (case kind
                     :you (update! conn sid {:sessionUpdate "user_message_chunk" :content (text-block x)})
@@ -532,7 +563,7 @@
     (let [turns (try (session-history/turns config sessionId) (catch Throwable _ []))
           tool-effects (into {} (for [t tools/builtin-tools] [(:name t) (:effects t)]))
           held (persist/holder config sessionId)]
-      (replay-turns! conn sessionId #(get tool-effects % #{}) turns)
+      (replay-turns! conn sessionId #(get tool-effects % #{}) turns (notes-after config sessionId))
       (cond-> {:turnCount (count turns)} held (assoc :heldBy (str held))))))
 
 (defn- turns-list

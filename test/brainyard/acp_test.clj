@@ -1431,3 +1431,41 @@
       (testing "one that is not there is refused"
         (is (= -32602 (get-in (call c "_byj/session/history" {:sessionId "1790000000000-nothere1" :cwd dir}) [:error :code]))))
       (finally (acp/end! (:conn c))))))
+
+(deftest a-note-for-people-reaches-the-client-and-its-replay
+  ;; byj-cm4.10: a note put in over the channel (a workflow's master told a
+  ;; handoff) is told the client as it comes, and replayed between its turns
+  (let [dir (fresh-dir "notes")
+        c (with-ext (client))
+        model (script! dir [{:answer "the answer" :goal-achieved true}])
+        {:keys [sessionId]} (new-session c dir model {:channel true})
+        path (get-in @(:state (:conn c)) [:sessions sessionId :channel :path])
+        note? #(= "note" (get-in % [:_meta :brainyard :notice]))]
+    (try
+      (call c "session/prompt" {:sessionId sessionId :prompt [{:type "text" :text "the question"}]})
+      (is (= :ok (:status (channel/request! path {:op :inject :as :note :text "stage design is done" :from "s-run"} 5000))))
+      (let [deadline (+ (System/currentTimeMillis) 5000)]
+        (while (and (not-any? note? (updates c sessionId)) (< (System/currentTimeMillis) deadline)) (Thread/sleep 20)))
+      (let [n (first (filter note? (updates c sessionId)))]
+        (testing "told as it comes, between turns, marked a note with who put it in"
+          (is (= "stage design is done" (get-in n [:content :text])))
+          (is (= "s-run" (get-in n [:_meta :brainyard :from])))))
+      (call c "session/close" {:sessionId sessionId})
+      (testing "replayed after the turn it came after"
+        (let [c2 (with-ext (client))]
+          (try
+            (call c2 "_byj/session/history" {:sessionId sessionId :cwd dir})
+            (let [us (vec (updates c2 sessionId))
+                  answer (first (keep-indexed #(when (= "the answer" (get-in %2 [:content :text])) %1) us))
+                  note (first (keep-indexed #(when (note? %2) %1) us))]
+              (is (some? note) (pr-str us))
+              (is (< answer note) "after the turn's answer"))
+            (finally (acp/end! (:conn c2))))))
+      (testing "a client that asked for no extensions is told no note"
+        (let [c3 (client)]
+          (try
+            (call c3 "initialize" {:protocolVersion 1})
+            (call c3 "_byj/session/history" {:sessionId sessionId :cwd dir})
+            (is (not-any? note? (updates c3 sessionId)))
+            (finally (acp/end! (:conn c3))))))
+      (finally (acp/end! (:conn c))))))
