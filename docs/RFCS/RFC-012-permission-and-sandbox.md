@@ -297,11 +297,12 @@ takes the mode's route: `:auto-approve` abstains, `:deny-by-default` refuses,
 
 **Another project's sessions are closed to this one's tools** (`byj-7sp.6`,
 RFC-016's revision): sessions, transcripts and tasks are kept in
-`~/.brainyard/<kind>/<project-slug>/`, inside the default `:allowed-dirs`.
-The gate refuses a path in another project's folder there — this project's
-own, and a main checkout's worktrees', are its to read
-(`persist/own-folders`) — or a `<kind>` folder or one above it (a recursive
-read would open them all), in every mode, as it refuses `:denied-paths`; a
+`~/.brainyard/projects/<project-slug>/<kind>/` (byj-84c.1), inside the
+default `:allowed-dirs`. The gate refuses a path in another project's
+`<kind>` folder there — this project's own, and a main checkout's
+worktrees', are its to read (`persist/own-folders`) — or a folder above
+them, another project's folder or the registry's (a recursive read would
+open them all), in every mode, as it refuses `:denied-paths`; a
 tool that lists names alone may list a folder holding them; the command gate
 refuses a line naming one, as a tripwire. `:session-dirs-shared? true` opens
 them (`permission/foreign-sessions`).

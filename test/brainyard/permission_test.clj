@@ -14,6 +14,7 @@
             [brainyard.effect :as fx]
             [brainyard.permission :as permission]
             [brainyard.persist :as persist]
+            [brainyard.projects :as projects]
             [brainyard.profile]
             [brainyard.project-loops :as project-loops]
             [brainyard.sandbox :as sandbox]
@@ -418,9 +419,9 @@
         theirs (doto (io/file (persist/sessions-dir {:project-dir b}) "1700000000021-bbbbbbbb") .mkdirs)
         _ (spit (io/file mine "session.edn") "{}")
         _ (spit (io/file theirs "session.edn") "{:last-question \"a secret\"}")
-        root (.getPath (io/file (persist/sessions-home) "sessions"))
+        root (projects/projects-root)
         c (fn [& {:as cfg}] (ctx (merge {:working-dir a :project-dir a :permission-mode :auto-approve
-                                         :allowed-dirs [a (.getPath (persist/sessions-home))]}
+                                         :allowed-dirs [a (.getParent (io/file root))]}
                                         cfg)))
         why #(str (:error %))]
     (is (str/includes? (why (call (c) "read-file" {:path (.getPath (io/file theirs "session.edn"))}))

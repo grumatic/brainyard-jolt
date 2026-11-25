@@ -111,11 +111,11 @@ runs `jolt.process` (`effect-ratchet-test`).
 
 **`start` carries a test run's isolation to its children** (`byj-9og`): a
 property this process sets to keep off the person's stores — the project
-registry's home (`brainyard.projects-home`, RFC-074), the sessions' home
-(`brainyard.sessions-home`, RFC-016) and the repository whose refs keep no
+registry's home (`brainyard.projects-home`, RFC-074), which keeps each
+project's sessions too (RFC-016), and the repository whose refs keep no
 turn (`brainyard.changes-skip-root`, provenance P-55) — is put in the child's
 environment as the variable the child reads instead (`BY_PROJECTS_HOME`,
-`BY_SESSIONS_HOME`, `BY_CHANGES_SKIP_ROOT`; `carried-env`), unless the
+`BY_CHANGES_SKIP_ROOT`; `carried-env`), unless the
 environment says it already. Only a test run sets them, so a person's run
 starts its children as before (`effect-test/a-process-started-keeps-off-the-persons-stores-as-this-one-does`).
 

@@ -37,21 +37,6 @@
 
 ;; --- paths ------------------------------------------------------------------------
 
-(defn sessions-home
-  "`<home>/.brainyard`, the root a session's folder, transcripts and tasks are
-  kept under (RFC-016's revision, byj-7sp): `home` when given, else the
-  `brainyard.sessions-home` property, else — in a process a test started —
-  the environment's `BY_SESSIONS_HOME`, both the test run's own home
-  (`fx/carried-env` carries the one to the other), so no test writes in the
-  person's; else $HOME. nil when there is no home. Not created."
-  ([] (sessions-home nil))
-  ([home]
-   (when-let [h (or (not-empty (str (or home "")))
-                    (not-empty (System/getProperty "brainyard.sessions-home"))
-                    (not-empty (System/getenv "BY_SESSIONS_HOME"))
-                    (System/getenv "HOME"))]
-     (io/file h ".brainyard"))))
-
 (defn project-of
   "The project whose sessions `config` reads and writes, as a canonical path."
   [config]
@@ -68,14 +53,24 @@
   [config kind]
   (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" kind))
 
+(defn project-home
+  "The project's folder in the person's registry, `<projects-root>/<slug>`
+  (RFC-016's second revision, byj-84c): the one folder that keeps everything
+  its runs leave, keyed by the project's path — a worktree's by its own — and
+  holding the registry's record of it (RFC-074). The project's own
+  `.brainyard` when there is no home. Not created."
+  [config]
+  (let [p (project-of config)]
+    (if-let [d (projects/project-user-dir (projects/projects-root) p)]
+      (io/file d)
+      (io/file p ".brainyard"))))
+
 (defn- home-dir
-  "`<sessions-home>/<kind>/<project-slug>`: the project's folder of `kind` in
-  the person's home, keyed by the project's path — a worktree's by its own —
-  as the registry's folder is (`projects/project-slug`); the legacy folder
-  when there is no home."
+  "`<project-home>/<kind>`: the project's folder of `kind` in the person's
+  home; the legacy folder when there is no home."
   [config kind]
-  (if-let [home (sessions-home)]
-    (io/file home kind (projects/project-slug (project-of config)))
+  (if (projects/projects-root)
+    (io/file (project-home config) kind)
     (legacy-dir config kind)))
 
 (declare migrate-once! mark-project!)
@@ -83,15 +78,15 @@
 (defn state-dir
   "Where the project keeps what its sessions leave of `kind` —
   `\"sessions\"`, `\"transcripts\"` (RFC-014), `\"tasks\"` (RFC-019): the one
-  root every such path is built from (byj-7sp.2), in the person's home since
-  RFC-016's revision (byj-7sp.4): `<home>/.brainyard/<kind>/<project-slug>/`.
-  The project's legacy folders are moved here the first time it is touched
-  (`migrate-once!`), and its sessions folder says whose it is (`project.edn`)."
+  root every such path is built from (byj-7sp.2), the project's folder in the
+  registry since RFC-016's second revision (byj-84c.1):
+  `<home>/.brainyard/projects/<project-slug>/<kind>/`. The project's legacy
+  folders are moved here the first time it is touched (`migrate-once!`), and
+  its folder holds its record (`mark-project!`)."
   [config kind]
   (migrate-once! config)
-  (let [d (home-dir config kind)]
-    (when (= "sessions" kind) (mark-project! config d))
-    d))
+  (mark-project! config)
+  (home-dir config kind))
 
 (defn sessions-dir [config] (state-dir config "sessions"))
 
@@ -321,6 +316,8 @@
                      ;; kept when it is opened again with no leader
                      :leader (or (not-empty (str (:session-leader config))) (:leader existing))
                      :forked-before-turn (:forked-before-turn existing)})
+      ;; the folder this made has its record from the first save on
+      (mark-project! config)
       f)
     (catch Throwable _ nil)))
 
@@ -462,7 +459,7 @@
             (swap! r update :moved inc)
             (swap! r update :left conj (str kind "/" (.getName e))))))
       (when (empty? (.listFiles src)) (.delete src)))
-    (when (pos? (:moved @r)) (mark-project! config (home-dir config "sessions")))
+    (when (pos? (:moved @r)) (mark-project! config))
     @r))
 
 (defonce ^:private migrated
@@ -472,13 +469,13 @@
 (defn auto-migrate?
   "Is a project's legacy folder moved on its own the first time it is touched?
   Only into the person's own home: never into a home a property or
-  `BY_SESSIONS_HOME` gave — a test run's — which would carry the sessions of
+  `BY_PROJECTS_HOME` gave — a test run's — which would carry the sessions of
   a real project a test touched (this repository's own, its git root) into a
   home the next run empties. `migrate!`, called by name, moves anywhere."
   []
   (boolean (and (System/getenv "HOME")
-                (empty? (System/getProperty "brainyard.sessions-home"))
-                (empty? (System/getenv "BY_SESSIONS_HOME")))))
+                (empty? (System/getProperty "brainyard.projects-home"))
+                (empty? (System/getenv "BY_PROJECTS_HOME")))))
 
 (defn- migrate-once!
   "`migrate!` the project when its legacy folders are there and have changed
@@ -492,14 +489,15 @@
       (try (migrate! config) (catch Throwable _ nil)))))
 
 (defn- mark-project!
-  "The project's sessions folder `d` says whose it is — `project.edn`
-  `{:path}` — once it is there, so a folder whose project is gone can be
-  told (RFC-016's revision)."
-  [config ^java.io.File d]
-  (when (.isDirectory d)
-    (let [f (io/file d "project.edn")]
-      (when-not (.isFile f)
-        (try (spit f (pr-str {:path (project-of config)})) (catch Throwable _ nil))))))
+  "The project's folder holds its record once the folder is there — one
+  folder, one record (RFC-016's second revision, S5): the registry's, written
+  `:listed? false` when the project was never registered (a flow, an
+  evaluation, a loop evaluation's clone), so a folder whose project is gone
+  can be told and the list leaves it out (`projects/ensure-record!`)."
+  [config]
+  (let [d (project-home config)]
+    (when (and (projects/projects-root) (.isDirectory d))
+      (projects/ensure-record! (projects/projects-root) (project-of config)))))
 
 (defn holder
   "The live process holding `id`, or nil. A lock whose pid is gone is stale and
@@ -519,6 +517,7 @@
   (if (holder config id)
     false
     (do (write-edn! (lock-file config id) {:pid (own-pid) :at (System/currentTimeMillis)})
+        (mark-project! config)
         true)))
 
 (defn unlock!
@@ -622,37 +621,41 @@
 (declare prune-empty!)
 
 (defn prune-gone!
-  "The sessions of every project that is gone — its folder's `project.edn`
-  path no longer a directory: a worktree removed, a temporary directory
-  deleted — kept until `:session-ttl-days` (14), the keep count protecting
-  none of them, since nothing will open them in place: each past it, with its
-  transcripts, is removed, never one a live process holds; and a project with
-  none left goes whole, its sessions, transcripts and tasks folders (RFC-016's
-  revision, byj-7sp.5). The ids removed."
+  "The sessions of every project that is gone — its record's path no longer
+  a directory: a worktree removed, a temporary directory deleted — kept
+  until `:session-ttl-days` (14), the keep count protecting none of them,
+  since nothing will open them in place: each past it, with its transcripts,
+  is removed, never one a live process holds (RFC-016's revision, byj-7sp.5).
+  A project with none left loses its sessions, transcripts and tasks folders;
+  one never registered (`:listed? false`) its whole folder, record and all
+  (RFC-016's second revision, S5), and a registered one keeps its record,
+  listed missing until a person forgets it (RFC-074). The ids removed."
   [config]
-  (if-let [home (sessions-home)]
+  (if-let [root (projects/projects-root)]
     (let [ttl-ms (* (:session-ttl-days config 14) 24 60 60 1000)
           now (System/currentTimeMillis)
-          root (io/file home "sessions")
-          own (.getCanonicalPath (home-dir config "sessions"))
+          own (.getCanonicalPath (project-home config))
           at (fn [^java.io.File d]
                (or (:updated-at (try (edn/read-string (slurp (io/file d "session.edn"))) (catch Throwable _ nil)))
                    (.lastModified d)))]
       (vec
-       (for [^java.io.File pd (or (.listFiles root) [])
+       (for [rec (projects/list-projects root {:unlisted? true})
+             :when (:missing? rec)
+             :let [^java.io.File pd (io/file root (str (:slug rec)))]
              :when (and (.isDirectory pd) (not= own (.getCanonicalPath pd)))
-             :let [path (:path (try (edn/read-string (slurp (io/file pd "project.edn"))) (catch Throwable _ nil)))]
-             :when (and path (not (.isDirectory (io/file path))))
-             removed (let [old (for [^java.io.File d (.listFiles pd)
+             removed (let [sd (io/file pd "sessions")
+                           old (for [^java.io.File d (or (.listFiles sd) [])
                                      :when (and (.isDirectory d) (> (- now (at d)) ttl-ms) (not (held-dir? d)))]
                                  d)
                            gone (vec (for [^java.io.File d old
-                                           :when (delete-tree! pd d)]
-                                       (do (delete-tree! (io/file home "transcripts" (.getName pd))
-                                                         (io/file home "transcripts" (.getName pd) (.getName d)))
+                                           :when (delete-tree! sd d)]
+                                       (do (delete-tree! (io/file pd "transcripts")
+                                                         (io/file pd "transcripts" (.getName d)))
                                            (.getName d))))]
-                       (when-not (some #(.isDirectory ^java.io.File %) (.listFiles pd))
-                         (doseq [k kinds] (delete-tree! (io/file home k) (io/file home k (.getName pd)))))
+                       (when-not (some #(.isDirectory ^java.io.File %) (or (.listFiles sd) []))
+                         (if (false? (:listed? rec))
+                           (projects/remove-project! root (:slug rec))
+                           (doseq [k kinds] (delete-tree! pd (io/file pd k)))))
                        gone)]
          removed)))
     []))

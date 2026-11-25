@@ -8,10 +8,9 @@ that `by` and byj keep one registry on a machine that runs both.
 ## Purpose
 
 A project's own state is in `<project>/.brainyard/`, which travels with the
-repository; its sessions, a person's record of work in it, are in the person's
-home beside the registry, `~/.brainyard/sessions/<slug>/` (RFC-016), keyed as
-the registry is but never inside its folder, which `prune`/`remove` delete
-whole. What the *person* knows about their projects — which there are,
+repository; its sessions, a person's record of work in it, are in the
+project's folder of the registry, `~/.brainyard/projects/<slug>/sessions/`
+(RFC-016's second revision, `byj-84c`). What the *person* knows about their projects — which there are,
 where each is, when each was last opened — has no place there, and
 `~/.brainyard/` was flat. The registry gives each project a folder of its
 own in user scope, `~/.brainyard/projects/<slug>/`, and `byj projects` lists
@@ -53,6 +52,7 @@ registration saw (RFC-075, `byj-339`).
  :git-remote     "git@example.com:o/r.git" ; [remote "origin"] url, read from .git/config; nil when none
  :created-at     #inst "…"                 ; kept across registrations
  :last-opened-at #inst "…"                 ; stamped at each
+ :listed?        false                     ; only on a record ensure-record! wrote; a registration drops it
  :schema-version 1}
 ```
 
@@ -71,6 +71,12 @@ registration saw (RFC-075, `byj-339`).
   beside it and a rename, so a reader never sees half of one.
 - **A record keeps what it does not know.** A newer `by`'s keys are merged
   through a registration, not dropped, and `:created-at` is kept.
+- **One folder, one record** (RFC-016's second revision, S5). A folder a
+  run keeps its sessions in has a record: one never registered — a flow, an
+  evaluation, a loop evaluation's clone — is written `:listed? false`
+  (`ensure-record!`), left out of `list-projects` unless asked for, and
+  removed whole by the gone-project prune with its last session. A
+  registration lists it.
 - **Missing is listed, not dropped.** A record whose directory is not there
   now — deleted, moved (a moved project is a new slug), or on a volume not
   mounted — is listed `(missing)`. It is removed only when a person asks.
@@ -94,7 +100,8 @@ registry's, and the run goes on.
   the `brainyard.projects-home` property, then `BY_PROJECTS_HOME`, then `$HOME`.
 - `project-slug [path]`, `canonical-path [path]`, `project-user-dir [root path]`.
 - `register-project! [root path]` — the record written and returned, or nil.
-- `list-projects [root]` — the records, the last opened first, each with `:missing?`.
+- `ensure-record! [root path]` — a record `:listed? false` written when the folder has none; the record, or nil.
+- `list-projects [root] [root {:unlisted?}]` — the records, the last opened first, each with `:missing?`; `:listed? false` ones only with `:unlisted?`.
 - `project-path-for-slug [root slug]`.
 - `prune-projects! [root]` — every missing record removed; the records removed.
 - `remove-project! [root slug]` — one record removed; it, or nil.
@@ -126,6 +133,7 @@ Config: `:register-project?` (boolean, true).
 | A missing project is listed, and removed only by prune or remove | `projects-test/a-missing-project-is-listed-and-only-pruned-when-asked` |
 | A slug read off disk never aims the delete outside the registry | `projects-test/a-slug-off-disk-never-aims-the-delete-elsewhere` |
 | `byj projects` lists, adds and forgets; prune asks, and removes nothing unanswered | `projects-test/byj-projects-lists-adds-and-forgets` |
+| A folder a run keeps sessions in holds a record, unlisted until the project is registered | `persist-test/a-session-is-kept-in-the-persons-home` |
 | A question registers its project, and a run with `:register-project?` false does not | `projects-test/a-question-registers-its-project-and-a-clones-does-not` |
 | No test registers in the person's registry | `test-run/run` sets `brainyard.projects-home` to the run's own, and every process the run starts gets it as `BY_PROJECTS_HOME` — `fx/start`'s `carried-env`, however the run was started: shards, one image, one namespace, a live nREPL image (`byj-9og`); `test-run/run` fails a run that left a project under this repository or the temporary directory in the person's registry; `effect-test/a-process-started-keeps-off-the-persons-stores-as-this-one-does` |
 

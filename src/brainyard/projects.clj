@@ -185,23 +185,27 @@
 (defn list-projects
   "Every record under `root`, the last opened first, each with `:missing?`
   true when its `:path` is no longer a directory — moved, deleted, or on a
-  volume not mounted now. [] when there is no registry."
-  [root]
-  (or (when root
-        (some->> (.listFiles (io/file root))
-                 (filter #(.isDirectory %))
-                 (keep #(read-record (io/file % project-file)))
-                 (map #(assoc % :missing? (not (.isDirectory (io/file (str (:path %)))))))
-                 (sort-by opened-ms >)
-                 vec))
-      []))
+  volume not mounted now. [] when there is no registry. A record
+  `:listed? false` — a folder a run that is not registered left
+  (`ensure-record!`) — only with `{:unlisted? true}`."
+  ([root] (list-projects root nil))
+  ([root {:keys [unlisted?]}]
+   (or (when root
+         (some->> (.listFiles (io/file root))
+                  (filter #(.isDirectory %))
+                  (keep #(read-record (io/file % project-file)))
+                  (remove #(and (false? (:listed? %)) (not unlisted?)))
+                  (map #(assoc % :missing? (not (.isDirectory (io/file (str (:path %)))))))
+                  (sort-by opened-ms >)
+                  vec))
+       [])))
 
 (defn refresh-index!
   "`index.edn` rewritten from the records: the slug -> path map, or nil when
   there is no root."
   [root]
   (when root
-    (let [entries (into (sorted-map) (map (juxt :slug :path)) (list-projects root))]
+    (let [entries (into (sorted-map) (map (juxt :slug :path)) (list-projects root {:unlisted? true}))]
       (.mkdirs (io/file root))
       (write-edn! (io/file root index-file) {:schema-version schema-version :projects entries})
       entries)))
@@ -241,7 +245,7 @@
   The project itself is never touched."
   [root slug]
   (when root
-    (when-let [rec (first (filter #(= slug (:slug %)) (list-projects root)))]
+    (when-let [rec (first (filter #(= slug (:slug %)) (list-projects root {:unlisted? true})))]
       (when (delete-record-dir! root slug)
         (refresh-index! root)
         rec))))
@@ -259,7 +263,7 @@
             f (io/file dir project-file)
             prev (read-record f)
             now (java.util.Date.)
-            rec (merge (or prev {})
+            rec (merge (dissoc (or prev {}) :listed?)
                        {:path cp
                         :slug (project-slug cp)
                         :name (.getName (io/file cp))
@@ -272,6 +276,33 @@
         (refresh-index! root)
         rec)
       (catch Throwable _ nil))))
+
+(defn ensure-record!
+  "`path`'s folder holds a record: when it has none, one is written
+  `:listed? false` — a folder that a run which is not registered (a flow, an
+  evaluation, a loop evaluation's clone) left its sessions in, which the list
+  leaves out and the gone-project prune removes whole (RFC-016's second
+  revision, S5). A registration later lists it. A record already there is
+  never touched. The record, or nil when there is no root or the write fails."
+  [root path]
+  (when-let [dir (project-user-dir root path)]
+    (let [f (io/file dir project-file)]
+      (or (read-record f)
+          (try
+            (let [cp (canonical-path path)
+                  now (java.util.Date.)
+                  rec {:path cp
+                       :slug (project-slug cp)
+                       :name (.getName (io/file cp))
+                       :listed? false
+                       :created-at now
+                       :last-opened-at now
+                       :schema-version schema-version}]
+              (.mkdirs (io/file dir))
+              (write-edn! f rec)
+              (refresh-index! root)
+              rec)
+            (catch Throwable _ nil))))))
 
 (defn project-path-for-slug
   "The path `slug`'s record names, or nil when it names none. Read from the

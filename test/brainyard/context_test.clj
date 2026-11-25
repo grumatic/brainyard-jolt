@@ -308,7 +308,10 @@
     (is (some? spilled))
     (is (str/includes? text "line 0 ") "the output's head is shown")
     (is (str/includes? text "line 799 ") "and its tail")
-    (is (< 12000 (count text) 16500) "the budget is spent on the output, not wasted")
+    ;; past the budget only by the note, which names where the whole is: a
+    ;; path whose length is the machine's temporary directory's and the
+    ;; project's folder in the home (byj-84c.1)
+    (is (< 12000 (count text) (+ 16500 (* 2 (count (str spilled))))) "the budget is spent on the output, not wasted")
     (is (str/includes? text "the whole of it is") "and it says where the rest is")))
 
 (deftest a-result-past-the-cap-is-spilled-whole-and-cut-at-both-ends

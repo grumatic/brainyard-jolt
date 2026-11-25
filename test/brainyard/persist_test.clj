@@ -10,6 +10,7 @@
             [clojure.test :refer [deftest is testing]]
             [brainyard.json :as json]
             [brainyard.persist :as persist]
+            [brainyard.projects :as projects]
             [brainyard.schema]
             [clojure.edn]
             [jolt.process :as p]
@@ -518,7 +519,7 @@
   (let [dir (fresh-dir "prune-asks")
         c (assoc (config dir) :keep-ask-records 3)]
     (doseq [i (range 10)] (ask-record! c (str "ask-" i) 0))
-    ;; the folder also says whose it is (project.edn); sessions are folders
+    ;; sessions are folders; the project's record is beside the folder (byj-84c.1)
     (is (= 10 (count (filter #(.isDirectory %) (.listFiles (persist/sessions-dir c))))))
 
     (let [{:keys [removed]} (persist/prune! c)]
@@ -671,15 +672,18 @@
                     (str (.getName f) ":" (inc i) " " (str/trim line)))]
     (is (empty? offenders) (str/join "\n" offenders))))
 
-(deftest the-sessions-home-is-the-runs-own-in-a-test
-  ;; byj-7sp.3: where sessions are kept once they are in the home resolves as
-  ;; the registry does — a home given, the property, BY_SESSIONS_HOME, $HOME —
-  ;; and a test run's is its own, never the person's
-  (is (= (io/file "/x" ".brainyard") (persist/sessions-home "/x")) "a home given wins")
-  (is (= (io/file (System/getProperty "brainyard.sessions-home") ".brainyard") (persist/sessions-home))
-      "the run's own")
-  (is (not= (io/file (System/getenv "HOME") ".brainyard") (persist/sessions-home))
-      "never the person's in a test"))
+(deftest the-projects-home-is-the-runs-own-in-a-test
+  ;; byj-84c.1: a project's sessions are kept in its folder of the registry,
+  ;; whose home resolves as it always did — the property, BY_PROJECTS_HOME,
+  ;; $HOME — and a test run's is its own, never the person's
+  (let [c (config (fresh-dir "projects-home"))]
+    (is (= (io/file (projects/projects-root) (projects/project-slug (persist/project-of c)))
+           (persist/project-home c)))
+    (is (str/starts-with? (projects/projects-root) (System/getProperty "brainyard.projects-home"))
+        "the run's own")
+    (is (not (str/starts-with? (.getPath (persist/project-home c))
+                               (str (io/file (System/getenv "HOME") ".brainyard" "projects"))))
+        "never the person's in a test")))
 
 ;; --- sessions in the person's home (RFC-016's revision, byj-7sp.4) ---------------------
 
@@ -700,16 +704,20 @@
 (deftest a-session-is-kept-in-the-persons-home
   (let [dir (fresh-dir "home-kept")
         c (config dir)
-        home (persist/sessions-home)]
+        root (projects/projects-root)]
     (persist/save! c "1700000000001-aaaaaaaa" {:turn-count 1 :previous-turns turns})
-    (testing "under <home>/sessions/<the project's slug>, not the project's .brainyard/"
+    (testing "under <home>/projects/<the project's slug>/sessions, not the project's .brainyard/"
       (is (.isFile (persist/session-file c "1700000000001-aaaaaaaa")))
-      (is (str/starts-with? (.getCanonicalPath (persist/session-dir c "1700000000001-aaaaaaaa"))
-                            (.getCanonicalPath (io/file home "sessions"))))
+      (is (= (.getCanonicalPath (io/file root (projects/project-slug dir) "sessions" "1700000000001-aaaaaaaa"))
+             (.getCanonicalPath (persist/session-dir c "1700000000001-aaaaaaaa"))))
       (is (not (.exists (io/file dir ".brainyard" "sessions")))))
-    (testing "the folder says whose it is"
-      (is (= {:path (persist/project-of c)}
-             (clojure.edn/read-string (slurp (io/file (persist/sessions-dir c) "project.edn"))))))
+    (testing "the folder holds the registry's record of it, unlisted until it is registered (S5)"
+      (let [rec (first (filter #(= (persist/project-of c) (:path %)) (projects/list-projects root {:unlisted? true})))]
+        (is (false? (:listed? rec)))
+        (is (= (projects/project-slug dir) (:slug rec))))
+      (is (not-any? #(= (persist/project-of c) (:path %)) (projects/list-projects root)) "left out of the list")
+      (projects/register-project! root dir)
+      (is (some #(= (persist/project-of c) (:path %)) (projects/list-projects root)) "listed once registered"))
     (testing "a worktree, another path, is a project folder of its own"
       (let [wt (fresh-dir "home-kept-worktree")]
         (is (not= (persist/sessions-dir c) (persist/sessions-dir (config wt))))
@@ -777,7 +785,6 @@
                      d))
         here (config (fresh-dir "prune-gone-here"))]
     (.mkdirs sd)
-    (spit (io/file sd "project.edn") (pr-str {:path gone}))
     (session! "1700000000010-aaaaaaaa" old-ms)
     (session! "1700000000011-bbbbbbbb" (System/currentTimeMillis))
     (session! "1700000000012-cccccccc" old-ms "1")
@@ -794,7 +801,19 @@
           (spit (io/file d "session.edn") (pr-str {:id id :updated-at old-ms}))))
       (persist/prune! here)
       (is (not (.exists sd)))
-      (is (not (.exists (persist/transcripts-dir gc)))))
+      (is (not (.exists (persist/transcripts-dir gc))))
+      (is (not (.exists (persist/project-home gc))) "never registered: its record goes with it (S5)"))
+    (testing "a registered project that is gone keeps its record, listed missing, until a person forgets it"
+      (let [gone2 (str gone "-registered")
+            gc2 {:project-dir gone2 :working-dir gone2}
+            d (io/file (persist/sessions-dir gc2) "1700000000014-eeeeeeee")]
+        (.mkdirs d)
+        (spit (io/file d "session.edn") (pr-str {:id "1700000000014-eeeeeeee" :updated-at old-ms}))
+        (projects/register-project! (projects/projects-root) gone2)
+        (persist/prune! here)
+        (is (not (.exists d)))
+        (is (not (.exists (persist/sessions-dir gc2))))
+        (is (:missing? (first (filter #(= gone2 (:path %)) (projects/list-projects (projects/projects-root))))))))
     (testing "a project that is there keeps its sessions by the rules it had"
       (persist/save! here "1700000000013-dddddddd" {:turn-count 1 :previous-turns turns})
       (persist/prune! (config (fresh-dir "prune-gone-other")))

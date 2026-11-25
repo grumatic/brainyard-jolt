@@ -228,15 +228,14 @@
 (def ^:private carried-properties
   "The properties that keep a process off the person's own stores, each with
   the environment variable a process it starts reads in its place: the
-  project registry (`projects/projects-root`, RFC-074), the sessions' home
-  (`persist/sessions-home`, RFC-016) and the repository
+  project registry (`projects/projects-root`, RFC-074), which keeps each
+  project's sessions too (RFC-016) and the repository
   whose git refs keep no turn (`changes/repo-root`, provenance P-55). A test
   run sets them in its own process; carried to every process it starts, a
   byj one of its tests starts keeps off them too, however the run was
   started — in shards, serial, one namespace, a live nREPL image (byj-9og,
   provenance P-66)."
   {"brainyard.projects-home" "BY_PROJECTS_HOME"
-   "brainyard.sessions-home" "BY_SESSIONS_HOME"
    "brainyard.changes-skip-root" "BY_CHANGES_SKIP_ROOT"})
 
 (defn carried-env

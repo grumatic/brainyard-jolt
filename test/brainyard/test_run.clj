@@ -24,7 +24,7 @@
   []
   (let [d (clojure.java.io/file ".brainyard" "sessions")
         ;; and where a turn here keeps its session since RFC-016's revision:
-        ;; this repository's folder in the run's sessions home (byj-7sp.4)
+        ;; this repository's folder in the run's projects home (byj-84c.1)
         home (persist/sessions-dir {:project-dir (.getCanonicalPath (clojure.java.io/file "."))})
         refs (try (->> (:out (fx/sh {:out :string :err :string} "git" "for-each-ref" "--format=%(refname)" "refs/byj/"))
                        str clojure.string/split-lines (remove clojure.string/blank?))
@@ -40,24 +40,6 @@
   points at a home of its own."
   [root]
   (let [d (some-> (System/getenv "HOME") (clojure.java.io/file ".brainyard" "projects"))
-        tmp (System/getProperty "java.io.tmpdir")
-        unders (distinct (remove clojure.string/blank?
-                                 [root tmp (some-> tmp clojure.java.io/file .getCanonicalPath)]))
-        under? (fn [p] (some #(clojure.string/starts-with? (str p) (str %)) unders))]
-    (into {} (for [f (some-> d .listFiles)
-                   :let [rec (try (clojure.edn/read-string (slurp (clojure.java.io/file f "project.edn")))
-                                  (catch Throwable _ nil))]
-                   :when (and (map? rec) (under? (:path rec)))]
-               [(.getName f) (:path rec)]))))
-
-(defn- person-sessions
-  "The project folders of the PERSON'S sessions home (~/.brainyard/sessions,
-  RFC-016's revision) whose project a test could have made — under this
-  repository or the temporary directory — as `{folder path}`, each folder's
-  `project.edn` saying its project. Read from $HOME, not
-  `persist/sessions-home`, which the run points at a home of its own."
-  [root]
-  (let [d (some-> (System/getenv "HOME") (clojure.java.io/file ".brainyard" "sessions"))
         tmp (System/getProperty "java.io.tmpdir")
         unders (distinct (remove clojure.string/blank?
                                  [root tmp (some-> tmp clojure.java.io/file .getCanonicalPath)]))
@@ -163,22 +145,20 @@
         ;; shares through (share/relay-of, byj-1wv.134): one of the run's own, empty
         _ (System/setProperty "brainyard.share-home" (.getCanonicalPath (doto (clojure.java.io/file "target/test-share-home") .mkdirs)))
         ;; nor the person's project registry (~/.brainyard/projects, RFC-074),
-        ;; which every session and question a test starts registers in: a
-        ;; home of the run's own
-        _ (System/setProperty "brainyard.projects-home" (.getCanonicalPath (doto (clojure.java.io/file "target/test-projects-home") .mkdirs)))
-        ;; nor the person's sessions, once they are kept in the home (RFC-016's
-        ;; revision, byj-7sp): a home of the run's own, carried to every
-        ;; process the run starts (fx/carried-env)
+        ;; which every session and question a test starts registers in, and
+        ;; which keeps each project's sessions (RFC-016's second revision,
+        ;; byj-84c.1): a home of the run's own, carried to every process the
+        ;; run starts (fx/carried-env)
         ;; Emptied as the run starts, and one per process — a shard's, or the
         ;; run's in one image — so a test's project made again at its path
         ;; (fresh-dir) meets no session an earlier run or shard left there:
         ;; deleting the project no longer deletes its sessions
         ;; Outside the repository, so a recursive read of it holds no
-        ;; sessions folder a gate would refuse (byj-7sp.6): in the temporary
+        ;; project's folder a gate would refuse (byj-7sp.6): in the temporary
         ;; directory, named for this checkout
-        _ (System/setProperty "brainyard.sessions-home"
+        _ (System/setProperty "brainyard.projects-home"
                               (let [d (clojure.java.io/file (System/getProperty "java.io.tmpdir")
-                                                            (str "byj-test-sessions-" (Math/abs (hash (repo-root))))
+                                                            (str "byj-test-projects-" (Math/abs (hash (repo-root))))
                                                             (or (System/getenv "BY_TEST_SHARD") "main"))]
                                 (fx/sh {:out :string :err :string} "rm" "-rf" (.getPath d))
                                 (.getCanonicalPath (doto d .mkdirs))))
@@ -192,7 +172,6 @@
         _ (System/setProperty "brainyard.changes-skip-root" (repo-root))
         before (own-sessions)
         registered (person-registered (repo-root))
-        kept-before (person-sessions (repo-root))
         nested (nested-deftests)
         times (atom {})
         {:keys [fail] :as summary} (reduce (fn [acc n]
@@ -208,10 +187,7 @@
         ;; (byj-9og, provenance P-66): the processes a run starts get its projects home (fx/carried-env)
         strays (sort (concat
                       (for [[slug path] (apply dissoc (person-registered (repo-root)) (keys registered))]
-                        (str slug " (" path ")"))
-                      ;; a session a test's byj kept in the person's sessions home
-                      (for [[slug path] (apply dissoc (person-sessions (repo-root)) (keys kept-before))]
-                        (str "sessions/" slug " (" path ")"))))
+                        (str slug " (" path ")"))))
         ;; every result any test produced, from a tool with an :output-schema,
         ;; held to it: the suite is the conformance check (RFC-030, byj-gly.199)
         mismatched (->> (schema/recorded-outputs) (filter :problems) (group-by :tool-name))]
@@ -291,10 +267,7 @@
                                                       "BY_TEST_NSES" (clojure.string/join "," nses)
                                                       ;; and every process a shard's test starts
                                                       ;; inherits it (provenance P-55)
-                                                      "BY_CHANGES_SKIP_ROOT" (repo-root)
-                                                      ;; and registers in no person's
-                                                      ;; registry (RFC-074)
-                                                      "BY_PROJECTS_HOME" (.getCanonicalPath (doto (clojure.java.io/file "target/test-projects-home") .mkdirs)))
+                                                      "BY_CHANGES_SKIP_ROOT" (repo-root))
                                           :out :string :err :string}
                                          "sh" "-c" (str "exec jolt -M:test > " log " 2>&1"))}))
                     shards))

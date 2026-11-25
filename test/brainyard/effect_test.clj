@@ -561,9 +561,5 @@
       (is (= home (echo {"PATH" (System/getenv "PATH")}))))
     (testing "a value the caller gave is kept"
       (is (= "/elsewhere" (echo {"PATH" (System/getenv "PATH") "BY_PROJECTS_HOME" "/elsewhere"}))))
-    (testing "the sessions' home too (byj-7sp.3)"
-      (is (= (System/getProperty "brainyard.sessions-home")
-             (str/trim (str (:out (fx/sh {:out :string :err :string} "sh" "-c" "printf %s \"$BY_SESSIONS_HOME\""))))))
-      (is (not-empty (System/getProperty "brainyard.sessions-home")) "the runner set it"))
     (testing "nothing to carry, nothing added"
-      (is (nil? (fx/carried-env {"BY_PROJECTS_HOME" "x" "BY_SESSIONS_HOME" "z" "BY_CHANGES_SKIP_ROOT" "y"}))))))
+      (is (nil? (fx/carried-env {"BY_PROJECTS_HOME" "x" "BY_CHANGES_SKIP_ROOT" "y"}))))))

@@ -24,6 +24,7 @@
             [brainyard.effect :as fx]
             [brainyard.events :as events]
             [brainyard.persist :as persist]
+            [brainyard.projects :as projects]
             [brainyard.profile :as profile]
             [brainyard.toolbox :as toolbox]))
 
@@ -346,26 +347,26 @@
 
 (defn foreign-sessions
   "What path `p` reaches of another project's sessions, transcripts or tasks
-  in the home (RFC-016's revision, byj-7sp.6): another project's folder
-  `<home>/.brainyard/<kind>/<slug>` it is in, or the `<kind>` folder (or one
-  above it) it would read them all through; nil for this project's own
+  in the home (RFC-016's revision, byj-7sp.6): kept in each project's folder
+  of the registry since its second revision (byj-84c.1),
+  `<projects-root>/<slug>/<kind>`. Another project's `<kind>` folder it is
+  in, or a folder above them (the registry's, or another project's own) it
+  would read them all through; nil for this project's own
   (`persist/own-folders`), anything else, or when `:session-dirs-shared?`
-  opens them. `{:folder :holds?}`, `:holds?` when `p` is the `<kind>`
-  folder or above it: what lists names alone opens nothing of them there."
+  opens them. `{:folder :holds?}`, `:holds?` when `p` is a folder above
+  them: what lists names alone opens nothing of them there."
   [ctx p]
   (when-not (config ctx :session-dirs-shared? false)
-    (when-let [home (persist/sessions-home)]
-      (let [cp (canonical p)
-            own (persist/own-folders (:config ctx))]
-        (first (for [k persist/kinds
-                     :let [kroot (canonical (io/file home k))]
-                     hit [(cond
-                            (under? cp kroot) {:folder kroot :holds? true}
-                            (under? kroot cp)
-                            (let [slug (first (str/split (subs cp (inc (count kroot))) #"/"))]
-                              (when-not (own slug) {:folder (str kroot "/" slug) :holds? false})))]
-                     :when hit]
-                 hit))))))
+    (when-let [root (some-> (projects/projects-root) canonical)]
+      (let [cp (canonical p)]
+        (cond
+          (under? cp root) {:folder root :holds? true}
+          (under? root cp)
+          (let [[slug kind] (str/split (subs cp (inc (count root))) #"/")]
+            (when-not ((persist/own-folders (:config ctx)) slug)
+              (cond
+                (nil? kind) {:folder (str root "/" slug) :holds? true}
+                ((set persist/kinds) kind) {:folder (str root "/" slug "/" kind) :holds? false}))))))))
 
 (defn holds-only?
   "Does `path` only hold `:denied-paths` entry `d` — a directory above it,
