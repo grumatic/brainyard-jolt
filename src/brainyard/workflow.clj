@@ -718,8 +718,14 @@
         w (words)
         n (num-of (:run args))
         run (when n (read-run dir n))]
-    (if-not run
+    (cond
+      (not run)
       {:stop true :stopped (str "No run " (:run args) ".") :brief "" :stage ""}
+      ;; stopped from outside its session (byj workflow stop, byj-cm4.4): the
+      ;; record says so, and the run ends here, as it is
+      (not= :running (:status run))
+      {:stop true :stopped (str (:stopped run)) :brief "" :stage "" :elsewhere false}
+      :else
       (let [p (profile/read-profile dir)
             tl (drive/tools config args dir p)
             i (:at run)
@@ -814,8 +820,12 @@
   (let [dir (dir-of config args)
         n (num-of (:run args))
         run (when n (read-run dir n))]
-    (if-not run
+    (cond
+      (not run)
       {:answer (str "(no run " (:run args) ")") :usage {}}
+      (not= :running (:status run))
+      {:answer (str "(the run was stopped: " (:stopped run) ")") :usage {}}
+      :else
       (let [i (:at run)
             {:keys [place] :as st} (nth (:stages run) i)
             k (:key place)
@@ -956,6 +966,35 @@
                                   (given (:note args)) (assoc :note (str/trim (str (:note args))))))
                 {:text (str "Kept with run #" n ": " (name v)
                             (when (given (:note args)) (str " — " (str/trim (str (:note args))))) ".")}))))
+
+(defn stop-run
+  "`byj workflow stop N` (byj-cm4.4): end run `:run`, running or paused,
+  from outside the session running it — a client listing the runs, the
+  person at a shell. It is marked stopped with why (`:why`, else the
+  person's word), its claim released, and a line logged. Its session reads
+  the record between steps (`workflow$settle`, `workflow$delegate`) and ends
+  the run there; its report closes the sessions the run started.
+  `{:ok :text}`, `:ok` false for a run that is not there or not running."
+  [config args]
+  (let [dir (dir-of config args)
+        w (words)
+        n (num-of (:run args))
+        run (when n (read-run dir n))]
+    (cond
+      (nil? run) {:ok false :text (str "No run " (:run args) ".")}
+      (not (#{:running :paused} (:status run)))
+      {:ok false :text (fill (get-in w [:stops :not-running]) {:n n :status (id-name (:status run))})}
+      :else
+      (let [p (profile/read-profile dir)
+            tl (drive/tools config args dir p)
+            why (or (given (some-> (:why args) str str/trim)) (get-in w [:stops :by-person]))
+            run (-> run
+                    (assoc :status :stopped :stopped why :ended-at (now))
+                    (update :log (fnil conj []) (str "■ " why)))
+            released (release-item! tl run)
+            run (cond-> run released (update :log conj released))]
+        (write-run! dir run)
+        {:ok true :text (str "Run #" n " stopped: " why (when released (str "\n" released)))}))))
 
 ;; --- the commands -------------------------------------------------------------------
 

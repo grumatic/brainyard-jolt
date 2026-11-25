@@ -427,3 +427,24 @@
         (is (= "fixed" (:answer r)))
         (is (= {} (:usage r)) "not said as this tool's spend: session$ask counted it already")
         (is (= 0.25 (:usd (workflow/read-run dir run))))))))
+
+(deftest a-run-stopped-from-outside-ends-at-its-next-step
+  ;; byj-cm4.4: byj workflow stop marks it; its own session ends it there
+  (let [{:keys [bin dir cfg]} (run-setup "stop" {:preset :collaborator :issues [{:tracker :beads}]})
+        {:keys [run]} (workflow/start-run cfg {} {:workflow "fix" :work "t-2 keep it small"})]
+    (is (some #(= "update t-2 --claim" %) (bd-calls bin)))
+    (is (:ok (workflow/stop-run cfg {:run run})))
+    (let [kept (workflow/read-run dir run)]
+      (is (= :stopped (:status kept)))
+      (is (= "Stopped by the person." (:stopped kept)))
+      (is (= ["■ Stopped by the person." "↺ t-2 released: the run did not finish it"] (:log kept))))
+    (is (some #(= "unclaim t-2" %) (bd-calls bin)) "its claim released")
+    (testing "the session running it ends there, writing nothing"
+      (let [before (slurp (workflow/run-file dir run))
+            r (workflow/settle-stage cfg {} {:run run :status "done" :summary "did it" :answer "Done."})]
+        (is (true? (:stop r)))
+        (is (= "Stopped by the person." (:stopped r)))
+        (is (= before (slurp (workflow/run-file dir run))))
+        (is (str/includes? (:answer (workflow/delegate-stage cfg {} {:run run :brief "b"})) "the run was stopped"))))
+    (is (false? (:ok (workflow/stop-run cfg {:run run}))) "a run not running")
+    (is (false? (:ok (workflow/stop-run cfg {:run 9}))) "a run not there")))

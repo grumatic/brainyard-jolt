@@ -150,6 +150,10 @@ person's word on one — `pass`, `changes` or `fail`, and a note.
    The profile's `:failures` (turns in a row judged unfinished) and `:usd`
    stop it too. A run that ends unfinished releases its claim. Each step is
    a line of the run's log.
+   A run stopped from outside its session (`byj workflow stop N`, below;
+   `byj-cm4.4`) is marked so in its record; its session reads the record at
+   `workflow$settle` and `workflow$delegate`, and ends the run there as it
+   is, writing nothing over it.
 6. **`workflow$report`** is the answer: each line, why the run ended, and
    the commits since it began, with how to give a verdict. A run the step
    limit (`:workflow-max-steps`, 30) ended with a stage still to go is
@@ -221,7 +225,8 @@ or remove, and lists the commits in each.
   (newest first).
 - `stage-attempts [config]`.
 - `list-runs [config args]` → `{:text}`; `record-verdict [config args]` →
-  `{:text}`.
+  `{:text}`; `stop-run [config args]` → `{:ok :text}` (`byj-cm4.4`): args
+  `:run`, `:why`.
 - `start-run [config ctx args]` → `{:stop :stopped :run :brief :master}`.
 - `check-stage [config args]` → `{:text}`.
 - `settle-stage [config ctx args]` → `{:stop :stopped :brief :stage
@@ -265,7 +270,13 @@ The CLI:
 ```
 byj workflow runs [N] [-C DIR] [--json]               the runs, newest first, or run N
 byj workflow verdict N pass|changes|fail [NOTE…]      the person's word on run N, kept with it
+byj workflow stop N [WHY…]                            run N, running or paused, stopped from outside its session
 ```
+
+`stop` marks the run stopped with why (WHY, else "Stopped by the person."),
+logs it, and releases its issue's claim; the session running it ends the run
+at its next step. `--json` answers `{ok, run}` or `{error}`; a run not there
+or not running exits 1.
 
 `--json`'s runs are the records above, their keys as the file names them.
 A run that is not there exits 1, and so does a verdict refused. The shape is
@@ -303,6 +314,7 @@ Config:
 | A stage in a session of its own is asked its brief there, the same session again while it is live; the report closes it and says the worktree | `workflow-test/a-stage-in-a-session-of-its-own-is-asked-there` |
 | What a stage's own session spent is the run's, toward the profile's `:usd`, and counted once | `workflow-test/a-stage-worked-elsewhere-spends-the-runs-budget` |
 | `byj workflow runs --json` gives the runs as data, one or all, and `byj workflow verdict` keeps the person's word; a run not there, or a verdict refused, exits 1 | `main-test/byj-workflow-gives-the-runs-as-data-and-keeps-a-verdict` |
+| `byj workflow stop` stops a running run from outside its session, its claim released; its session ends the run at its next step, writing nothing over the record | `workflow-test/a-run-stopped-from-outside-ends-at-its-next-step`, `main-test/byj-workflow-gives-the-runs-as-data-and-keeps-a-verdict` |
 | The runs' shape is byj's contract | `contract-test/a-workflows-runs-are-byjs-contract` |
 
 ## Known gaps

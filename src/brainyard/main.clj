@@ -2241,10 +2241,11 @@
       (do (err-println "usage: byj deps [--json] | byj deps write [--local] [--json] < NEW.json") 2))))
 
 (defn- workflow-command
-  "`byj workflow runs [N] [--json]` and `byj workflow verdict N
-  pass|changes|fail [NOTE…]` (byj-edw.4, RFC-076): the runs /workflow keeps
-  — `.brainyard/workflow-runs/` — as data for a client, and the person's
-  word on one kept with it."
+  "`byj workflow runs [N] [--json]`, `byj workflow verdict N
+  pass|changes|fail [NOTE…]` and `byj workflow stop N [WHY…]` (byj-edw.4,
+  byj-cm4.4, RFC-076): the runs /workflow keeps — `.brainyard/workflow-runs/`
+  — as data for a client, the person's word on one kept with it, and a
+  running one stopped from outside its session."
   [{:keys [questions json]} dir]
   (let [[sub & more] questions
         out (fn [x] (println (json/write-str x)))
@@ -2268,8 +2269,14 @@
         (if json (out (if ok? {:ok true :run n} {:error text})) (println text))
         (if ok? 0 1))
 
+      (and (= "stop" sub) n)
+      (let [{:keys [ok text]} (workflow/stop-run {:project-dir dir}
+                                                 {:run n :why (not-empty (str/join " " (rest more)))})]
+        (if json (out (if ok {:ok true :run n} {:error text})) (println text))
+        (if ok 0 1))
+
       :else
-      (do (err-println "usage: byj workflow runs [N] [--json] | byj workflow verdict N pass|changes|fail [NOTE]") 2))))
+      (do (err-println "usage: byj workflow runs [N] [--json] | byj workflow verdict N pass|changes|fail [NOTE] | byj workflow stop N [WHY]") 2))))
 
 (defn- profile-command
   "`byj profile [--json]` and `byj profile write [--json]` (byj-ph3,

@@ -618,6 +618,17 @@
       (is (= {:ok true :run 1} (json/read-str (:out (wf! "verdict" "1" "pass" "looks" "good" "--json")))))
       (is (= "looks good" (:note (edn/read-string (slurp f)))))
       (is (= 1 (:exit (wf! "verdict" "1" "meh")))))
+    (testing "a running run stopped from outside its session (byj-cm4.4)"
+      (spit (io/file dir ".brainyard" "workflow-runs" "2.edn")
+            (pr-str {:n 2 :workflow :fix :status :running :work "w" :stages [{:stage :implement :status :working}] :log []}))
+      (is (= {:ok true :run 2} (json/read-str (:out (wf! "stop" "2" "not" "now" "--json")))))
+      (let [r (edn/read-string (slurp (io/file dir ".brainyard" "workflow-runs" "2.edn")))]
+        (is (= :stopped (:status r)))
+        (is (= "not now" (:stopped r)))
+        (is (= ["■ not now"] (:log r))))
+      (is (= 1 (:exit (wf! "stop" "2"))) "it is not running now")
+      (is (= 1 (:exit (wf! "stop" "1"))) "nor is a run that is done")
+      (is (str/includes? (:out (wf! "stop" "1")) "Run #1 is not running: it is done.")))
     (is (= 2 (:exit (wf! "bogus"))))))
 
 (deftest byj-doctor-json-gives-the-report-as-data
