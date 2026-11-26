@@ -73,6 +73,9 @@
          :left "The run ended without its report: its session is over."
          ;; byj workflow stop (byj-cm4.4)
          :by-person "Stopped by the person."
+         ;; byj workflow remove (byj-frz)
+         :not-removable "Run #{n} is {status}: byj workflow stop {n} ends it, then it can be removed."
+         :removed "Run #{n} removed: its sessions, branch and worktree are left as they are."
          ;; handed on by hand, and resumed (byj-cm4.1)
          :paused "Run #{n} waits for you before stage {stage}: /workflow resume {n} hands it on."
          :running-elsewhere "Run #{n} is running in session {session}: stop it there, or with byj workflow stop {n}, first."

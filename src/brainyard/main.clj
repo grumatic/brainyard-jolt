@@ -2350,8 +2350,8 @@
 
 (defn- workflow-command
   "`byj workflow runs [N] [--json]`, `byj workflow verdict N
-  pass|changes|fail [NOTE…]` and `byj workflow stop N [WHY…]` (byj-edw.4,
-  byj-cm4.4, RFC-076): the runs /workflow keeps — `~/.brainyard/projects/<slug>/workflow-runs/`
+  pass|changes|fail [NOTE…]`, `byj workflow stop N [WHY…]` and `byj workflow
+  remove N` (byj-edw.4, byj-cm4.4, byj-frz, RFC-076): the runs /workflow keeps — `~/.brainyard/projects/<slug>/workflow-runs/`
   — as data for a client, the person's word on one kept with it, and a
   running one stopped from outside its session."
   [{:keys [questions json]} dir]
@@ -2383,8 +2383,13 @@
         (if json (out (if ok {:ok true :run n} {:error text})) (println text))
         (if ok 0 1))
 
+      (and (= "remove" sub) n (= 1 (count more)))
+      (let [{:keys [ok text]} (workflow/remove-run {:project-dir dir} {:run n})]
+        (if json (out (if ok {:ok true :run n} {:error text})) (println text))
+        (if ok 0 1))
+
       :else
-      (do (err-println "usage: byj workflow runs [N] [--json] | byj workflow verdict N pass|changes|fail [NOTE] | byj workflow stop N [WHY]") 2))))
+      (do (err-println "usage: byj workflow runs [N] [--json] | byj workflow verdict N pass|changes|fail [NOTE] | byj workflow stop N [WHY] | byj workflow remove N") 2))))
 
 (defn- profile-command
   "`byj profile [--json]` and `byj profile write [--json]` (byj-ph3,

@@ -481,6 +481,23 @@
     (is (false? (:ok (workflow/stop-run cfg {:run run}))) "a run not running")
     (is (false? (:ok (workflow/stop-run cfg {:run 9}))) "a run not there")))
 
+(deftest an-ended-run-is-removed-and-its-number-never-given-again
+  ;; byj-frz: byj workflow remove; refused while it runs
+  (let [{:keys [dir cfg]} (run-setup "remove" {:preset :collaborator :issues [{:tracker :beads}]})
+        {:keys [run]} (workflow/start-run cfg {} {:workflow "fix" :work "t-2 keep it small"})]
+    (is (false? (:ok (workflow/remove-run cfg {:run run}))) "a running run is not removed")
+    (is (some? (workflow/read-run dir run)))
+    (workflow/stop-run cfg {:run run})
+    (let [r (workflow/remove-run cfg {:run run})]
+      (is (:ok r))
+      (is (str/includes? (:text r) (str "Run #" run " removed"))))
+    (is (nil? (workflow/read-run dir run)))
+    (is (not (some #(= run (:n %)) (workflow/runs dir))))
+    (is (false? (:ok (workflow/remove-run cfg {:run run}))) "a run not there")
+    (testing "the next run takes the number after it, not its"
+      (let [{n :run} (workflow/start-run cfg {} {:workflow "fix" :work "t-3 another"})]
+        (is (= (inc run) n))))))
+
 (deftest a-run-in-a-worktree-builds-on-a-branch
   ;; byj-cm4.3: its worktree starts from the branch named, not HEAD
   (let [{:keys [dir cfg]} (run-setup "from" {:preset :collaborator :issues [{:tracker :beads}]})]

@@ -359,6 +359,7 @@ The CLI:
 byj workflow runs [N] [-C DIR] [--json]               the runs, newest first, or run N
 byj workflow verdict N pass|changes|fail [NOTE…]      the person's word on run N, kept with it
 byj workflow stop N [WHY…]                            run N, running or paused, stopped from outside its session
+byj workflow remove N                                 an ended run's record removed (byj-frz); no later run is given N
 ```
 
 `stop` marks the run stopped with why (WHY, else "Stopped by the person."),
@@ -411,6 +412,7 @@ Config:
 | What a stage's own session spent is the run's, toward the profile's `:usd`, and counted once | `workflow-test/a-stage-worked-elsewhere-spends-the-runs-budget` |
 | `byj workflow runs --json` gives the runs as data, one or all, and `byj workflow verdict` keeps the person's word; a run not there, or a verdict refused, exits 1 | `main-test/byj-workflow-gives-the-runs-as-data-and-keeps-a-verdict` |
 | `byj workflow stop` stops a running run from outside its session, its claim released; its session ends the run at its next step, writing nothing over the record | `workflow-test/a-run-stopped-from-outside-ends-at-its-next-step`, `main-test/byj-workflow-gives-the-runs-as-data-and-keeps-a-verdict` |
+| `byj workflow remove` removes an ended run's record, refused while it runs, leaving its sessions, branch and worktree; the next run's number stays above it (`.last-n`) | `workflow-test/an-ended-run-is-removed-and-its-number-never-given-again` |
 | The runs' shape is byj's contract | `contract-test/a-workflows-runs-are-byjs-contract` |
 
 ## Known gaps

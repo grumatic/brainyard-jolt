@@ -400,6 +400,15 @@
     (when-not (.renameTo tmp f) (io/copy tmp f) (.delete tmp))
     run))
 
+(defn- last-n-file [dir] (io/file (runs-dir dir) ".last-n"))
+
+(defn- last-n
+  "The highest number a removed run had (byj-frz), 0 when none was: a new
+  run's number stays above it, so it never names a removed run's branch,
+  worktree folder or sessions' labels."
+  [dir]
+  (or (try (some-> (last-n-file dir) slurp str/trim parse-long) (catch Throwable _ nil)) 0))
+
 (defn runs
   "Every run kept for the project at `dir`, newest first."
   [dir]
@@ -673,7 +682,7 @@
       :else
       (let [item (item-of tl work)
             {:keys [Kind]} (when item (get-in (drive/words) [:kinds (if (drive/github-id? (:id item)) :github :beads)]))
-            n (inc (reduce max 0 (map :n (runs dir))))
+            n (inc (reduce max (last-n dir) (map :n (runs dir))))
             wt (when (and isolate? (not given-root))
                  (worktree/add! dir (io/file (runs-dir dir) (str n) "worktree") (str "workflow/" (id-name wid) "-" n) from))
             stages (order wf)
@@ -1207,6 +1216,31 @@
             run (cond-> run released (update :log conj released))]
         (write-run! dir run)
         {:ok true :text (str "Run #" n " stopped: " why (when released (str "\n" released)))}))))
+
+(defn remove-run
+  "`byj workflow remove N` (byj-frz): run `:run`'s record removed, for a
+  client listing the runs that the person is done with. Refused while it is
+  running or paused (`byj workflow stop` first). Its sessions, its branch and
+  its worktree are left as they are; the folder beside the record its
+  worktree was made in goes only when nothing is left in it. Its number is
+  kept as the last given (`.last-n`), so no later run takes it.
+  `{:ok :text}`, `:ok` false for a run that is not there or not ended."
+  [config args]
+  (let [dir (dir-of config args)
+        w (words)
+        n (num-of (:run args))
+        run (when n (read-run dir n))]
+    (cond
+      (nil? run) {:ok false :text (str "No run " (:run args) ".")}
+      (#{:running :paused} (:status run))
+      {:ok false :text (fill (get-in w [:stops :not-removable]) {:n n :status (id-name (:status run))})}
+      :else
+      (let [f (run-file dir n)
+            folder (io/file (runs-dir dir) (str n))]
+        (when (> n (last-n dir)) (spit (last-n-file dir) (str n "\n")))
+        (io/delete-file f true)
+        (when (and (.isDirectory folder) (empty? (.list folder))) (io/delete-file folder true))
+        {:ok true :text (fill (get-in w [:stops :removed]) {:n n})}))))
 
 (defn resume-run
   "`workflow$resume` (byj-cm4.1): go on with run `:run` from the stage it is
