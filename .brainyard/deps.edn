@@ -1,0 +1,63 @@
+{:schema-version 1,
+ :projects
+ {:brainyard
+  {:kind :reference,
+   :git "git@github.com:grumatic/brainyard.git",
+   :path "../brainyard"}},
+ :roles
+ {:master
+  {:title "Master",
+   :does
+   "Supervise runs. Follow how each stage goes, read the run's summary, and report which issues were closed, what review filed, and what the person must decide next, such as publishing."},
+  :design
+  {:title "Design",
+   :does
+   "Work out a change before code is written. Read the affected RFC in docs/RFCS and, for a port, brainyard's source and design doc. Decide where each piece goes: mechanism in src/, behaviour in loop trees, predictor specs and prompts. Update or add the RFC with its API and invariants, name the test that enforces each invariant, and file issues in the profile's issue tracker for follow-up work."},
+  :implement
+  {:title "Implement",
+   :does
+   "Claim an issue in the profile's issue tracker and make the change. Keep behaviour in resources/brainyard and only mechanism in src/. Add tests, record intentional differences from brainyard in docs/divergences.md and docs/divergences.edn, and update the affected RFC in the same change. Run the relevant tests, the divergences and contract tests, and dev/cold-load.sh. Commit signed off with the person's own identity and close the issue with a reason."},
+  :review
+  {:title "Review",
+   :does
+   "Check the change against the repository rules and the project's done criteria: behaviour kept out of src/, RFC and divergences updated, tests and cold-load passing, source-file licence headers present, jolt differences respected. File each finding as an issue in the profile's issue tracker rather than editing the change."}},
+ :workflows
+ {:feature
+  {:title "Feature",
+   :does
+   "A new capability from design through implementation to review.",
+   :master :master,
+   :stages
+   {:design {:title "Design the change"},
+    :implement {:title "Implement the change"},
+    :review {:title "Review the change"}},
+   :links
+   [{:from :design,
+     :to :implement,
+     :gives [{:kind :file, :paths ["docs/RFCS"]} {:kind :note}]}
+    {:from :implement, :to :review, :gives [{:kind :note}]}]},
+  :fix
+  {:title "Fix",
+   :does "A defect fixed and then reviewed.",
+   :master :master,
+   :stages
+   {:implement {:title "Fix the defect"},
+    :review {:title "Review the fix"}},
+   :links
+   [{:from :implement,
+     :to :review,
+     :gives [{:kind :branch} {:kind :note}]}]},
+  :port
+  {:title "Port a brainyard subsystem",
+   :does
+   "Port one brainyard subsystem to jolt, read against brainyard's source and design doc, then implement and review it.",
+   :master :master,
+   :stages
+   {:design {:title "Read brainyard and plan the port"},
+    :implement {:title "Port the subsystem"},
+    :review {:title "Review the port"}},
+   :links
+   [{:from :design,
+     :to :implement,
+     :gives [{:kind :note} {:kind :file, :paths ["docs/RFCS"]}]}
+    {:from :implement, :to :review, :gives [{:kind :note}]}]}}}

@@ -21,3 +21,6 @@
 /loops/evals/
 /deps-local.edn
 /worktrees/
+
+# this repository's own: task sets built from its sessions keep what was asked in them (loops tasks build, RFC-071)
+/loops/tasks/
