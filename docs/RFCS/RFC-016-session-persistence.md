@@ -639,7 +639,7 @@ the project's runtime there. A divergence,
   one by its `.brainyard/`, which is byj's home. A divergence from
   brainyard's `resolve-project-dir`: a project outside git run from its
   subdirectory is one project, not one per directory.
-- **S3 Only byj makes a slug.** A program asks: `byj projects list --json`,
+- **S3 Only byj makes a slug.** A program asks: `byj project list --json`,
   `byj project path --json`.
 - **S4 A worktree is keyed by its own path**, as decided; its record says
   `:worktree-of` its main checkout's slug. Its checkout lies in the main
@@ -647,10 +647,10 @@ the project's runtime there. A divergence,
 - **S5 One folder, one record.** Writing to a project's folder writes its
   record. A run that is not registered (`:register-project? false`: a flow,
   a program's evaluation, a loop evaluation's clone) writes it with
-  `:listed? false`, which `byj projects` leaves out, and the gone-project
+  `:listed? false`, which `byj project` leaves out, and the gone-project
   prune removes it with its last session.
 - **S6 A project moved or renamed is a new slug.** Its old folder is a gone
-  project's, kept until `:session-ttl-days`. `byj projects move OLD-SLUG
+  project's, kept until `:session-ttl-days`. `byj project move OLD-SLUG
   [DIR]` adopts it: the folder renamed, its record and each session's
   `meta.edn` `:project-dir` rewritten; refused when the new slug has a
   folder or a session is held. Nothing is matched by guessing.
@@ -696,7 +696,7 @@ the project's runtime there. A divergence,
    `projects/ensure-record!`).
 2. The project root's `.brainyard/` step (`byj-84c.2`, built:
    `config/find-brainyard-root`).
-3. The registry keeps runtime: prune and remove by the TTL, `byj projects
+3. The registry keeps runtime: prune and remove by the TTL, `byj project
    move`, `:worktree-of` (`byj-84c.3`, built: RFC-074).
 4. The rest of what a run leaves, through one function, with migration, and
    `byj project path` (`byj-84c.4`, built: `projects/runtime-path`).

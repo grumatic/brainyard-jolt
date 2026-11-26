@@ -88,13 +88,14 @@
 (defn- effects [s] (set (map keyword (globs s))))
 
 (def ^:private command-names
-  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "projects" "project" "config" "deps" "profile" "workflow"})
+  #{"ask" "run" "programs" "flow" "session" "update" "init" "doctor" "agent" "acp" "emacs" "turns" "hook" "loops" "project" "config" "deps" "profile" "workflow"})
 
 (def ^:private command-aliases
   "Old names a command still answers to: `sessions` (brainyard's `by
   sessions`) and `agents`, singular since byj-gly.435 — `session list`,
-  `agent NAME` — and kept for scripts and a byj-share that asks by the old one."
-  {"sessions" "session" "agents" "agent"})
+  `agent NAME` — and `projects` (brainyard's `by projects`), one with `project`
+  since byj-84c, kept for scripts and the programs that ask by the old one."
+  {"sessions" "session" "agents" "agent" "projects" "project"})
 
 (defn- settle-command
   "The command the parsed words come to. None named is `run`, a session,
@@ -555,31 +556,27 @@
       (:exists loc) (do (println (:dir loc)) 0)
       :else (do (err-println (str "no session " (:session-id loc) " in " (:project-dir loc))) 1))))
 
-(defn- project-command
+(def ^:private home-kinds
+  "Every kind of what a project's runs leave that byj keeps in its folder of
+  the registry, as `byj project path KIND` names them."
+  (-> (vec persist/kinds) (into projects/runtime-kinds) (into (keys projects/partial-kinds))))
+
+(defn- project-path
   "`byj project path [KIND] [--json]` (RFC-016's second revision, byj-84c):
   where this project keeps what its runs leave — its folder in the registry,
   or one KIND of it (`sessions`, `logs`, `workflow-runs`, `todos` …) — so a
   program, an editor or a script reads it through byj and never builds the
   path or works out a slug (S3). `--json` gives `{project-dir dir kinds}`, or
-  `{project-dir kind path exists}` for one. Exit 1 for a KIND byj does not
-  keep, 2 for another subcommand."
-  [{:keys [questions json]} config]
-  (let [[sub kind] questions
-        kinds (-> (vec persist/kinds) (into projects/runtime-kinds) (into (keys projects/partial-kinds)))
-        pd (persist/project-of config)]
-    (cond
-      (not= "path" (or sub "path"))
-      (do (err-println (str "project: unknown subcommand " (pr-str sub) " — path")) 2)
-      (str/blank? (str kind))
+  `{project-dir kind path exists}` for one. The exit code."
+  [kind json config]
+  (let [pd (persist/project-of config)]
+    (if (str/blank? (str kind))
       (let [d (.getCanonicalPath (persist/project-home config))]
         (println (if json
                    (json/write-str {:project-dir pd :dir d
-                                    :kinds (into (sorted-map) (for [k kinds] [k (str d "/" k)]))})
+                                    :kinds (into (sorted-map) (for [k home-kinds] [k (str d "/" k)]))})
                    d))
         0)
-      (not (some #{kind} kinds))
-      (do (err-println (str "project: byj keeps no " (pr-str kind) " — " (str/join ", " kinds))) 1)
-      :else
       (let [f (if (some #{kind} persist/kinds) (persist/state-dir config kind) (projects/runtime-path pd kind))
             path (.getCanonicalPath f)]
         (println (if json (json/write-str {:project-dir pd :kind kind :path path :exists (.exists f)}) path))
@@ -775,13 +772,17 @@
   [r]
   (into {} (map (fn [[k v]] [k (if (inst? v) (subs (pr-str v) 7 36) v)])) r))
 
-(defn- projects-command
-  "`byj projects list|path|add|prune|remove|move` — brainyard's `by projects`
+(defn- project-command
+  "`byj project list|path|add|prune|remove|move` — brainyard's `by projects`
   (`cmd-projects-*`), over the registry both keep, `~/.brainyard/projects`
-  (RFC-074). prune and remove ask first, as brainyard's do, and `--yes`
-  answers for a script; with no terminal to answer, nothing is removed. The
-  exit code."
-  [{:keys [questions json yes working-dir] :as opts}]
+  (RFC-074), singular here and answering to `projects` (divergence
+  `session-and-agent-are-singular`); and where this project keeps what its
+  runs leave, `path [KIND]` (`project-path`). `path` takes a KIND byj keeps,
+  or a registered project's slug — `<name>-<8 hex>`, which no KIND is — and
+  says that project's directory. prune and remove ask first, as brainyard's
+  do, and `--yes` answers for a script; with no terminal to answer, nothing
+  is removed. The exit code."
+  [{:keys [questions json yes working-dir] :as opts} config]
   (let [[named arg] questions
         sub (or named "list")
         root (projects/projects-root)
@@ -791,8 +792,7 @@
                       (do (print (str question " [y/N] ")) (flush)
                           (boolean (#{"y" "yes"} (some-> (read-line) str/trim str/lower-case))))))
         never "This drops the project's folder in the registry, with what byj keeps there of its runs, never the project itself."
-        ttl (try (:session-ttl-days (:config (config/load-config {:working-dir (or working-dir ".")})) 14)
-                 (catch Throwable _ 14))
+        ttl (:session-ttl-days config 14)
         folder #(io/file root (str (:slug %)))]
     (case sub
       "list" (let [rows (cond->> (projects/list-projects root {:unlisted? (:all opts)})
@@ -804,10 +804,13 @@
                      :else (doseq [l (projects/table rows)] (println l)))
                0)
       "path" (cond
-               (str/blank? (str arg)) (do (err-println "usage: byj projects path SLUG") 1)
+               ;; this project's folder in the home, or one kind of it
+               (or (str/blank? (str arg)) (some #{arg} home-kinds)) (project-path arg json config)
                :else (if-let [p (projects/project-path-for-slug root arg)]
                        (do (println p) 0)
-                       (do (err-println (str "Not a registered project slug: " arg)) 1)))
+                       (do (err-println (str "Neither a kind byj keeps (" (str/join ", " home-kinds)
+                                             ") nor a registered project slug: " arg))
+                           1)))
       "add" (let [raw (or arg working-dir ".")
                   dir (io/file (or (projects/canonical-path raw) raw))]
               (cond
@@ -840,7 +843,7 @@
       "remove" (let [slug (some-> arg str str/trim not-empty)
                      rec (when slug (first (filter #(= slug (:slug %)) (projects/list-projects root {:unlisted? true}))))]
                  (cond
-                   (nil? slug) (do (err-println "usage: byj projects remove SLUG  (byj projects list names them)") 1)
+                   (nil? slug) (do (err-println "usage: byj project remove SLUG  (byj project list names them)") 1)
                    (nil? rec) (do (err-println (str "No such registered project: " slug)) 1)
                    (persist/held-in? (folder rec)) (do (err-println (str slug " has a session open in a live byj; close it first")) 1)
                    (not (confirm (str "Forget \"" (:name rec) "\" (" (:path rec) ") and the "
@@ -853,7 +856,7 @@
                    dir (or (second (rest questions)) working-dir ".")
                    rec (when slug (first (filter #(= slug (:slug %)) (projects/list-projects root {:unlisted? true}))))]
                (cond
-                 (nil? slug) (do (err-println "usage: byj projects move OLD-SLUG [DIR]  (DIR: the working directory)") 1)
+                 (nil? slug) (do (err-println "usage: byj project move OLD-SLUG [DIR]  (DIR: the working directory)") 1)
                  (and rec (persist/held-in? (folder rec))) (do (err-println (str slug " has a session open in a live byj; close it first")) 1)
                  :else (let [{:keys [record error]} (projects/move-project! root slug dir)]
                          (if error
@@ -864,7 +867,7 @@
                                (println (str "Moved " slug " -> " (:slug record) " (" (:path record) "), "
                                              n " session(s) told their new place.")))
                              0)))))
-      (do (err-println (str "projects: unknown subcommand " (pr-str sub) " — list, path, add, prune, remove, move")) 2))))
+      (do (err-println (str "project: unknown subcommand " (pr-str sub) " — list, path, add, prune, remove, move")) 2))))
 
 (defn- loops-command
   "`byj loops tasks build [--name SET] [--from SESSIONS] [--check CMD]`: a
@@ -2557,11 +2560,8 @@
             {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})]
         (*exit* (turns-command opts config)))
 
-      ;; the person's projects, the registry by keeps too (RFC-074)
-      (= :projects command)
-      (*exit* (projects-command opts))
-
-      ;; where this project keeps what its runs leave (RFC-016's second revision)
+      ;; the person's projects, the registry by keeps too (RFC-074), and
+      ;; where this one keeps what its runs leave (RFC-016's second revision)
       (= :project command)
       (let [wd (or working-dir (System/getProperty "user.dir") ".")
             {:keys [config]} (config/load-config {:working-dir wd :overrides overrides :env-fn (env-fn wd)})]

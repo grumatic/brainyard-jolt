@@ -6,6 +6,11 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **`byj project` is one command.** `byj projects list|path|add|prune|remove|move`
+  and `byj project path [KIND]` are now `byj project …`; `byj projects` still
+  works and reaches the same command. `byj project path` takes a kind
+  (`logs`, `sessions` …) for this project's folder in your home, or a slug
+  for a registered project's directory.
 - **A live Claude Code session is handed work through its inbox.** With
   Claude Code 2.1.224 or later, `session$send`, `session$ask` and `/handover`
   write to the session's own messaging socket instead of typing into its
@@ -46,13 +51,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   byj left there); `byj doctor` says where a project stands. An edit a turn
   makes to `.brainyard/config.edn` is now part of the turn's change, and
   rewound with it.
-- **`byj projects` keeps what it holds.** `prune` keeps a missing project's
+- **`byj project` keeps what it holds.** `prune` keeps a missing project's
   folder while a session in it is younger than `:session-ttl-days` or open,
   and says how many sessions go; `remove` counts them and refuses while one
-  is open; new `byj projects move OLD-SLUG [DIR]` adopts a moved or renamed
+  is open; new `byj project move OLD-SLUG [DIR]` adopts a moved or renamed
   project's folder and its sessions at DIR. A git worktree is listed as a
   project of its own, with its main checkout's slug (`worktree-of`), and
-  `byj projects list` shows worktrees and the folders of unregistered runs
+  `byj project list` shows worktrees and the folders of unregistered runs
   only with `--all`. The sessions of a project that is gone are kept until
   `:session-ttl-days` (14), then pruned.
 - **A project outside git is one project from any of its subdirectories**:

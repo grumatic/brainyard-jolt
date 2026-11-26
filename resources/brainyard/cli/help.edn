@@ -151,14 +151,16 @@
             {:name "codex-flags" :args "[--log DIR] [--socket SOCK]"
              :summary "a codex command line that carries it as a session hook, trusted for that session alone"}]}]
    :options [:log :socket :idle]}
-  {:name "projects"
-   :summary "The person's projects, a folder each in ~/.brainyard/projects, by's too (RFC-074)"
+  {:name "project"
+   :summary "The person's projects, a folder each in ~/.brainyard/projects, by's too (RFC-074, RFC-016)"
+   :doc "brainyard's by projects, singular here; byj projects is the same command."
    :subcommands
    [{:subs [{:name "list" :args "[--all] [--json]"
              :summary "every registered project, the last opened first; one whose directory is gone marked (missing)"
              :doc "A project is registered as a session (byj, byj run) or a question (byj ask) starts in it, and by byj projects add; brainyard's by registers the same way, in the same folders, so the list is both programs'. Each is ~/.brainyard/projects/SLUG/project.edn, SLUG the directory's name and 8 hex of the SHA-256 of its canonical path; the folder keeps the project's sessions too (RFC-016). A directory moved, deleted or on a volume not mounted now is listed as (missing), never dropped. A git worktree is a project of its own, its record naming its main checkout's slug (worktree-of), and a folder a run that is never registered kept its sessions in is listed? false: --all lists both. --json gives [{path, slug, name, git-remote, created-at, last-opened-at, schema-version, missing?, worktree-of, listed?}]."}
-            {:name "path" :args "SLUG"
-             :summary "the project directory a slug stands for, read from its record; exit 1 when none"}
+            {:name "path" :args "[KIND | SLUG] [--json]"
+             :summary "where this project keeps what its runs leave, or one KIND of it; or the directory a registered SLUG stands for"
+             :doc "With no argument, this project's folder in the registry; with a KIND — sessions, transcripts, tasks, logs, claude-agents, codex-agents, workflow-runs, deps-snapshots, init/snapshots, captures, exports, drive/claims.edn, store.edn, todos, rails.edn, schedule, loops/proposals, loops/evals, deps-local.edn, worktrees, tools/proposals, skills/proposals, loops/tasks, programs — where it keeps that (RFC-016). A program, an editor or a script asks here rather than building the path or working out the slug. --json gives {project-dir, dir, kinds {KIND path}}, or {project-dir, kind, path, exists} for one KIND. With a SLUG (<name>-<8 hex>, which no KIND is), the project directory it stands for, read from its record; exit 1 when it is neither."}
             {:name "add" :args "[DIR] [--json]"
              :summary "register a project — DIR, or the working directory — without starting a session in it"
              :doc "Registering again keeps the project's created-at and stamps last-opened-at; a DIR that is not a directory is refused, so no typo is kept as a missing project. --json gives the record."}
@@ -171,12 +173,6 @@
             {:name "move" :args "OLD-SLUG [DIR] [--json]"
              :summary "a moved or renamed project's folder, and its sessions, adopted at DIR (the working directory)"
              :doc "A project moved is a new slug, its old folder listed (missing) until pruned. move renames that folder to DIR's slug, registers DIR keeping created-at, and rewrites each session's project-dir and working-dir under the old path, so they resume at DIR. DIR's own folder may hold its record alone, which is replaced; one holding sessions of its own is refused, as is a session open in a live byj. Nothing is matched by guessing. --json gives the record with moved-from and sessions."}]}]}
-  {:name "project"
-   :summary "Where this project keeps what its runs leave, in ~/.brainyard/projects (RFC-016)"
-   :subcommands
-   [{:subs [{:name "path" :args "[KIND] [--json]"
-             :summary "the project's folder in the registry, or where it keeps one KIND: sessions, logs, workflow-runs, todos …"
-             :doc "A project's .brainyard/ keeps what its repository shares; what its runs leave — sessions, transcripts, tasks, logs, claude-agents, codex-agents, workflow-runs, deps-snapshots, init/snapshots, captures, exports, drive/claims.edn, store.edn, todos, rails.edn, schedule, loops/proposals, loops/evals, deps-local.edn — is kept in its folder of the registry, ~/.brainyard/projects/SLUG/. A program, an editor or a script asks here rather than building the path or working out the slug. --json gives {project-dir, dir, kinds {KIND path}}, or {project-dir, kind, path, exists} for one KIND; a KIND byj does not keep exits 1."}]}]}
   {:name "config"
    :summary "The settings: every key as data, and one written as /config writes it (RFC-013)"
    :usage "byj config [set KEY VALUE | unset KEY] [--scope project|user] [--json]"

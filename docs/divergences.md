@@ -1879,7 +1879,10 @@ singular here (byj-gly.435), so a command names the thing it is about, as `run` 
 brainyard habit keeps working; A program
 that asks byj for its agents may ask `agent` first and fall back to
 `agents`, passing the name as that byj's help shows it, so either side may
-be the newer.
+be the newer. `byj project` is singular too (byj-84c): brainyard's `by projects` —
+list, path, add, prune, remove, byj's move — and where this project keeps
+what its runs leave (`project path [KIND]`) are one command, and `byj
+projects` reaches it.
 
 <!-- divergence: session-list-shows-saved-sessions -->
 **`byj session list` shows saved sessions that never listened.** brainyard's
@@ -1894,7 +1897,7 @@ out, as ACP's `session/list` leaves it. `--live` is unchanged, and so is
 `session$list`, which names the sessions a session may ask.
 
 <!-- divergence: projects-json-gives-iso-instants -->
-**`byj projects --json` gives an instant as ISO-8601.** brainyard's
+**`byj project --json` gives an instant as ISO-8601.** brainyard's
 `print-json!` writes a value JSON has no form for as its `str`, so `by
 projects list --json` gives `created-at` and `last-opened-at` as a
 `java.util.Date` prints itself — `Tue Aug 04 22:19:33 KST 2026`, in the

@@ -670,7 +670,7 @@
   (boolean (some held-dir? (session-folders pd))))
 
 (defn keeps-folder?
-  "Is project folder `pd` kept from a person's `byj projects prune` (RFC-016's
+  "Is project folder `pd` kept from a person's `byj project prune` (RFC-016's
   second revision, byj-84c.3): a session in it younger than `ttl-days`, or
   one a live process holds. What the gone-project prune would keep is kept
   from a prune by hand too, until it is past."
@@ -690,7 +690,7 @@
 
 (defn rehome!
   "Each session kept in project folder `pd` told its project moved from
-  `old` to `new` (S6, `byj projects move`): its snapshot's and its
+  `old` to `new` (S6, `byj project move`): its snapshot's and its
   `meta.edn`'s `:project-dir` and `:working-dir` under `old` rewritten under
   `new`, so a resume opens it there. A file that will not read is left as it
   is. The number of sessions rewritten."

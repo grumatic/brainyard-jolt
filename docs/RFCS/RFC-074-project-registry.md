@@ -13,7 +13,7 @@ project's folder of the registry, `~/.brainyard/projects/<slug>/sessions/`
 (RFC-016's second revision, `byj-84c`). What the *person* knows about their projects — which there are,
 where each is, when each was last opened — has no place there, and
 `~/.brainyard/` was flat. The registry gives each project a folder of its
-own in user scope, `~/.brainyard/projects/<slug>/`, and `byj projects` lists
+own in user scope, `~/.brainyard/projects/<slug>/`, and `byj project` lists
 them, says where one is, adds one, and forgets one.
 
 brainyard's `by` registers into the same folders. Unless byj names a project
@@ -30,7 +30,7 @@ project is registered, and how a record is listed, read back and removed.
 registration reads the project's path and its git config's origin, and
 nothing else.
 
-**It hands** a list of records to `byj projects`, and a path for a slug;
+**It hands** a list of records to `byj project`, and a path for a slug;
 and the records to `brainyard.deps`, which finds a project a spec names by
 its origin — read again from the project's git config
 (`read-git-remote`), a record's `:git-remote` being what its last
@@ -82,12 +82,12 @@ registration saw (RFC-075, `byj-339`).
   now — deleted, moved (a moved project is a new slug), or on a volume not
   mounted — is listed `(missing)`. It is removed only when a person asks,
   and its folder with it, sessions and all (RFC-016's second revision): so
-  `byj projects prune` keeps a folder holding a session younger than
+  `byj project prune` keeps a folder holding a session younger than
   `:session-ttl-days` or one a live process holds (`persist/keeps-folder?`),
   and says so; `remove` says how many sessions go, and refuses while one is
   open. `by`'s prune and remove know only the record and delete the folder
   whole.
-- **A moved project is adopted by name, never by guess** (S6). `byj projects
+- **A moved project is adopted by name, never by guess** (S6). `byj project
   move OLD-SLUG [DIR]` renames the old folder to DIR's slug, registers it at
   DIR keeping `:created-at`, and rewrites each session's `:project-dir` and
   `:working-dir` under the old path (`persist/rehome!`). DIR's own folder
@@ -95,14 +95,14 @@ registration saw (RFC-075, `byj-339`).
   replaced; one holding more is refused.
 - **A worktree is a project of its own** (S4), keyed by its own path; its
   record says `:worktree-of` its main checkout's slug, read from its
-  `.git` file and `commondir` (`main-checkout`). `byj projects list` leaves
+  `.git` file and `commondir` (`main-checkout`). `byj project list` leaves
   worktrees and `:listed? false` records out unless `--all`.
 
 ### When a project is registered
 
 As a session (`byj`, `byj run`) or a question (`byj ask`) starts, after the
 configuration is loaded, so `-C` has taken effect — brainyard's `run-tui!`
-and `cmd-ask` — and by `byj projects add`. Not by a flow, a program's
+and `cmd-ask` — and by `byj project add`. Not by a flow, a program's
 evaluation, `byj init` or any command that only reads. A loop evaluation's
 clones (RFC-071) are not registered: `loop-eval/clone-config` sets
 `:register-project?` false, and a child byj reads it from the clone's config.
@@ -130,13 +130,19 @@ registry's, and the run goes on.
 The CLI, brainyard's `by projects`:
 
 ```
-byj projects [list] [--all] [--json]   every project, the last opened first; --all adds worktrees and unlisted folders
-byj projects path SLUG               its directory; exit 1 when not registered
-byj projects add [DIR] [--json]      register DIR (the working directory) without a session
-byj projects prune [--yes] [--json]  forget every missing project; asks first
-byj projects remove SLUG [--yes] [--json]   forget one, there or not; asks first
-byj projects move OLD-SLUG [DIR] [--json]    a moved project's folder adopted at DIR (the working directory)
+byj project [list] [--all] [--json]   every project, the last opened first; --all adds worktrees and unlisted folders
+byj project path [KIND] [--json]      this project's folder in the registry, or one KIND of what its runs leave (RFC-016)
+byj project path SLUG               a registered project's directory; exit 1 when not registered
+byj project add [DIR] [--json]      register DIR (the working directory) without a session
+byj project prune [--yes] [--json]  forget every missing project; asks first
+byj project remove SLUG [--yes] [--json]   forget one, there or not; asks first
+byj project move OLD-SLUG [DIR] [--json]    a moved project's folder adopted at DIR (the working directory)
 ```
+
+One command, singular, with `byj projects` the same (divergence
+`session-and-agent-are-singular`): brainyard's `by projects`, and where this
+project keeps what its runs leave (`byj-84c`). `path` tells a KIND from a
+SLUG by the slug's `-<8 hex>`, which no KIND has.
 
 prune and remove ask on the terminal, as brainyard's do, saying how many
 sessions go with the folder; `--yes` answers for a script, and with nothing
@@ -157,7 +163,7 @@ Config: `:register-project?` (boolean, true).
 | Of a folder that also holds what a person decided, only what byj made moves: a loop task set but not its cases, a program's datasets, evals and proposals but not its params; tool and skill proposals move whole | `projects-test/what-byj-made-beside-what-a-person-decided-moves-and-the-decision-stays` |
 | A missing project is listed, and removed only by prune or remove | `projects-test/a-missing-project-is-listed-and-only-pruned-when-asked` |
 | A slug read off disk never aims the delete outside the registry | `projects-test/a-slug-off-disk-never-aims-the-delete-elsewhere` |
-| `byj projects` lists, adds and forgets; prune asks, and removes nothing unanswered | `projects-test/byj-projects-lists-adds-and-forgets` |
+| `byj project` lists, adds and forgets; prune asks, and removes nothing unanswered | `projects-test/byj-projects-lists-adds-and-forgets` |
 | A folder a run keeps sessions in holds a record, unlisted until the project is registered | `persist-test/a-session-is-kept-in-the-persons-home` |
 | A question registers its project, and a run with `:register-project?` false does not | `projects-test/a-question-registers-its-project-and-a-clones-does-not` |
 | No test registers in the person's registry | `test-run/run` sets `brainyard.projects-home` to the run's own, and every process the run starts gets it as `BY_PROJECTS_HOME` — `fx/start`'s `carried-env`, however the run was started: shards, one image, one namespace, a live nREPL image (`byj-9og`); `test-run/run` fails a run that left a project under this repository or the temporary directory in the person's registry; `effect-test/a-process-started-keeps-off-the-persons-stores-as-this-one-does` |
@@ -170,7 +176,7 @@ leave, where brainyard keeps only its record (divergence
 `a-projects-runs-are-kept-in-its-home-folder`): a record a run writes for a
 project never registered is `:listed? false`, a worktree's says
 `:worktree-of`, and prune keeps a folder with a young or open session;
-`byj projects move` is byj's.
+`byj project move` is byj's.
 
 ## Known gaps
 

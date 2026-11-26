@@ -10,8 +10,8 @@
   (RFC-074).
 
   A project is registered as a session or a question starts in it, and by
-  `byj projects add`; nothing else writes here, and nothing is ever taken
-  out but by `byj projects prune` and `byj projects remove`, which a person
+  `byj project add`; nothing else writes here, and nothing is ever taken
+  out but by `byj project prune` and `byj project remove`, which a person
   runs.
 
   - The slug is `<basename, reduced to [A-Za-z0-9._-]>-<first 8 hex of
@@ -358,7 +358,7 @@
       (= old-slug new-slug) {:error (str old-slug " is already " cp "'s")}
       (and (.exists to) (seq (remove #(= project-file (.getName ^java.io.File %)) (.listFiles to))))
       {:error (str cp " has a folder of its own already, " new-slug ", holding what its runs left; "
-                   "forget one of the two first (byj projects remove)")}
+                   "forget one of the two first (byj project remove)")}
       :else
       (do (when (.exists to) (delete-record-dir! root new-slug))
           (if (.renameTo old to)

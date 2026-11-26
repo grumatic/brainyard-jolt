@@ -397,6 +397,9 @@
     (is (= {:command :session :questions ["list"]} (cmd "sessions" "list")))
     (is (= {:command :agent :questions ["explore"]} (cmd "agent" "explore")))
     (is (= {:command :agent :questions ["explore"]} (cmd "agents" "explore")))
+    ;; byj-84c: `project`, one with brainyard's `projects`, which still reaches it
+    (is (= {:command :project :questions ["list"]} (cmd "project" "list")))
+    (is (= {:command :project :questions ["list"]} (cmd "projects" "list")))
     (is (= "what" (:unknown-command (main/parse-args ["what" "sessions"]))) "only as the command")))
 
 (deftest the-help-is-the-commands-wherever-the-options-stand
