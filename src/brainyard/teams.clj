@@ -361,6 +361,29 @@
        (assoc :note "a member is not live — team$resume brings the team's members back")))
     {:error "no open team — team$create first"}))
 
+(defn close-sessions!
+  "Headless sessions `ms` (each `{:session-id :task-id}`) closed: each asked
+  to close over its channel, and its process task cancelled after `grace-ms`
+  if it has not ended. One that closes ends as a session ends, its lock
+  released and its process waited for; a task cancelled is killed, and on
+  jolt a process killed may be left unwaited for, a zombie (byj-974). Teams'
+  members and a workflow run's stage sessions are closed so."
+  [{:keys [config task-registry]} ms]
+  (doseq [m ms]
+    (when-let [s (and (:session-id m) (channel/find-session config (:session-id m)))]
+      (when (:ask-socket-path s)
+        (try (channel/request! (:ask-socket-path s) {:op :close-session} 5000)
+             (catch Throwable _ nil)))))
+  (doseq [m ms]
+    (when (and task-registry (:task-id m))
+      (let [deadline (+ (System/currentTimeMillis) (:team-close-grace-ms config 10000))]
+        (loop []
+          (let [t (tasks/snapshot task-registry (:task-id m))]
+            (when (and t (= :running (:status t)))
+              (if (> (System/currentTimeMillis) deadline)
+                (tasks/cancel! task-registry (:task-id m))
+                (do (Thread/sleep 100) (recur))))))))))
+
 (defn close!
   "Close member `name`, or — with no name — the whole team: each member is
   asked to close over its channel, and its process task is cancelled after
@@ -374,20 +397,7 @@
       (if (and member (empty? targets))
         {:error (str "no member " (pr-str member))}
         (do
-          (doseq [m targets]
-            (when-let [s (and (:session-id m) (channel/find-session config (:session-id m)))]
-              (when (:ask-socket-path s)
-                (try (channel/request! (:ask-socket-path s) {:op :close-session} 5000)
-                     (catch Throwable _ nil)))))
-          (doseq [m targets]
-            (when task-registry
-              (let [deadline (+ (System/currentTimeMillis) (:team-close-grace-ms config 10000))]
-                (loop []
-                  (let [t (tasks/snapshot task-registry (:task-id m))]
-                    (when (and t (= :running (:status t)))
-                      (if (> (System/currentTimeMillis) deadline)
-                        (tasks/cancel! task-registry (:task-id m))
-                        (do (Thread/sleep 100) (recur)))))))))
+          (close-sessions! {:config config :task-registry task-registry} targets)
           (let [names (set (map :name targets))]
             (update-team! config (:id team)
                           (fn [t] (cond-> (update t :members (fn [ms] (mapv #(cond-> % (names (:name %)) (assoc :closed? true)) ms)))

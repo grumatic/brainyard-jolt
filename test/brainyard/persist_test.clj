@@ -142,6 +142,21 @@
             (is (= pid (persist/holder c "s1")))
             (is (false? (persist/lock! c "s1"))))
           (finally (p/destroy-tree proc)))))
+    (testing "a zombie — ended, its parent not waiting for it — holds nothing (byj-974)"
+      ;; `sleep 0.2 &` is a child of the shell, which then becomes `sleep 30`:
+      ;; nobody waits for it, so once it ends it stays a zombie
+      (let [pidfile (io/file dir "zombie.pid")
+            proc (p/process {:out :string :err :string}
+                            "sh" "-c" (str "sleep 0.2 & echo $! > " (.getPath pidfile) "; exec sleep 30"))]
+        (try
+          (loop [n 0] (when (and (< n 100) (not (.isFile pidfile))) (Thread/sleep 20) (recur (inc n))))
+          (Thread/sleep 700)
+          (let [pid (str/trim (slurp pidfile))]
+            (is (zero? (:exit @(p/process {:out :string :err :string} "kill" "-0" pid))) "kill -0 still answers for it")
+            (is (not (persist/alive? pid)))
+            (spit (persist/lock-file c "s1") (pr-str {:pid pid :at 0}))
+            (is (nil? (persist/holder c "s1"))))
+          (finally (p/destroy-tree proc)))))
     (testing "a dead pid is stale, and taking it over is allowed"
       (spit (persist/lock-file c "s1") (pr-str {:pid "999999" :at 0}))
       (is (nil? (persist/holder c "s1")))

@@ -152,13 +152,17 @@
 (defn alive?
   "Is `pid` a live process? `kill -0` succeeds for a process we may signal, and
   fails with EPERM for one owned by another user — which is a live process, not
-  a stale lock. Only \"no such process\" means gone."
+  a stale lock. Only \"no such process\" means gone — and a zombie: a process
+  that has ended but that its parent has not yet waited for still answers
+  `kill -0`, so a session whose headless byj ended that way was held for good
+  (byj-974 — run #5's stage, read only in the workbench)."
   [pid]
   (boolean
    (when pid
      (let [r (sh "kill" "-0" (str pid))]
-       (or (zero? (:exit r))
-           (str/includes? (str/lower-case (str (:err r))) "not permitted"))))))
+       (and (or (zero? (:exit r))
+                (str/includes? (str/lower-case (str (:err r))) "not permitted"))
+            (not (str/starts-with? (str/trim (str (:out (sh "ps" "-o" "stat=" "-p" (str pid))))) "Z")))))))
 
 ;; --- reading and writing ----------------------------------------------------------
 

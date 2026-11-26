@@ -215,8 +215,11 @@ error: session <id> is open in another running process (pid 4242)
 jolt has no `ProcessHandle`, so liveness is `kill -0 <pid>`: exit 0 means
 alive, and **"operation not permitted" also means alive** — that is another
 user's process, not a stale lock. Only "no such process" frees the session,
-which is positive evidence rather than an assumption. A clean close removes the
-lock; a crash leaves one, and the next run takes it over once the pid is gone.
+which is positive evidence rather than an assumption — and a zombie (`ps`'s
+stat `Z`): a process that has ended but that its parent has not yet waited for
+still answers `kill -0`, and a session whose headless byj ended so was held for
+good, refused to load (`byj-974`). A clean close removes the lock; a crash
+leaves one, and the next run takes it over once the pid is gone.
 
 Every live session is locked, a fresh one as well as a resumed one, and so is
 each session started beside the first in the session list. The lock is what
@@ -339,7 +342,7 @@ someone with three and then shows them one (`byj-gly.75`).
 | A snapshot of the wrong shape is a problem naming what is wrong; what `save!` writes always has the shape. | `persist-test/a-bad-snapshot-is-reported-not-thrown`, `persist-test/what-save-writes-is-a-snapshot` |
 | Sessions list newest first; a broken one is listed with its problem and is never "latest". | `persist-test/listing-and-latest` |
 | A run's set comes back in order with the one in front, only what is still saved; a front that is gone falls back to the first; the record is not a session; a snapshot's last question is its last turn's. | `persist-test/a-run-remembers-the-set-it-had-open` |
-| A live foreign pid holds a session; our own lock does not block us; a dead pid is stale; unlocking removes the file. | `persist-test/one-live-process-per-session` |
+| A live foreign pid holds a session; our own lock does not block us; a zombie and a dead pid are stale; unlocking removes the file. | `persist-test/one-live-process-per-session` |
 | A session survives a restart: the turns come back, the count continues, the history is re-derived, and an unreadable snapshot starts fresh rather than refusing. | `persist-test/a-session-survives-a-restart` |
 | `:persist-session? false` writes nothing at all. | `persist-test/persistence-can-be-switched-off` |
 | Pruning removes only what is past the TTL, outside the keep count, not this run's and not held by a live process — whole tree, both trees. | `persist-test/pruning-removes-only-what-it-may` |

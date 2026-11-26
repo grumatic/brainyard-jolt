@@ -244,7 +244,10 @@ A stage works in a place.
 - **This turn, in the project** (`{:key :here}`). This is the default.
 - **A headless session of its own** (`{:key k :dir d}`), started for it by
   `teams/start-session!`. It is a background task of this session's, so it
-  ends with it. It is labelled `workflow-<n>/<key>`, runs on this turn's
+  ends with it. The run's report closes it as a team's member is closed
+  (`teams/close-sessions!`): asked over its channel, its task cancelled only
+  if it has not ended within `:team-close-grace-ms`, so it ends as a session
+  ends, its lock released (`byj-974`). It is labelled `workflow-<n>/<key>`, runs on this turn's
   provider and model, and its permission prompts go to this session's
   person. `:ask-timeout-ms` is raised to `:workflow-stage-timeout-ms` (an
   hour) so its turn may be the stage's whole work. In a worktree, the

@@ -1061,13 +1061,16 @@
        distinct vec))
 
 (defn- close-sessions!
-  "The sessions `run` started for its stages stopped, through the tasks
-  they run as; their worktrees and branches stay. Lines for the report."
+  "The sessions `run` started for its stages closed as a team's members are
+  (`teams/close-sessions!`): asked over their channel, their tasks cancelled
+  only if they have not ended within the grace, so each ends as a session
+  ends, its lock released (byj-974); their worktrees and branches stay. Lines
+  for the report."
   [ctx run]
-  (let [reg (:task-registry ctx)]
-    (vec (for [[k {:keys [task-id label dir]}] (sort-by (comp id-name key) (:sessions run))]
-           (do (when (and reg task-id) (try (tasks/cancel! reg task-id) (catch Throwable _ nil)))
-               (str "  " label " — closed" (when dir (str "; its work is in " dir))))))))
+  (let [ss (sort-by (comp id-name key) (:sessions run))]
+    (try (teams/close-sessions! ctx (map val ss)) (catch Throwable _ nil))
+    (vec (for [[_ {:keys [label dir]}] ss]
+           (str "  " label " — closed" (when dir (str "; its work is in " dir)))))))
 
 (defn report-run
   "`workflow$report`: the answer. For a turn that managed the workflows
