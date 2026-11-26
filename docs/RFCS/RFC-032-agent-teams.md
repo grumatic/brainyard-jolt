@@ -32,8 +32,10 @@ and to RFC-019 as background tasks of the leader's. An assignment is RFC-031's
 
 ## Model
 
-- **A team** is opened by `team$create`: its roster is
-  `.brainyard/teams/<id>/team.edn`, and the reply carries `team-lead.md`.
+- **A team** is opened by `team$create`: its roster is `teams/<id>/team.edn`
+  in the project's folder of the home (`byj-9f8`, RFC-016) — its members'
+  sessions, tasks and state are no repository's — and the reply carries
+  `team-lead.md`.
   A session leads one open team at a time.
 - **A member** is started by
   `team$spawn {:name :agent? :provider? :model? :worktree?}`. It is a headless

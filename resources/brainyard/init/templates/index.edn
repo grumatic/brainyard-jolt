@@ -31,7 +31,9 @@
           ;; (byj-3p0): a loop task set, but not the cases written for it; a
           ;; program's runs, but not its params; tool and skill proposals
           "/loops/tasks/*.edn" "!/loops/tasks/*.cases.edn" "/programs/**/datasets/"
-          "/programs/**/evals/" "/programs/**/proposals/" "/tools/proposals/" "/skills/proposals/"]}
+          "/programs/**/evals/" "/programs/**/proposals/" "/tools/proposals/" "/skills/proposals/"
+          ;; a team's roster, its members' sessions and state (byj-9f8)
+          "/teams/"]}
  ;; and the project's .gitignore no longer keeps .brainyard/ from git: the
  ;; lines an earlier /init wrote there are taken out (`:removes`), and
  ;; nothing is written when it has none

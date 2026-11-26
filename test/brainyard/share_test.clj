@@ -6,7 +6,8 @@
   with their sender and the owner's approval, how both are recorded and
   counted, the permission gate's read-only events, the sidecar a session
   starts with --share, and what the person sees of a share."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.teams]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.channel :as channel]
@@ -437,8 +438,9 @@
 (deftest share-start-team-is-the-leader-and-its-open-members
   (let [dir (fresh-dir "team-refs")
         config {:project-dir dir :session-id "lead-1"}]
-    (.mkdirs (io/file dir ".brainyard" "teams" "t1"))
-    (spit (io/file dir ".brainyard" "teams" "t1" "team.edn")
+    ;; a roster is kept in the project's folder of the home (byj-9f8)
+    (.mkdirs (io/file (brainyard.teams/teams-dir config) "t1"))
+    (spit (io/file (brainyard.teams/teams-dir config) "t1" "team.edn")
           (pr-str {:id "t1" :leader "lead-1" :created-at 1
                    :members [{:name "alice" :session-id "m-a"} {:name "bob" :session-id "m-b" :closed? true}]}))
     (is (= ["byj:lead-1" "byj:m-a" "claude:cc-1"]

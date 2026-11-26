@@ -377,7 +377,7 @@
   ["logs" "claude-agents" "codex-agents" "workflow-runs" "deps-snapshots"
    "init/snapshots" "captures" "exports" "drive/claims.edn"
    "store.edn" "todos" "rails.edn" "schedule" "loops/proposals" "loops/evals"
-   "deps-local.edn" "worktrees" "tools/proposals" "skills/proposals"])
+   "deps-local.edn" "worktrees" "tools/proposals" "skills/proposals" "teams"])
 
 (def partial-kinds
   "What a project's runs leave in a folder that also holds what the person

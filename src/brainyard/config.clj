@@ -592,7 +592,7 @@
   second revision): what a person or `/init` writes there, never what a run
   leaves, which is kept in the project's folder of the registry."
   #{"config.edn" "profile.edn" "deps.edn" "AGENTS.md" "BRAINYARD.md" ".env"
-    "agents" "commands" "skills" "hooks" "tools" "programs" "predictors" "teams"
+    "agents" "commands" "skills" "hooks" "tools" "programs" "predictors"
     "loops" "mcp" "analytics.edn" "prices.edn" "terminal.edn" "emacs"})
 
 (defn- byj-homes

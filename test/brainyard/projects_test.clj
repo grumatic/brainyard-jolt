@@ -283,7 +283,7 @@
   ;; projects/runtime-path (or persist/state-dir for sessions), so the place
   ;; is one function's; a namespace that builds `.brainyard/logs` itself
   ;; would write where nothing reads any more
-  (let [kinds "logs|claude-agents|codex-agents|workflow-runs|deps-snapshots|init|captures|exports|drive|store\\.edn|todos|rails\\.edn|schedule|deps-local\\.edn"
+  (let [kinds "logs|claude-agents|codex-agents|workflow-runs|deps-snapshots|init|captures|exports|drive|store\\.edn|todos|rails\\.edn|schedule|deps-local\\.edn|teams"
         re (re-pattern (str "\"\\.brainyard\"\\s+\"(" kinds ")\"|\"loops\"\\s+\"(proposals|evals)\""))
         offenders (for [f (file-seq (io/file "src/brainyard"))
                         :when (and (.isFile f) (str/ends-with? (.getName f) ".clj")

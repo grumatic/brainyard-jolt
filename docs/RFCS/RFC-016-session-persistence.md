@@ -593,7 +593,7 @@ git no longer ignores it:
 
 - `config.edn`, `profile.edn`, `deps.edn`, `AGENTS.md`, `BRAINYARD.md`;
 - `agents/`, `commands/`, `skills/`, `hooks/`, `tools/`, `programs/<id>.edn`,
-  `predictors/user/`, `teams/`;
+  `predictors/user/`;
 - `loops/*.edn` and `loops/tasks/<set>.cases.edn`, `mcp/catalog.edn`,
   `analytics.edn`, `prices.edn`, `terminal.edn`, `emacs/lessons/`;
 - but not what byj made from the project's sessions beside them (built,

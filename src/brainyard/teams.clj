@@ -34,8 +34,12 @@
 
 ;; --- the roster --------------------------------------------------------------------------
 
-(defn teams-dir [config]
-  (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" "teams"))
+(defn teams-dir
+  "Where the project's teams' rosters are kept — each member's session, task
+  and state, the leader's live record: in the project's folder of the home,
+  not the repository (byj-9f8)."
+  [config]
+  (projects/runtime-path (or (:project-dir config) (:working-dir config) ".") "teams"))
 
 (defn- team-file [config id] (io/file (teams-dir config) (str id) "team.edn"))
 
