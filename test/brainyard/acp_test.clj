@@ -594,6 +594,41 @@
         (is (= -32602 (get-in (call c "session/delete" {:sessionId "../x"}) [:error :code]))))
       (finally (acp/end! (:conn c))))))
 
+(deftest a-session-deleted-softly-is-kept-until-undeleted-or-removed
+  ;; byj-djq: marked in its meta.edn, out of the list unless asked, undeleted
+  (let [dir (fresh-dir "delete-soft")
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1})
+        model (script! dir [{:answer "one"}])
+        sid (:sessionId (new-session c dir model))
+        _ (call c "session/prompt" {:sessionId sid :prompt [{:type "text" :text "q"}]})
+        cfg {:project-dir dir}
+        listed (fn [& [deleted?]]
+                 (->> (get-in (call c "session/list" (cond-> {:cwd dir} deleted? (assoc :_meta {:brainyard {:deleted true}})))
+                              [:result :sessions])
+                      (map (juxt :sessionId #(get-in % [:_meta :brainyard :deleted])))
+                      set))]
+    (try
+      (is (= #{[sid nil]} (listed)))
+      (testing "deleted softly: kept, marked, out of the list"
+        (is (= {} (:result (call c "session/delete" {:sessionId sid :_meta {:brainyard {:soft true}}}))))
+        (is (.exists (persist/session-dir cfg sid)))
+        (is (string? (persist/deleted-at cfg sid)))
+        (is (= #{} (listed)))
+        (is (= [] (mapv :id (persist/summaries cfg))) "nor what --resume lists"))
+      (testing "listed when asked, marked deleted"
+        (is (= #{[sid true]} (listed true))))
+      (testing "undeleted: listed again"
+        (is (= {} (:result (call c "_byj/session/undelete" {:sessionId sid :cwd dir}))))
+        (is (nil? (persist/deleted-at cfg sid)))
+        (is (= #{[sid nil]} (listed)))
+        (is (some? (:error (call c "_byj/session/undelete" {:sessionId sid :cwd dir}))) "one not deleted"))
+      (testing "removed: deleted without soft, gone"
+        (call c "session/delete" {:sessionId sid :_meta {:brainyard {:soft true}}})
+        (is (= {} (:result (call c "session/delete" {:sessionId sid}))))
+        (is (not (.exists (persist/session-dir cfg sid)))))
+      (finally (acp/end! (:conn c))))))
+
 (deftest a-leader-is-deleted-with-its-members-when-asked
   ;; byj-a9d: team members by their snapshot's leader, a run's stage sessions
   ;; by its record; another leader's left, and none without the ask

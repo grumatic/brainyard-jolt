@@ -151,6 +151,13 @@ in the registry and what byj keeps there of its runs.
 
 Config: `:register-project?` (boolean, true).
 
+### Deleted, undeleted, unlisted (`byj-djq`)
+
+A client marks a project on its record (`projects/update-record!`): `byj project delete SLUG` marks it `:deleted`
+(listed still, `deleted?` in `list --json`'s rows, for a client to show apart), `undelete` takes the mark off, and
+`unlist` takes it off the list (`:listed? false`) with its folder of the home and its sessions kept, its slug still in
+the index; `byj project add` lists it again, no longer deleted. `remove` still removes the folder, its sessions with it.
+
 ## Invariants
 
 | Invariant | Enforced by |

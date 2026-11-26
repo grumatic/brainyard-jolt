@@ -47,7 +47,7 @@
 (def extensions
   "byj's extensions (RFC-053 'byj's extensions'), advertised at `initialize`
   and used only with a client that asked for them there."
-  ["tools" "hooks" "events" "predict" "live" "turns" "share" "history"])
+  ["tools" "hooks" "events" "predict" "live" "turns" "share" "history" "undelete"])
 
 (def default-hook-timeout-ms
   "How long a client's hook is waited for before its entry's failure rule
@@ -971,7 +971,7 @@
 (defn- session-info
   "A saved session as ACP's `SessionInfo`: its title the conversation's name,
   else its last question."
-  [cwd {:keys [id updated-at conversation-title last-question turn-count created-at model working-dir leader]}]
+  [cwd {:keys [id updated-at conversation-title last-question turn-count created-at model working-dir leader deleted-at]}]
   (let [held (persist/holder {:project-dir cwd} id)
         ;; where it worked, when not where it is kept: a workflow stage or a
         ;; team member in a worktree of the project (byj-cm4.6); :cwd stays
@@ -991,6 +991,8 @@
                           model (assoc :model model)
                           held (assoc :heldBy (str held))
                           elsewhere (assoc :workingDir elsewhere)
+                          ;; deleted softly, listed for a client that asked (byj-djq)
+                          deleted-at (assoc :deleted true :deletedAt deleted-at)
                           ;; the session leading it, a member's (byj-cm4.13)
                           leader (assoc :leader leader))}}))
 
@@ -999,17 +1001,22 @@
   one: closed first when this connection has it open, its rewind refs and the
   Claude Code and Codex sessions it delegated to with it. nil, or why not
   (another live process holds it, there is no such session)."
-  [conn cwd id]
+  [conn cwd id & [soft?]]
   (let [open (get-in @(:state conn) [:sessions id])]
     (when open
       (swap! (:state conn) update :sessions dissoc id)
       (sdk/close! open))
-    (let [r (persist/delete! {:project-dir cwd} id)
+    (let [r (if soft?
+              ;; deleted softly (byj-djq): marked, kept, nothing else touched
+              (persist/soft-delete! {:project-dir cwd} id)
+              (persist/delete! {:project-dir cwd} id))
           ;; one open here that never ran a turn is gone once closed
           ;; (`persist/prune-empty!`): deleted, as asked (byj-wb6)
           gone? (and open (:problem r) (not (.exists (persist/session-dir {:project-dir cwd} id))))]
-      (if (and (:problem r) (not gone?))
-        (:problem r)
+      (cond
+        (and (:problem r) (not gone?)) (:problem r)
+        soft? nil
+        :else
         (do
           ;; and what it kept to rewind: nothing goes back to a session there
           ;; is no more (RFC-069, byj-ayk)
@@ -1029,7 +1036,10 @@
   (byj-a9d): the sessions whose snapshot names it their leader and the stage
   sessions of the runs it ran, each deleted as it is, one another live process
   holds left; the answer's `_meta.brainyard.members` says `{deleted skipped}`.
-  The run records, branches and worktrees are left."
+  The run records, branches and worktrees are left. With
+  `_meta.brainyard.soft` true it, and its members when asked, are deleted
+  softly instead (byj-djq): marked in their `meta.edn`, kept, out of every
+  list until undeleted (`_byj/session/undelete`) or deleted without it."
   [conn {:keys [sessionId] :as params}]
   (when-not (re-matches #"\d{13}-[0-9a-f]{8}" (str sessionId))
     (throw (rpc-error -32602 (str "a session id is <millis>-<8 hex>, not " sessionId))))
@@ -1038,17 +1048,18 @@
                 (get-in st [:listed sessionId])
                 (get-in params [:_meta :brainyard :cwd])
                 (System/getProperty "user.dir"))
+        soft? (true? (get-in params [:_meta :brainyard :soft]))
         members (when (true? (get-in params [:_meta :brainyard :members]))
                   (->> (concat (persist/members-of {:project-dir cwd} sessionId)
                                (workflow/stage-sessions-of cwd sessionId))
                        (remove #{(str sessionId)})
                        distinct vec))]
-    (when-let [why (delete-one! conn cwd sessionId)]
+    (when-let [why (delete-one! conn cwd sessionId soft?)]
       (throw (rpc-error -32602 why)))
     (if (nil? members)
       {}
       (let [done (mapv (fn [id] [id (when (.exists (persist/session-dir {:project-dir cwd} id))
-                                      (or (delete-one! conn cwd id) :deleted))])
+                                      (or (delete-one! conn cwd id soft?) :deleted))])
                        members)]
         {:_meta {:brainyard {:members {:deleted (vec (keep (fn [[id r]] (when (= :deleted r) id)) done))
                                        :skipped (vec (keep (fn [[id r]] (when (string? r) {:id id :why r})) done))}}}}))))
@@ -1059,15 +1070,17 @@
   that has not run a turn yet is listed too (byj-y6a); one that never did and
   that no process has held for a day is removed first (`persist/prune-empty!`).
   byj keeps sessions per project, so the list is `cwd`'s, or the directory
-  byj runs in. The cursor is the next page's offset."
-  [conn {:keys [cwd cursor]}]
+  byj runs in. The cursor is the next page's offset. A session deleted softly
+  (byj-djq) is left out, but with `_meta.brainyard.deleted` true, which lists
+  it too, its row's `_meta.brainyard.deleted` true."
+  [conn {:keys [cwd cursor] :as params}]
   (let [cwd (if (str/blank? (str cwd)) (System/getProperty "user.dir") cwd)
         from (if (str/blank? (str cursor))
                0
                (or (some-> (re-matches #"\d+" (str cursor)) parse-long)
                    (throw (rpc-error -32602 (str "not a cursor this agent gave: " cursor)))))
         _ (persist/prune-empty! {:project-dir cwd})
-        all (->> (persist/summaries {:project-dir cwd})
+        all (->> (persist/summaries {:project-dir cwd} {:deleted? (true? (get-in params [:_meta :brainyard :deleted]))})
                  (remove :problem))
         page (->> all (drop from) (take list-page))]
     ;; session/delete names a session alone; the project is the one it was listed in
@@ -1165,6 +1178,16 @@
    "session/load" (fn [conn params] (dissoc (open-saved! conn params true) :sessionId))
    "session/resume" (fn [conn params] (dissoc (open-saved! conn params false) :sessionId))
    "session/delete" delete-session
+   ;; a session deleted softly listed again (byj-djq); `{sessionId cwd?}`, the
+   ;; project the one session/list listed it in, else cwd
+   "_byj/session/undelete"
+   (fn [conn {:keys [sessionId cwd]}]
+     (when-not (re-matches #"\d{13}-[0-9a-f]{8}" (str sessionId))
+       (throw (rpc-error -32602 (str "a session id is <millis>-<8 hex>, not " sessionId))))
+     (let [cwd (or (get-in @(:state conn) [:listed sessionId]) cwd (System/getProperty "user.dir"))
+           r (persist/undelete! {:project-dir cwd} sessionId)]
+       (when (:problem r) (throw (rpc-error -32602 (:problem r))))
+       {}))
    "session/prompt" prompt!
    "session/list" list-sessions
    "_byj/turns/list" turns-list

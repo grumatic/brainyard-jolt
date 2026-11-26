@@ -577,6 +577,15 @@ contract writes the folder `<sessions>`.
 6. The path gate closing other projects' sessions to an agent (`byj-7sp.6`, built: RFC-012).
 7. The docs, the contract recorded again, the divergence (`byj-7sp.7`).
 
+## Deleted softly, kept until removed (`byj-djq`)
+
+A client's delete is a soft step first: `persist/soft-delete!` marks the session `:deleted true` with `:deleted-at` in
+its `meta.edn` (merged, as the channel merges what it writes there, so a run's start keeps it), refused while another
+live process holds it. Every list leaves it out — `persist/summaries` (`session/list`, `--resume`, the latest session)
+— unless asked with `{:deleted? true}`, which says its `:deleted-at`; `persist/undelete!` takes the mark off; and
+`persist/delete!` removes it, as before. ACP: `session/delete` with `_meta.brainyard.soft`, `_byj/session/undelete`
+(RFC-053). A deleted session is pruned by age as any other.
+
 ## The project's home
 
 Decided 2026-11-26 and built (`byj-84c`): the second revision. byj-7sp's

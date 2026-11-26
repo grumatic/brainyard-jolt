@@ -62,6 +62,33 @@
       (is (nil? (projects/project-path-for-slug root "nope-00000000")))
       (is (nil? (projects/project-path-for-slug root "../x"))))))
 
+(deftest a-project-is-deleted-softly-undeleted-or-unlisted
+  ;; byj-djq: a client's marks, the folder of the home and its sessions kept
+  (let [home (temp-dir "proj-home")
+        root (root-in home)
+        p (temp-dir "proj-d")
+        a (projects/register-project! root p)
+        slug (:slug a)
+        listed #(set (map :slug (projects/list-projects root)))]
+    (spit (io/file root slug "keep.txt") "a session's stand-in")
+    (testing "deleted: listed still, marked"
+      (is (true? (:deleted (projects/update-record! root slug {:deleted true :deleted-at "t"}))))
+      (is (true? (:deleted (first (projects/list-projects root))))))
+    (testing "undeleted: the mark taken off"
+      (is (not (contains? (projects/update-record! root slug {:deleted nil :deleted-at nil}) :deleted))))
+    (testing "unlisted: off the list, its folder and what is in it kept, its slug still known"
+      (projects/update-record! root slug {:listed? false})
+      (is (not (contains? (listed) slug)))
+      (is (.isFile (io/file root slug "keep.txt")))
+      (is (= p (projects/project-path-for-slug root slug))))
+    (testing "added again: listed, not deleted"
+      (projects/update-record! root slug {:deleted true})
+      (let [b (projects/register-project! root p)]
+        (is (contains? (listed) slug))
+        (is (not (contains? b :deleted)))
+        (is (not (contains? b :listed?)))))
+    (is (nil? (projects/update-record! root "nope-00000000" {:deleted true})) "a slug not registered")))
+
 (deftest a-record-by-wrote-is-read-as-byjs
   ;; the shape brainyard's register-project! pprints
   (let [home (temp-dir "proj-home")

@@ -167,6 +167,12 @@
             {:name "prune" :args "[--yes] [--json]"
              :summary "forget every project whose directory is missing, with the sessions kept for it; asks first"
              :doc "Only the registry's folders are removed, never a project — but a folder keeps the project's sessions, so one holding a session younger than :session-ttl-days, or one a live byj has open, is kept and named. A missing directory may be a volume that comes back, so nothing prunes unless asked: it names them, says how many sessions go, and asks; --yes answers for a script, and with nothing to answer nothing is removed. --json gives the records removed."}
+            {:name "delete" :args "SLUG [--json]"
+             :summary "mark one project deleted, kept and listed as deleted, for a client to show apart"}
+            {:name "undelete" :args "SLUG [--json]"
+             :summary "take a project's deleted mark off"}
+            {:name "unlist" :args "SLUG [--json]"
+             :summary "take one project off the list, its folder of the home and its sessions kept; add lists it again"}
             {:name "remove" :args "SLUG [--yes] [--json]"
              :summary "forget one project, whether its directory is there or not, with its sessions; asks first"
              :doc "Only the project's folder in the registry is removed, never the project, but with it the sessions kept there, which it counts as it asks; refused while a live byj has one open. Registering it again brings back the same slug. --json gives the record removed."}

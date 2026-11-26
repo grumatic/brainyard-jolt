@@ -851,6 +851,23 @@
                                 (println (str "Pruned " k " entr" (if (= 1 k) "y" "ies") "."))
                                 (say-kept)))
                           0)))
+      ;; a project deleted softly, undeleted, or taken off the list with its
+      ;; folder of the home kept (byj-djq); add lists it again
+      ("delete" "undelete" "unlist")
+      (let [slug (some-> arg str str/trim not-empty)
+            mark ({"delete" {:deleted true :deleted-at (str (java.time.Instant/now))}
+                   "undelete" {:deleted nil :deleted-at nil}
+                   "unlist" {:listed? false :deleted nil :deleted-at nil}} sub)
+            rec (when slug (projects/update-record! root slug mark))]
+        (cond
+          (nil? slug) (do (err-println (str "usage: byj project " sub " SLUG  (byj project list names them)")) 1)
+          (nil? rec) (do (err-println (str "No such registered project: " slug)) 1)
+          json (do (out rec) 0)
+          :else (do (println (str ({"delete" "Deleted (undelete brings it back): "
+                                    "undelete" "Undeleted: "
+                                    "unlist" "Taken off the list, its sessions kept (byj project add lists it again): "} sub)
+                                  (:slug rec) " " (:path rec)))
+                    0)))
       "remove" (let [slug (some-> arg str str/trim not-empty)
                      rec (when slug (first (filter #(= slug (:slug %)) (projects/list-projects root {:unlisted? true}))))]
                  (cond

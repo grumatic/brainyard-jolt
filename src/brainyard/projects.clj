@@ -279,6 +279,21 @@
         (refresh-index! root)
         rec))))
 
+(defn update-record!
+  "Record `slug` rewritten with `m` merged in, a nil value taking its key out,
+  then the index; the record, or nil when the slug is not registered. What a
+  client marks on a project (byj-djq): `:deleted` (deleted softly, kept),
+  `:listed? false` (taken off the list, its folder of the home kept)."
+  [root slug m]
+  (when root
+    (when-let [rec (first (filter #(= slug (:slug %)) (list-projects root {:unlisted? true})))]
+      (let [f (io/file root (:slug rec) project-file)
+            prev (or (read-record f) {})
+            next (into {} (remove (comp nil? val)) (merge prev m))]
+        (write-edn! f next)
+        (refresh-index! root)
+        next))))
+
 (defn register-project!
   "`path`'s record written, or brought up to date, and returned: its
   `:created-at` kept, keys this byj does not know (a newer `by`'s) kept,
@@ -292,7 +307,8 @@
             f (io/file dir project-file)
             prev (read-record f)
             now (java.util.Date.)
-            rec (merge (dissoc (or prev {}) :listed? :worktree-of)
+            ;; added again: listed, and no longer deleted (byj-djq)
+            rec (merge (dissoc (or prev {}) :listed? :worktree-of :deleted :deleted-at)
                        (worktree-of cp)
                        {:path cp
                         :slug (project-slug cp)

@@ -390,20 +390,40 @@
                        (when (and (not (:problem m)) (= (str leader) (str (:leader m)))) (.getName d)))))
        vec))
 
+(defn- meta-of
+  "Session `id`'s `meta.edn` (its channel's, RFC-031), or {}."
+  [config id]
+  (let [f (io/file (session-dir config id) "meta.edn")]
+    (or (when (.isFile f) (try (let [m (edn/read-string (slurp f))] (when (map? m) m)) (catch Throwable _ nil))) {})))
+
+(defn deleted-at
+  "When session `id` was deleted softly (byj-djq), or nil: kept, out of every
+  list, until it is undeleted or removed."
+  [config id]
+  (let [m (meta-of config id)]
+    (when (true? (:deleted m)) (or (:deleted-at m) ""))))
+
 (defn summaries
-  "Every session under the project, newest first: what `--resume` lists."
-  [config]
-  (->> (session-dirs config)
-         (keep (fn [d]
-                 (let [m (read-session config (.getName d))]
-                   (if (:problem m)
-                     {:id (.getName d) :problem (:problem m)}
-                     (-> (select-keys m [:id :updated-at :created-at :turn-count :usage :last-question
-                                         :conversation-title :model :working-dir :leader])
-                         ;; a snapshot written before :last-question was kept
-                         (update :last-question #(or % (:question (peek (vec (:previous-turns m)))))))))))
-         (sort-by #(or (:updated-at %) 0) >)
-         vec))
+  "Every session under the project, newest first: what `--resume` lists. One
+  deleted softly (byj-djq) is left out, but with `{:deleted? true}`, which
+  gives it too, its `:deleted-at` said."
+  ([config] (summaries config nil))
+  ([config {:keys [deleted?]}]
+   (->> (session-dirs config)
+        (keep (fn [d]
+                (let [id (.getName d)
+                      gone (deleted-at config id)
+                      m (when (or deleted? (nil? gone)) (read-session config id))]
+                  (cond
+                    (nil? m) nil
+                    (:problem m) {:id id :problem (:problem m)}
+                    :else (cond-> (-> (select-keys m [:id :updated-at :created-at :turn-count :usage :last-question
+                                                      :conversation-title :model :working-dir :leader])
+                                      ;; a snapshot written before :last-question was kept
+                                      (update :last-question #(or % (:question (peek (vec (:previous-turns m)))))))
+                            gone (assoc :deleted-at gone))))))
+        (sort-by #(or (:updated-at %) 0) >)
+        vec)))
 
 (defn last-run-file
   "Where a full-screen run records the set it has open (byj-gly.178)."
@@ -758,6 +778,41 @@
       :else (do (delete-tree! (sessions-dir config) dir)
                 (delete-tree! (transcripts-dir config) (io/file (transcripts-dir config) (str id)))
                 true))))
+
+;; --- deleted softly, kept until removed (byj-djq) -------------------------------------
+
+(defn- write-meta!
+  "`f` merged into session `id`'s `meta.edn`, nil values dropped from it,
+  through a file beside it and a rename. The channel merges what it writes
+  there (`channel/write-meta!`), so a mark set here outlives a run's start."
+  [config id f]
+  (let [file (io/file (session-dir config id) "meta.edn")
+        m (into {} (remove (comp nil? val)) (merge (meta-of config id) f))
+        tmp (io/file (.getParentFile file) ".meta.edn.tmp")]
+    (spit tmp (pr-str m))
+    (when-not (.renameTo tmp file) (io/copy tmp file) (.delete tmp))))
+
+(defn soft-delete!
+  "Session `id` deleted softly at someone's word (byj-djq): marked
+  `:deleted true` in its `meta.edn` with when, left out of every list but a
+  client's asking for deleted ones, kept until it is undeleted or removed
+  (`delete!`). Returns true, or `{:problem …}`: there is no such session, or
+  another live process holds it."
+  [config id]
+  (let [dir (session-dir config id)]
+    (cond
+      (not (resumable? dir)) {:problem (str "no session " id)}
+      (holder config id) {:problem (str "session " id " is held by process " (holder config id))}
+      :else (do (write-meta! config id {:deleted true :deleted-at (str (java.time.Instant/now))}) true))))
+
+(defn undelete!
+  "Session `id`'s soft delete undone (byj-djq): listed again. true, or
+  `{:problem …}` when there is no such session or it is not deleted."
+  [config id]
+  (cond
+    (not (resumable? (session-dir config id))) {:problem (str "no session " id)}
+    (nil? (deleted-at config id)) {:problem (str "session " id " is not deleted")}
+    :else (do (write-meta! config id {:deleted nil :deleted-at nil}) true)))
 
 ;; --- sessions that never ran a turn (byj-y6a) ---------------------------------------
 
