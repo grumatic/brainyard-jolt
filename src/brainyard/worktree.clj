@@ -21,15 +21,65 @@
          (if (zero? (:exit r)) {:ok (str/trim (:out r))} {:error (str/trim (str (:err r) (:out r)))}))
        (catch Throwable e {:error (ex-message e)})))
 
+(def default-includes
+  "What a new worktree is given of the checkout's ignored files when the
+  repository has no `.worktreeinclude`: its secrets, which a session there
+  needs as the checkout's does (byj-9f8)."
+  [".env" ".brainyard/.env"])
+
+(defn include!
+  "Copy into new worktree `dir` the files of `project`'s checkout that git
+  ignores and the repository's `.worktreeinclude` names — gitignore's syntax,
+  as Claude Code reads the same file — or, with none, `default-includes`: a
+  worktree checks out only what is committed, and a `.env` never is
+  (byj-9f8). Each copied with its mode. The paths copied, from the top."
+  [project dir]
+  (try
+    (when-let [top (:ok (git project "rev-parse" "--show-toplevel"))]
+      (let [own (io/file top ".worktreeinclude")
+            pats (if (.isFile own)
+                   own
+                   (doto (java.io.File/createTempFile "byj-worktreeinclude" ".txt")
+                     (spit (str (str/join "\n" default-includes) "\n"))))
+            listed (git top "ls-files" "--others" "--ignored" (str "--exclude-from=" (.getPath pats)))]
+        (when-not (= own pats) (.delete pats))
+        (vec (for [rel (remove str/blank? (str/split-lines (str (:ok listed))))
+                   :let [src (io/file top rel) dst (io/file (str dir) rel)]
+                   ;; only what git ignores: a file it would track is the branch's
+                   :when (and (.isFile src) (not (.exists dst))
+                              (:ok (git top "check-ignore" "-q" rel)))
+                   :when (do (io/make-parents dst)
+                             (zero? (:exit (fx/sh {:out :string :err :string} "cp" "-p" (.getPath src) (.getPath dst)))))]
+               rel))))
+    (catch Throwable _ [])))
+
+(defn unshared
+  "What of `project`'s `.brainyard/` is not committed — `git status
+  --porcelain` lines — which a worktree, checked out from a commit, does not
+  have: a session there reads its branch's (byj-9f8). Ignored files are not
+  among them."
+  [project]
+  ;; not through `git`, which trims: a status line opens with a space
+  (let [r (try (fx/sh {:dir (str project) :out :string :err :string} "git" "status" "--porcelain" "--" ".brainyard")
+               (catch Throwable _ nil))]
+    (if (and r (zero? (:exit r)))
+      (vec (remove str/blank? (str/split-lines (str (:out r)))))
+      [])))
+
 (defn add!
   "A git worktree of `project` at `dir`, on a new branch `branch` from `from`
-  (HEAD when nil): `{:dir :branch}` with `dir` canonical, or `{:error}`.
-  teams' `add-worktree!` before it was shared."
+  (HEAD when nil): `{:dir :branch :included :unshared}` with `dir`
+  canonical — `:included` the ignored files given it (`include!`),
+  `:unshared` what of the project's `.brainyard/` is not committed, so not
+  there (`unshared`) — or `{:error}`. teams' `add-worktree!` before it was
+  shared."
   [project dir branch & [from]]
   (let [r (git project "worktree" "add" "-b" branch (str dir) (or from "HEAD"))]
     (if (:error r)
       {:error (str "could not add a worktree on " branch ": " (:error r))}
-      {:dir (.getCanonicalPath (io/file (str dir))) :branch branch})))
+      (cond-> {:dir (.getCanonicalPath (io/file (str dir))) :branch branch}
+        true (assoc :included (include! project dir))
+        (seq (unshared project)) (assoc :unshared (unshared project))))))
 
 (defn- branch? [project b]
   (:ok (git project "rev-parse" "--verify" "-q" (str "refs/heads/" b))))

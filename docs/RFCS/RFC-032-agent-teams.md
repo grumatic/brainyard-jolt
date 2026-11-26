@@ -51,7 +51,13 @@ and to RFC-019 as background tasks of the leader's. An assignment is RFC-031's
   (RFC-069). The leader finds it, and it finds the leader to forward its
   permission prompts, among the repository's other checkouts
   (`channel/checkout-sessions`, `find-session`); the leader's own list is
-  its own.
+  its own. A worktree checks out only what is committed, so it is given the
+  checkout's ignored files the repository's `.worktreeinclude` names —
+  gitignore's syntax, the file Claude Code reads for its worktrees — or, with
+  none, `.env` and `.brainyard/.env` (`worktree/include!`); and what of the
+  project's `.brainyard/` is not committed, which the member would not see,
+  is said with the spawn (`:warning`, `worktree/unshared`). Every worktree
+  byj adds is given them, a delegation's and a workflow run's too.
   `team$spawn` waits until the member is live (`:team-spawn-timeout-ms`, 60 s).
 - **Handing out work.** `team$assign {:member :task}` is `session$send` to
   that member, recorded on the roster, so `task$wakeup` resumes the leader as

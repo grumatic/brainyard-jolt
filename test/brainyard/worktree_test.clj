@@ -36,7 +36,7 @@
     (doseq [f (reverse (file-seq (io/file beside)))] (.delete f))
     (testing "added on a branch of its own"
       (is (= {:dir (.getCanonicalPath (io/file project ".brainyard/wt/a")) :branch "bd/a"}
-             (worktree/add! project inside "bd/a")))
+             (select-keys (worktree/add! project inside "bd/a") [:dir :branch])))
       (is (= beside (:dir (worktree/add! project beside "bd/b"))))
       (is (:error (worktree/add! project (str beside "-again") "bd/b")) "a branch that exists is an error"))
     (testing "listed from any of them, the main one first"
@@ -109,3 +109,33 @@
         (is (= ["sh" "-c"] (take 2 argv)))
         (is (str/includes? (last argv) "git -C '/a b/it'\\''s' -c color.ui=always diff HEAD | ${PAGER:-less -R}"))))))
 
+
+(deftest a-new-worktree-is-given-the-ignored-files-it-needs-and-says-what-it-lacks
+  ;; byj-9f8: a worktree checks out only what is committed — a .env never is
+  ;; — so the ignored files .worktreeinclude names are copied in (.env and
+  ;; .brainyard/.env when there is none); and what of .brainyard/ is not
+  ;; committed, which a session there would read as its branch's, is said
+  (let [project (repo! "include")
+        put! (fn [rel text] (let [f (io/file project rel)] (io/make-parents f) (spit f text) f))]
+    (put! ".gitignore" ".env\n.brainyard/.env\nbig/\nsecret.key\n")
+    (put! ".brainyard/config.edn" "{}")
+    (git! project "add" ".")
+    (git! project "-c" "user.name=t" "-c" "user.email=t@example.invalid" "commit" "-qm" "ignore")
+    (put! ".env" "KEY=1")
+    (put! ".brainyard/.env" "OTHER=2")
+    (put! "big/blob" "x")
+    (put! "secret.key" "k")
+    (testing "with no .worktreeinclude: the .env files, and nothing else ignored"
+      (let [w (worktree/add! project (fresh-dir "include-wt1") "b1")]
+        (is (= #{".env" ".brainyard/.env"} (set (:included w))))
+        (is (= "KEY=1" (slurp (io/file (:dir w) ".env"))))
+        (is (not (.exists (io/file (:dir w) "secret.key"))))
+        (is (nil? (:unshared w)) "everything of .brainyard/ is committed")))
+    (testing "a .worktreeinclude names what it is given — only what git ignores"
+      (put! ".worktreeinclude" "secret.key\nbig/\n.brainyard/config.edn\n")
+      (put! ".brainyard/config.edn" "{:changed true}")
+      (let [w (worktree/add! project (fresh-dir "include-wt2") "b2")]
+        (is (= #{"secret.key" "big/blob"} (set (:included w))) "config.edn is tracked: the branch's, never copied")
+        (is (= "{}" (slurp (io/file (:dir w) ".brainyard" "config.edn"))))
+        (testing "and what of .brainyard/ is not committed here is said"
+          (is (= [" M .brainyard/config.edn"] (:unshared w))))))))

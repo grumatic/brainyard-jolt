@@ -193,7 +193,13 @@
                                           wt (assoc :worktree (:dir wt) :branch (:branch wt))))]
             (when-not (:error entry)
               (update-team! config (:id team) update :members (fnil conj []) entry))
-            entry))))))
+            ;; its worktree has the .brainyard/ of the commit it starts from,
+            ;; which the member reads: what is not committed is not there (byj-9f8)
+            (cond-> entry
+              (and (not (:error entry)) (:unshared wt))
+              (assoc :warning (str "its worktree has .brainyard/ as committed: "
+                                   (str/join ", " (map #(str/trim (subs % (min 3 (count %)))) (:unshared wt)))
+                                   " not committed here, so not there — commit it for the member to read it")))))))))
 
 (defn resume!
   "Bring the open team's members back after its leader was resumed: they

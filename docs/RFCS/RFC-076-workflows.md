@@ -250,7 +250,9 @@ A stage works in a place.
   hour) so its turn may be the stage's whole work. In a worktree, the
   worktree is its project (`byj-9f8`, RFC-032): its branch's `.brainyard/`,
   its own records and turns, found by the run among the repository's other
-  checkouts.
+  checkouts. Its worktree is given the ignored files `.worktreeinclude`
+  names (RFC-032), and the run's log says what of `.brainyard/` was not
+  committed, so not there (`:unshared` in the words).
 
 The place follows the roles' `:session` (RFC-075):
 

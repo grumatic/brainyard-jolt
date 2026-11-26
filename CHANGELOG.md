@@ -6,6 +6,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A team member or workflow stage in a worktree works there as in any
+  project.** Its project is the worktree: it reads the `.brainyard/` its
+  branch has, keeps its own sessions and log, cannot reach the main
+  checkout, and its turns are the worktree's. A new worktree is given the
+  ignored files `.worktreeinclude` names (gitignore syntax, as Claude Code
+  reads it) — `.env` and `.brainyard/.env` when there is none — and byj says
+  when your `.brainyard/` has uncommitted changes the worktree will not have.
 - **`byj project` is one command.** `byj projects list|path|add|prune|remove|move`
   and `byj project path [KIND]` are now `byj project …`; `byj projects` still
   works and reaches the same command. `byj project path` takes a kind

@@ -372,6 +372,13 @@
   [config]
   (max 1 (or (num-of (:workflow-stage-attempts config)) 3)))
 
+(defn- unshared-words
+  "`git status --porcelain` lines of `.brainyard/` as a list for a person:
+  the paths, a few of them."
+  [lines]
+  (let [ps (map #(str/trim (subs % (min 3 (count %)))) lines)]
+    (str (str/join ", " (take 4 ps)) (when (> (count ps) 4) (str " and " (- (count ps) 4) " more")))))
+
 (defn runs-dir [dir] (projects/runtime-path dir "workflow-runs"))
 
 (defn run-file [dir n] (io/file (runs-dir dir) (str n ".edn")))
@@ -707,7 +714,11 @@
                                                                          :work (:work-text run)
                                                                          :flow (str/join " → " (map id-name stages))
                                                                          :master (master-words w run)}))
-                run (cond-> run told (update :log conj told))]
+                run (cond-> run
+                      told (update :log conj told)
+                      ;; what of .brainyard/ is not committed is not in its
+                      ;; worktree, whose sessions read their branch's (byj-9f8)
+                      (:unshared wt) (update :log conj (fill (:unshared w) {:paths (unshared-words (:unshared wt))})))]
             (write-run! dir run)
             (when-not (elsewhere? place) (note-begun! dir run 0 (:session-id config)))
             {:stop false :stopped "" :run n :brief (get-in run [:stages 0 :brief]) :master (master-words w run)
@@ -1004,7 +1015,8 @@
                          (if (:error r) r (assoc r :dir (:dir place))))))
             why (or (:error wt) (:error sess))
             run (cond-> (assoc-in run [:stages i :place] place)
-                  (and sess (not why)) (assoc-in [:sessions k] (select-keys sess [:session-id :task-id :label :dir])))]
+                  (and sess (not why)) (assoc-in [:sessions k] (select-keys sess [:session-id :task-id :label :dir]))
+                  (:unshared wt) (update :log (fnil conj []) (fill (:unshared (words)) {:paths (unshared-words (:unshared wt))})))]
         ;; every stage keyed alike works where this one does
         (write-run! dir (update run :stages
                                 (fn [ss] (mapv #(if (and (= k (get-in % [:place :key])) (:dir place)) (assoc-in % [:place :dir] (:dir place)) %) ss))))

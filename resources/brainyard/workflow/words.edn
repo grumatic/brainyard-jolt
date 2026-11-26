@@ -87,6 +87,7 @@
  :tell-waits "Run #{n}: stage {stage} is done ({summary}); the run waits for the person before stage {next}. It ended saying:\n\n{answer}"
  :tell-end "Run #{n} of workflow {workflow} has ended: {stopped}\n\n{log}\n\nSay what the person should know of it: what was done, what is left, and whether it passes."
  :report-head "/workflow run #{n} — {workflow}{title}: {work}"
+ :unshared "Its worktree has the .brainyard/ of the commit it starts from: {paths} not committed in this project, so not there."
  :report-paused "Kept as run {n} (byj workflow runs {n}). /workflow resume {n} hands it on to the next stage — say what to add for it, if anything."
  ;; what the person added, handing a waiting run on (byj-cm4.1)
  :resume-note "The person, handing the run on to you, adds: {note}"
