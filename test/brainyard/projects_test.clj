@@ -62,6 +62,20 @@
       (is (nil? (projects/project-path-for-slug root "nope-00000000")))
       (is (nil? (projects/project-path-for-slug root "../x"))))))
 
+(defn- run-main
+  "`byj args…` in this process: `{:exit :out :err}`, as main-test's."
+  [in & args]
+  (let [err (java.io.StringWriter.)
+        code (atom nil)
+        out (with-out-str
+              (with-in-str (or in "")
+                (binding [*err* err
+                          main/*exit* (fn [c] (throw (ex-info "exit" {::exit c})))]
+                  (try (apply #'main/main* args)
+                       (catch clojure.lang.ExceptionInfo e
+                         (if-let [c (::exit (ex-data e))] (reset! code c) (throw e)))))))]
+    {:exit @code :out out :err (str err)}))
+
 (deftest a-project-is-deleted-softly-undeleted-or-unlisted
   ;; byj-djq: a client's marks, the folder of the home and its sessions kept
   (let [home (temp-dir "proj-home")
@@ -83,10 +97,27 @@
       (is (= p (projects/project-path-for-slug root slug))))
     (testing "added again: listed, not deleted"
       (projects/update-record! root slug {:deleted true})
+      (projects/update-record! root slug {:listed? false :unlisted-at "t"})
       (let [b (projects/register-project! root p)]
         (is (contains? (listed) slug))
         (is (not (contains? b :deleted)))
-        (is (not (contains? b :listed?)))))
+        (is (not (contains? b :listed?)))
+        (is (not (contains? b :unlisted-at)) "nor said taken off the list")))
+    (testing "byj project unlist says the person took it off: :unlisted-at, which byj's own record has not (byj-dgw)"
+      (let [before (System/getProperty "brainyard.projects-home")]
+        (System/setProperty "brainyard.projects-home" home)
+        (try
+          (is (= 0 (:exit (run-main nil "project" "unlist" slug))))
+          (let [r (first (projects/list-projects root {:unlisted? true}))]
+            (is (false? (:listed? r)))
+            (is (string? (:unlisted-at r))))
+          (let [q (temp-dir "proj-own")]
+            (projects/ensure-record! root q)
+            (is (not (contains? (first (filter #(= q (:path %)) (projects/list-projects root {:unlisted? true}))) :unlisted-at))))
+          (finally
+            (if before
+              (System/setProperty "brainyard.projects-home" before)
+              (System/clearProperty "brainyard.projects-home"))))))
     (is (nil? (projects/update-record! root "nope-00000000" {:deleted true})) "a slug not registered")))
 
 (deftest a-record-by-wrote-is-read-as-byjs
@@ -137,20 +168,6 @@
     (doseq [slug [".." "../x" victim "" nil]]
       (is (false? (#'projects/delete-record-dir! root slug)) (pr-str slug)))
     (is (.isFile (io/file victim "keep.txt")))))
-
-(defn- run-main
-  "`byj args…` in this process: `{:exit :out :err}`, as main-test's."
-  [in & args]
-  (let [err (java.io.StringWriter.)
-        code (atom nil)
-        out (with-out-str
-              (with-in-str (or in "")
-                (binding [*err* err
-                          main/*exit* (fn [c] (throw (ex-info "exit" {::exit c})))]
-                  (try (apply #'main/main* args)
-                       (catch clojure.lang.ExceptionInfo e
-                         (if-let [c (::exit (ex-data e))] (reset! code c) (throw e)))))))]
-    {:exit @code :out out :err (str err)}))
 
 (deftest byj-projects-lists-adds-and-forgets
   (let [home (temp-dir "proj-home")

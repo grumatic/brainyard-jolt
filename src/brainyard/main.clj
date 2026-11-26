@@ -878,7 +878,9 @@
       (let [slug (some-> arg str str/trim not-empty)
             mark ({"delete" {:deleted true :deleted-at (str (java.time.Instant/now))}
                    "undelete" {:deleted nil :deleted-at nil}
-                   "unlist" {:listed? false :deleted nil :deleted-at nil}} sub)
+                   ;; :unlisted-at: the person took it off the list, not byj
+                   ;; recording a folder of its own (ensure-record!, byj-dgw)
+                   "unlist" {:listed? false :unlisted-at (str (java.time.Instant/now)) :deleted nil :deleted-at nil}} sub)
             rec (when slug (projects/update-record! root slug mark))]
         (cond
           (nil? slug) (do (err-println (str "usage: byj project " sub " SLUG  (byj project list names them)")) 1)

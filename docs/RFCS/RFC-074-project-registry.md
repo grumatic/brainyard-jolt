@@ -156,7 +156,10 @@ Config: `:register-project?` (boolean, true).
 A client marks a project on its record (`projects/update-record!`): `byj project delete SLUG` marks it `:deleted`
 (listed still, `deleted?` in `list --json`'s rows, for a client to show apart), `undelete` takes the mark off, and
 `unlist` takes it off the list (`:listed? false`) with its folder of the home and its sessions kept, its slug still in
-the index; `byj project add` lists it again, no longer deleted. `remove` still removes the folder, its sessions with it.
+the index; `byj project add` lists it again, no longer deleted. `remove` still removes the folder, its sessions with it. `unlist` says the person took it off the list,
+`:unlisted-at` (`byj-dgw`): byj's own record of a folder a run kept its sessions in (`ensure-record!`) is `:listed? false`
+too, but has none, so a client can list what byj recorded on its own apart from what the person removed (the
+workbench's Hidden projects). Added again, both marks go.
 
 ### A folder of another project is not added (`byj-661`)
 

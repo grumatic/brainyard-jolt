@@ -308,7 +308,7 @@
             prev (read-record f)
             now (java.util.Date.)
             ;; added again: listed, and no longer deleted (byj-djq)
-            rec (merge (dissoc (or prev {}) :listed? :worktree-of :deleted :deleted-at)
+            rec (merge (dissoc (or prev {}) :listed? :unlisted-at :worktree-of :deleted :deleted-at)
                        (worktree-of cp)
                        {:path cp
                         :slug (project-slug cp)
