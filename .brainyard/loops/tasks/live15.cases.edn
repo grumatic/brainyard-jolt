@@ -1,0 +1,12 @@
+[{:question "Create the file notes/hello.txt containing exactly the word hello."
+  :checks [{:type :file :name "hello" :path "notes/hello.txt" :contains "hello"}]}
+ {:question "Write into count.txt the number of RFC documents in docs/RFCS (the files named RFC-*.md), digits only."
+  :check "test \"$(tr -d '[:space:]' < count.txt)\" = \"$(ls docs/RFCS/RFC-*.md | wc -l | tr -d ' ')\""}
+ {:question "Write into jolt-version.txt the :jolt/min-version that deps.edn declares, the version string only."
+  :check "grep -q \"$(sed -n 's/.*:jolt\\/min-version \"\\([^\"]*\\)\".*/\\1/p' deps.edn)\" jolt-version.txt"}
+ {:question "Add a line reading exactly: checked — as the last line of CHANGELOG.md."
+  :check "test \"$(tail -n 1 CHANGELOG.md)\" = checked"}
+ {:question "Create scripts/hi.sh, a POSIX shell script that prints hi, and make it executable."
+  :check "test \"$(./scripts/hi.sh)\" = hi"}
+ {:question "Write into license.txt the SPDX licence identifier that this repository's source files carry, the identifier only."
+  :check "test \"$(tr -d '[:space:]' < license.txt)\" = MIT"}]

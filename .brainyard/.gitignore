@@ -28,6 +28,3 @@
 /programs/**/proposals/
 /tools/proposals/
 /skills/proposals/
-
-# this repository's own: the cases of the first live loop evaluation (RFC-071) stay out of it
-/loops/tasks/live15.cases.edn
