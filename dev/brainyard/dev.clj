@@ -58,17 +58,38 @@
   []
   (select-keys ((requiring-resolve 'brainyard.test-runner/run)) [:test :pass :fail :error]))
 
+(defn- emptied-dir
+  "`dir` made again empty, its canonical path."
+  [dir]
+  (let [d (clojure.java.io/file dir)]
+    (doseq [f (reverse (file-seq d))] (.delete f))
+    (.getCanonicalPath (doto d .mkdirs))))
+
 (defn test-ns
   "Reload and run one test namespace, e.g. (test-ns 'brainyard.predictor-test),
-  kept from the person's own stores as the runner keeps the suite: a run
-  scored online goes to the suite's eval store, no memory store is read,
-  Codex's home is an empty one (byj-gly.443), and a turn run in this
-  repository is not kept in its refs (provenance P-55). The image's own are put back
-  after, so a live session asked from it next reads them as before."
+  kept from the person's own stores as the runner keeps the suite
+  (test_run.clj): a run scored online goes to the suite's eval store, no
+  memory store is read, Codex's home, byj-share's and the skills' are empty
+  ones (byj-gly.443), the project registry is a home of the run's own,
+  emptied as it starts (byj-mrq), and a turn run in this repository is not
+  kept in its refs (provenance P-55). The image's own are put back after, so
+  a live session asked from it next reads them as before."
   [ns-sym]
   (let [props {"brainyard.eval-root" (.getCanonicalPath (clojure.java.io/file "target" "test-eval-store"))
                "brainyard.memory-store" "none"
                "brainyard.codex-home" (.getCanonicalPath (doto (clojure.java.io/file "target" "test-codex-home") .mkdirs))
+               "brainyard.share-home" (.getCanonicalPath (doto (clojure.java.io/file "target" "test-share-home") .mkdirs))
+               "brainyard.skills-home" (.getCanonicalPath (doto (clojure.java.io/file "target" "test-skills-home") .mkdirs))
+               ;; nor the person's project registry, which keeps every
+               ;; project's sessions: without it a test's project — teams-test's
+               ;; target/teams-test/<name>, its team and its members' sessions —
+               ;; was registered in ~/.brainyard/projects. Outside the
+               ;; repository and emptied, as the runner's; carried to every
+               ;; process the test starts (fx/carried-env)
+               "brainyard.projects-home" (emptied-dir (clojure.java.io/file (System/getProperty "java.io.tmpdir")
+                                                                             (str "byj-test-projects-"
+                                                                                  (Math/abs (hash (.getCanonicalPath (clojure.java.io/file ".")))))
+                                                                             "repl"))
                ;; nor this repository's refs: a test's turn in it is not kept (provenance P-55)
                "brainyard.changes-skip-root" (.getCanonicalPath (clojure.java.io/file "."))}
         was (into {} (for [k (keys props)] [k (System/getProperty k)]))]
