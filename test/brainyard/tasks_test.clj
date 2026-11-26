@@ -86,7 +86,10 @@
     (testing "and the session's close ends it"
       (is (= 1 (tasks/cancel-all! reg)))
       (is (wait-until 3000 #(not (alive? marker))) "no subprocess outlives the session")
-      (is (= :cancelled (:status (tasks/snapshot reg id)))))))
+      ;; the cancel signals the task's fiber, which records :cancelled when it
+      ;; settles: after the subprocess is gone on a loaded runner (byj-qwi)
+      (is (wait-until 3000 #(= :cancelled (:status (tasks/snapshot reg id))))
+          "the task is recorded cancelled"))))
 
 (deftest a-fast-call-is-untouched
   (let [dir (fresh-dir "fast")
