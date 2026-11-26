@@ -1011,8 +1011,11 @@
     (when open
       (swap! (:state conn) update :sessions dissoc sessionId)
       (sdk/close! open))
-    (let [r (persist/delete! {:project-dir cwd} sessionId)]
-      (when (:problem r) (throw (rpc-error -32602 (:problem r))))
+    (let [r (persist/delete! {:project-dir cwd} sessionId)
+          ;; one open here that never ran a turn is gone once closed
+          ;; (`persist/prune-empty!`): deleted, as asked (byj-wb6)
+          gone? (and open (:problem r) (not (.exists (persist/session-dir {:project-dir cwd} sessionId))))]
+      (when (and (:problem r) (not gone?)) (throw (rpc-error -32602 (:problem r))))
       ;; and what it kept to rewind: nothing goes back to a session there
       ;; is no more (RFC-069, byj-ayk)
       (changes/forget! {:project-dir cwd :working-dir cwd} sessionId)

@@ -568,6 +568,12 @@
         (is (not (.exists (persist/session-dir cfg a))))
         (is (not (.exists (io/file (brainyard.persist/state-dir {:project-dir dir} "transcripts") a))))
         (is (= #{b held} (listed))))
+      (testing "one open here that never ran a turn is deleted, and its delegations with it (byj-wb6)"
+        (let [fresh (:sessionId (new-session c dir model))
+              f (brainyard.projects/runtime-path dir "claude-agents" "cc-of-fresh.edn")]
+          (spit f (pr-str {:session-id "cc-of-fresh" :dir dir :state "done" :parent-session fresh :updated-at 1}))
+          (is (= {} (:result (call c "session/delete" {:sessionId fresh}))))
+          (is (not (.exists f)))))
       (testing "the sessions it delegated to are forgotten with it, another's left (byj-wb6)"
         (is (not (.exists (brainyard.projects/runtime-path dir "claude-agents" "cc-of-a.edn"))))
         (is (.exists (brainyard.projects/runtime-path dir "claude-agents" "cc-of-b.edn"))))
