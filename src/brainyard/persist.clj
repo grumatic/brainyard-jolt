@@ -380,6 +380,16 @@
                               before-turn (assoc :forked-before-turn before-turn)))
               f))))
 
+(defn members-of
+  "The sessions of the project whose snapshot names `leader` as their leader
+  (a team member, a served member: byj-cm4.13), for deleting a leader with
+  them (byj-a9d)."
+  [config leader]
+  (->> (session-dirs config)
+       (keep (fn [d] (let [m (read-session config (.getName d))]
+                       (when (and (not (:problem m)) (= (str leader) (str (:leader m)))) (.getName d)))))
+       vec))
+
 (defn summaries
   "Every session under the project, newest first: what `--resume` lists."
   [config]

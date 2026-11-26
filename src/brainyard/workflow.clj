@@ -1051,6 +1051,15 @@
                            (str (:answer r)))
                  :usage {}})))))))
 
+(defn stage-sessions-of
+  "The sessions the runs that session `leader` ran started for their stages
+  (each run's `:sessions`), for deleting a leader with its members (byj-a9d)."
+  [dir leader]
+  (->> (runs dir)
+       (filter #(= (str leader) (str (:session %))))
+       (mapcat #(keep :session-id (vals (:sessions %))))
+       distinct vec))
+
 (defn- close-sessions!
   "The sessions `run` started for its stages stopped, through the tasks
   they run as; their worktrees and branches stay. Lines for the report."

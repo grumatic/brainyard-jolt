@@ -594,6 +594,43 @@
         (is (= -32602 (get-in (call c "session/delete" {:sessionId "../x"}) [:error :code]))))
       (finally (acp/end! (:conn c))))))
 
+(deftest a-leader-is-deleted-with-its-members-when-asked
+  ;; byj-a9d: team members by their snapshot's leader, a run's stage sessions
+  ;; by its record; another leader's left, and none without the ask
+  (let [dir (fresh-dir "delete-members")
+        c (client)
+        _ (call c "initialize" {:protocolVersion 1})
+        model (script! dir [{:answer "one"} {:answer "two"}])
+        ran (fn [] (let [sid (:sessionId (new-session c dir model))]
+                     (call c "session/prompt" {:sessionId sid :prompt [{:type "text" :text "q"}]})
+                     (call c "session/close" {:sessionId sid})
+                     sid))
+        lead (ran) other (ran)
+        save! (fn [id leader] (persist/save! (cond-> {:project-dir dir :working-dir dir} leader (assoc :session-leader leader))
+                                             id {:turn-count 1 :previous-turns [{:question "q" :answer "a"}] :question "q"}))
+        cfg {:project-dir dir}
+        run-file (brainyard.workflow/run-file dir 1)]
+    (try
+      (save! "1790000000000-member01" lead)
+      (save! "1790000000000-member02" other)
+      (save! "1790000000000-stage001" nil)
+      (io/make-parents run-file)
+      (spit run-file (pr-str {:n 1 :status :done :session lead
+                              :sessions {:root {:session-id "1790000000000-stage001" :label "workflow-1/root"}}}))
+      (call c "session/list" {:cwd dir})
+      (testing "without the ask, the leader alone"
+        (is (= {} (:result (call c "session/delete" {:sessionId other}))))
+        (is (.exists (persist/session-dir cfg "1790000000000-member02"))))
+      (testing "asked: its team member and its run's stage session after it, and said"
+        (let [r (:result (call c "session/delete" {:sessionId lead :_meta {:brainyard {:members true}}}))]
+          (is (= #{"1790000000000-member01" "1790000000000-stage001"} (set (get-in r [:_meta :brainyard :members :deleted]))))
+          (is (= [] (get-in r [:_meta :brainyard :members :skipped]))))
+        (is (not (.exists (persist/session-dir cfg lead))))
+        (is (not (.exists (persist/session-dir cfg "1790000000000-member01"))))
+        (is (not (.exists (persist/session-dir cfg "1790000000000-stage001"))))
+        (is (.isFile run-file) "the run's record is left"))
+      (finally (acp/end! (:conn c))))))
+
 (defn- line-reader
   "Read `is` to its end on blk, each line as it is written — as a client reads
   a process's stdout — into an atom, `{:lines [{:text :msg}] :eof? bool}`,

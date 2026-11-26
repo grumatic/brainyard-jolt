@@ -37,6 +37,7 @@
             [brainyard.sdk :as sdk]
             [brainyard.tools :as tools]
             [brainyard.version :as version]
+            [brainyard.workflow :as workflow]
             [jolt.ffi :as ffi]))
 
 (def protocol-version
@@ -993,37 +994,64 @@
                           ;; the session leading it, a member's (byj-cm4.13)
                           leader (assoc :leader leader))}}))
 
+(defn- delete-one!
+  "Session `id` of the project at `cwd` deleted, as `session/delete` deletes
+  one: closed first when this connection has it open, its rewind refs and the
+  Claude Code and Codex sessions it delegated to with it. nil, or why not
+  (another live process holds it, there is no such session)."
+  [conn cwd id]
+  (let [open (get-in @(:state conn) [:sessions id])]
+    (when open
+      (swap! (:state conn) update :sessions dissoc id)
+      (sdk/close! open))
+    (let [r (persist/delete! {:project-dir cwd} id)
+          ;; one open here that never ran a turn is gone once closed
+          ;; (`persist/prune-empty!`): deleted, as asked (byj-wb6)
+          gone? (and open (:problem r) (not (.exists (persist/session-dir {:project-dir cwd} id))))]
+      (if (and (:problem r) (not gone?))
+        (:problem r)
+        (do
+          ;; and what it kept to rewind: nothing goes back to a session there
+          ;; is no more (RFC-069, byj-ayk)
+          (changes/forget! {:project-dir cwd :working-dir cwd} id)
+          ;; and the Claude Code and Codex sessions it delegated to: none left
+          ;; orphaned, one running ended (byj-wb6)
+          (delegates/forget-session! {:project-dir cwd :working-dir cwd} id)
+          (swap! (:state conn) update :listed dissoc id)
+          nil)))))
+
 (defn- delete-session
   "ACP's `session/delete`: a saved session deleted, closed first when this
   connection has it open; refused while another live process holds it. The
   request names no project, so it is the one `session/list` listed the session
   in on this connection, else `_meta.brainyard.cwd`, else the directory byj
-  runs in."
+  runs in. With `_meta.brainyard.members` true, a leader's members go after it
+  (byj-a9d): the sessions whose snapshot names it their leader and the stage
+  sessions of the runs it ran, each deleted as it is, one another live process
+  holds left; the answer's `_meta.brainyard.members` says `{deleted skipped}`.
+  The run records, branches and worktrees are left."
   [conn {:keys [sessionId] :as params}]
   (when-not (re-matches #"\d{13}-[0-9a-f]{8}" (str sessionId))
     (throw (rpc-error -32602 (str "a session id is <millis>-<8 hex>, not " sessionId))))
   (let [st @(:state conn)
-        open (get-in st [:sessions sessionId])
-        cwd (or (some-> open :config :project-dir)
+        cwd (or (some-> (get-in st [:sessions sessionId]) :config :project-dir)
                 (get-in st [:listed sessionId])
                 (get-in params [:_meta :brainyard :cwd])
-                (System/getProperty "user.dir"))]
-    (when open
-      (swap! (:state conn) update :sessions dissoc sessionId)
-      (sdk/close! open))
-    (let [r (persist/delete! {:project-dir cwd} sessionId)
-          ;; one open here that never ran a turn is gone once closed
-          ;; (`persist/prune-empty!`): deleted, as asked (byj-wb6)
-          gone? (and open (:problem r) (not (.exists (persist/session-dir {:project-dir cwd} sessionId))))]
-      (when (and (:problem r) (not gone?)) (throw (rpc-error -32602 (:problem r))))
-      ;; and what it kept to rewind: nothing goes back to a session there
-      ;; is no more (RFC-069, byj-ayk)
-      (changes/forget! {:project-dir cwd :working-dir cwd} sessionId)
-      ;; and the Claude Code and Codex sessions it delegated to: none left
-      ;; orphaned, one running ended (byj-wb6)
-      (delegates/forget-session! {:project-dir cwd :working-dir cwd} sessionId)
-      (swap! (:state conn) update :listed dissoc sessionId)
-      {})))
+                (System/getProperty "user.dir"))
+        members (when (true? (get-in params [:_meta :brainyard :members]))
+                  (->> (concat (persist/members-of {:project-dir cwd} sessionId)
+                               (workflow/stage-sessions-of cwd sessionId))
+                       (remove #{(str sessionId)})
+                       distinct vec))]
+    (when-let [why (delete-one! conn cwd sessionId)]
+      (throw (rpc-error -32602 why)))
+    (if (nil? members)
+      {}
+      (let [done (mapv (fn [id] [id (when (.exists (persist/session-dir {:project-dir cwd} id))
+                                      (or (delete-one! conn cwd id) :deleted))])
+                       members)]
+        {:_meta {:brainyard {:members {:deleted (vec (keep (fn [[id r]] (when (= :deleted r) id)) done))
+                                       :skipped (vec (keep (fn [[id r]] (when (string? r) {:id id :why r})) done))}}}}))))
 
 (defn- list-sessions
   "ACP's `session/list`: the project's saved sessions, newest first, less a
