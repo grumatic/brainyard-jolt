@@ -21,6 +21,13 @@
 /loops/evals/
 /deps-local.edn
 /worktrees/
+/loops/tasks/*.edn
+!/loops/tasks/*.cases.edn
+/programs/**/datasets/
+/programs/**/evals/
+/programs/**/proposals/
+/tools/proposals/
+/skills/proposals/
 
-# this repository's own: task sets built from its sessions keep what was asked in them (loops tasks build, RFC-071)
+# this repository keeps the cases it wrote for its loop task sets to itself too
 /loops/tasks/

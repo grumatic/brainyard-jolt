@@ -6,10 +6,13 @@
   `agent/common/programs.clj`. The half that knows the project's directories;
   `brainyard.evaluate` and `brainyard.optimize` know none of them.
 
-      <project-dir>/.brainyard/programs/<id>.edn                    params (RFC-005)
-      <project-dir>/.brainyard/programs/<id>/datasets/<name>.edn    a dataset
-      <project-dir>/.brainyard/programs/<id>/evals/<ts>.edn         an eval report
-      <project-dir>/.brainyard/programs/<id>/proposals/<ts>/…       a proposal
+      <project-dir>/.brainyard/programs/<id>.edn                      params (RFC-005)
+      ~/.brainyard/projects/<slug>/programs/<id>/datasets/<name>.edn  a dataset
+      ~/.brainyard/projects/<slug>/programs/<id>/evals/<ts>.edn       an eval report
+      ~/.brainyard/projects/<slug>/programs/<id>/proposals/<ts>/…     a proposal
+
+  The params are the project's, a person's acceptance; the rest is made from
+  its sessions and kept in its folder of the home (byj-3p0, RFC-016).
 
   `<id>.edn` is the file RFC-005 already reads on every call, so compiling does
   not introduce a new mechanism: it WRITES the file the runtime has always read.
@@ -17,7 +20,8 @@
   changes the system message of every later turn, so accepting one is reachable
   only from the CLI (`by programs accept`), never as a tool — an agent that
   could accept its own proposal would be choosing its own future instructions."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.config :as config]
@@ -52,12 +56,20 @@
            ".brainyard" "programs"))
 
 (defn params-file-for [config id] (io/file (programs-root config) (str (check-id! id) ".edn")))
-(defn dataset-file [config id nm] (io/file (programs-root config) (check-id! id) "datasets" (str (check-name! "dataset name" nm) ".edn")))
-(defn evals-dir [config id] (io/file (programs-root config) (check-id! id) "evals"))
-(defn proposals-dir [config id] (io/file (programs-root config) (check-id! id) "proposals"))
+(defn runs-root
+  "`programs` in the project's folder of the home (byj-3p0): a predictor's
+  datasets, logged from the project's sessions, its eval reports and its
+  optimizer's proposals, `<id>/datasets|evals|proposals`; its params, which
+  a person accepted, stay in `programs-root`."
+  [config]
+  (projects/runtime-path (or (:project-dir config) (:working-dir config) ".") "programs"))
+
+(defn dataset-file [config id nm] (io/file (runs-root config) (check-id! id) "datasets" (str (check-name! "dataset name" nm) ".edn")))
+(defn evals-dir [config id] (io/file (runs-root config) (check-id! id) "evals"))
+(defn proposals-dir [config id] (io/file (runs-root config) (check-id! id) "proposals"))
 
 (defn list-datasets [config id]
-  (let [d (io/file (programs-root config) (check-id! id) "datasets")]
+  (let [d (io/file (runs-root config) (check-id! id) "datasets")]
     (if-not (.isDirectory d)
       []
       (->> (.listFiles d)

@@ -590,10 +590,16 @@ A project's `.brainyard/` keeps what is shared through its repository, and
 git no longer ignores it:
 
 - `config.edn`, `profile.edn`, `deps.edn`, `AGENTS.md`, `BRAINYARD.md`;
-- `agents/`, `commands/`, `skills/`, `hooks/`, `tools/`, `programs/`,
+- `agents/`, `commands/`, `skills/`, `hooks/`, `tools/`, `programs/<id>.edn`,
   `predictors/user/`, `teams/`;
-- `loops/*.edn` and `loops/tasks/`, `mcp/catalog.edn`, `analytics.edn`,
-  `prices.edn`, `terminal.edn`, `emacs/lessons/`;
+- `loops/*.edn` and `loops/tasks/<set>.cases.edn`, `mcp/catalog.edn`,
+  `analytics.edn`, `prices.edn`, `terminal.edn`, `emacs/lessons/`;
+- but not what byj made from the project's sessions beside them (built,
+  `byj-3p0`; `projects/partial-kinds`): a loop task set
+  (`loops/tasks/<set>.edn`, whose tasks start from turn snapshots this clone
+  alone pins), tool and skill proposals, and a program's datasets, evals and
+  proposals — kept in the home with the rest. What a person wrote or
+  accepted stays: the cases, the tools and skills, the params;
 - `.env`, read as now and named in `.brainyard/.gitignore`, which byj
   writes, so a secret is never committed.
 

@@ -31,6 +31,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   still find it). `byj project path [KIND] [--json]` says where (`byj
   project path logs`); `byj session path` and `byj session migrate [--all]`
   as before (RFC-016).
+- **What byj makes from your sessions is kept with them, not in the
+  repository.** A loop task set (`byj loops tasks build`), tool and skill
+  proposals, and a program's datasets, evals and proposals are in
+  `~/.brainyard/projects/<project>/`, moved from `.brainyard/` the first time.
+  What you write or accept stays in `.brainyard/` and is shared: the cases
+  you write for a task set (`<set>.cases.edn`), the tools and skills you
+  accept, a program's params.
 - **`.brainyard/` is no longer kept from git.** It holds what the project
   shares — config, profile, dependencies' spec, agents, commands, skills,
   tools, programs, loops. `/init` takes the `.brainyard/*` lines an earlier

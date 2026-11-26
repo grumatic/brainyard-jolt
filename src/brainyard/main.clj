@@ -565,7 +565,7 @@
   keep, 2 for another subcommand."
   [{:keys [questions json]} config]
   (let [[sub kind] questions
-        kinds (into (vec persist/kinds) projects/runtime-kinds)
+        kinds (-> (vec persist/kinds) (into projects/runtime-kinds) (into (keys projects/partial-kinds)))
         pd (persist/project-of config)]
     (cond
       (not= "path" (or sub "path"))

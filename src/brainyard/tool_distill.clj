@@ -21,7 +21,8 @@
   WHEN it runs is the session tree's (loops/session.edn); this namespace knows
   how to find candidates, tell when they are worth a judge, render them for
   one, decide what a verdict means, replay a draft, and keep a proposal."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
@@ -248,10 +249,11 @@
 ;; --- proposals ----------------------------------------------------------------------
 
 (defn proposals-dir
-  "`<project>/.brainyard/tools/proposals`. It sits among the user tools but
-  is none: the loader reads `<name>.edn` files, and passes over a directory."
+  "`tools/proposals` in the project's folder of the home (byj-3p0): what is
+  distilled from the project's sessions waits there for a person, and only a
+  tool they accept is written among the project's tools."
   [config]
-  (io/file (toolbox/tools-dir (:project-dir config)) "proposals"))
+  (projects/runtime-path (or (:project-dir config) (:working-dir config) ".") "tools/proposals"))
 
 (defn write-proposal!
   "Stage a proved draft: `tool.edn` (what `persist!` writes, less the body),

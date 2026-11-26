@@ -153,8 +153,12 @@ content hash, so adding a task never moves another and a held-out set stays
 held out.
 
 **Built** (`byj-ng7.3`, `brainyard.loop-tasks`): `byj loops tasks build`
-writes `<project>/.brainyard/loops/tasks/<set>.edn` (`default` unless
-`--name`). Not in brainyard, which measures predictors on datasets and
+writes `loops/tasks/<set>.edn` in the project's folder of the home (RFC-016, `byj-3p0`) (`default` unless
+`--name`): a set is built from the project's sessions — what was asked, how
+it went, local session ids — and its tasks start from turn snapshots this
+clone alone pins, so it is no repository's. The cases a person writes,
+`<project>/.brainyard/loops/tasks/<set>.cases.edn`, are: a question, a start
+the repository has and a check, which any clone can run. Not in brainyard, which measures predictors on datasets and
 never a loop on a project's own work.
 
 - **Which turns:** the kept turns of `--from`'s sessions, or of every
@@ -621,9 +625,9 @@ byj loops detach SLOT NAME [--why TEXT] [--json]        ; a detach, as a proposa
 
 Files: `<project>/.brainyard/loops/<name>.edn` (`:based-on`),
 `.brainyard/loops/history.edn`, `.brainyard/loops/proposals/<id>/`
-(`loop.edn`, `report.edn`, why), `.brainyard/loops/tasks/<set>.edn` and
-the person's `<set>.cases.edn` beside it (built; their shapes are under
-"Tasks"), and the pins `refs/byj/tasks/<set>/<id>`.
+(`loop.edn`, `report.edn`, why), `loops/tasks/<set>.edn` in the project's
+folder of the home and the person's `<set>.cases.edn` in the project (built;
+their shapes are under "Tasks"), and the pins `refs/byj/tasks/<set>/<id>`.
 
 Built: `(loop-watch/watch! config {:loop})` → `{:loop :change :before :after
 :means :regressions :verdict :staged? :not-staged?}`; `watch`, `split-turns`,

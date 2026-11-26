@@ -26,7 +26,12 @@
   :lines ["/.env" "/handovers/" "/sessions/" "/transcripts/" "/tasks/" "/logs/" "/claude-agents/"
           "/codex-agents/" "/workflow-runs/" "/deps-snapshots/" "/init/" "/captures/" "/exports/"
           "/drive/" "/store.edn" "/todos/" "/rails.edn" "/schedule/" "/loops/proposals/"
-          "/loops/evals/" "/deps-local.edn" "/worktrees/"]}
+          "/loops/evals/" "/deps-local.edn" "/worktrees/"
+          ;; beside what a person decided, what byj made from sessions
+          ;; (byj-3p0): a loop task set, but not the cases written for it; a
+          ;; program's runs, but not its params; tool and skill proposals
+          "/loops/tasks/*.edn" "!/loops/tasks/*.cases.edn" "/programs/**/datasets/"
+          "/programs/**/evals/" "/programs/**/proposals/" "/tools/proposals/" "/skills/proposals/"]}
  ;; and the project's .gitignore no longer keeps .brainyard/ from git: the
  ;; lines an earlier /init wrote there are taken out (`:removes`), and
  ;; nothing is written when it has none

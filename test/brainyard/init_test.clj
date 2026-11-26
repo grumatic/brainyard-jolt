@@ -176,11 +176,14 @@
         (init/scaffold {} {:dir project})
         (is (not (.exists (io/file project ".gitignore"))) "nothing to take out, so not made")
         (doseq [f [".brainyard/config.edn" ".brainyard/profile.edn" ".brainyard/deps.edn" ".brainyard/loops/react.edn"
-                   ".brainyard/agents/a.edn" ".brainyard/programs/p.edn" ".brainyard/tools/t.edn" ".brainyard/loops/tasks/s.edn"]]
+                   ".brainyard/agents/a.edn" ".brainyard/programs/p.edn" ".brainyard/programs/react/think-act.edn"
+                   ".brainyard/tools/t.edn" ".brainyard/skills/s/SKILL.md" ".brainyard/loops/tasks/s.cases.edn"]]
           (is (not (ignored? project f)) f))
         (doseq [f [".brainyard/.env" ".brainyard/handovers/h.md" ".brainyard/sessions/x/session.edn"
                    ".brainyard/deps-local.edn" ".brainyard/logs/events.log" ".brainyard/loops/proposals/p.edn"
-                   ".brainyard/worktrees/bd-x/a.txt"]]
+                   ".brainyard/worktrees/bd-x/a.txt" ".brainyard/loops/tasks/s.edn"
+                   ".brainyard/programs/react/think-act/proposals/1/REVIEW.md" ".brainyard/programs/p/datasets/d.edn"
+                   ".brainyard/tools/proposals/x/tool.edn" ".brainyard/skills/proposals/x/SKILL.md"]]
           (is (ignored? project f) f))
         (is (= :current (init/gitignore-state project)))))
     (testing "an earlier /init's lines are taken out of .gitignore, the person's kept"

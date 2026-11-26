@@ -648,7 +648,9 @@ costs nothing, a judge, a staged proposal, a person's decision at `/proposals`.
   refused, not asked. Verified, or unproved because it could write, run a
   process or call out, it is staged; one that does not compile or does not
   reproduce its run is not.
-- **Staging** — `<project>/.brainyard/tools/proposals/<name>/`: `tool.edn`,
+- **Staging** — `tools/proposals/<name>/` in the project's folder of the home (RFC-016, `byj-3p0`), since it is
+  distilled from the project's sessions; a tool accepted is written among the
+  project's own: `tool.edn`,
   `body.clj` and `proposal.edn` (score, rationale, sources, proof). The user
   tool loader reads `<name>.edn` files and passes over the directory.
 - **The judge** — `predictors/session/distill-tool.edn`, run by

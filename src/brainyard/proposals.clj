@@ -59,7 +59,7 @@
   as `[predictor-id dir]`. A predictor id may hold slashes (`react/think-act`),
   so the id is the path between the root and `proposals`."
   [config]
-  (let [root (programs/programs-root config)
+  (let [root (programs/runs-root config)
         rootp (str (.getCanonicalPath root) "/")]
     (when (.isDirectory root)
       (for [d (file-seq root)

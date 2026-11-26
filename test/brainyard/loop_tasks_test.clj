@@ -79,7 +79,7 @@
         written (loop-tasks/read-set cfg "default")
         by-turn (into {} (map (juxt (comp :turn :from) identity) (:tasks written)))]
     (testing "what the build says"
-      (is (= (.getPath (io/file dir ".brainyard" "loops" "tasks" "default.edn")) (:file r)))
+      (is (= (.getPath (loop-tasks/set-file {:project-dir dir} "default")) (:file r)))
       (is (= 2 (:tasks r)) "the committed turn and the rewound one")
       (is (= 2 (:added r)))
       (is (= {:no-check 1 :not-kept 1 :no-record 1} (:dropped r)) "the count dropped, by why"))
@@ -129,7 +129,7 @@
         before (loop-tasks/read-set cfg "default")
         split-of (fn [s] (into {} (map (juxt :id :split) (:tasks s))))]
     (turn! cfg 6 "make e.txt" #(spit (io/file dir "e.txt") "e\n"))
-    (spit (loop-tasks/cases-file cfg "default")
+    (spit (doto (loop-tasks/cases-file cfg "default") io/make-parents)
           (pr-str [{:question "add a README" :check "test -f README"}
                    {:question "from nowhere" :start "no-such-rev"}
                    {:start "HEAD"}]))
@@ -199,7 +199,7 @@
       (is (= ["s-1" "s-2"] (:from (main/parse-args ["loops" "tasks" "build" "--from" "s-1,s-2"])))))
     (let [{:keys [exit out]} (run-main "-C" dir "loops" "tasks" "build" "--from" "s-1")]
       (is (= 0 exit))
-      (is (str/starts-with? out (str "wrote " (.getPath (io/file dir ".brainyard" "loops" "tasks" "default.edn")) ": 2 tasks (2 new) — ")))
+      (is (str/starts-with? out (str "wrote " (.getPath (loop-tasks/set-file {:project-dir dir} "default")) ": 2 tasks (2 new) — ")))
       (is (str/includes? out "dropped 3: ")))
     (let [{:keys [exit out]} (run-main "-C" dir "loops" "tasks" "build" "--name" "held" "--check" "true" "--json")
           j (json/read-str out)]
@@ -208,7 +208,7 @@
       (is (= 3 (:tasks j)))
       (is (= "true" (:check j)))
       (is (= {:not-kept 1 :no-record 1} (:dropped j)))
-      (is (= 3 (count (:tasks (edn/read-string (slurp (io/file dir ".brainyard" "loops" "tasks" "held.edn"))))))
+      (is (= 3 (count (:tasks (edn/read-string (slurp (loop-tasks/set-file {:project-dir dir} "held"))))))
           "the file is EDN, a task a line"))
     (is (= 2 (:exit (run-main "-C" dir "loops" "tasks"))) "build is the one thing tasks does yet")
     (is (= 2 (:exit (run-main "-C" dir "loops" "nosuch"))))))

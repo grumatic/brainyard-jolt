@@ -354,8 +354,9 @@ are one here (divergence `one-distiller-for-every-window`). Judging as soon as
 a procedure shows is this port's (divergence `distillation-auto-mode`). The session
 tree runs them after the recap (RFC-004), so when they run is data.
 
-A draft is a **proposal**: `<project>/.brainyard/skills/proposals/<name>/`
-holds `SKILL.md` and a `proposal.edn` —
+A draft is a **proposal**: `skills/proposals/<name>/` in the project's folder of the home (RFC-016, `byj-3p0`),
+since it is drafted from the project's sessions — a skill accepted is
+written among the project's own — holds `SKILL.md` and a `proposal.edn` —
 `{:name :kind :score :rationale :session :turn :turns :source-question :evidence :created-ts}`.
 The skills loader passes over it, because it has no `SKILL.md` of its own. The
 session says so in an `:info` line as it stages one (divergence

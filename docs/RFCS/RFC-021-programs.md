@@ -38,6 +38,13 @@ honours `:instructions`, `:field-descs`, `:demos`, `:version` and
 **writes the file the runtime has always read**. A proposal is that file,
 staged, with the measurements that argue for it.
 
+The params, `<id>.edn`, are the project's, shared with its repository: a
+person accepted them. What is made from the project's sessions — a
+predictor's datasets (logged predictions, real inputs and outputs), its eval
+reports and its optimizer's proposals — is kept in the project's folder of the home (RFC-016, `byj-3p0`),
+`~/.brainyard/projects/<slug>/programs/<id>/datasets|evals|proposals/`
+(`programs/runs-root`); `byj project path programs` names it.
+
 That is also why accepting one is not a tool. A params file silently changes
 the system message of every later turn; an agent that could accept its own
 proposal would be choosing its own future instructions.

@@ -470,7 +470,8 @@
   ;; unhandled exception and its trace. On the mock provider, outside this
   ;; repository, so it spends nothing and leaves nothing here
   (let [dir (io/file (System/getProperty "java.io.tmpdir") (str "byj-programs-" (System/nanoTime)))
-        ds (io/file dir ".brainyard" "programs" "react" "think-act" "datasets" "one.edn")
+        ;; a dataset is kept in the project's folder of the home (byj-3p0)
+        ds ((requiring-resolve 'brainyard.programs/dataset-file) {:project-dir (.getPath dir)} "react/think-act" "one")
         byj #(apply run-main "-p" "mock" "-C" (str dir) "programs" %&)]
     (io/make-parents ds)
     (spit ds (pr-str {:examples [{:inputs {:question "q"} :labels {:answer "a"}}]}))

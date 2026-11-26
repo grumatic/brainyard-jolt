@@ -26,7 +26,8 @@
 
   Mechanism only (RFC-001): which tasks a loop is measured on, and what a
   good loop is, are the caller's."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.changes :as changes]
@@ -64,17 +65,24 @@
 ;; --- files -------------------------------------------------------------------
 
 (defn tasks-dir
-  "`<project>/.brainyard/loops/tasks`, where task sets are kept."
+  "`<project>/.brainyard/loops/tasks`, where a person keeps the cases they
+  write for a task set, shared with the repository."
   [config]
   (io/file (or (:project-dir config) (:working-dir config) ".") ".brainyard" "loops" "tasks"))
 
 (defn set-file
-  "The file task set `set-name` is kept in."
+  "The file task set `set-name` is kept in: in the project's folder of the
+  home (byj-3p0), since it is built from the project's sessions — what was
+  asked, how it went — and its tasks start from turn snapshots this clone
+  alone pins (refs/byj/tasks)."
   [config set-name]
-  (io/file (tasks-dir config) (str (safe set-name) ".edn")))
+  (projects/runtime-path (or (:project-dir config) (:working-dir config) ".") "loops/tasks"
+                         (str (safe set-name) ".edn")))
 
 (defn cases-file
-  "The cases a person writes for task set `set-name`, beside it."
+  "The cases a person writes for task set `set-name`, in the project
+  (`tasks-dir`): a question, a start the repository has and a check, which
+  any clone can run."
   [config set-name]
   (io/file (tasks-dir config) (str (safe set-name) ".cases.edn")))
 

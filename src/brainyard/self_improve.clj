@@ -24,7 +24,8 @@
   session/refine-skill). This namespace knows how to tell a candidate turn,
   when a window of them shows a procedure, how to render one for a model, how
   to decide what a verdict means, and how to keep a proposal."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.projects :as projects]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.history :as history]
@@ -244,11 +245,11 @@
 ;; --- proposals ----------------------------------------------------------------------
 
 (defn proposals-dir
-  "brainyard's staging root: `<project>/.brainyard/skills/proposals`. It sits
-  among the skills but is none — it holds no SKILL.md of its own, so the
-  skills loader passes over it."
+  "`skills/proposals` in the project's folder of the home (byj-3p0): a skill
+  drafted from the project's sessions waits there for a person, and only one
+  they accept is written among the project's skills."
   [config]
-  (io/file (skills/skills-dir config :project) "proposals"))
+  (projects/runtime-path (or (:project-dir config) (:working-dir config) ".") "skills/proposals"))
 
 (defn write-proposal!
   "brainyard's `write-proposal!`: stage `skill-md` under the proposal's name

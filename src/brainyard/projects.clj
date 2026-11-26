@@ -377,7 +377,20 @@
   ["logs" "claude-agents" "codex-agents" "workflow-runs" "deps-snapshots"
    "init/snapshots" "captures" "exports" "drive/claims.edn"
    "store.edn" "todos" "rails.edn" "schedule" "loops/proposals" "loops/evals"
-   "deps-local.edn" "worktrees"])
+   "deps-local.edn" "worktrees" "tools/proposals" "skills/proposals"])
+
+(def partial-kinds
+  "What a project's runs leave in a folder that also holds what the person
+  decided, which stays in the project (byj-3p0): of each, what moves to the
+  home — a loop task set, built from the project's sessions, but not the
+  cases a person wrote beside it (`<set>.cases.edn`); a program's datasets,
+  evals and proposals, but not its params (`<id>.edn`), which a person
+  accepted."
+  {"loops/tasks" (fn [^java.io.File e]
+                   (and (.isFile e) (str/ends-with? (.getName e) ".edn")
+                        (not (str/ends-with? (.getName e) ".cases.edn"))))
+   "programs" (fn [^java.io.File e]
+                (and (.isDirectory e) (contains? #{"datasets" "evals" "proposals"} (.getName e))))})
 
 (defn auto-migrate?
   "Is what a project's `.brainyard/` kept of its runs moved on its own the
@@ -417,6 +430,22 @@
            (and (pos? depth)
                 (boolean (some #(holds-worktree? % (dec depth)) (or (.listFiles f) [])))))))
 
+(defn- move-entries!
+  "Each entry of folder `from` that `movable?` takes, moved under `to` where
+  `to` lacks it, never one holding a worktree; a folder it does not take is
+  looked into, and removed once that leaves it empty. The entries moved."
+  [^java.io.File from ^java.io.File to movable?]
+  (reduce + 0
+          (for [^java.io.File e (or (.listFiles from) [])
+                :let [t (io/file to (.getName e))]
+                :when (not (holds-worktree? e 3))]
+            (cond
+              (movable? e) (if (and (not (.exists t)) (move-path! e t)) 1 0)
+              (.isDirectory e) (let [n (move-entries! e t movable?)]
+                                 (when (empty? (.listFiles e)) (.delete e))
+                                 n)
+              :else 0))))
+
 (defn migrate-kind!
   "`kind` of what the project at `cp` kept in its own `.brainyard/` moved to
   `to`: a file whole when `to` is not there; a folder entry by entry, what
@@ -429,14 +458,11 @@
   (let [from (io/file cp ".brainyard" kind)]
     (if-not (and (.exists from) (not= (.getCanonicalPath from) (.getCanonicalPath to)))
       0
-      (let [n (cond
+      (let [movable? (get partial-kinds kind (constantly true))
+            n (cond
                 (.isFile from) (if (.exists to) 0 (if (move-path! from to) 1 0))
                 (.isFile to) 0
-                :else
-                (count (filter true? (for [^java.io.File e (or (.listFiles from) [])
-                                           :let [t (io/file to (.getName e))]
-                                           :when (and (not (.exists t)) (not (holds-worktree? e 3)))]
-                                       (move-path! e t)))))]
+                :else (move-entries! from to movable?))]
         (remove-empty-up! (if (.exists from) from (.getParentFile from)) (io/file cp ".brainyard"))
         n))))
 

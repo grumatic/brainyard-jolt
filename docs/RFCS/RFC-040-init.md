@@ -188,7 +188,10 @@ nothing.
   `~/.brainyard/projects`. Its own `.gitignore` names, each anchored by a
   leading `/`, what is not the repository's there: `.env`, handovers, and
   the names an older byj's runs left (`sessions/`, `logs/`, `worktrees/` …)
-  until they are moved to the home or removed.
+  until they are moved to the home or removed, and what byj made beside what
+  a person decided (`byj-3p0`): `loops/tasks/*.edn` but for `*.cases.edn`,
+  a program's `datasets/`, `evals/` and `proposals/` but not its params,
+  `tools/proposals/`, `skills/proposals/`.
 - **`.gitignore`:** the lines an earlier `/init` wrote — `.brainyard/` or
   `.brainyard/*`, its exceptions and its header — are taken out (a `:lines`
   entry's `:removes`), the blank lines that leaves run together; the

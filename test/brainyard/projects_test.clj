@@ -343,6 +343,34 @@
         (is (.isFile (io/file b "worktrees" "bd-x" ".git")))
         (is (not (.exists (projects/runtime-path p "worktrees" "bd-x"))))))))
 
+(deftest what-byj-made-beside-what-a-person-decided-moves-and-the-decision-stays
+  ;; byj-3p0: a loop task set is built from the project's sessions, but the
+  ;; cases beside it a person wrote; a program's datasets, evals and
+  ;; proposals are made from its sessions, but its params a person accepted;
+  ;; tool and skill proposals are drafted from them
+  (let [p (temp-dir "proj-partial")
+        b (io/file p ".brainyard")
+        put! (fn [rel] (let [f (io/file b rel)] (io/make-parents f) (spit f rel) f))]
+    (doseq [rel ["loops/tasks/live.edn" "loops/tasks/live.cases.edn"
+                 "programs/react/think-act.edn" "programs/react/think-act/proposals/1/REVIEW.md"
+                 "programs/react/think-act/datasets/d.edn" "programs/sum.edn" "programs/sum/evals/2.edn"
+                 "tools/count.edn" "tools/proposals/grep-count/tool.edn"
+                 "skills/mine/SKILL.md" "skills/proposals/draft/SKILL.md"]]
+      (put! rel))
+    (with-redefs [projects/auto-migrate? (constantly true)]
+      (doseq [k ["loops/tasks" "programs" "tools/proposals" "skills/proposals"]] (projects/runtime-path p k)))
+    (testing "what byj made is in the project's folder of the home"
+      (doseq [rel ["loops/tasks/live.edn" "programs/react/think-act/proposals/1/REVIEW.md"
+                   "programs/react/think-act/datasets/d.edn" "programs/sum/evals/2.edn"
+                   "tools/proposals/grep-count/tool.edn" "skills/proposals/draft/SKILL.md"]]
+        (is (.isFile (io/file (projects/runtime-path p ".") rel)) rel)
+        (is (not (.exists (io/file b rel))) rel)))
+    (testing "and what a person decided is where it was"
+      (doseq [rel ["loops/tasks/live.cases.edn" "programs/react/think-act.edn" "programs/sum.edn"
+                   "tools/count.edn" "skills/mine/SKILL.md"]]
+        (is (.isFile (io/file b rel)) rel))
+      (is (not (.exists (io/file b "programs/sum"))) "a folder emptied goes"))))
+
 (deftest byj-project-path-says-where-a-projects-runs-leave-what
   ;; byj-84c.4 (S3): a program, an editor or a script asks byj, never
   ;; builds the path or works out the slug
