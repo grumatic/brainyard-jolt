@@ -465,9 +465,11 @@ rollout (RFC-049).
 **A worktree is keyed by its own path**, as Claude Code keys one: its
 sessions are a project folder of their own, listed with the worktree as an
 editor groups them, and they survive the worktree's removal — the folder is
-then a gone project's, pruned as one. A team member and a workflow stage are
-kept where they are now, under the project that started them
-(`BY_PROJECT_DIR`), their `:working-dir` saying the worktree.
+then a gone project's, pruned as one. A team member and a workflow stage in
+a worktree were kept under the project that started them (`BY_PROJECT_DIR`),
+their `:working-dir` saying the worktree; since `byj-9f8` the worktree is
+their project, as it is any session's there (RFC-032), and
+`resume-working-dir` serves only a session kept the old way.
 `deps/session-places` looks in the project's folder and each of its
 worktrees' folders under the home, rather than in each worktree's
 `.brainyard/`; the SDK's fork into a worktree writes into the worktree's

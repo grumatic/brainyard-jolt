@@ -12,6 +12,7 @@
             [brainyard.channel :as channel]
             [brainyard.json :as json]
             [brainyard.main]
+            [brainyard.effect :as fx]
             [brainyard.persist :as persist]
             [brainyard.tasks]
             [brainyard.session :as session]
@@ -441,6 +442,40 @@
         (channel/close! leader)
         (is (str/starts-with? (:reason (ask {:tool "bash" :display "bash ls"})) "no leader to ask: no live session")))
       (finally (channel/close! leader) (persist/unlock! config leader-id)))))
+
+(deftest a-member-in-a-worktree-and-its-leader-find-each-other
+  ;; byj-9f8: a member working in a linked worktree has it as its project, so
+  ;; its sessions are kept in the worktree's folder and its leader's in the
+  ;; main checkout's; each finds the other among the repository's checkouts
+  (let [main (.getCanonicalPath (doto (io/file (System/getProperty "java.io.tmpdir") (str "byj-checkouts-" (System/nanoTime))) .mkdirs))
+        git (fn [d & args] (apply fx/sh {:dir d :out :string :err :string} "git" "-c" "user.name=t" "-c" "user.email=t@x.invalid" args))
+        _ (git main "init" "-q")
+        _ (spit (io/file main "a.txt") "a")
+        _ (git main "add" "a.txt")
+        _ (git main "commit" "-qm" "a")
+        wt (str main "-wt")
+        _ (git main "worktree" "add" "-q" "-b" "team/x" wt)
+        wt (.getCanonicalPath (io/file wt))
+        lc {:project-dir main :working-dir main}
+        mc {:project-dir wt :working-dir wt}
+        leader-id "1790000000310-leader10"
+        member-id "1790000000311-member11"
+        _ (persist/lock! lc leader-id)
+        _ (persist/lock! mc member-id)
+        leader (channel/open! lc leader-id {:permission-fn (fn [_] {:allowed true})})
+        member (channel/open! mc member-id {})]
+    (try
+      (testing "each kept in its own project's folder"
+        (is (not (some #(= member-id (:session-id %)) (channel/sessions lc))) "the leader's list is its own")
+        (is (some #(= member-id (:session-id %)) (channel/checkout-sessions lc))))
+      (testing "the leader finds its member in the worktree"
+        (is (= member-id (:session-id (channel/find-session (assoc lc :session-id leader-id) member-id)))))
+      (testing "and the member its leader in the main checkout: its prompts reach the leader's person"
+        (is (= {:allowed true} ((channel/forwarding-permission-fn (assoc mc :session-id member-id) leader-id "team-x/m")
+                                {:tool "read-file" :display "read-file a.txt"}))))
+      (finally (channel/close! leader) (channel/close! member)
+               (persist/unlock! lc leader-id) (persist/unlock! mc member-id)
+               (git main "worktree" "remove" "--force" wt)))))
 
 ;; --- :subscribe --------------------------------------------------------------------------
 

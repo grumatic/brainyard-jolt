@@ -44,6 +44,14 @@ and to RFC-019 as background tasks of the leader's. An assignment is RFC-031's
   its tasks and the member goes with it: nothing a session starts outlives it.
   `:worktree true` gives the member a git worktree on its own branch,
   `team/<team>/<name>`, so members editing code at once never share files.
+  The worktree is then the member's project (`byj-9f8`), as any worktree is
+  one: it reads the `.brainyard/` its branch checked out, keeps its records
+  in the worktree's own folder of the home, may reach the worktree and not
+  the main checkout (`:allowed-dirs`), and its turns are the worktree's
+  (RFC-069). The leader finds it, and it finds the leader to forward its
+  permission prompts, among the repository's other checkouts
+  (`channel/checkout-sessions`, `find-session`); the leader's own list is
+  its own.
   `team$spawn` waits until the member is live (`:team-spawn-timeout-ms`, 60 s).
 - **Handing out work.** `team$assign {:member :task}` is `session$send` to
   that member, recorded on the roster, so `task$wakeup` resumes the leader as

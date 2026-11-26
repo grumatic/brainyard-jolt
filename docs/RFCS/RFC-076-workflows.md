@@ -247,7 +247,10 @@ A stage works in a place.
   ends with it. It is labelled `workflow-<n>/<key>`, runs on this turn's
   provider and model, and its permission prompts go to this session's
   person. `:ask-timeout-ms` is raised to `:workflow-stage-timeout-ms` (an
-  hour) so its turn may be the stage's whole work.
+  hour) so its turn may be the stage's whole work. In a worktree, the
+  worktree is its project (`byj-9f8`, RFC-032): its branch's `.brainyard/`,
+  its own records and turns, found by the run among the repository's other
+  checkouts.
 
 The place follows the roles' `:session` (RFC-075):
 

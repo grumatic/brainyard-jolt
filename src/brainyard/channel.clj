@@ -44,7 +44,8 @@
             [brainyard.events :as events]
             [brainyard.persist :as persist]
             [brainyard.tasks :as tasks]
-            [brainyard.unix-socket :as us]))
+            [brainyard.unix-socket :as us]
+            [brainyard.worktree :as worktree]))
 
 (def ops
   "What this channel answers, advertised in `meta.edn`."
@@ -525,18 +526,39 @@
          (sort-by #(- (or (:updated-at %) 0)))
          vec))
 
+(defn- other-checkouts
+  "The other checkouts of the repository `config`'s project is in — a main
+  checkout's linked worktrees, a worktree's main checkout and its siblings
+  (`worktree/dirs`, read from git's files) — each a project of its own."
+  [config]
+  (let [p (persist/project-of config)]
+    (remove #{p} (try (worktree/dirs p) (catch Throwable _ [])))))
+
+(defn checkout-sessions
+  "`sessions` of the repository's other checkouts (`other-checkouts`): a team
+  member or a workflow stage working in a worktree has it as its project
+  (byj-9f8), so its leader finds it there, and it finds its leader in the
+  main checkout. Read only to find one, never listed with the project's own."
+  [config]
+  (mapcat #(sessions (assoc config :project-dir % :working-dir %)) (other-checkouts config)))
+
 (defn find-session
   "The live session `target` names — its id, a prefix of one id, or its label
-  — or `{:error}` saying why there is none. The session asking is never its
-  own target. `hint` ends an error that a list would answer: how the asker
-  lists sessions — the model and a person do it differently."
+  — or `{:error}` saying why there is none: among the project's, else among
+  the repository's other checkouts' (`checkout-sessions`, byj-9f8). The
+  session asking is never its own target. `hint` ends an error that a list
+  would answer: how the asker lists sessions — the model and a person do it
+  differently."
   [config target & [hint]]
   (let [target (str/trim (str target))
         mine (:session-id config)
-        live (remove #(= mine (:session-id %)) (filter :live? (sessions config)))
-        hits (or (seq (filter #(= target (:session-id %)) live))
-                 (seq (filter #(= target (:label %)) live))
-                 (seq (filter #(str/starts-with? (:session-id %) target) live)))]
+        pick (fn [ss]
+               (let [live (remove #(= mine (:session-id %)) (filter :live? ss))]
+                 (or (seq (filter #(= target (:session-id %)) live))
+                     (seq (filter #(= target (:label %)) live))
+                     (seq (filter #(str/starts-with? (:session-id %) target) live)))))
+        hits (or (pick (sessions config))
+                 (when-not (str/blank? target) (pick (checkout-sessions config))))]
     (cond
       (str/blank? target) {:error (str "session is required" hint)}
       (= target mine) {:error "that is this session"}

@@ -117,7 +117,14 @@
   [{:keys [config] :as ctx} {:keys [label working-dir agent provider model resume env task-name who]}]
   (let [project (or (:project-dir config) (:working-dir config))
         work-dir (or working-dir (:working-dir config) project)
-        cmd (str "BY_PROJECT_DIR=" (sh-quote project)
+        ;; a worktree of the project's repository is its own project, with
+        ;; the .brainyard/ its branch has, its records in its own folder of
+        ;; the home and its turns its own (byj-9f8); anywhere else, the
+        ;; project's
+        own (when working-dir
+              (let [wd (.getCanonicalPath (io/file (str working-dir)))]
+                (some #{wd} (rest (worktree/dirs project)))))
+        cmd (str "BY_PROJECT_DIR=" (sh-quote (or own project))
                  (apply str (for [[k v] env] (str " " k "=" (sh-quote v))))
                  " exec " (member-command config) " --serve"
                  " --label " (sh-quote label)
@@ -195,7 +202,7 @@
   live is left alone."
   [{:keys [config] :as ctx}]
   (if-let [team (current-team config)]
-    (let [live (set (map :session-id (filter :live? (channel/sessions config))))
+    (let [live (set (map :session-id (filter :live? (concat (channel/sessions config) (channel/checkout-sessions config)))))
           gone (remove #(or (:closed? %) (live (:session-id %))) (:members team))]
       (if (nil? (:task-registry ctx))
         {:error "no task registry here to run a member in"}
@@ -259,7 +266,7 @@
     (let [team (read-team config team-id)]
       (if (or (nil? team) (:closed-at team))
         {:answers (vec mine) :note "the team was closed"}
-        (let [live (set (map :session-id (filter :live? (channel/sessions config))))
+        (let [live (set (map :session-id (filter :live? (concat (channel/sessions config) (channel/checkout-sessions config)))))
               free (->> (:members team)
                         (remove :closed?)
                         (filter #(live (:session-id %)))
@@ -314,7 +321,7 @@
   stands and, once answered, the start of its answer."
   [{:keys [config task-registry]}]
   (if-let [team (current-team config)]
-    (let [live (set (map :session-id (filter :live? (channel/sessions config))))
+    (let [live (set (map :session-id (filter :live? (concat (channel/sessions config) (channel/checkout-sessions config)))))
           ;; what each member's answers so far cost, from the answers themselves
           spent (reduce (fn [acc {:keys [member task-id]}]
                           (let [u (some-> task-registry (tasks/snapshot task-id) :result :usage)]
