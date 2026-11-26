@@ -103,3 +103,34 @@
          (is (str/includes? (:error x) "is gone"))
          (is (= "codex" (:agent x)))
          (is (nil? (cxa/read-record config "c-1")) "a Claude Code record is not taken for a Codex one"))))))
+
+(deftest a-delegation-is-forgotten-ended-if-it-runs
+  ;; byj-wb6: byj session delegates forget, and what deleting its session does
+  (let [{:keys [project config]} (world "forget")
+        write! (fn [dir id r]
+                 (let [f (projects/runtime-path project dir (str id ".edn"))]
+                   (io/make-parents f)
+                   (spit f (pr-str r))))]
+    (write! "claude-agents" "c-1" {:session-id "c-1" :dir project :state "done" :parent-session "p-1" :updated-at 3})
+    (write! "codex-agents" "x-1" {:session-id "x-1" :dir project :state "done" :parent-session "p-1" :updated-at 2})
+    (write! "claude-agents" "c-2" {:session-id "c-2" :dir project :state "done" :parent-session "p-2" :updated-at 1})
+    (on-own-tmux
+     (testing "one forgotten: its record gone, nothing ended"
+       (is (= {:agent "claude" :id "c-2" :stopped? false} (delegates/forget! config "c-2")))
+       (is (nil? (ca/read-record config "c-2")))
+       (is (str/starts-with? (:error (delegates/forget! config "c-2")) "no delegated session c-2")))
+     (testing "a session's every delegation, Claude Code's and Codex's, and no other's"
+       (write! "claude-agents" "c-3" {:session-id "c-3" :dir project :state "done" :parent-session "p-3" :updated-at 0})
+       (is (= #{["claude" "c-1"] ["codex" "x-1"]} (set (map (juxt :agent :id) (delegates/forget-session! config "p-1")))))
+       (is (= [["claude" "c-3"]] (mapv (juxt :agent :id) (delegates/rows config))))))
+    (when (host/tmux?)
+      (on-own-tmux
+       (testing "one running on byj's tmux server is ended first"
+         (let [o (ca/open (assoc config :agent-instance-id "claude/x-2" :session-id "byj-parent-2")
+                          {:session "new" :brief "write the parser" :task "the parser"})
+               sid (:session-id o)]
+           (ca/await-turn config {:session-id sid})
+           (is (true? (:live? (first (filter #(= sid (:id %)) (delegates/rows config))))))
+           (is (= [{:agent "claude" :id sid :stopped? true}] (delegates/forget-session! config "byj-parent-2")))
+           (is (not (contains? (set (host/running)) sid)))
+           (is (nil? (ca/read-record config sid)))))))))

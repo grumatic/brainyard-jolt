@@ -558,11 +558,19 @@
                       (git "hash-object" "-w" "-t" "tree" "/dev/null"))]
           (doseq [r [(str "refs/byj/turns/" a "/1") (str "refs/byj/rewinds/" a "/1") (str "refs/byj/turns/" b "/1")]]
             (git "update-ref" r c0))))
+      ;; a Claude Code session a delegated to, and one b did (byj-wb6)
+      (doseq [[id parent] [["cc-of-a" a] ["cc-of-b" b]]]
+        (let [f (brainyard.projects/runtime-path dir "claude-agents" (str id ".edn"))]
+          (io/make-parents f)
+          (spit f (pr-str {:session-id id :dir dir :state "done" :parent-session parent :updated-at 1}))))
       (testing "a listed session is deleted, its transcript with it, and is listed no more"
         (is (= {} (:result (call c "session/delete" {:sessionId a}))))
         (is (not (.exists (persist/session-dir cfg a))))
         (is (not (.exists (io/file (brainyard.persist/state-dir {:project-dir dir} "transcripts") a))))
         (is (= #{b held} (listed))))
+      (testing "the sessions it delegated to are forgotten with it, another's left (byj-wb6)"
+        (is (not (.exists (brainyard.projects/runtime-path dir "claude-agents" "cc-of-a.edn"))))
+        (is (.exists (brainyard.projects/runtime-path dir "claude-agents" "cc-of-b.edn"))))
       (testing "and what it kept to rewind goes with it, another session's left (byj-ayk)"
         (let [refs (str/trim (:out (fx/sh {:dir dir :out :string} "git" "for-each-ref" "--format=%(refname)" "refs/byj/")))]
           (is (= (str "refs/byj/turns/" b "/1") refs))))

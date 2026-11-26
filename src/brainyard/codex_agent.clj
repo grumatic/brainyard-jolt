@@ -47,6 +47,12 @@
   (let [f (record-file config sid)]
     (when (.isFile f) (try (edn/read-string (slurp f)) (catch Throwable _ nil)))))
 
+(defn delete-record!
+  "Delegation `sid`'s record removed (byj-wb6): true when there was one."
+  [config sid]
+  (let [f (record-file config sid)]
+    (and (.isFile f) (.delete f))))
+
 (defn records
   "Every delegation's record, newest first."
   [config]

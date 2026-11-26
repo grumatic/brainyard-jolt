@@ -54,6 +54,35 @@
          (sort-by #(- (or (:updated-at %) 0)))
          vec)))
 
+(defn forget!
+  "Delegation `id` forgotten (byj-wb6): ended on byj's tmux server if it runs
+  there — Claude Code or Codex exits, its session saved where it keeps it —
+  and its record removed, so no client lists it again. Claude Code's or
+  Codex's own session, and a branch or worktree it made, are left.
+  `{:agent :id :stopped?}`, or `{:error}`."
+  [config id]
+  (let [id (str id)
+        [agent running stop! delete!]
+        (cond (claude-agent/read-record config id) ["claude" claude-host/running claude-host/stop! claude-agent/delete-record!]
+              (codex-agent/read-record config id) ["codex" codex-host/running codex-host/stop! codex-agent/delete-record!])]
+    (if-not agent
+      {:error (str "no delegated session " id " in this project — `byj session delegates` lists them")}
+      (let [live? (contains? (set (running)) id)
+            r (when live? (stop! id))]
+        (if (:error r)
+          (assoc r :agent agent :id id)
+          (do (delete! config id)
+              {:agent agent :id id :stopped? live?}))))))
+
+(defn forget-session!
+  "Every delegation byj session `session-id` made, forgotten (`forget!`): what
+  deleting the session does (byj-wb6), so none is left orphaned. The rows
+  forgotten, each `{:agent :id :stopped?}` or `{:error}`."
+  [config session-id]
+  (->> (rows config)
+       (filter #(= (str session-id) (str (:parent-session %))))
+       (mapv #(forget! config (:id %)))))
+
 (defn attach
   "Delegation `id` running on byj's tmux server and the command that attaches
   to it: `{:agent :id :tmux :attach :started?}` — `:started?` when it was saved

@@ -434,6 +434,14 @@ as a process (RFC-070). `brainyard.delegates` gives it:
   server (a second process on one session). Without `--json` it prints the
   attach command.
 
+- **`byj session delegates forget ID --json`** (`byj-wb6`): the delegation
+  forgotten — ended on byj's tmux server if it runs there (Claude Code or Codex
+  exits, its session saved where it keeps it) and its record removed, so no
+  program lists it again; Claude Code's or Codex's own session, and a branch or
+  worktree it made, are left. `{agent id stopped?}`, or `{error}`. Deleting a
+  byj session (ACP `session/delete`) does this for every delegation it made
+  (`delegates/forget-session!`), so none is left orphaned.
+
 The program runs the attach in its own terminal; detaching (`ctrl-b d`)
 leaves the session running, and the delegation, if it still drives it, goes on.
 
@@ -570,7 +578,8 @@ Checked live (haiku, so accept edits):
 `records`, `read-record`,
 `records-dir`, `usage-cost`, `typed-chars`, `reopen`. `brainyard.delegates`:
 `rows`, `attach`, `attach-argv`, `fields` (`byj session delegates`, `byj session
-attach`, `byj-oer`). `brainyard.agent`: the leaf
+attach`, `byj-oer`), `forget!`, `forget-session!` (`byj-wb6`); `delete-record!` in
+`brainyard.claude-agent` and `brainyard.codex-agent`. `brainyard.agent`: the leaf
 `:mem/join`. `brainyard.tui`: `delegation-label`, `delegation-asks?`,
 `session-counts`. Config: `:claude-tools?`, `:claude-home`,
 `:claude-permission-mode`, `:claude-model`, `:claude-settings`, `:claude-max-rounds`,

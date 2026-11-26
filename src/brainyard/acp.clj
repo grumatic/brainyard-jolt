@@ -24,6 +24,7 @@
             [brainyard.channel :as channel]
             [brainyard.config :as config]
             [brainyard.context :as context]
+            [brainyard.delegates :as delegates]
             [brainyard.effect :as fx]
             [brainyard.session-history :as session-history]
             [brainyard.trajectory :as trajectory]
@@ -1015,6 +1016,9 @@
       ;; and what it kept to rewind: nothing goes back to a session there
       ;; is no more (RFC-069, byj-ayk)
       (changes/forget! {:project-dir cwd :working-dir cwd} sessionId)
+      ;; and the Claude Code and Codex sessions it delegated to: none left
+      ;; orphaned, one running ended (byj-wb6)
+      (delegates/forget-session! {:project-dir cwd :working-dir cwd} sessionId)
       (swap! (:state conn) update :listed dissoc sessionId)
       {})))
 

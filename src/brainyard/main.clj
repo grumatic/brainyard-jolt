@@ -594,7 +594,18 @@
     (case sub
       "list" nil
       ;; a project's delegated Claude Code and Codex sessions, for a program (byj-oer)
-      "delegates" (let [rows (delegates/rows config)]
+      "delegates" (if (= "forget" (second questions))
+                    ;; one forgotten: ended if it runs, its record removed (byj-wb6)
+                    (let [id (nth questions 2 nil)
+                          r (if (str/blank? (str id))
+                              {:error "forget: give the id of a delegated session (byj session delegates)"}
+                              (delegates/forget! config id))]
+                      (cond
+                        json (println (json/write-str r))
+                        (:error r) (err-println (str "error: " (:error r)))
+                        :else (println (str "forgot " (:agent r) " session " (:id r) (when (:stopped? r) ", ended on byj's tmux server"))))
+                      (System/exit (if (:error r) 1 0)))
+                    (let [rows (delegates/rows config)]
                     (if json
                       (println (json/write-str rows))
                       (if (empty? rows)
@@ -604,7 +615,7 @@
                                            (cond live? "live" (not dir-exists?) "gone" :else "saved")
                                            (or state "") (or parent-session "")
                                            (let [t (str task)] (subs t 0 (min 60 (count t)))))))))
-                    (System/exit 0))
+                    (System/exit 0)))
       "attach" (let [id (second questions)
                      r (if (str/blank? (str id))
                          {:error "attach: give the id of a delegated session (byj session delegates)"}
