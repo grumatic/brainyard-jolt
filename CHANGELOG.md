@@ -6,6 +6,56 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+## v0.3.21 — 2026-11-26
+
+- **A session can be deleted softly, and a project too.** An application's
+  `session/delete` with `_meta.brainyard.soft` marks the session deleted and
+  keeps it: it is out of every list unless asked for
+  (`_meta.brainyard.deleted`), and `_byj/session/undelete` lists it again.
+  `byj project delete|undelete|unlist` does the same for a project, its
+  folder in your home and its sessions kept; `byj project add` lists it
+  again.
+- **A deleted session takes what it started with it.** Deleting a session
+  forgets the Claude Code and Codex sessions it delegated to, ending them on
+  byj's tmux server; `byj session delegates forget ID` does it for one left
+  behind. With `_meta.brainyard.members`, a leader's members and the stage
+  sessions of the workflow runs it ran are deleted after it. Run records,
+  branches and worktrees are left. A session that never ran a turn can be
+  deleted too.
+- **A session is saved when it starts**, not after its first turn, so an
+  application lists and opens one that has not run a turn yet. One with
+  nothing to bring back is removed when it ends, so a run started and quit
+  leaves nothing. A session resumed goes on in the worktree it worked in, and
+  a team member keeps its leader (`byj session list`, `session/list`).
+- **byj runs its Claude Code and Codex sessions on a tmux server of its
+  own** (`tmux -L byj`, without your `~/.tmux.conf`; `BYJ_TMUX_SOCKET` names
+  another), and the rail's terminals too. `byj session delegates --json`
+  lists a project's delegations with the session that started each and how
+  to attach, and `byj session attach ID` resumes a saved one there.
+- **More for a workflow run.** `/workflow run … by hand` waits after each
+  stage for you to hand it on; `/workflow resume N` goes on with a waiting or
+  stopped run; `/workflow again N [what to change]` runs an ended one again
+  on the same work; `/workflow run … from BRANCH` builds on another branch
+  or commit in its own worktree. `byj workflow stop N [WHY]` stops a run from
+  outside the session running it, and `byj workflow remove N` removes an
+  ended run's record. A stage in a session of its own writes its progress —
+  tool calls, last thought, spend — to the run while it works. The master
+  role can be a live session that is told how the run goes
+  (`:workflow-master-tell`); the judge still decides.
+- **`byj profile [--json]` and `byj profile write`** read the project's
+  profile and write a new one through byj's checks, refused whole when
+  anything is wrong, as `byj deps write` does. An agent running `byj
+  profile write` asks you every time.
+- **More for an application on byj's ACP.** `_byj/session/history` replays
+  a saved session's turns read-only, a workflow stage's headless session
+  included. `session/list` says where a session worked
+  (`_meta.brainyard.workingDir`). A subagent's tool calls come as its own,
+  under the call that started it, and a loaded session replays them. Notes
+  for people reach the client, and so does a turn byj starts on its own (a
+  task's wakeup, a scheduled prompt) with its question. `session/prompt` is
+  answered once the turn's answer is saved, not after the recap. A
+  permission request carries what you are asked about, and a lookup in
+  byj's tool registry is a `search` call.
 - **A team member or workflow stage in a worktree works there as in any
   project.** Its project is the worktree: it reads the `.brainyard/` its
   branch has, keeps its own sessions and log, cannot reach the main
@@ -102,8 +152,8 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   workflow's master role judges it: hand on, go again (three turns a stage),
   or stop with a question for you. The profile's `:usd` and `:failures`
   limits hold. A bead or issue the run works is claimed, and closed at the
-  end as the profile allows. Runs are kept in `.brainyard/workflow-runs/`;
-  `/workflow` lists them and keeps your verdict on one. New config:
+  end as the profile allows. Runs are kept in your home (`byj project path
+  workflow-runs`); `/workflow` lists them and keeps your verdict on one. New config:
   `:workflow-max-steps` (30), `:workflow-stage-attempts` (3).
 - **A workflow run can work apart, and a role can have its own session.**
   `/workflow run feature … in a worktree` works on a branch of its own
