@@ -13,11 +13,11 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   brief goes whole, with no file in `.brainyard/handovers/`. It is sent only
   while the session is idle — a message sent during a turn is taken into that
   turn and goes unanswered, and byj says so. An older Claude Code is typed to
-  in tmux as before. `agent$claude` gives the sessions it drives their
-  follow-up guidance the same way; Claude Code tells the model such a message
-  is a teammate's request, which may not have it edit its permission
-  settings, CLAUDE.md or config, so `:claude-say-via :typed` keeps it typed
-  as your own words.
+  in tmux as before. `agent$claude` keeps typing its sessions'
+  guidance into their tmux pane, as your own words, and uses the inbox only
+  for one with no pane: Claude Code tells the model an inbox message is a
+  teammate's request, which may not have it edit its permission settings,
+  CLAUDE.md or config.
 - **What byj's runs leave is kept in your home, one folder per project;
   `.brainyard/` is the repository's.** A project's sessions, transcripts,
   tasks, event log, Claude Code and Codex delegation records, workflow runs,

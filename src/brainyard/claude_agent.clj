@@ -189,22 +189,20 @@
   (str "[byj] From the person who gave you this task, through byj:\n\n" text))
 
 (defn say
-  "Deliver `text` to session `sid`: through its inbox when it has one
-  (byj-bzo, `claude-host/send-message`) — the whole of it, however long, no
-  file — unless `:claude-say-via` is `:typed`; else as the person's own
-  words, typed when it is one short line, else written to a file and a line
-  typed that points at it. Through the inbox Claude Code tells the model it
-  came from another session, a teammate's request and not its user's, and
-  that a peer cannot have it edit its permission settings, CLAUDE.md or
-  config: guidance that must is typed (`:claude-say-via :typed`). Where its
-  steps stood before it went is recorded (`:activity-mark`), so the wait that
-  follows streams what it did with it from there, even what it did before
-  the wait began (byj-gly.482)."
+  "Deliver `text` to session `sid` as the person's own words: in its tmux
+  pane when it has one — typed when it is one short line, else written to a
+  file and a line typed that points at it — and through its inbox only when
+  it has none (byj-bzo, `claude-host/send-message`): the whole of it, no
+  file. A pane is the person's way in, and what is typed there is the
+  person's; Claude Code tells the model an inbox message is another
+  session's, a teammate's request, which may not have it edit its permission
+  settings, CLAUDE.md or config. Where its steps stood before it went is
+  recorded (`:activity-mark`), so the wait that follows streams what it did
+  with it from there, even what it did before the wait began (byj-gly.482)."
   [config sid text]
   (let [text (str/trim (str text))
         h (home config)
-        box? (and (not= :typed (keyword (name (:claude-say-via config :inbox))))
-                  (some? (host/inbox sid h)))
+        box? (and (nil? (host/target sid h)) (some? (host/inbox sid h)))
         line (when-not box?
                (if (or (> (count text) typed-chars) (str/includes? text "\n"))
                  (str "Read " (guidance-file config sid text) " and follow it — it is from the person who gave you this task.")

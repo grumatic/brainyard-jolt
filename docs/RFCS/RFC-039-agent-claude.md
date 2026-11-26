@@ -209,19 +209,19 @@ sets `:claude-tools?`, which is what registers the `claude$*` commands
   briefs the instance, judges each answer with its own tools, and asks the
   same instance again for what is missing, so the follow-ups go to one Claude
   Code session.
-- **Guidance** goes through the session's inbox when it has one (Claude
-  Code 2.1.224+, `byj-bzo`, RFC-031): the whole of it, under a line saying it
-  is from the person who gave the task, no file (`claude-agent/say`,
-  `guidance-message`, `claude-host/send-message`), sent only while the
-  session is idle. Claude Code tells the model such a message came from
-  another session — a teammate's request, not its user's — and that a peer
-  cannot have it edit its permission settings, CLAUDE.md or config:
-  `:claude-say-via :typed` keeps guidance typed as the person's own words.
-  Typed — with no inbox, or by that key — it is one line of at most 300
-  characters as it is; otherwise a file under `claude-agents/<id>/` in the
-  project's folder of the home (RFC-016), which the session may read
-  (`--add-dir`), and the typed line points at it. The brief that starts a new
-  session is its first prompt, as before.
+- **Guidance** is typed into the session's tmux pane, as the person's own
+  words, when it has one — every session agent$claude starts does: one line
+  of at most 300 characters as it is; otherwise a file under
+  `claude-agents/<id>/` in the project's folder of the home (RFC-016), which
+  the session may read (`--add-dir`), and the typed line points at it. Only
+  a session with no pane is given it through its inbox (Claude Code
+  2.1.224+, `byj-bzo`, RFC-031): the whole of it, under a line saying it is
+  from the person who gave the task, no file (`claude-agent/say`,
+  `guidance-message`, `claude-host/send-message`), sent only while it is
+  idle. A pane comes first because Claude Code tells the model an inbox
+  message is another session's — a teammate's request, not its user's —
+  which may not have it edit its permission settings, CLAUDE.md or config.
+  The brief that starts a new session is its first prompt, as before.
 - **Cost:** the turn reader counts each reply's tokens once, by model;
   `claude$await` prices them and reports what the delegation has spent since
   it began (`:cost-usd`) and since it last said (`:usage-cost-usd`), which
@@ -586,7 +586,7 @@ attach`, `byj-oer`). `brainyard.agent`: the leaf
 
 | Invariant | Enforced by |
 |---|---|
-| Guidance to a session with an inbox goes through it, whole, under a line saying whose it is, and no guidance file is written; `:claude-say-via :typed` sends nothing there. | `claude-reach-test/a-delegations-guidance-goes-through-its-inbox` |
+| Guidance to a session with a tmux pane is typed there, though it has an inbox; to one with no pane and an inbox it goes through the inbox, whole, under a line saying whose it is, and no guidance file is written. | `claude-reach-test/a-delegations-guidance-goes-through-its-inbox-only-with-no-pane` |
 | A session is started with its brief whole as the last argument, the parent's Claude Code variables unset, its model, mode, settings and extra arguments in place; resumed, with no brief. | `claude-host-test/a-session-is-started-with-its-brief-last-and-the-parents-variables-unset` |
 | The trust dialog, and where its cursor is, are read from the screen. | `claude-host-test/the-trust-dialog-is-read-from-the-screen` |
 | The permission mode is read from the footer; auto asked for and not offered gives accept edits, never manual; another mode asked for is left as it is. | `claude-host-test/the-mode-asked-for-is-the-mode-it-gets-or-the-nearest` |

@@ -233,9 +233,10 @@
         (is (nil? @got)))
       (finally (stop!)))))
 
-(deftest a-delegations-guidance-goes-through-its-inbox
-  ;; byj-bzo: agent$claude's say, to a session it drives that has an inbox —
-  ;; the whole of it, no guidance file; :claude-say-via :typed keeps to typing
+(deftest a-delegations-guidance-goes-through-its-inbox-only-with-no-pane
+  ;; byj-bzo: agent$claude's say, to a session it drives with no tmux pane
+  ;; and an inbox — the whole of it, no guidance file; with a pane, typed
+  ;; there as before
   (let [home (fresh-dir "home")
         project (fresh-dir "project")
         config {:project-dir project :working-dir project :session-id "byj-me" :claude-home home}
@@ -249,10 +250,12 @@
                (get-in (json/read-str (second @got)) [:message :content]))
             "the whole of it, under a line saying whose it is")
         (is (not (.exists (io/file (brainyard.claude-agent/records-dir config) id))) "no guidance file"))
-      (testing ":claude-say-via :typed sends nothing to the inbox"
+      (testing "with a tmux pane it is typed there, as the person's words, though it has an inbox"
         (reset! got nil)
-        (Thread/sleep 400)
-        (let [r (brainyard.claude-agent/say (assoc config :claude-say-via :typed) id "now the tests")]
-          (is (not= "inbox" (:via r)) (pr-str r))
-          (is (nil? @got))))
+        (let [typed (atom nil)]
+          (with-redefs [host/target (fn [& _] {:pane "%1"})
+                        host/type-line (fn [_ line & _] (reset! typed line) (fx/task-of (constantly {:sent true})))]
+            (is (= {:sent true :via "typed"} (brainyard.claude-agent/say config id "now the tests"))))
+          (is (= "now the tests" @typed))
+          (is (nil? @got) "nothing to the inbox")))
       (finally (stop!)))))

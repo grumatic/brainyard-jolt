@@ -400,9 +400,6 @@
                   :doc "The model a Claude Code session agent$claude starts is given when its plan names none (claude/plan's :model), e.g. \"sonnet\". Unset: Claude Code's own default, which is the account's (byj-gly.320)."}
    :claude-settings {:type "string" :default nil :family :agents
                      :doc "A --settings file or JSON agent$claude starts a Claude Code session with, e.g. one that sets byj's gates as its PreToolUse hook (byj hook claude-settings, RFC-012)."}
-   :claude-say-via {:type "keyword" :default :inbox :family :agents
-                    :enum [:inbox :typed]
-                    :doc "How agent$claude gives a Claude Code session it drives what comes after the brief: :inbox, through the session's own messaging socket (Claude Code 2.1.224+), the whole of it, told to the model as a teammate's request — which may not have it edit its permission settings, CLAUDE.md or config; :typed, typed into its tmux pane as the person's own words, a long one in a file it is pointed at. A session with no inbox is typed to either way (byj-bzo)."}
    :claude-max-rounds {:type "integer" :default 8 :family :agents
                        :doc "How many of a Claude Code session's turns agent$claude watches and guides before it reports back (RFC-039)."}
    :claude-turn-timeout-ms {:type "integer" :default 1800000 :family :agents
