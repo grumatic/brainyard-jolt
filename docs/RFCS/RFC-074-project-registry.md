@@ -133,7 +133,7 @@ The CLI, brainyard's `by projects`:
 byj project [list] [--all] [--json]   every project, the last opened first; --all adds worktrees and unlisted folders
 byj project path [KIND] [--json]      this project's folder in the registry, or one KIND of what its runs leave (RFC-016)
 byj project path SLUG               a registered project's directory; exit 1 when not registered
-byj project add [DIR] [--json]      register DIR (the working directory) without a session
+byj project add [DIR] [--json]      register DIR (the working directory) without a session; a folder of another project is refused
 byj project prune [--yes] [--json]  forget every missing project; asks first
 byj project remove SLUG [--yes] [--json]   forget one, there or not; asks first
 byj project move OLD-SLUG [DIR] [--json]    a moved project's folder adopted at DIR (the working directory)
@@ -158,6 +158,17 @@ A client marks a project on its record (`projects/update-record!`): `byj project
 `unlist` takes it off the list (`:listed? false`) with its folder of the home and its sessions kept, its slug still in
 the index; `byj project add` lists it again, no longer deleted. `remove` still removes the folder, its sessions with it.
 
+### A folder of another project is not added (`byj-661`)
+
+`byj project add DIR` refuses a DIR that is not where its own project is: a session started in it works in
+`config/resolve-project-dir`'s project — the git root above it, else the nearest folder whose `.brainyard/` the
+project shares — and when that is not DIR, DIR is a folder of it, registered or not; outside git, a registered
+project's directory above DIR makes it one too (`projects/inside-of`). Registering it anyway made one repository two
+projects, its sessions and runs split between two folders of the home (`brainyard-apps/apps/rag`). The refusal names
+the project to add instead, and `--json` says it, `{error, inside: {path, slug, registered?, listed?}}`. A
+repository nested in another, a linked worktree and a submodule have a `.git` of their own, and are their own. A DIR
+that holds registered projects is added, and says them (`contains`, `projects/contained-in`).
+
 ## Invariants
 
 | Invariant | Enforced by |
@@ -171,6 +182,7 @@ the index; `byj project add` lists it again, no longer deleted. `remove` still r
 | A missing project is listed, and removed only by prune or remove | `projects-test/a-missing-project-is-listed-and-only-pruned-when-asked` |
 | A slug read off disk never aims the delete outside the registry | `projects-test/a-slug-off-disk-never-aims-the-delete-elsewhere` |
 | `byj project` lists, adds and forgets; prune asks, and removes nothing unanswered | `projects-test/byj-projects-lists-adds-and-forgets` |
+| A folder of another project is not added as one of its own, and the refusal names that project; a nested repository is its own; a folder holding projects is added, and says them | `projects-test/a-folder-of-another-project-is-not-added-as-one-of-its-own` |
 | A folder a run keeps sessions in holds a record, unlisted until the project is registered | `persist-test/a-session-is-kept-in-the-persons-home` |
 | A question registers its project, and a run with `:register-project?` false does not | `projects-test/a-question-registers-its-project-and-a-clones-does-not` |
 | No test registers in the person's registry | `test-run/run` sets `brainyard.projects-home` to the run's own, and every process the run starts gets it as `BY_PROJECTS_HOME` — `fx/start`'s `carried-env`, however the run was started: shards, one image, one namespace, a live nREPL image (`byj-9og`); `test-run/run` fails a run that left a project under this repository or the temporary directory in the person's registry; `effect-test/a-process-started-keeps-off-the-persons-stores-as-this-one-does` |

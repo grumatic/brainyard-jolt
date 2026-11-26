@@ -196,6 +196,49 @@
           (System/setProperty "brainyard.projects-home" before)
           (System/clearProperty "brainyard.projects-home"))))))
 
+(deftest a-folder-of-another-project-is-not-added-as-one-of-its-own
+  ;; byj-661: brainyard-apps/apps/rag added was the same repository as two
+  ;; projects; a session started in it works in brainyard-apps
+  (let [home (temp-dir "proj-home")
+        repo (temp-dir "proj-repo")
+        sub (str repo "/apps/rag")
+        nested (str repo "/vendor/lib")
+        plain (temp-dir "proj-plain")
+        inner (str plain "/docs")
+        before (System/getProperty "brainyard.projects-home")]
+    (doseq [d [(str repo "/.git") sub (str nested "/.git") inner]] (.mkdirs (io/file d)))
+    (System/setProperty "brainyard.projects-home" home)
+    (try
+      (testing "inside a repository not registered: refused, naming its root"
+        (let [{:keys [exit err]} (run-main nil "project" "add" sub)]
+          (is (= 1 exit))
+          (is (str/includes? err (str "is a folder of " repo ", a project not registered")))
+          (is (empty? (projects/list-projects (root-in home) {:unlisted? true})) "nothing registered")))
+      (is (= 0 (:exit (run-main nil "project" "add" repo))))
+      (testing "inside a registered one: refused, --json saying which"
+        (let [{:keys [exit out]} (run-main nil "project" "add" sub "--json")
+              r (json/read-str out)]
+          (is (= 1 exit))
+          (is (= {:path repo :slug (projects/project-slug repo) :registered? true :listed? true} (:inside r)))
+          (is (str/includes? (:error r) "Add "))))
+      (testing "a repository nested in it is its own"
+        (is (= 0 (:exit (run-main nil "project" "add" nested)))))
+      (testing "outside git, under a registered project's folder: refused"
+        (is (= 0 (:exit (run-main nil "project" "add" plain))))
+        (is (= 1 (:exit (run-main nil "project" "add" inner)))))
+      (testing "a folder holding registered projects is added, and says them"
+        (let [holder (temp-dir "proj-holder")
+              child (str holder "/x")]
+          (.mkdirs (io/file child ".git"))
+          (is (= 0 (:exit (run-main nil "project" "add" child))))
+          (let [{:keys [exit out]} (run-main nil "project" "add" holder "--json")]
+            (is (= 0 exit))
+            (is (= [(projects/project-slug child)] (map :slug (:contains (json/read-str out))))))))
+      (finally
+        (if before
+          (System/setProperty "brainyard.projects-home" before)
+          (System/clearProperty "brainyard.projects-home"))))))
+
 (deftest a-question-registers-its-project-and-a-clones-does-not
   (let [home (temp-dir "proj-home")
         p (temp-dir "proj-ask")

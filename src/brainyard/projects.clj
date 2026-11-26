@@ -323,6 +323,47 @@
         rec)
       (catch Throwable _ nil))))
 
+(defn- under?
+  "Is canonical path `p` strictly inside canonical directory `dir`?"
+  [p dir]
+  (and p dir (not= p dir) (str/starts-with? p (str (str/replace dir #"/+$" "") "/"))))
+
+(defn inside-of
+  "Why `dir` is no project of its own but a folder of another's (byj-661), or
+  nil. `owner` is the project a session started in `dir` works in
+  (`config/resolve-project-dir`: the git root above it, else the nearest
+  folder whose `.brainyard/` the project shares): when that is not `dir`,
+  `dir` is a folder of it, registered or not. Else, `dir` not a repository's
+  root, a registered project's directory above it (a project outside git).
+  A repository nested in another, a linked worktree and a submodule each
+  have a `.git` of their own, and are their own. `{:path :slug :registered?
+  :listed?}`: `:listed?` false for one the list leaves out or one deleted
+  softly, which adding it lists again."
+  [root dir owner]
+  (let [cp (canonical-path dir)
+        op (canonical-path owner)
+        recs (list-projects root {:unlisted? true})
+        said (fn [p r] {:path p :slug (or (:slug r) (project-slug p)) :registered? (boolean r)
+                        :listed? (boolean (and r (not (false? (:listed? r))) (not (:deleted r))))})]
+    (cond
+      (and op (not= op cp)) (said op (some #(when (= op (:path %)) %) recs))
+      (.exists (io/file cp ".git")) nil
+      :else (when-let [r (->> recs
+                              (filter #(and (not (:missing? %)) (not (:worktree-of %)) (under? cp (str (:path %)))))
+                              (sort-by #(count (str (:path %))) >)
+                              first)]
+              (said (:path r) r)))))
+
+(defn contained-in
+  "The registered projects inside `dir` (byj-661), listed and not deleted,
+  their worktrees left out: adding `dir` says them, and goes on.
+  `[{:path :slug}]`."
+  [root dir]
+  (let [cp (canonical-path dir)]
+    (->> (list-projects root)
+         (filter #(and (not (:deleted %)) (not (:worktree-of %)) (under? (str (:path %)) cp)))
+         (mapv #(select-keys % [:path :slug])))))
+
 (defn ensure-record!
   "`path`'s folder holds a record: when it has none, one is written
   `:listed? false` — a folder that a run which is not registered (a flow, an

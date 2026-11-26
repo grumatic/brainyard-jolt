@@ -823,11 +823,32 @@
                                              ") nor a registered project slug: " arg))
                            1)))
       "add" (let [raw (or arg working-dir ".")
-                  dir (io/file (or (projects/canonical-path raw) raw))]
+                  dir (io/file (or (projects/canonical-path raw) raw))
+                  ;; a folder of another project is not one of its own: a
+                  ;; session started in it works in that one (byj-661)
+                  in (when (.isDirectory dir)
+                       (projects/inside-of root (str dir) (config/resolve-project-dir (str dir) nil)))]
               (cond
                 (not (.isDirectory dir)) (do (err-println (str "Not a directory: " dir)) 1)
+                in (let [why (str dir " is a folder of " (:path in)
+                                  (cond (:listed? in) (str ", the registered project " (:slug in))
+                                        (:registered? in) (str ", the project " (:slug in) ", not listed now")
+                                        :else ", a project not registered")
+                                  ": a session started in it works in that project, so it is no project of its own."
+                                  " Add " (:path in) " instead.")]
+                     (if json
+                       (println (json/write-str {:error why :inside in}))
+                       (err-println why))
+                     1)
                 :else (if-let [rec (projects/register-project! root (str dir))]
-                        (do (if json (out rec) (println (:slug rec) (:path rec))) 0)
+                        (let [holds (projects/contained-in root (str dir))]
+                          (if json
+                            (out (cond-> rec (seq holds) (assoc :contains holds)))
+                            (do (println (:slug rec) (:path rec))
+                                (when (seq holds)
+                                  (err-println (str "Note: " dir " holds registered projects of its own: "
+                                                    (str/join ", " (map :slug holds)))))))
+                          0)
                         (do (err-println (str "Could not register " dir " (is ~/.brainyard writable?)")) 1))))
       "prune" (let [gone (filterv :missing? (projects/list-projects root {:unlisted? true}))
                     keep? #(persist/keeps-folder? ttl (folder %))
