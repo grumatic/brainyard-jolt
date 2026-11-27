@@ -388,10 +388,18 @@
       (is (str/includes? (:summary (handoff {:publish true})) "Pushed to origin, but no pull request was found for bd/p-1. Open it:")))
     (fx/sh {:dir wt :out :string} (.getCanonicalPath (io/file "test/fixtures/fake-gh")) gh-log "pr" "create" "--head" "bd/p-1")
     (testing "published by the session: the pull request found; files git does not track keep the worktree"
-      (let [r (handoff {:publish true :cleanup true})]
+      (let [r (handoff {:publish true :cleanup true})
+            ;; byj-mpk: once on ci the pull request was found and the branch
+            ;; read as not pushed, which the step before had read as pushed;
+            ;; what the summary and git said then, should it come again
+            why #(str "summary: " (:summary r)
+                      "\ntip: " (pr-str (git! wt "rev-parse" "bd/p-1"))
+                      "\norigin: " (pr-str (git! wt "rev-parse" "--verify" "-q" "refs/remotes/origin/bd/p-1")))]
         (is (= "https://example.invalid/pull/1" (:pr-url r)))
-        (is (str/includes? (:summary r) "Published by the session: bd/p-1 pushed to origin, pull request https://example.invalid/pull/1."))
-        (is (str/includes? (:summary r) "Not cleaned up: the worktree has files git does not track (.omc/state.json)"))
+        (is (str/includes? (:summary r) "Published by the session: bd/p-1 pushed to origin, pull request https://example.invalid/pull/1.")
+            (why))
+        (is (str/includes? (:summary r) "Not cleaned up: the worktree has files git does not track (.omc/state.json)")
+            (why))
         (is (.isDirectory (io/file wt)))))
     (testing "and with nothing left in it, the worktree and the local branch removed"
       (doseq [f (reverse (file-seq (io/file wt ".omc")))] (.delete f))
