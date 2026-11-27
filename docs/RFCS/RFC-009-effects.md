@@ -95,7 +95,13 @@ Also `ticker` (a discrete Flow of 0, 1, 2 …).
 
 Plus one addition brainyard's JVM did not need: **`process-task`** — run a
 subprocess as a Task whose canceller also `destroy-tree`s it (rule 1); a cancel
-that lands before the process starts is honoured when it starts.
+that lands before the process starts is honoured when it starts. jolt's
+`destroy-tree` sends SIGTERM, which a process may trap or not get to —
+measured, one trapping it outlives `destroy-tree` — so the canceller goes
+through **`end-tree!`**: the tree's descendants taken first, the SIGTERM, and
+whatever is still alive after `*kill-grace-ms*` (5 s) SIGKILLed from a daemon
+thread, the canceller not waiting. A team member cancelled with its leader's
+tasks was still live a minute later on ci without it (byj-69w).
 
 And **`start` / `sh`** (`byj-gly.259`, provenance P-21): jolt's `process`
 used to leave a child's three pipes open after it exited — every subprocess cost
@@ -303,7 +309,7 @@ Two guards the migration needed:
 | No namespace outside `brainyard.effect` runs `jolt.process` directly, bar two that release by hand, named with why. | `effect-ratchet-test/no-subprocess-outside-the-brick` |
 | While the TUI owns the terminal a child leads a session of its own — none handed the terminal — with stdin and stdout intact; what is still running at the end is destroyed, and only that. | `effect-test/under-the-tui-a-child-has-no-terminal-and-is-not-left-behind` |
 | A subprocess is told not to ask on the terminal — git and ssh fail rather than prompt — unless it is handed the terminal; the person's own `GIT_SSH_COMMAND` keeps its options, a `GIT_SSH` wrapper is not bypassed. | `effect-test/a-subprocess-never-asks-on-the-terminal-unless-handed-it` |
-| A cancelled or timed-out `process-task` leaves no child process, and reports the cancel even when its wait saw the killed process exit before it saw the interrupt, as it does from jolt 0.8.21 (provenance P-41). `streaming-process` does the same. | `effect-test/process-task-kills-what-it-started` (checks the child was running first) |
+| A cancelled or timed-out `process-task` leaves no child process, and reports the cancel even when its wait saw the killed process exit before it saw the interrupt, as it does from jolt 0.8.21 (provenance P-41). `streaming-process` does the same. A child that ignores the SIGTERM, and its own children, are SIGKILLed after `*kill-grace-ms*` (byj-69w). | `effect-test/process-task-kills-what-it-started` (checks the child was running first, and that the SIGTERM alone left it) |
 | A cancelled blocking call counts as cancellation. | `effect-test/cancelled-includes-the-interrupt-via-blk-surfaces` |
 | A cancel racing a blk thunk's end leaves no pool thread interrupted, and no blk thunk under `src/` bypasses `via-blk`. | `effect-test/a-cancel-racing-a-thunks-end-leaves-the-pool-thread-clean` (5 000 races; `dev/brainyard/dev/interrupt_spike.clj` measured ebb's `via` at 18 of 30 000 and 39 of 30 000, `via-blk` at 0), `effect-test/nothing-under-src-runs-a-thunk-through-ebbs-via` |
 | The supervisor never lists a finished process, and a cancellation is not reported as a failure. | `effect-test/supervisor-registry-is-not-raced-by-late-callbacks`, `effect-test/failures-nobody-awaits-are-reported` |

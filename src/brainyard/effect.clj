@@ -348,6 +348,41 @@
   (let [proc (apply start opts cmd)]
     @proc))
 
+(def ^:dynamic *kill-grace-ms*
+  "How long a cancelled subprocess tree is given to end on the SIGTERM
+  `destroy-tree` sends, before what is left of it is killed (`end-tree!`)."
+  5000)
+
+(defn end-tree!
+  "End `proc`'s process tree, whatever it does with a SIGTERM: jolt's
+  `destroy-tree` sends one, which a process may ignore or not get to — a
+  test's team member (`jolt run:byj --serve`), cancelled with its leader's
+  tasks, was still live a minute later on ci (byj-69w); measured, a process
+  trapping TERM outlives `destroy-tree`. Its descendants are taken first, as
+  they reparent once their parent ends; what is still alive after
+  `*kill-grace-ms*` is SIGKILLed, from a daemon thread, so the canceller does
+  not wait."
+  [proc]
+  (when proc
+    (let [jp (:proc proc)
+          kids (try (vec (.toArray (.descendants (.toHandle jp)))) (catch Throwable _ []))
+          grace *kill-grace-ms*]
+      (try (p/destroy-tree proc) (catch Throwable _ nil))
+      (when jp
+        (doto (Thread.
+               (fn []
+                 (let [deadline (+ (System/currentTimeMillis) grace)
+                       alive? (fn [] (or (try (.isAlive jp) (catch Throwable _ false))
+                                         (some #(try (.isAlive %) (catch Throwable _ false)) kids)))]
+                   (loop []
+                     (when (and (alive?) (< (System/currentTimeMillis) deadline))
+                       (Thread/sleep 100)
+                       (recur)))
+                   (doseq [k kids] (try (when (.isAlive k) (.destroyForcibly k)) (catch Throwable _ nil)))
+                   (try (when (.isAlive jp) (.destroyForcibly jp)) (catch Throwable _ nil)))))
+          (.setDaemon true)
+          (.start))))))
+
 (defn- unless-cancelled
   "`r`, the process's result, unless its task was cancelled: then the cancel,
   as the `InterruptedException` a cancelled `via-blk` thunk surfaces. The
@@ -382,7 +417,7 @@
                         (let [proc (apply start (assoc opts :out :stream) cmd)
                               {:keys [cancelled?]} (swap! state assoc :proc proc)]
                           (when cancelled?
-                            (p/destroy-tree proc)
+                            (end-tree! proc)
                             (throw (InterruptedException. "streaming-process cancelled before start")))
                           (try
                           (let [is (:out proc)
@@ -411,7 +446,7 @@
           cancel (waiter s f)]
       (fn []
         (let [{:keys [proc]} (swap! state assoc :cancelled? true)]
-          (some-> proc p/destroy-tree))
+          (end-tree! proc))
         (cancel)))))
 
 (defn process-task
@@ -430,13 +465,13 @@
                         (let [proc (apply start opts cmd)
                               {:keys [cancelled?]} (swap! state assoc :proc proc)]
                           (when cancelled?
-                            (p/destroy-tree proc)
+                            (end-tree! proc)
                             (throw (InterruptedException. "process-task cancelled before start")))
                           (unless-cancelled state @proc "process-task")))
           cancel (waiter s f)]
       (fn []
         (let [{:keys [proc]} (swap! state assoc :cancelled? true)]
-          (some-> proc p/destroy-tree))
+          (end-tree! proc))
         (cancel)))))
 
 ;; ============================================================================

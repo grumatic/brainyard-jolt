@@ -364,6 +364,22 @@
       (is (fx/cancelled? (:err (deref !out 2000 {:timeout true}))))
       (Thread/sleep 300)
       (is (not (alive? marker)) "no child outlives the cancel")))
+  (testing "a child that ignores the SIGTERM is killed after the grace, its own child too (byj-69w)"
+    (let [marker (str "sleep 9." (rand-int 100000))
+          kid (str "sleep 8." (rand-int 100000))
+          !out (promise)
+          cancel (fx/run (fx/process-task {:out :string :err :string} "bash" "-c"
+                                          (str "trap '' TERM; (trap '' TERM; " kid ") & " marker "; wait"))
+                         #(deliver !out {:ok %}) #(deliver !out {:err %}))]
+      (Thread/sleep 300)
+      (is (and (alive? marker) (alive? kid)) "non-vacuous: both were running")
+      (binding [fx/*kill-grace-ms* 500] (cancel))
+      (is (fx/cancelled? (:err (deref !out 2000 {:timeout true}))))
+      (Thread/sleep 200)
+      (is (alive? kid) "non-vacuous: the SIGTERM alone did not end it")
+      (Thread/sleep 1300)
+      (is (not (alive? marker)) "killed after the grace")
+      (is (not (alive? kid)) "and its child, though it had been reparented")))
   (testing "a timeout around it kills the child too"
     (let [marker (str "sleep 9." (rand-int 100000))]
       (is (= {:ok :timed-out}

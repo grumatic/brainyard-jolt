@@ -22,6 +22,9 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   openrouter …): its zones went beside it, the prompt twice. The event log's
   `:agent.llm/request` gives each zone's name and length rather than its
   words again, about halving what a turn writes there.
+- **A cancelled command, team member or delegation's process is ended even
+  when it does not stop on SIGTERM**: what is left of it 5 s later is
+  killed. A team member could outlive its leader's session.
 - **A long Bedrock reply no longer fails at 60 s** with "Read timeout on
   endpoint URL": the aws CLI waits as long as the call may take. Each call's
   request and reply, written to a folder in the temporary directory, are

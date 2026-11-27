@@ -110,7 +110,17 @@
       (let [deadline (+ (System/currentTimeMillis) 60000)]
         (loop [] (when (and (seq (filter :live? (channel/sessions leader))) (< (System/currentTimeMillis) deadline))
                    (Thread/sleep 100) (recur))))
-      (is (empty? (filter :live? (channel/sessions leader))) "the member went down with its leader")
+      (let [left (filter :live? (channel/sessions leader))]
+        ;; byj-69w: what is left, should one be — its task, and its process
+        (is (empty? left)
+            (str "the member went down with its leader; its task "
+                 (pr-str (select-keys (tasks/snapshot (:task-registry before)
+                                                      (some #(when (= "team-member" (name (:job-type %))) (:id %))
+                                                            (tasks/summaries (:task-registry before))))
+                                      [:status :error]))
+                 ", its process "
+                 (pr-str (for [s left] (:out @(p/process {:out :string :err :string}
+                                                          "ps" "-o" "pid,ppid,stat,etime,command" "-p" (str (:owner-pid s)))))))))
       (let [after {:config leader :task-registry (tasks/registry)}]
         (try
           (testing "the resumed leader sees its team, the member down, and what it was waiting on lost"
