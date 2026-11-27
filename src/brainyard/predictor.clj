@@ -387,7 +387,12 @@
               :inputs inputs}
         t0 (System/currentTimeMillis)]
     (when (seq skipped) (emit :predictor/params-skipped {:predictor-id id :skipped skipped}))
-    (emit :agent.llm/request {:messages messages :predictor-id id})
+    ;; each zone by its name and length, not its words again: the prompt is
+    ;; :content, and the zones' bounds are what a cache breakpoint is read by (byj-tky)
+    (emit :agent.llm/request {:messages (mapv (fn [m] (cond-> m
+                                                        (:parts m) (update :parts #(mapv (fn [[zone text]] [zone (count text)]) %))))
+                                              messages)
+                              :predictor-id id})
     (try
       (let [{:keys [content usage attempted-tool-calls]}
             (llm/chat lm messages

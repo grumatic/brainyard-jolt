@@ -18,6 +18,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   default), each model's own. It takes effect from the next session. A
   subagent on another model no longer asks for its caller's size, which a
   model that writes less would refuse.
+- **The system prompt is sent once to an OpenAI-format provider** (openai,
+  openrouter …): its zones went beside it, the prompt twice. The event log's
+  `:agent.llm/request` gives each zone's name and length rather than its
+  words again, about halving what a turn writes there.
 - **A long Bedrock reply no longer fails at 60 s** with "Read timeout on
   endpoint URL": the aws CLI waits as long as the call may take. Each call's
   request and reply, written to a folder in the temporary directory, are

@@ -382,7 +382,9 @@
             cache-ttl provider] :as lm}
     messages json-schema]
    (let [schema? (boolean (and json-schema supports-json-schema?))]
-     (cond-> {:model model :messages messages}
+     ;; a system message's :parts are its zones for Anthropic's cache blocks:
+     ;; sent here, the prompt went twice, in a field the API does not name (byj-tky)
+     (cond-> {:model model :messages (mapv #(dissoc % :parts) messages)}
        (and temperature (takes-temperature? model)) (assoc :temperature temperature)
        max-tokens (assoc :max_tokens max-tokens)
        schema? (assoc :response_format

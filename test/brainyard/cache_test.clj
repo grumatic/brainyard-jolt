@@ -114,6 +114,28 @@
       (is (= ["preamble" "agent-core" "session-context" "user-context"]
              (map first (first @seen)))))))
 
+;; --- the prompt goes once ---------------------------------------------------------
+
+(deftest the-system-prompt-goes-once
+  ;; byj-tky: :parts are the zones Anthropic's cache blocks are cut from, the
+  ;; same words as :content
+  (let [parts [["preamble" "abc"] ["user-context" "de"]]
+        msgs [{:role "system" :content "abc\n\nde" :parts parts} {:role "user" :content "q"}]]
+    (testing "an OpenAI-format body sends content alone"
+      (is (= [{:role "system" :content "abc\n\nde"} {:role "user" :content "q"}]
+             (:messages (llm/openai-body {:model "m"} msgs)))))
+    (testing "the request event says each zone by name and length"
+      (let [seen (atom nil)]
+        (agent/ask "q" {:lm {:provider :mock :format :mock :responses (fn [_] (reply {:answer "ok"}))}
+                        :config {:working-dir "." :project-dir (scratch)}
+                        :on-event (fn [e d] (when (and (= e :agent.llm/request) (nil? @seen)) (reset! seen d)))})
+        (let [sys (first (:messages @seen))]
+          (is (string? (:content sys)))
+          (is (= ["preamble" "agent-core" "session-context" "user-context"] (map first (:parts sys))))
+          (is (every? (comp int? second) (:parts sys)))
+          (is (= (count (:content sys)) (+ (reduce + (map second (:parts sys))) (* 2 (dec (count (:parts sys))))))
+              "the lengths add up to the content, its \\n\\n joins counted"))))))
+
 ;; --- bedrock ---------------------------------------------------------------------
 
 (deftest bedrock-routes-by-model-family

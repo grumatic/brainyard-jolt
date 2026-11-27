@@ -67,6 +67,9 @@ joined system string with `str/index-of` and warns when it fails; its own design
 doc calls that "fragile across recomposition" and says zone texts should be
 passed explicitly end-to-end. They are, here: `build-messages` attaches
 `:parts`, and `anthropic-body` uses them or falls back to the plain string.
+They are the same words as `:content`, so nothing sends both: `openai-body`
+drops them, and `:agent.llm/request` says each zone by name and length,
+`[["preamble" 2843] …]` (byj-tky).
 
 ### TTL
 
@@ -87,7 +90,9 @@ it opt-in.
   reject an unknown parameter.
 - **claude-code** takes a flat system prompt on the command line; the CLI caches
   on its own. Nothing is sent, but its reported cache tokens are now read back.
-- Everything else ignores `:parts` and sends what it always sent.
+- Everything else ignores `:parts` and sends what it always sent — the
+  OpenAI-format body without them: it had sent them beside `content`, the
+  prompt twice (byj-tky).
 
 ### Accounting
 
@@ -180,6 +185,7 @@ provider spec), `:cache-ttl` (`5m`), `:prompt-cache-key`.
 | A 1h TTL marks all but the last boundary and sends the beta header. | `cache-test/ttl-marks-all-but-the-last-boundary` |
 | Without parts, or with caching off, the body is exactly what it was before. | `cache-test/caching-off-or-unavailable-sends-what-it-always-sent` |
 | Cache reads and writes are counted, and a call without them reports none. | `cache-test/cache-tokens-are-accounted` |
+| The system prompt goes once: no body but Anthropic's and Nova's reads `:parts`, an OpenAI-format body leaves them out, and the request event gives each zone's name and length. | `cache-test/the-system-prompt-goes-once` |
 | A Nova model on Bedrock goes through invoke-model with a `cachePoint` on each block an Anthropic mark would close, never with a ttl; without parts or with caching off, one plain block; OpenAI's on Bedrock go through Converse unmarked. | `cache-test/bedrock-routes-by-model-family`, `cache-test/bedrock-nova-carries-cache-points`, `cache-test/bedrock-converse-for-everything-else` |
 | Bedrock's input tokens are fresh + read + write, whichever key names the model uses. | `cache-test/bedrock-invocation-and-usage` |
 | OpenAI's parameters are sent only to OpenAI. | `cache-test/openai-takes-its-own-parameters` |
