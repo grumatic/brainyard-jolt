@@ -340,7 +340,11 @@ markers reach the model; Converse is schema-checked by the CLI, and the
 installed version rejects its `cachePoint` block. Both run as `fx/process-task`
 under a timeout, so a cancelled turn kills the CLI (RFC-009). `--region` comes
 from config or `AWS_REGION`, `--profile` from `AWS_PROFILE`; a throttling error
-is retryable, anything else is not.
+is retryable, anything else is not. `--cli-read-timeout` is the call's own
+`:timeout-ms` in whole seconds, so byj's timeout decides: the CLI's default of
+60 s failed a reply that took longer to write (byj-nml). The request and the
+reply are written to a folder of the call's own in the temporary directory,
+removed when the call settles, however it settles (byj-nxn).
 
 Converse's usage is read off what the CLI prints, and an aws CLI older than
 Converse's cache fields drops them: GPT-5.6 Sol, which Bedrock caches by
@@ -502,7 +506,7 @@ brainyard-playground-apps' Desktop (`claude-usage.ts`).
 | A provider that takes a reply schema is sent it, and one that does not is not. | `structured-output-test/the-schema-reaches-the-provider-as-response-format`, `structured-output-test/the-providers-that-take-a-schema-are-brainyards` |
 | `strict` is on exactly when the schema has no optional property, unless the config says otherwise. | `structured-output-test/a-schema-is-strict-eligible-only-when-nothing-about-it-is-optional`, `structured-output-test/an-explicit-strict-setting-beats-the-auto-detection` |
 | Bedrock routes Anthropic models to the native body (cache marks intact) and everything else to Converse. | `cache-test/bedrock-routes-by-model-family`, `cache-test/bedrock-converse-for-everything-else` |
-| The aws invocation and Converse's usage key names are what the CLI expects. | `cache-test/bedrock-invocation-and-usage` |
+| The aws invocation and Converse's usage key names are what the CLI expects; the CLI reads as long as the call may take; a call leaves no folder behind. | `cache-test/bedrock-invocation-and-usage` |
 | Input a Converse reply's total counts beyond its named parts is counted as input, priced at the input rate, and said as unreported. | `cache-test/bedrock-invocation-and-usage` |
 | A Bedrock error a hint names is said with its hint. | `cache-test/a-bedrock-error-says-what-it-means` |
 | A Converse reply with reasoning and no text fails as retryable; one with text after reasoning answers with the text. | `cache-test/a-reasoning-only-converse-reply-is-retried-not-misread` |

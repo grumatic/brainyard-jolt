@@ -571,15 +571,20 @@
 (defn bedrock-args
   "The aws CLI invocation. `invoke-model` passes the body through unvalidated,
   which is how `cache_control` reaches an Anthropic model and `cachePoint` a
-  Nova one (`native?`); `converse` is the uniform path for the rest."
-  [{:keys [model region profile]} native? body-file out-file]
+  Nova one (`native?`); `converse` is the uniform path for the rest.
+  `--cli-read-timeout` is the call's own `timeout-ms`, in whole seconds: the
+  CLI's default of 60 s failed a reply that took longer to write — a turn
+  writing several files — as a read timeout, retried twice by the CLI and
+  given up at 184 s, inside byj's 300 (byj-nml)."
+  [{:keys [model region profile timeout-ms]} native? body-file out-file]
   (cond-> ["aws" "bedrock-runtime"]
     native? (into ["invoke-model" "--model-id" model
                    "--body" (str "fileb://" body-file)
                    "--cli-binary-format" "raw-in-base64-out" out-file])
     (not native?) (into ["converse" "--cli-input-json" (str "file://" body-file)
                          "--output" "json"])
-    true (into ["--region" (or region "us-east-1")])
+    true (into ["--region" (or region "us-east-1")
+                "--cli-read-timeout" (str (quot (+ (or timeout-ms 300000) 999) 1000))])
     profile (into ["--profile" profile])))
 
 (defn bedrock-converse-reply
@@ -602,26 +607,31 @@
         dir (io/file (System/getProperty "java.io.tmpdir") (str "by-bedrock-" (random-uuid)))
         _ (.mkdirs dir)
         body-file (.getPath (io/file dir "body.json"))
-        out-file (.getPath (io/file dir "out.json"))
-        _ (spit body-file (json/write-str (bedrock-body lm messages)))
-        cmd (bedrock-args lm native? body-file out-file)
-        r (try
-            (fx/run-value!! (fx/timeout (apply fx/process-task {:out :string :err :string} cmd)
-                                        (or timeout-ms 300000) ::timeout))
-            (catch Throwable e
-              (if (fx/cancelled? e) (throw e)
-                  (throw (ex-info (str "cannot run aws CLI: " (ex-message e)) {:fatal? true})))))]
-    (when (= ::timeout r) (throw (ex-info "bedrock call timed out" {:retryable? true})))
-    (when-not (zero? (:exit r))
-      (throw (ex-info (str "bedrock call failed (exit " (:exit r) "): " (str/trim (str (:err r)))
-                           (some->> (bedrock-hint (:err r)) (str "\n")))
-                      {:retryable? (boolean (re-find #"Throttling|TooManyRequests|ServiceUnavailable"
-                                                     (str (:err r))))})))
-    (let [resp (json/read-str (if native? (slurp out-file) (:out r)))]
-      (if anthropic?
-        {:content (some #(when (= "text" (:type %)) (:text %)) (:content resp))
-         :usage (anthropic-usage (:usage resp))}
-        (bedrock-converse-reply resp)))))
+        out-file (.getPath (io/file dir "out.json"))]
+    ;; the folder holds the whole request and its reply: gone when the call
+    ;; settles, however it settles (byj-nxn)
+    (try
+      (spit body-file (json/write-str (bedrock-body lm messages)))
+      (let [cmd (bedrock-args lm native? body-file out-file)
+            r (try
+                (fx/run-value!! (fx/timeout (apply fx/process-task {:out :string :err :string} cmd)
+                                            (or timeout-ms 300000) ::timeout))
+                (catch Throwable e
+                  (if (fx/cancelled? e) (throw e)
+                      (throw (ex-info (str "cannot run aws CLI: " (ex-message e)) {:fatal? true})))))]
+        (when (= ::timeout r) (throw (ex-info "bedrock call timed out" {:retryable? true})))
+        (when-not (zero? (:exit r))
+          (throw (ex-info (str "bedrock call failed (exit " (:exit r) "): " (str/trim (str (:err r)))
+                               (some->> (bedrock-hint (:err r)) (str "\n")))
+                          {:retryable? (boolean (re-find #"Throttling|TooManyRequests|ServiceUnavailable"
+                                                         (str (:err r))))})))
+        (let [resp (json/read-str (if native? (slurp out-file) (:out r)))]
+          (if anthropic?
+            {:content (some #(when (= "text" (:type %)) (:text %)) (:content resp))
+             :usage (anthropic-usage (:usage resp))}
+            (bedrock-converse-reply resp))))
+      (finally
+        (doseq [f (reverse (file-seq dir))] (.delete ^java.io.File f))))))
 
 ;; --- claude-code: brainyard's clj-llm.core.claude-code, invocation for invocation --
 

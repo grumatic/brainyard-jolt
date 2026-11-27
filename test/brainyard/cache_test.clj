@@ -4,7 +4,9 @@
 (ns brainyard.cache-test
   "Prompt caching (RFC-015): where the breakpoints land, what they cost, and
   the byte-stability the whole arrangement depends on."
-  (:require [clojure.string :as str]
+  (:require [clojure.java.io :as io]
+            [clojure.set]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
             [brainyard.json :as json]
@@ -163,13 +165,26 @@
   (testing "invoke-model passes the body through unvalidated; converse is the uniform path"
     (is (= ["aws" "bedrock-runtime" "invoke-model" "--model-id" "us.anthropic.x"
             "--body" "fileb:///b.json" "--cli-binary-format" "raw-in-base64-out" "/o.json"
-            "--region" "us-east-1"]
-           (llm/bedrock-args {:model "us.anthropic.x" :region "us-east-1"} true "/b.json" "/o.json")))
+            "--region" "us-east-1" "--cli-read-timeout" "300"]
+           (llm/bedrock-args {:model "us.anthropic.x" :region "us-east-1"} true "/b.json" "/o.json"))
+        "the CLI reads as long as the call may take, not its own 60 s (byj-nml)")
+    (is (= "91" (last (llm/bedrock-args {:model "us.anthropic.x" :timeout-ms 90001} true "/b.json" "/o.json")))
+        "in whole seconds, rounded up")
     (is (= "invoke-model" (nth (llm/bedrock-args {:model "amazon.nova-micro-v1:0"} (llm/bedrock-native? "amazon.nova-micro-v1:0") "/b.json" "/o.json") 2))
         "Nova as well")
     (is (= ["aws" "bedrock-runtime" "converse" "--cli-input-json" "file:///b.json" "--output" "json"
-            "--region" "eu-west-1" "--profile" "work"]
+            "--region" "eu-west-1" "--cli-read-timeout" "300" "--profile" "work"]
            (llm/bedrock-args {:model "openai.x" :region "eu-west-1" :profile "work"} false "/b.json" "/o.json"))))
+  (testing "the folder a call writes its request and reply in is gone after it, a failed call's too (byj-nxn)"
+    ;; a profile the CLI does not have fails before any request is sent; with
+    ;; no aws CLI, it cannot run: either way the call throws
+    (let [tmp (io/file (System/getProperty "java.io.tmpdir"))
+          left #(set (filter (fn [n] (str/starts-with? n "by-bedrock-")) (.list tmp)))
+          before (left)]
+      (is (thrown? Exception (llm/chat* {:provider :bedrock :format :bedrock :model "us.anthropic.x"
+                                          :profile "byj-test-no-such-profile" :timeout-ms 30000}
+                                         [{:role "user" :content "q"}] {})))
+      (is (empty? (clojure.set/difference (left) before)))))
   (testing "converse reports its own usage key names"
     (is (= {:input-tokens 82 :output-tokens 16} (llm/bedrock-converse-usage {:inputTokens 82 :outputTokens 16})))
     (is (= {:input-tokens 6549 :output-tokens 2 :cache {:read-tokens 6540 :write-tokens 0}}
