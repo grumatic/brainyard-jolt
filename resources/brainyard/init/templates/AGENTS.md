@@ -17,9 +17,12 @@ block to edit it freely.
 <!-- BEGIN BRAINYARD -->
 ## Working here with brainyard
 
-- `.brainyard/` holds brainyard's state for this project — sessions, logs,
-  delegated work, and `config.edn` for project settings. It is git-ignored,
-  but for `profile.edn`, the project's profile, which is committed.
+- `.brainyard/` is the repository's, shared and committed: `profile.edn`, the
+  project's profile; `config.edn`, its settings; `deps.edn`; and its own
+  `.gitignore`, which keeps out this machine's `.env` and handovers. What the
+  project's runs leave — sessions, transcripts, logs, delegated work, workflow
+  runs — is kept in your home, `~/.brainyard/projects/<slug>/`, a worktree's
+  in its own folder there; `byj project path [KIND]` says where.
 - Run shell commands non-interactively: an agent cannot answer a y/n prompt.
   `cp -f`, `mv -f`, `rm -f`, `apt-get -y`, `HOMEBREW_NO_AUTO_UPDATE=1` for
   brew, `ssh -o BatchMode=yes`.
