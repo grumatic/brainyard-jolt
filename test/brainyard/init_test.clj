@@ -14,6 +14,7 @@
             [brainyard.flow :as flow]
             [brainyard.init :as init]
             [brainyard.trajectory :as trajectory]
+            [brainyard.version :as version]
             [brainyard.json :as json]))
 
 (defn- fresh-dir [name]
@@ -280,6 +281,48 @@
         (init/scaffold {} {:dir project})
         (is (str/includes? (agents) "Build with just."))
         (is (not (str/includes? (agents) "drafts this block from the repository")))))))
+
+;; --- a block a newer byj wrote (byj-y3s) -----------------------------------------------------
+
+(deftest a-block-a-newer-byj-wrote-is-left
+  (let [project (fresh-dir "newer-byj")
+        agents #(slurp (io/file project "AGENTS.md"))
+        older-words #(str/replace % "is the repository's, shared and committed" "holds brainyard's state")]
+    (testing "a block is written naming the byj that wrote it"
+      (binding [init/*byj-version* "v0.3.22"]
+        (init/scaffold {} {:dir project}))
+      (is (= "v0.3.22" (init/block-writer (second (second (init/marked-blocks (agents)))))))
+      (is (nil? (init/block-writer (second (first (init/marked-blocks (agents)))))) "the project's block is the draft's"))
+    (testing "a later byj with the same words leaves the block, its line too"
+      (binding [init/*byj-version* "v0.3.23-4-gabc1234"]
+        (is (every? #{:unchanged} (map :action (:writes (init/scaffold {} {:dir project}))))))
+      (is (= "v0.3.22" (init/block-writer (agents)))))
+    (testing "a block with other words, by a newer byj, is left, and the run says so"
+      (spit (io/file project "AGENTS.md") (str/replace (older-words (agents)) "v0.3.22" "v0.3.25"))
+      (let [before (agents)
+            r (binding [init/*byj-version* "v0.3.24-9-gf79010e"] (init/scaffold {} {:dir project}))]
+        (is (= before (agents)))
+        (is (= [{:block "BRAINYARD" :by "v0.3.25"}] (:kept (first (:writes r)))))
+        (is (str/includes? (:text r) "its BRAINYARD block left as byj v0.3.25 wrote it: this byj (v0.3.24-9-gf79010e) is older"))))
+    (testing "by an older byj, or with no line (a byj before this one, a person), it is written again, naming this byj"
+      (doseq [[was v] [["<!-- byj v0.3.25 wrote" "<!-- byj v0.3.21 wrote"] [#"<!-- byj v0.3.25 wrote[^\n]*\n" ""]]]
+        (spit (io/file project "AGENTS.md") (str/replace (agents) was v))
+        (binding [init/*byj-version* "v0.3.24"] (init/scaffold {} {:dir project}))
+        (is (str/includes? (agents) "is the repository's, shared and committed"))
+        (is (= "v0.3.24" (init/block-writer (agents))))
+        (spit (io/file project "AGENTS.md") (str/replace (older-words (agents)) "v0.3.24" "v0.3.25"))))
+    (testing "a byj that is no tag's (dev) writes it with no line, as before"
+      (binding [init/*byj-version* nil]
+        (with-redefs [version/version (constantly "dev")]
+          (init/scaffold {} {:dir project})))
+      (is (str/includes? (agents) "is the repository's, shared and committed"))
+      (is (nil? (init/block-writer (agents)))))
+    (testing "versions: a tag's numbers, then the commits past it"
+      (is (init/later? "v0.3.21-9-gf79010e" "v0.3.21"))
+      (is (init/later? "v0.3.22" "v0.3.21-9-gf79010e"))
+      (is (not (init/later? "v0.3.21" "v0.3.21")))
+      (is (not (init/later? "dev" "v0.3.21")))
+      (is (not (init/later? "v0.3.21" nil))))))
 
 ;; --- beads, by bd (byj-gly.309.4) --------------------------------------------------------
 

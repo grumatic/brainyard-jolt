@@ -179,6 +179,16 @@ nothing.
   - When it exists, only a block between `<!-- BEGIN BRAINYARD -->` and
     `<!-- END BRAINYARD -->` is added or replaced. The person's text and bd's
     blocks are left as they are.
+  - Each block of the template is written with a line naming the byj that
+    wrote it (`<!-- byj v0.3.22 wrote this block; … -->`, `byj-y3s`): its
+    words are that byj's template. A block with the template's words is left
+    as it is, its line too, so a later byj with the same words changes
+    nothing. One with other words that a newer byj wrote — its tag's numbers,
+    then the commits past it — is left too, and the run says so: an older
+    byj (a container's release, before the host's build) put its older words
+    back, undoing `byj-8lx`'s. A byj that is no tag's (dev) writes no line.
+    A byj before this one still rewrites the block.
+    `init-test/a-block-a-newer-byj-wrote-is-left`.
 - **CLAUDE.md:** written as `@AGENTS.md` when it is absent. When it exists,
   the import is added if it is missing.
 - **`.brainyard/.gitignore`** (`byj-84c.6`, RFC-016's second revision):

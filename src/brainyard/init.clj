@@ -24,6 +24,8 @@
             [brainyard.json :as json]
             [brainyard.profile :as profile]
             [brainyard.skills :as skills]
+            [brainyard.update :as update]
+            [brainyard.version :as version]
             [brainyard.which :as which]))
 
 ;; --- the machine ---------------------------------------------------------------------------
@@ -429,6 +431,78 @@
 (defn- notes-block [notes]
   (str (begin-marker project-block) "\n" (str/trim (str notes)) "\n" (end-marker project-block)))
 
+;; --- which byj wrote a block (byj-y3s) -------------------------------------------------------
+;; A block's words are its byj's template: a byj older than the one that wrote
+;; them (a container's release, before the host's build) would put its older
+;; words back. Each block of the template is written with a line naming its
+;; byj, and /init leaves one a newer byj wrote.
+
+(def ^:dynamic *byj-version*
+  "The version /init writes blocks as: this byj's, without -dirty; nil when it
+  is no tag's (dev). Bound by the tests."
+  nil)
+
+(defn- own-version []
+  (or *byj-version*
+      (let [v (str/replace (str (version/version)) #"-dirty$" "")]
+        (when (update/parse-version v) v))))
+
+(def ^:private stamp-re #"<!-- byj (v[^ ]+) wrote this block[^\n]*-->\n")
+
+(defn block-writer
+  "The byj a block's line names (`v0.3.22`), or nil: a block an older byj
+  wrote, or a person."
+  [block]
+  (second (re-find stamp-re (str block))))
+
+(defn- unstamped [block] (str/replace (str block) stamp-re ""))
+
+(defn- stamped
+  "`block` with the line naming byj `v` after its BEGIN line; as it is with no
+  `v`."
+  [block v]
+  (if-let [i (when v (str/index-of block "\n"))]
+    (str (subs block 0 (inc i)) "<!-- byj " v " wrote this block; an older byj's /init leaves it -->\n" (subs block (inc i)))
+    block))
+
+(defn later?
+  "Is version `a` after `b`: its tag's numbers, then the commits past it? nil
+  when either is no tag's."
+  [a b]
+  (let [n #(when-let [{:keys [nums past]} (update/parse-version %)] (conj nums past))
+        x (n a)
+        y (n b)]
+    (boolean (and x y (pos? (compare x y))))))
+
+(defn- block-of [text block-name]
+  (some (fn [[n b]] (when (= n block-name) b)) (marked-blocks text)))
+
+(defn newer-blocks
+  "The blocks of `template` that `current` has from a byj newer than `v` and
+  with other words: `[{:block :by}]`, left as they are."
+  [template current v]
+  (vec (for [[n b] (marked-blocks template)
+             :when (not= project-block n)
+             :let [have (block-of current n)
+                   by (block-writer have)]
+             :when (and have (not= b (unstamped have)) (later? by v))]
+         {:block n :by by})))
+
+(defn- with-template-blocks
+  "`current` (nil: none) with each block of `template` but the project's: one
+  with the template's words is left as it is, its line too, and one a newer byj
+  wrote; the others are written, naming this byj."
+  [template current]
+  (let [v (own-version)
+        kept (set (map :block (newer-blocks template current v)))]
+    (reduce (fn [t [n b]]
+              (let [have (block-of t n)]
+                (cond (kept n) t
+                      (and current have (= b (unstamped have))) t
+                      :else (set-block t n (stamped b v)))))
+            (or current template)
+            (remove #(= project-block (first %)) (marked-blocks template)))))
+
 (defn- has-line? [text line]
   (let [norm #(-> (str/trim %) (str/replace #"^/" "") (str/replace #"/$" ""))]
     (boolean (some #(= (norm line) (norm %)) (str/split-lines (str text))))))
@@ -444,13 +518,9 @@
                  with-profile #(if profile-block
                                  (set-block % profile/block-name profile-block (begin-marker "BRAINYARD"))
                                  %)]
-             (with-profile
-              (with-notes (if (nil? current)
-                           text
-                           ;; the project's block only ever from a draft: the
-                           ;; template's placeholder never goes over one
-                           (reduce (fn [t [n b]] (set-block t n b)) current
-                                   (remove #(= project-block (first %)) (marked-blocks text)))))))
+             ;; the project's block only ever from a draft: the template's
+             ;; placeholder never goes over one
+             (with-profile (with-notes (with-template-blocks text current))))
     :import (cond (nil? current) text
                   (has-line? current line) current
                   :else (str (str/trimr current) "\n\n" line "\n"))
@@ -520,8 +590,10 @@
                            after (planned e current (when agents? notes) (when agents? pb))]
                      ;; one that only takes lines out, of a file not there
                      :when (or current after)]
-                 {:path (:path e) :kind (:kind e) :before current :after after
-                  :action (cond (nil? current) :create (= current after) :unchanged :else :update)}))
+                 (cond-> {:path (:path e) :kind (:kind e) :before current :after after
+                          :action (cond (nil? current) :create (= current after) :unchanged :else :update)}
+                   (= :block (:kind e))
+                   (assoc :kept (not-empty (newer-blocks (:text e) current (own-version)))))))
           (skill-links dir))))
 
 (defn apply-writes!
@@ -537,18 +609,22 @@
         (do (when (= :update action)
               (let [s (io/file snap path)] (io/make-parents s) (spit s before)))
             (let [f (io/file dir path)] (io/make-parents f) (spit f after)))))
-    (cond-> {:writes (mapv #(select-keys % [:path :action :link-to]) plan)}
+    (cond-> {:writes (mapv #(select-keys % [:path :action :link-to :kept]) plan)}
       (some #(= :update (:action %)) changes) (assoc :snapshot (.getCanonicalPath snap)))))
 
 (defn- writes-text [writes dry-run?]
-  (str/join "\n" (for [{:keys [path action]} writes]
+  (str/join "\n" (for [{:keys [path action kept]} writes]
                    (str "  " path ": "
                         (case action
                           :create (str (if dry-run? "would be created" "created")
                                        (when-let [to (some #(when (= path (:path %)) (:link-to %)) writes)]
                                          (str " — a link to " to ", for Claude Code")))
                           :update (if dry-run? "would be updated (only brainyard's part)" "updated (only brainyard's part)")
-                          "already in place")))))
+                          "already in place")
+                        ;; byj-y3s: what a newer byj wrote is not put back to this one's words
+                        (str/join (for [{:keys [block by]} kept]
+                                    (str "\n    its " block " block left as byj " by " wrote it: this byj ("
+                                         (own-version) ") is older, and would put back older words. byj update brings this one up to it.")))))))
 
 (defn scaffold
   "Write the starting files into project `dir` (`init$scaffold`): AGENTS.md,
@@ -561,7 +637,7 @@
   (let [dir (or (not-empty (str dir)) (:project-dir config) (:working-dir config) ".")
         plan (plan-writes dir {:notes notes})
         dry? (contains? #{true "true"} dry-run)
-        r (if dry? {:writes (mapv #(select-keys % [:path :action :link-to]) plan)} (apply-writes! dir plan))]
+        r (if dry? {:writes (mapv #(select-keys % [:path :action :link-to :kept]) plan)} (apply-writes! dir plan))]
     (assoc r :text (str (if dry? "Would write, in " "Wrote, in ") (.getCanonicalPath (io/file dir)) ":\n"
                         (writes-text (:writes r) dry?)
                         (when (:snapshot r) (str "\nWhat was there before is in " (:snapshot r) "."))))))
