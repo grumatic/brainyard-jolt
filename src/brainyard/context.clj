@@ -348,7 +348,10 @@
   ([ctx mem] (enforce ctx mem nil))
   ([ctx mem summarize]
   (let [config (:config ctx)
-        b (budget config)
+        ;; the reply's room is what the model may write: its LM's max-tokens
+        ;; when that is more than the setting (byj-hzp)
+        b (budget (update config :max-output-tokens
+                          #(max (or % 8192) (or (get-in ctx [:lm :max-tokens]) 0))))
         fixed (- (prompt-tokens ctx mem) (estimate-tokens (pr-str (:iterations mem))))
         cost (fn [records] (+ fixed (estimate-tokens (pr-str records))))
         before (cost (:iterations mem))]

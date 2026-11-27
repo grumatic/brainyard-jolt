@@ -68,10 +68,15 @@ and a params file choose theirs as before (RFC-018, RFC-032, RFC-021).
 
 ### LM config
 
-`(create-lm provider env overrides)` merges `{:temperature 0.0 :max-tokens 8192
+`(create-lm provider env overrides)` merges `{:temperature 0.0 :max-tokens N
 :timeout-ms 300000}`, the registry entry, credentials read through `env` (a fn
 of a variable name — the CLI's is real env first, then `.env`, then
-`~/.brainyard/.env`), and explicit overrides.
+`~/.brainyard/.env`), and explicit overrides. N is the model's
+(`default-max-tokens`): the first of `resources/brainyard/sampling.edn`'s
+`:max-tokens` patterns in its id — 32000 for Claude 4.5 and later — else
+8192. At 8192, Bedrock's Opus 5.5, which thinks there unasked, answered a turn
+writing several files with no JSON or was cut mid-JSON; at 32000 it answered
+whole, 3 of 3 (byj-hzp, `dev/bedrock-max-tokens-replay.sh`).
 
 | provider | format | credentials | default model |
 |---|---|---|---|
@@ -511,6 +516,7 @@ brainyard-playground-apps' Desktop (`claude-usage.ts`).
 | A Bedrock error a hint names is said with its hint. | `cache-test/a-bedrock-error-says-what-it-means` |
 | A Converse reply with reasoning and no text fails as retryable; one with text after reasoning answers with the text. | `cache-test/a-reasoning-only-converse-reply-is-retried-not-misread` |
 | A model `sampling.edn` says refuses a temperature is sent none, by every body, and samples freely; one that takes it is sent it. | `cache-test/a-model-that-refuses-temperature-is-sent-none` |
+| A Claude 4.5 or later has 32000 tokens to reply in unless asked otherwise, any other model 8192 (`sampling.edn`). | `wire-test/a-claude-model-has-room-to-write-several-files` |
 | An LM carries no parameter its provider cannot send, and an explicitly requested one is announced rather than dropped in silence. | `wire-test/a-parameter-the-provider-cannot-send-is-not-in-the-lm-map`, `wire-test/a-sampling-parameter-that-cannot-be-sent-is-announced` |
 | Retries are an effect: retryable failures retry with reported waits, others throw at once, a cancellation ends the call, a cancel mid-backoff ends it at once. | `cancellation-test/with-retry-is-an-effect` |
 | A cancelled turn kills the claude CLI. | `cancellation-test/a-cancelled-turn-kills-the-claude-cli` |

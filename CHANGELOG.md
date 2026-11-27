@@ -6,6 +6,17 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **A Claude 4.5 or later has room to write several files in one reply.**
+  It may write 32000 tokens, where every model had 8192: on Bedrock, Opus 5.5
+  thinks before it answers even unasked, and a turn writing several files
+  stopped with "LLM response was plain text with no JSON object" or was cut
+  off. Any other model keeps 8192; the context budget leaves room for the
+  longer reply.
+- **A long Bedrock reply no longer fails at 60 s** with "Read timeout on
+  endpoint URL": the aws CLI waits as long as the call may take. Each call's
+  request and reply, written to a folder in the temporary directory, are
+  removed when it ends.
+
 ## v0.3.21 — 2026-11-26
 
 - **A session can be deleted softly, and a project too.** An application's

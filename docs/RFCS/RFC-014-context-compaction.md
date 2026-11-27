@@ -166,7 +166,10 @@ budget = usable − ceil(usable × :context-budget-safety-ratio)
 
 Defaults `200000`, `8192`, `0.10` → a budget near 172K. brainyard's numbers are
 `128000`/`4096`/`0.10` → 111,513; ours follow the models this port actually
-calls.
+calls. `enforce` reserves the turn's LM's `:max-tokens` instead when that is
+more — a Claude 4.5 or later writes up to 32000 (RFC-006), 200000 − 32000
+less 10% = 151,200 — so the prompt and the longest reply fit the window
+together (byj-hzp, `context-test/measuring`).
 
 ### The tiers
 

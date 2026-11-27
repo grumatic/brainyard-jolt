@@ -69,6 +69,18 @@
   "The model-id patterns that refuse a temperature: `resources/brainyard/sampling.edn`."
   (delay (mapv re-pattern (:no-temperature (edn/read-string (slurp (io/resource "brainyard/sampling.edn")))))))
 
+(def ^:private max-tokens-by-model
+  "`resources/brainyard/sampling.edn`'s `:max-tokens`, each pattern compiled."
+  (delay (mapv (fn [[re n]] [(re-pattern re) n])
+               (:max-tokens (edn/read-string (slurp (io/resource "brainyard/sampling.edn")))))))
+
+(defn default-max-tokens
+  "The reply room `model` gets when nothing asks for another: the first of
+  `sampling.edn`'s `:max-tokens` whose pattern is in its id, else 8192 (byj-hzp)."
+  [model]
+  (or (some (fn [[re n]] (when (re-find re (str model)) n)) @max-tokens-by-model)
+      8192))
+
 (defn takes-temperature?
   "Does `model` accept a temperature? Not the models `sampling.edn` names:
   Claude Opus 4.7 and later, and GPT-5.6, answer any temperature with a
@@ -120,7 +132,8 @@
                                  " (known: " (str/join ", " (map name (keys providers))) ")")
                             {:provider provider})))
         blank->nil #(when-not (str/blank? %) %)
-        lm (merge {:provider provider :temperature 0.0 :max-tokens 8192 :timeout-ms 300000}
+        model (or (:model overrides) (:model spec))
+        lm (merge {:provider provider :temperature 0.0 :max-tokens (default-max-tokens model) :timeout-ms 300000}
                   (dissoc spec :base-url-env :api-key-env :auth-token-env :region-env)
                   (into {} (remove (comp nil? val)
                                    {:base-url (some-> base-url-env env blank->nil (merge-base-url-path (:base-url spec)))

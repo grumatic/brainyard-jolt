@@ -80,6 +80,23 @@
       (is (= 0.0 (:temperature (llm/openai-body oa [])))
           "and it reaches the body, so :temperature still means something"))))
 
+(deftest a-claude-model-has-room-to-write-several-files
+  ;; byj-hzp: at 8192, Bedrock's Opus 5.5 thought ~4k tokens unasked and then
+  ;; answered a turn writing several files with no JSON, or was cut mid-JSON
+  (testing "a Claude 4.5 or later gets sampling.edn's 32000, wherever it is reached"
+    (doseq [[p m] [[:bedrock "global.anthropic.claude-opus-5-5"] [:anthropic "claude-sonnet-4-5"]
+                   [:bedrock "us.anthropic.claude-haiku-4-5-20251001-v1:0"] [:openrouter "anthropic/claude-fable-5-2"]]]
+      (is (= 32000 (:max-tokens (llm/create-lm p (constantly nil) {:model m}))) (str p " " m)))
+    (is (= 32000 (:max-tokens (llm/create-lm :bedrock (constantly nil) {})))
+        "the provider's own default model, too")
+    (is (= 32000 (:max_tokens (llm/bedrock-body (llm/create-lm :bedrock (constantly nil) {:model "global.anthropic.claude-opus-5-5"})
+                                                [{:role "user" :content "q"}])))
+        "and it reaches the request"))
+  (testing "any other model keeps 8192, and one asked for wins"
+    (is (= 8192 (:max-tokens (llm/create-lm :bedrock (constantly nil) {:model "amazon.nova-micro-v1:0"}))))
+    (is (= 8192 (:max-tokens (llm/create-lm :anthropic (constantly nil) {:model "claude-3-5-haiku-20241022"}))))
+    (is (= 4000 (:max-tokens (llm/create-lm :anthropic (constantly nil) {:model "claude-opus-5-5" :max-tokens 4000}))))))
+
 (deftest a-gateway-given-as-its-origin-is-called-at-the-apis-path
   (testing "ANTHROPIC_BASE_URL as Claude Code takes it, an origin, keeps /v1 (byj-gly.446)"
     (let [lm #(llm/create-lm % {"ANTHROPIC_BASE_URL" %2 "OPENAI_BASE_URL" %2 "FREELLM_BASE_URL" %2} {})]
