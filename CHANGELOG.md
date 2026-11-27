@@ -12,6 +12,12 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   stopped with "LLM response was plain text with no JSON object" or was cut
   off. Any other model keeps 8192; the context budget leaves room for the
   longer reply.
+- **`:max-output-tokens` sets how long a reply may be.** Set, it is what
+  every model is asked for — the session's, after `/model`, and a
+  subagent's — and the room the context budget keeps; unset (now the
+  default), each model's own. It takes effect from the next session. A
+  subagent on another model no longer asks for its caller's size, which a
+  model that writes less would refuse.
 - **A long Bedrock reply no longer fails at 60 s** with "Read timeout on
   endpoint URL": the aws CLI waits as long as the call may take. Each call's
   request and reply, written to a folder in the temporary directory, are

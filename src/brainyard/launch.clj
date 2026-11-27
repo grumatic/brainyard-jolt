@@ -102,10 +102,13 @@
     (llm/create-lm provider env
                    (into {:model model}
                          (remove (comp nil? val)
-                                 (select-keys config [:prompt-cache? :cache-ttl :prompt-cache-key
-                                                      ;; -v shows the reply as it arrives, so it
-                                                      ;; implies streaming where a provider can
-                                                      :stream?]))))))
+                                 (assoc (select-keys config [:prompt-cache? :cache-ttl :prompt-cache-key
+                                                             ;; -v shows the reply as it arrives, so it
+                                                             ;; implies streaming where a provider can
+                                                             :stream?])
+                                        ;; the reply's most, when the person set one;
+                                        ;; else the model's own (byj-3dr)
+                                        :max-tokens (:max-output-tokens config)))))))
 
 ;; --- the event bus ---------------------------------------------------------------
 

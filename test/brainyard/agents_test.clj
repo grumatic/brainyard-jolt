@@ -1111,6 +1111,24 @@
                                ctx nil)]
     (is (= "THE-AGENTS-OWN" (:api-key child)) "explicit beats the environment")))
 
+(deftest a-child-on-another-model-asks-that-models-reply-size
+  ;; byj-3dr: the caller's 32000 (a Claude 4.5+) went with a child to a model
+  ;; that writes less, which would refuse the request
+  (let [ctx (caller-on :anthropic :lm {:model "claude-opus-5-5" :max-tokens 32000})]
+    (is (= 8192 (:max-tokens (agents/child-lm {:name "o" :lm {:provider :openai :model "gpt-4o"}} ctx nil)))
+        "another provider: its model's own")
+    (is (= 8192 (:max-tokens (agents/child-lm {:name "h" :lm {:model "claude-3-5-haiku-20241022"}} ctx nil)))
+        "the same provider, another model: that model's own")
+    (is (= 32000 (:max-tokens (agents/child-lm {:name "s" :lm {:model "claude-sonnet-5-5"}} ctx nil))))
+    (is (= 1000 (:max-tokens (agents/child-lm {:name "p" :lm {:model "claude-3-5-haiku-20241022" :max-tokens 1000}} ctx nil)))
+        "an agent's own pin wins")
+    (is (not (contains? (agents/child-lm {:name "c" :lm {:provider :claude-code}} ctx nil) :max-tokens))
+        "claude -p sends none, so has none"))
+  (testing "the person's :max-output-tokens is every child's"
+    (let [ctx (assoc-in (caller-on :anthropic :lm {:max-tokens 20000}) [:config :max-output-tokens] 20000)]
+      (is (= 20000 (:max-tokens (agents/child-lm {:name "o" :lm {:provider :openai :model "gpt-4o"}} ctx nil))))
+      (is (= 20000 (:max-tokens (agents/child-lm {:name "h" :lm {:model "claude-3-5-haiku-20241022"}} ctx nil)))))))
+
 (deftest with-no-agent-lm-the-caller-or-its-tier-stands
   (let [ctx (caller-on :anthropic)]
     (is (= (:lm ctx) (agents/child-lm {:name "plain"} ctx nil)))

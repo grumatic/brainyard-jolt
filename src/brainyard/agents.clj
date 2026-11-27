@@ -440,15 +440,20 @@
   all of it, so a spec may pin a key explicitly if it must."
   [agent ctx tier-lm]
   (let [caller (:lm ctx)
-        want (:lm agent)]
+        want (:lm agent)
+        ;; a reply's most is the model's own, or the person's setting — never
+        ;; the caller's model's, which another model may refuse (byj-3dr)
+        sized (fn [lm] (if (contains? want :max-tokens)
+                         lm
+                         (llm/with-max-tokens lm (get-in ctx [:config :max-output-tokens]))))]
     (cond
       (and (:provider want) (not= (:provider want) (:provider caller)))
-      (let [inherited (apply dissoc caller :provider :model provider-fields)]
-        (llm/create-lm (:provider want)
-                       (or (:env-fn ctx) #(System/getenv %))
-                       (merge inherited want)))
+      (let [inherited (apply dissoc caller :provider :model :max-tokens provider-fields)]
+        (sized (llm/create-lm (:provider want)
+                              (or (:env-fn ctx) #(System/getenv %))
+                              (merge inherited want))))
 
-      want (merge caller want)
+      want (sized (merge caller want))
       tier-lm tier-lm
       :else caller)))
 

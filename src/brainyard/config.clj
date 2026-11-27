@@ -48,7 +48,8 @@
    :max-history-iterations {:family :context :type "integer" :default 10 :doc "Iteration records kept in the prompt."}
    ;; context budget and compaction (RFC-014)
    :max-context-tokens {:family :context :type "integer" :default 200000 :doc "The model's context window, for the prompt budget."}
-   :max-output-tokens {:family :context :type "integer" :default 8192 :doc "Room reserved for the reply when budgeting."}
+   :max-output-tokens {:family :context :type "integer" :default nil
+                       :doc "The most a reply may be: every model's max_tokens, and the room the prompt budget keeps for it. Unset, each model's own: 32000 for Claude 4.5 and later, else 8192 (resources/brainyard/sampling.edn)."}
    :context-budget-safety-ratio {:family :context :type "number" :default 0.10 :doc "Margin held back, since tokens are estimated as chars/4."}
    :enable-context-budget {:type "boolean" :default true :family :context
                            :doc "Measure the prompt and compact the history when it exceeds the budget."}
@@ -724,7 +725,7 @@
     :event-log? :event-log-keep :event-log-max-bytes
     :prune-sessions? :keep-sessions :session-ttl-days :keep-ask-records
     :scrollback-max-entries
-    :prompt-cache? :prompt-cache-key :cache-ttl
+    :prompt-cache? :prompt-cache-key :cache-ttl :max-output-tokens
     :max-turns})
 
 (defn applies-next-session?

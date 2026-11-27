@@ -253,7 +253,8 @@
                                      "this session last used " label " (/model " label " to go back to it)")))
                   :else
                   (if-let [lm (and (:lm-box ctx)
-                                   (llm/parse-lm-label label (or (:env-fn ctx) #(System/getenv %))))]
+                                   (some-> (llm/parse-lm-label label (or (:env-fn ctx) #(System/getenv %)))
+                                           (llm/with-max-tokens (:max-output-tokens config))))]
                     (reset! (:lm-box ctx) lm)
                     (note :error (str "could not ask " label " again — keeping " (llm/lm-label (agent/current-lm ctx)))))))
               (note :info (persist/describe snap)))
@@ -800,7 +801,9 @@
       (and n (nil? label)) (str "no model " n " — /model lists " (count models))
 
       :else
-      (if-let [lm (some-> label (llm/parse-lm-label (or (:env-fn ctx) #(System/getenv %))))]
+      (if-let [lm (some-> label (llm/parse-lm-label (or (:env-fn ctx) #(System/getenv %)))
+                          ;; the person's reply size holds across a switch (byj-3dr)
+                          (llm/with-max-tokens (:max-output-tokens (:config ctx))))]
         (do (reset! lm-box lm)
             ;; kept with the session, so a resume asks it too
             (swap! (:st-memory ctx) assoc :model (lm-label lm))

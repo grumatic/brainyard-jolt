@@ -81,6 +81,15 @@
   (or (some (fn [[re n]] (when (re-find re (str model)) n)) @max-tokens-by-model)
       8192))
 
+(defn with-max-tokens
+  "`lm` asking at most `n` tokens a reply — the person's `:max-output-tokens` —
+  or, `n` nil, its model's own (`default-max-tokens`); `lm` as it is when its
+  provider sends no max-tokens (claude -p, codex) (byj-3dr)."
+  [lm n]
+  (if (contains? (:unsupported-params lm) :max-tokens)
+    (dissoc lm :max-tokens)
+    (assoc lm :max-tokens (or n (default-max-tokens (:model lm))))))
+
 (defn takes-temperature?
   "Does `model` accept a temperature? Not the models `sampling.edn` names:
   Claude Opus 4.7 and later, and GPT-5.6, answer any temperature with a

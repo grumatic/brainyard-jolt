@@ -38,8 +38,8 @@
 (defn budget
   "usable = window − reply; budget = usable − margin."
   [{:keys [max-context-tokens max-output-tokens context-budget-safety-ratio]
-    :or {max-context-tokens 200000 max-output-tokens 8192 context-budget-safety-ratio 0.10}}]
-  (let [usable (max 0 (- max-context-tokens (max 0 max-output-tokens)))]
+    :or {max-context-tokens 200000 context-budget-safety-ratio 0.10}}]
+  (let [usable (max 0 (- max-context-tokens (max 0 (or max-output-tokens 8192))))]
     (long (- usable (Math/ceil (* usable context-budget-safety-ratio))))))
 
 (defn prompt-tokens
@@ -348,10 +348,11 @@
   ([ctx mem] (enforce ctx mem nil))
   ([ctx mem summarize]
   (let [config (:config ctx)
-        ;; the reply's room is what the model may write: its LM's max-tokens
-        ;; when that is more than the setting (byj-hzp)
-        b (budget (update config :max-output-tokens
-                          #(max (or % 8192) (or (get-in ctx [:lm :max-tokens]) 0))))
+        ;; the reply's room is what the model may write: the max-tokens its
+        ;; LM sends (byj-hzp), which is the setting when one is set (byj-3dr);
+        ;; for an LM that sends none (claude -p), the setting, else 8192
+        b (budget (assoc config :max-output-tokens
+                         (or (get-in ctx [:lm :max-tokens]) (:max-output-tokens config))))
         fixed (- (prompt-tokens ctx mem) (estimate-tokens (pr-str (:iterations mem))))
         cost (fn [records] (+ fixed (estimate-tokens (pr-str records))))
         before (cost (:iterations mem))]

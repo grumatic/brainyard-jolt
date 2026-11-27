@@ -41,13 +41,15 @@
     (is (= 100800 (context/budget {:max-context-tokens 120000 :max-output-tokens 8000
                                    :context-budget-safety-ratio 0.10})))
     (is (= 172627 (context/budget config/defaults)) "the shipped default: 200000 − 8192, less 10%"))
-  (testing "the reply's room is the LM's max-tokens when that is more (byj-hzp)"
+  (testing "the reply's room is what the LM asks for (byj-hzp, byj-3dr)"
     (let [dir (fresh-dir "reply-room")
-          over (fn [lm] (:budget (context/enforce (cond-> (ctx-with dir :max-context-tokens 200000 :max-output-tokens 8192) lm (assoc :lm lm))
-                                                  (mem []))))]
-      (is (= 172627 (over nil)))
-      (is (= 172627 (over {:max-tokens 4096})) "less than the setting: the setting")
-      (is (= 151200 (over {:max-tokens 32000})) "200000 − 32000, less 10%")))
+          over (fn [set lm] (:budget (context/enforce (cond-> (ctx-with dir :max-context-tokens 200000 :max-output-tokens set)
+                                                        lm (assoc :lm lm))
+                                                      (mem []))))]
+      (is (= 172627 (over nil nil)) "neither: 8192")
+      (is (= 151200 (over nil {:max-tokens 32000})) "200000 − 32000, less 10%")
+      (is (= 176313 (over 4096 {:max-tokens 4096})) "the setting, which the LM asks for")
+      (is (= 162000 (over 20000 {:provider :claude-code})) "an LM that asks none: the setting")))
   (testing "the prompt is the zones, the turn's text and the printed history"
     (is (= (+ (context/estimate-tokens "zone") (context/estimate-tokens "q")
               (context/estimate-tokens (pr-str [{:a 1}])))

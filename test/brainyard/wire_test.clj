@@ -18,6 +18,7 @@
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
             [brainyard.eventlog :as el]
+            [brainyard.launch :as launch]
             [brainyard.llm :as llm]
             [jolt.process :as p]))
 
@@ -95,7 +96,15 @@
   (testing "any other model keeps 8192, and one asked for wins"
     (is (= 8192 (:max-tokens (llm/create-lm :bedrock (constantly nil) {:model "amazon.nova-micro-v1:0"}))))
     (is (= 8192 (:max-tokens (llm/create-lm :anthropic (constantly nil) {:model "claude-3-5-haiku-20241022"}))))
-    (is (= 4000 (:max-tokens (llm/create-lm :anthropic (constantly nil) {:model "claude-opus-5-5" :max-tokens 4000}))))))
+    (is (= 4000 (:max-tokens (llm/create-lm :anthropic (constantly nil) {:model "claude-opus-5-5" :max-tokens 4000})))))
+  (testing "the person's :max-output-tokens is the session's model's, unset its own (byj-3dr)"
+    (is (= 20000 (:max-tokens (launch/make-lm :anthropic "claude-3-5-haiku-20241022" {:max-output-tokens 20000} (constantly nil)))))
+    (is (= 32000 (:max-tokens (launch/make-lm :anthropic "claude-opus-5-5" {:max-output-tokens nil} (constantly nil)))))
+    (is (nil? (:max-tokens (launch/make-lm :claude-code "opus" {:max-output-tokens 20000} (constantly nil))))
+        "claude -p takes none")
+    (is (= 20000 (:max-tokens (llm/with-max-tokens {:model "claude-3-5-haiku-20241022"} 20000))) "a /model switch keeps it")
+    (is (= 8192 (:max-tokens (llm/with-max-tokens {:model "claude-3-5-haiku-20241022" :max-tokens 32000} nil)))
+        "unset, the new model's own")))
 
 (deftest a-gateway-given-as-its-origin-is-called-at-the-apis-path
   (testing "ANTHROPIC_BASE_URL as Claude Code takes it, an origin, keeps /v1 (byj-gly.446)"

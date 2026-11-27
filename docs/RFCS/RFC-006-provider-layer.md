@@ -76,7 +76,11 @@ of a variable name — the CLI's is real env first, then `.env`, then
 `:max-tokens` patterns in its id — 32000 for Claude 4.5 and later — else
 8192. At 8192, Bedrock's Opus 5.5, which thinks there unasked, answered a turn
 writing several files with no JSON or was cut mid-JSON; at 32000 it answered
-whole, 3 of 3 (byj-hzp, `dev/bedrock-max-tokens-replay.sh`).
+whole, 3 of 3 (byj-hzp, `dev/bedrock-max-tokens-replay.sh`). The setting
+`:max-output-tokens`, when the person gives one, is every model's instead
+(`with-max-tokens`): the session's (`launch/make-lm`, `/model`, a resume)
+and a subagent's. A subagent on another model never takes its caller's: it
+asks its own model's, or the setting (`agents/child-lm`, byj-3dr).
 
 | provider | format | credentials | default model |
 |---|---|---|---|
@@ -516,7 +520,7 @@ brainyard-playground-apps' Desktop (`claude-usage.ts`).
 | A Bedrock error a hint names is said with its hint. | `cache-test/a-bedrock-error-says-what-it-means` |
 | A Converse reply with reasoning and no text fails as retryable; one with text after reasoning answers with the text. | `cache-test/a-reasoning-only-converse-reply-is-retried-not-misread` |
 | A model `sampling.edn` says refuses a temperature is sent none, by every body, and samples freely; one that takes it is sent it. | `cache-test/a-model-that-refuses-temperature-is-sent-none` |
-| A Claude 4.5 or later has 32000 tokens to reply in unless asked otherwise, any other model 8192 (`sampling.edn`). | `wire-test/a-claude-model-has-room-to-write-several-files` |
+| A Claude 4.5 or later has 32000 tokens to reply in unless asked otherwise, any other model 8192 (`sampling.edn`); `:max-output-tokens`, set, is every model's; a subagent on another model asks its own model's. | `wire-test/a-claude-model-has-room-to-write-several-files`, `agents-test/a-child-on-another-model-asks-that-models-reply-size` |
 | An LM carries no parameter its provider cannot send, and an explicitly requested one is announced rather than dropped in silence. | `wire-test/a-parameter-the-provider-cannot-send-is-not-in-the-lm-map`, `wire-test/a-sampling-parameter-that-cannot-be-sent-is-announced` |
 | Retries are an effect: retryable failures retry with reported waits, others throw at once, a cancellation ends the call, a cancel mid-backoff ends it at once. | `cancellation-test/with-retry-is-an-effect` |
 | A cancelled turn kills the claude CLI. | `cancellation-test/a-cancelled-turn-kills-the-claude-cli` |
