@@ -194,6 +194,25 @@
           (is (true? (persist/lock! c "torn")))))
       (finally (doseq [k kids] (p/destroy-tree k))))))
 
+(deftest a-save-that-did-not-land-says-so
+  ;; byj-ku1.1: write-edn! ignored its rename's result, so save! returned the
+  ;; file of a snapshot it had not written
+  (let [dir (fresh-dir "save-fails")
+        c (config dir)
+        f (persist/session-file c "s1")]
+    (testing "a snapshot whose place cannot be taken is no snapshot"
+      ;; a directory, not empty, where the snapshot goes: no rename replaces it
+      (.mkdirs (io/file f "in-the-way"))
+      (is (nil? (persist/save! c "s1" {:turn-count 1})))
+      (is (empty? (filter #(str/ends-with? (.getName %) ".tmp") (.listFiles (.getParentFile f))))
+          "and its temp file is not left behind"))
+    (testing "saves of one session at once all land, and the snapshot reads"
+      (let [go (promise)
+            saves (mapv (fn [n] (future @go (persist/save! c "s2" {:turn-count n}))) (range 8))]
+        (deliver go true)
+        (is (every? some? (map deref saves)))
+        (is (contains? (set (range 8)) (:turn-count (persist/read-session c "s2"))))))))
+
 (defn- reply [m] (json/write-str (merge {:reasoning "r" :tool-calls [] :answer ""} m)))
 
 (defn- run-session [dir inputs & {:as cfg}]

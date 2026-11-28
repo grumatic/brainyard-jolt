@@ -12,6 +12,9 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   together could both hold it. A lock file still being written is respected,
   and a stale one is replaced without losing a lock another process took
   meanwhile.
+- **A session save that failed says so.** If the snapshot file could not be
+  replaced, the save used to count as done, and the session was not saved.
+  Now the session reports it ("could not save session").
 
 ## v0.3.22 — 2026-11-28
 

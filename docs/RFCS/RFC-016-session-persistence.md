@@ -130,7 +130,10 @@ answer on the screen. Synchronously, because a session's turns
 are seconds apart and a background writer would add a race for nothing.
 
 **Atomically**: a sibling temp file, then a rename. A crash mid-write leaves
-the previous snapshot rather than half of a new one.
+the previous snapshot rather than half of a new one. A rename that fails is a
+failed save, not a quiet one: its result went unread once, and `save!` said it
+had written a snapshot it had not (`byj-ku1.1`). The temp file's name is its
+own, never the millisecond, which two writes can share.
 
 **A failure never takes the session down.** `save!` returns nil and the session
 reports it once and carries on; losing a snapshot is recoverable, losing the
@@ -354,6 +357,7 @@ someone with three and then shows them one (`byj-gly.75`).
 | A run's set comes back in order with the one in front, only what is still saved; a front that is gone falls back to the first; the record is not a session; a snapshot's last question is its last turn's. | `persist-test/a-run-remembers-the-set-it-had-open` |
 | A live foreign pid holds a session; our own lock does not block us; a zombie and a dead pid are stale; unlocking removes the file. | `persist-test/one-live-process-per-session` |
 | Of processes racing for a free session exactly one takes it, and nothing is left aside; a lock file that does not parse is held while it may be being written, then stale. | `persist-test/one-of-many-racing-processes-takes-a-free-session` |
+| A save whose rename fails returns nil and leaves no temp file; saves of one session at once all land and the snapshot reads. | `persist-test/a-save-that-did-not-land-says-so` |
 | A session survives a restart: the turns come back, the count continues, the history is re-derived, and an unreadable snapshot starts fresh rather than refusing. | `persist-test/a-session-survives-a-restart` |
 | `:persist-session? false` writes nothing at all. | `persist-test/persistence-can-be-switched-off` |
 | Pruning removes only what is past the TTL, outside the keep count, not this run's and not held by a live process — whole tree, both trees. | `persist-test/pruning-removes-only-what-it-may` |

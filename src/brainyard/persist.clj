@@ -168,14 +168,18 @@
 
 (defn- write-edn!
   "Write atomically: a sibling temp file, then a rename. A crash leaves the
-  previous snapshot intact."
+  previous snapshot intact. A rename that fails throws, naming both files:
+  its result went unread once, and `save!` reported a snapshot it had not
+  written (byj-ku1.1). The temp file's name is its own — it was the
+  millisecond, which two writes of one file can share."
   [^java.io.File f data]
   (.mkdirs (.getParentFile f))
-  (let [tmp (io/file (.getParentFile f) (str (.getName f) "." (System/currentTimeMillis) ".tmp"))]
+  (let [tmp (io/file (.getParentFile f) (str (.getName f) "." (random-uuid) ".tmp"))]
     (try
       (spit tmp (with-out-str (clojure.pprint/pprint data)))
-      (.renameTo tmp f)
-      (finally (.delete tmp)))))
+      (when-not (.renameTo tmp f)
+        (throw (ex-info (str "could not replace " f " with " tmp) {:file (str f) :tmp (str tmp)})))
+      (finally (when (.exists tmp) (.delete tmp))))))
 
 (def snapshot-schema
   "What a session.edn holds, as `save!` writes it (byj-gly.204). What every
@@ -380,9 +384,10 @@
       (.exists (session-dir to new-id)) {:problem (str "session " new-id " already exists")}
       :else (let [now (System/currentTimeMillis)
                   f (session-file to new-id)]
-              (write-edn! f (cond-> (assoc snap :id (str new-id) :forked-from (str from-id) :created-at now :updated-at now)
-                              before-turn (assoc :forked-before-turn before-turn)))
-              f))))
+              (try (write-edn! f (cond-> (assoc snap :id (str new-id) :forked-from (str from-id) :created-at now :updated-at now)
+                                   before-turn (assoc :forked-before-turn before-turn)))
+                   f
+                   (catch Throwable e {:problem (str "could not write the fork: " (ex-message e))}))))))
 
 (defn members-of
   "The sessions of the project whose snapshot names `leader` as their leader
@@ -438,7 +443,11 @@
   "Record the sessions a full-screen run has open, in order, and the one in
   front — what `--resume-run` brings back."
   [config {:keys [sessions front]}]
-  (write-edn! (last-run-file config) {:sessions (vec sessions) :front front :at (System/currentTimeMillis)}))
+  ;; called on every change of the open sessions, from the screen's own
+  ;; thread: a run it could not record is one --resume-run does not bring
+  ;; back, never a reason to take the screen down
+  (try (write-edn! (last-run-file config) {:sessions (vec sessions) :front front :at (System/currentTimeMillis)})
+       (catch Throwable _ nil)))
 
 (defn read-last-run
   "The set the last full-screen run had open, `{:sessions [id …] :front id
@@ -613,8 +622,10 @@
   (when (or (.isFile (session-file config id)) (.isFile (lock-file config id)))
     (let [f (notes-file config id)
           old (try (when (.isFile f) (edn/read-string (slurp f))) (catch Throwable _ nil))]
-      (write-edn! f (conj (if (vector? old) old []) (str line)))
-      true)))
+      ;; nil, not true, when it could not be written: the note was not left
+      (try (write-edn! f (conj (if (vector? old) old []) (str line)))
+           true
+           (catch Throwable _ nil)))))
 
 (defn take-notes!
   "Session `id`'s notes, oldest first, and none left behind."
