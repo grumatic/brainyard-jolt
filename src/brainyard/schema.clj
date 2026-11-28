@@ -16,6 +16,7 @@
   brainyard's rules plus malli's string-transformer, after the four rules
   models taught this port (`lenient-fns`)."
   (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             ;; malli.transform builds a DateTimeFormatter at load: java.time
             ;; must be there first, as for data.json (brainyard.json loads it)
@@ -52,6 +53,14 @@
   [form]
   (m/schema form {:registry registry}))
 
+;; What each says it is, which a predictor's prompt shows the model under the
+;; field that names it (think-act's tool-calls), so a prompt's (byj-2e8.9).
+(def ^:private descs
+  (delay (edn/read-string (slurp (io/resource "brainyard/prompts/schemas.edn")))))
+
+(defn- desc [k]
+  (or (get @descs k) (throw (ex-info (str "no description for schema " k " in prompts/schemas.edn") {:schema k}))))
+
 ;; The shared schemas a tool or a predictor may refer to by name — the
 ;; counterpart of brainyard's `ai.brainyard.agent.common.schema/domain`, named
 ;; in this port's own namespace. A tool call is `{name args}` where brainyard's
@@ -60,22 +69,22 @@
 ;; field a model may send either as data or as a JSON/EDN string, which the
 ;; tool parses itself.
 (defschemas common
-  {::question [:string {:desc "User question"}]
-   ::answer [:string {:desc "Answer to the question"}]
-   ::instruction [:string {:desc "Instruction to help produce an objective"}]
-   ::tool-context [:string {:desc "Context information for using tools"}]
-   ::tool-name [:string {:desc "tool name"}]
-   ::tool-args [:map-of {:desc "Tool arguments as a JSON object, e.g. {\"url\": \"…\", \"n\": 3}. Use {} for no arguments."}
+  {::question [:string {:desc (desc :question)}]
+   ::answer [:string {:desc (desc :answer)}]
+   ::instruction [:string {:desc (desc :instruction)}]
+   ::tool-context [:string {:desc (desc :tool-context)}]
+   ::tool-name [:string {:desc (desc :tool-name)}]
+   ::tool-args [:map-of {:desc (desc :tool-args)}
                 :any :any]
    ;; closed, as a provider's strict structured output wants it
-   ::tool-call [:map {:closed true :desc "One tool invocation"}
+   ::tool-call [:map {:closed true :desc (desc :tool-call)}
                 [:name ::tool-name]
                 [:args ::tool-args]]
-   ::tool-calls [:vector {:desc "Tool invocations to run this iteration. Empty when not calling tools (using another channel or answering)."}
+   ::tool-calls [:vector {:desc (desc :tool-calls)}
                  ::tool-call]
    ::map-object-arg [:or [:string] [:map]]
    ::vector-object-arg [:or [:string] [:vector :any]]
-   ::agent-id [:string {:desc "an agent identifier (e.g., 'xyz$abc', 'xyz$abc/extension')"}]})
+   ::agent-id [:string {:desc (desc :agent-id)}]})
 
 ;; --- a tool's arguments ---------------------------------------------------------------
 ;;

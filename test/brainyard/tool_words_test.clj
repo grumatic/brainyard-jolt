@@ -54,11 +54,11 @@
 
 (deftest no-desc-in-src-is-a-string
   ;; an argument's or a result field's :desc is read by the model through
-  ;; get-tool-info, so a resource like the tool's own (byj-2e8.9); a :desc
-  ;; built from a value, as an MCP server's, is not words of src's
+  ;; get-tool-info, so a resource like the tool's own (byj-2e8.9), and a
+  ;; shared schema's is prompts/schemas.edn's; a :desc built from a value, as
+  ;; an MCP server's, is not words of src's
   (let [literal? (fn [v] (or (string? v) (and (seq? v) (= 'str (first v)) (some string? (rest v)))))
         in-src (for [[file form] (forms)
-                     :when (not= "schema.clj" file)
                      node (nodes form)
                      :when (and (map? node) (literal? (:desc node)))]
                  [file (:desc node)])]

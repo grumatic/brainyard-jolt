@@ -1,0 +1,12 @@
+;; What each of brainyard.schema's shared schemas says it is (brainyard's
+;; clj-llm schema-registry words), by its name. Read by the model: a predictor
+;; field naming one, as think-act's tool-calls does, is described with it.
+{:question "User question"
+ :answer "Answer to the question"
+ :instruction "Instruction to help produce an objective"
+ :tool-context "Context information for using tools"
+ :tool-name "tool name"
+ :tool-args "Tool arguments as a JSON object, e.g. {\"url\": \"…\", \"n\": 3}. Use {} for no arguments."
+ :tool-call "One tool invocation"
+ :tool-calls "Tool invocations to run this iteration. Empty when not calling tools (using another channel or answering)."
+ :agent-id "an agent identifier (e.g., 'xyz$abc', 'xyz$abc/extension')"}

@@ -40,5 +40,5 @@
   "the map passed to the body"
  "tool$run result"
   "the body's value; {:error \"Invalid Tool Lisp: ...\"} listing every problem, or {:error-message \"Tool Lisp: ...\"} when it fails while running"
- "tool$<name> result"
+ "tool$test result"
   "the tool's own result; or, when its :output-schema is a schema the result does not match, {:result, :output-problems [string]}"}

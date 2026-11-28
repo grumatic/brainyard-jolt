@@ -447,7 +447,7 @@
       :description (tool-words/description "tool$test")
       :input-schema [:map [:name [:string {:desc (tool-words/description "tool$test :name")}]]
                           [:args {:optional true} [:map {:desc (tool-words/description "tool$test :args")}]]]
-      :output-schema (tool-words/description "tool$<name> result")
+      :output-schema (tool-words/description "tool$test result")
       :effects #{:dynamic}
       :fn (fn [{:keys [name args]} ctx]
             (if-let [t (or (get @reg (str name)) (some->> (user-tool-name name) tool-id (get @reg)))]

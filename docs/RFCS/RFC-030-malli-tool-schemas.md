@@ -125,7 +125,9 @@ growing `:params` into a nested spec of our own and writing a validator for
   shared schemas — the counterpart of brainyard's
   `ai.brainyard.agent.common.schema` domain, in this port's own namespace
   (`:brainyard.schema/question`, `answer`, `tool-name`, `tool-args`, `tool-call(s)`,
-  `map-object-arg`, `vector-object-arg`, `agent-id`, …). A brainyard tool file
+  `map-object-arg`, `vector-object-arg`, `agent-id`, …). What each says it
+  is, its `:desc`, is `prompts/schemas.edn`'s: think-act's `tool-calls`
+  field names one, so the model reads it (byj-2e8.9). A brainyard tool file
   that refers to brainyard's names does not resolve here. A tool call is
   `{name args}`, which is what `react/think-act` asks a model for: divergence
   `a-tool-call-is-name-and-args`.
@@ -192,7 +194,8 @@ data, like a spec file. The places that show it — the two listing formatters,
 `schema/output-text`.
 
 `tool$run` and `tool$test` return whatever the body or the tool returned,
-and keep a prose `:output-schema`. The other 112 registered tools carry a schema.
+and keep a prose `:output-schema`, `tools/descriptions/toolbox.edn`'s like
+every argument's and result's description (RFC-010). The other 112 registered tools carry a schema.
 Written from the code, not the prose, they found a good deal the prose never
 said: error branches (`config$read`, `log$events`, `session$analytics`, …),
 keys (`flow$check`'s `:hash`, `tool$create`'s `:description`), keywords
