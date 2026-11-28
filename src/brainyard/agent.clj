@@ -68,12 +68,6 @@
             [brainyard.trajectory :as trajectory]
             [brainyard.trajectory-export :as trajectory-export]))
 
-(def react-instruction
-  "You are a tool-only ReAct agent: answer using the `tool-calls` channel and a
-final `answer` only. There is no code-blocks channel — never emit fenced code to
-execute. To reach a tool beyond the bound set, discover it with `list-tools` /
-`get-tool-info` and invoke it through `tool-calls`.")
-
 (defn- local-now
   "Local wall-clock time with offset and weekday. jolt's java.time shim only
   knows UTC, so the OS gives the offset (provenance P-10) — once every few
@@ -94,6 +88,14 @@ execute. To reach a tool beyond the bound set, discover it with `list-tools` /
 (defn- load-resource [path]
   (or (some-> (io/resource path) slurp)
       (throw (ex-info (str "resource not found: " path) {:path path}))))
+
+(def react-instruction
+  "brainyard's react-agent `react-instruction`, its tool-only overlay: the
+  `## Instructions` of a turn whose config names no `:agent-instruction` (a
+  subagent's persona replaces it, RFC-018). The words are
+  `prompts/react-agent-instruction.md`'s (byj-2e8.2); its last newline is the
+  file's, not the prompt's."
+  (str/trim-newline (load-resource "brainyard/prompts/react-agent-instruction.md")))
 
 ;; --- helpers -----------------------------------------------------------------
 

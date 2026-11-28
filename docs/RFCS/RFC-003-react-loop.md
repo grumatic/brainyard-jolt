@@ -359,12 +359,16 @@ that is the case in which this gate would earn its call.
 | An answer beside tool calls is discarded. | `agent-test/premature-answer-is-discarded` |
 | A tool call blocked by an `:agent.tool-use/pre` hook ends the turn (`:tool-blocked-by-hook`) with the hook's answer, and no further LLM call. | `hooks-test/a-blocked-tool-call-ends-the-turn` |
 | The iteration ceiling yields `:max-iterations-exhausted` with progress. | `agent-test/iteration-limit` |
+| A turn whose config names no `:agent-instruction` reads brainyard's react-agent overlay under `## Instructions`, from `prompts/react-agent-instruction.md`; a subagent's persona replaces it (RFC-018). | `prompt-golden-test/a-react-turn`, `prompt-golden-test/a-subagents-first-call` |
 | think-act's thought is asked for as `prompts/think-act-thought.md` words it, for the person watching; a judge's reasoning keeps brainyard's. | `predictor-test/the-loops-thought-is-for-the-person-watching` |
 | Failed calls never reach the model-visible history; every call attempt is counted. | `agent-test/provider-failures-stay-out-of-the-prompt` |
 | Cancelling a turn interrupts its LLM call and kills its bash tool and claude CLI children. | `cancellation-test/cancelling-a-turn-interrupts-the-llm-call`, `…-kills-its-bash-tool`, `…-kills-the-claude-cli` (each checks the child was running first) |
 
 ## Known gaps
 
+- `## Instructions` is react-agent's overlay alone; brainyard's react-agent,
+  coact-derived, has coact-agent's one-line `coact-instruction` merged before
+  it. Read from brainyard's source, not yet from a logged request — `byj-2e8.8`.
 - Code channel (CoAct path B): not ported, by decision — divergence
   `tool-only-signature`. One-off composition over the tool channel is
   `tool$run` — `byj-gly.11`.
