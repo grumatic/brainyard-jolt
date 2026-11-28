@@ -41,6 +41,7 @@
             [brainyard.memory-test]
             [brainyard.persist-test]
             [brainyard.predictor-test]
+            [brainyard.prompt-golden-test]
             [brainyard.programs-test]
             [brainyard.projects-test]
             [brainyard.session-test]
@@ -141,6 +142,7 @@
     brainyard.memory-test
     brainyard.persist-test
     brainyard.predictor-test
+    brainyard.prompt-golden-test
     brainyard.programs-test
     brainyard.projects-test
     brainyard.session-test

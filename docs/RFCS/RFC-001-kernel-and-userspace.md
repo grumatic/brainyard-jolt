@@ -91,6 +91,7 @@ today.
 | The bundled trees and predictors resolve from a built binary run outside the repo. | Not enforced by a test. Checked by hand: `target/byj --print-predictor react/think-act` from `/tmp`. |
 | Every namespace `src` reaches by `requiring-resolve` is in the built binary: `brainyard.main` reaches it by `:require`, or `:jolt/build :include` names it. | `release-test/every-lazily-resolved-namespace-is-in-the-binary`. |
 | A built-in predictor is never redefined from disk. | `predictor-test/loading`. |
+| Moving words the model reads from `src/` into resources (byj-2e8) changes no byte it is sent unless the commit says so by re-recording the held prompts (RFC-005). | `prompt-golden-test/a-react-turn` and the six cases beside it. |
 | The CLI's help names every subcommand `main` dispatches, and no other. | `cli-help-test/every-dispatched-subcommand-has-help`. |
 | Every flag a usage line or an option in the help names is one `parse-args` accepts. | `cli-help-test/every-flag-the-help-names-is-parsed`. |
 | `-h` shows the page of the command it names, by its name or an old one, wherever options stand before it: the help reads the command `parse-args` parsed, not the raw words. | `main-test/the-help-is-the-commands-wherever-the-options-stand`. |
