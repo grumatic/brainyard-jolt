@@ -1,0 +1,7 @@
+;; What the model reads of what brainyard/session.clj's tools say back to it:
+;; errors that say what to do next, notes, refusals (brainyard.tool-words/says,
+;; byj-2e8.9). Read by the model, so a resource (RFC-001).
+{"session/editor-context-text"
+  "no editor of this project that can say is running — emacs, started from the Terminal view, can"
+ "session/editor-context"
+  "no editor of this project is running that can say what it shows — start emacs from the Terminal view"}

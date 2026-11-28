@@ -32,6 +32,7 @@
   the agent's."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [brainyard.tool-words :as tool-words]
             [brainyard.claude-host :as host]
             [brainyard.claude-sessions :as cs]
             [brainyard.effect :as fx]
@@ -60,7 +61,7 @@
                   :status status :reachable? (boolean (or box t))}
            box (assoc :via :inbox)
            t (assoc :via :tmux)
-           (not (or box t)) (assoc :why "it has no inbox (Claude Code before 2.1.224) and runs outside tmux, in a terminal of its own: nothing can reach it")))))
+           (not (or box t)) (assoc :why (tool-words/says "claude-reach/sessions"))))))
 
 (defn claude-target?
   "Whether `s` names a Claude Code session: `claude:<id or prefix or name>`."
@@ -124,8 +125,7 @@
         err (fn [e] {:status :error :error e :session-id (:session-id s)})]
     (m/sp
      (if-not (:reachable? s)
-       (err (str (:session-id s) " cannot be reached: " (:why s)
-                 ". Run it inside tmux, or from byj's agent page, or update Claude Code to 2.1.224 or later, to hand it work; or give the task to a new Claude Code session (agent$claude)."))
+       (err (tool-words/says "claude-reach/ask-task" {:session-id (:session-id s) :why (:why s)}))
        (let [idle (m/? (fx/timeout (fx/poll-until 500 ::busy #(let [st (:status (host/record id home))]
                                                                 (cond (= "idle" st) :idle
                                                                       (not (host/running? id home)) :gone

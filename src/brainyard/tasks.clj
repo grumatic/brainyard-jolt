@@ -552,7 +552,7 @@
                cap (:max-wakeups-per-session config 20)]
            (cond
              (nil? reg)
-             {:error "nothing here will resume a parked turn — this is a one-shot run, so wait with task$wait instead"}
+             {:error (tool-words/says "tasks/wakeup-command")}
 
              (not= "root" (owner-of config))
              {:error "task$wakeup is for the top-level agent only: a subagent's turn ends before a wakeup could fire"}

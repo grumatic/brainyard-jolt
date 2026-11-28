@@ -59,7 +59,11 @@ description is a prompt of its own (`tool$create`, `tool$run`,
 fields' `:desc`, which `get-tool-info` shows, are in the same file under
 `"<tool> :arg"` and `"<tool> result :field"` (a nested one names its path,
 `"task$list result :tasks :job-type"`), and a schema several tools share
-under the family's, `"session$* :session"` (byj-2e8.9).
+under the family's, `"session$* :session"`. What a tool says back to the
+model in words — an error that says what to do next, a note, a refusal — is
+there too, by `"<namespace>/<definition>"`, read with `tool-words/says`; a
+namespace with no tools of its own whose words a tool returns (`changes`,
+`share`, `tools`) has a file of its own (byj-2e8.9).
 
 ```clojure
 ;; primitive

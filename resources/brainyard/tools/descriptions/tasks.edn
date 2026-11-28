@@ -45,4 +45,7 @@
  "task$wait result"
   "the task$detail shape; :still-running true when the wait timed out, and the task is not cancelled"
  "task$detail result :job-type"
-  "the kind of work: :bash, :tool, :self-improve, :team-member, :team-dispatch, :session-ask"}
+  "the kind of work: :bash, :tool, :self-improve, :team-member, :team-dispatch, :session-ask"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "tasks/wakeup-command"
+  "nothing here will resume a parked turn — this is a one-shot run, so wait with task$wait instead"}

@@ -1,0 +1,9 @@
+;; What the model reads of what brainyard/share.clj's tools say back to it:
+;; errors that say what to do next, notes, refusals (brainyard.tool-words/says,
+;; byj-2e8.9). Read by the model, so a resource (RFC-001).
+{"share/target-problem"
+  "--share {t}: the target is link, class:CODE, class:CODE/KEY (an assignment), or an ended share's id (shr_…)"
+ "share/sidecar-missing"
+  "not sharing: {sidecar} is not on PATH — install it, or set :share-sidecar to the sidecar to run"
+ "share/login!"
+  "{sidecar} is not on PATH — install it, or set :share-sidecar to the sidecar to run"}

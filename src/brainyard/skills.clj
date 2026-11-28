@@ -258,7 +258,7 @@
   (if (= "agent" dispatch)
     (str (if (str/blank? description)
            (str "Run the `" name "` skill procedure in its own agent and return its answer.")
-           (str description " — runs in its own agent; `question` is the task, and you get back its answer, not the procedure."))
+           (tool-words/says "skills/describe" {:description description}))
          " (skill: `" name "` [" source "])")
     (str (if (str/blank? description)
            (str "Load the `" name "` skill procedure into your context, then follow it.")
@@ -770,8 +770,8 @@
                                        (when (.isDirectory f) (.getName f))
                                        ""))]
         (cond
-          (str/blank? n) {:error "could not tell the skill's name — pass name, or add a `name:` to the frontmatter"}
-          (str/blank? (:description fm)) {:error "the SKILL.md has no description in its frontmatter — the open standard asks for name and description"}
+          (str/blank? n) {:error (tool-words/says "skills/import!")}
+          (str/blank? (:description fm)) {:error (tool-words/says "skills/import! 2")}
           :else (write! config reg run-turn {:op "create" :skill-name n :content content
                                              :scope (if (str/blank? (str scope)) "project" scope)}))))))
 

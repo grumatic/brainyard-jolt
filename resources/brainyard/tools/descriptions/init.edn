@@ -73,4 +73,11 @@
  "init$profile :issues"
   "the first issues, in order, one a line"
  "init$install :tools"
-  "the tools to install, by name: a list, or names separated by commas or spaces"}
+  "the tools to install, by name: a list, or names separated by commas or spaces"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "init/tracker-problems"
+  "it keeps the issues in beads, and beads is not set up here (no .beads/): /init sets it up"
+ "init/tracker-problems 2"
+  "it keeps the issues in GitHub, and names no :github-repo with no github.com remote here"
+ "init/write-profile"
+  "The person said yes when asked, shown this draft, so the profile is written as they confirmed it: .brainyard/profile.edn ("}

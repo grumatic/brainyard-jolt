@@ -1,0 +1,5 @@
+;; What the model reads of what brainyard/tools.clj's tools say back to it:
+;; errors that say what to do next, notes, refusals (brainyard.tool-words/says,
+;; byj-2e8.9). Read by the model, so a resource (RFC-001).
+{"tools/timed-out"
+  "command timed out after {timeout} ms; it and every process it started were stopped, so nothing of it is left running. If it needs longer, run it again with a larger :timeout (ms)."}

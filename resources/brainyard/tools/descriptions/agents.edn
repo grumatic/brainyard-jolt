@@ -49,4 +49,7 @@
  "meta-agent$create :tool-context"
   "Which of the inherited tools to reach for, and when."
  "meta-agent$create result error"
-  "every problem, one per line"}
+  "every problem, one per line"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "agents/ask-hint"
+  "This subagent is alive for the rest of this turn as \"%s\" and remembers this exchange. Ask it more with agent-registry$ask {\"id\": \"%s\", \"question\": \"…\"} while you are still working; it ends when this turn does, so do not offer it to the user as something to come back to."}

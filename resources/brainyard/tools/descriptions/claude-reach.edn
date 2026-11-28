@@ -1,0 +1,7 @@
+;; What the model reads of what brainyard/claude_reach.clj's tools say back to it:
+;; errors that say what to do next, notes, refusals (brainyard.tool-words/says,
+;; byj-2e8.9). Read by the model, so a resource (RFC-001).
+{"claude-reach/sessions"
+  "it has no inbox (Claude Code before 2.1.224) and runs outside tmux, in a terminal of its own: nothing can reach it"
+ "claude-reach/ask-task"
+  "{session-id} cannot be reached: {why}. Run it inside tmux, or from byj's agent page, or update Claude Code to 2.1.224 or later, to hand it work; or give the task to a new Claude Code session (agent$claude)."}

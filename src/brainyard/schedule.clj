@@ -202,7 +202,7 @@
         wait (when (some? in) (delay-ms in))]
     (cond
       (str/blank? (str prompt)) {:error ":prompt is required"}
-      (and (str/blank? (str cron)) (nil? at) (nil? in)) {:error "give :cron \"m h dom mon dow\" (recurring), or :at epoch-ms or :in a delay like \"20m\" (once)"}
+      (and (str/blank? (str cron)) (nil? at) (nil? in)) {:error (tool-words/says "schedule/add!")}
       (and (not (str/blank? (str cron))) (nil? parsed))
       {:error (str "invalid :cron '" cron "' — five fields: minute hour day-of-month month day-of-week")}
       (and (some? in) (not (and wait (pos? wait)))) {:error (str "invalid :in '" in "' — a delay like 90s, 20m, 2h, or ms")}
@@ -358,7 +358,7 @@
         parsed (when cron (parse-cron cron))
         life (or (delay-ms for) watch-ttl-ms)]
     (cond
-      (and (str/blank? (str cmd)) (str/blank? (str path))) {:error "give :cmd (a command to run) or :path (a file to look at)"}
+      (and (str/blank? (str cmd)) (str/blank? (str path))) {:error (tool-words/says "schedule/add-watch!")}
       (and cron (nil? parsed)) {:error (str "invalid :cron '" cron "'")}
       (and (= :matches (keyword (:op w))) (str/blank? (str (:re w)))) {:error ":matches needs :re"}
       :else
@@ -483,7 +483,7 @@
               (if (:error r)
                 r
                 (cond-> {:id (:id r) :next-fire (:next-fire r)
-                         :note "It runs as a turn of this session when due, if the session is idle then."}
+                         :note (tool-words/says "schedule/commands")}
                   (:expires-at r) (assoc :expires-at (:expires-at r)))))))}
    {:name "schedule$watch" :kind :command
     :description (tool-words/description "schedule$watch")

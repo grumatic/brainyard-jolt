@@ -58,11 +58,11 @@
   [config {:keys [goal level subject stop]}]
   (let [f (file config)]
     (cond
-      (nil? f) {:error "this session keeps nothing between turns (no session id), so it cannot keep coaching"}
+      (nil? f) {:error (tool-words/says "coach/set-stance!")}
       stop (let [was (stance config)]
              (io/delete-file f true)
              (if was {:stopped (:goal was)} {:stopped nil :note "no coaching was on"}))
-      (str/blank? (str goal)) {:error "give :goal, what the person wants to be able to do, or :stop"}
+      (str/blank? (str goal)) {:error (tool-words/says "coach/set-stance! 2")}
       :else (let [level (if (contains? levels (str level)) (str level) "practitioner")
                   subject (if (contains? subjects (str subject)) (str subject) "code")
                   m {:goal (str/trim (str goal)) :level level :subject subject :slug (slug goal)

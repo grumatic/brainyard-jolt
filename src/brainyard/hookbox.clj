@@ -109,9 +109,7 @@
                                   :note (str "auto-parked after " n " poll(s) of " tid)})
             {:result :block
              :reason (str "auto-parked after " n " poll(s) of " tid)
-             :answer (str "Parked — " tid " is still running. I stopped polling it:"
-                          " this turn ends here, and I will be given a fresh turn"
-                          " when the task finishes.")}))))))
+             :answer (tool-words/says "hookbox/task-poll-park" {:tid tid})}))))))
 
 (def impls
   "Kernel fns built-in hook specs name by :impl."

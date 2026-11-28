@@ -29,4 +29,7 @@
  "terminal$capture :name"
   "The program's name."
  "terminal$capture :lines"
-  "How many lines back to read, scrollback included."}
+  "How many lines back to read, scrollback included."
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "terminal/commands"
+  "no terminal program of this project is running that can say what it shows — for Emacs, emacs$context"}

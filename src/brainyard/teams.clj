@@ -202,9 +202,7 @@
             ;; which the member reads: what is not committed is not there (byj-9f8)
             (cond-> entry
               (and (not (:error entry)) (:unshared wt))
-              (assoc :warning (str "its worktree has .brainyard/ as committed: "
-                                   (str/join ", " (map #(str/trim (subs % (min 3 (count %)))) (:unshared wt)))
-                                   " not committed here, so not there — commit it for the member to read it")))))))))
+              (assoc :warning (tool-words/says "teams/spawn!" {:paths (str/join ", " (map #(str/trim (subs % (min 3 (count %)))) (:unshared wt)))})))))))))
 
 (defn resume!
   "Bring the open team's members back after its leader was resumed: they
@@ -406,7 +404,7 @@
           (cond-> {:closed (vec (map :name targets))}
             (some :worktree targets)
             (assoc :worktrees (vec (keep #(when (:worktree %) (select-keys % [:name :worktree :branch])) targets))
-                   :note "worktrees are left for you to merge (git merge <branch>) and remove (git worktree remove <dir>)")))))
+                   :note (tool-words/says "teams/close!"))))))
     {:error "no open team"}))
 
 ;; --- the tools -----------------------------------------------------------------------------

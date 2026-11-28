@@ -13,6 +13,7 @@
   the sidecar's to decide, never this one's."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [brainyard.tool-words :as tool-words]
             [brainyard.effect :as fx]
             [brainyard.events :as events]
             [brainyard.json :as json]
@@ -37,7 +38,7 @@
       (= "link" t) nil
       (re-matches #"class:[A-Za-z0-9][A-Za-z0-9_-]*(/[a-z0-9][a-z0-9-]{0,31})?" t) nil
       (re-matches #"shr_[a-z0-9]{12,}" t) nil
-      :else (str "--share " t ": the target is link, class:CODE, class:CODE/KEY (an assignment), or an ended share's id (shr_…)"))))
+      :else (tool-words/says "share/target-problem" {:t t}))))
 
 (defn reopen-id
   "The ended share `target` names to reopen, or nil: a `shr_…` id."
@@ -120,8 +121,7 @@
       (nil? task-registry) {:error "not sharing: this session keeps no background tasks"}
       (str/blank? (str socket)) {:error "not sharing: this session has no channel for the sidecar to reach (RFC-031)"}
       (running-task ctx) {:error "already sharing"}
-      (nil? binary) {:error (str "not sharing: " (or (not-empty (str (:share-sidecar config))) "byj-share")
-                                 " is not on PATH — install it, or set :share-sidecar to the sidecar to run")}
+      (nil? binary) {:error (tool-words/says "share/sidecar-missing" {:sidecar (or (not-empty (str (:share-sidecar config))) "byj-share")})}
       :else
       (let [task-id (promise)
             relay (relay-of config (:share-home ctx))
@@ -385,8 +385,7 @@
                   (some (fn [[id t]] (when (and (= login-job (:job-type t)) (= :running (:status t))) id)) @task-registry))]
     (cond
       (nil? task-registry) {:error "this session keeps no background tasks"}
-      (nil? binary) {:error (str (or (not-empty (str (:share-sidecar config))) "byj-share")
-                                 " is not on PATH — install it, or set :share-sidecar to the sidecar to run")}
+      (nil? binary) {:error (tool-words/says "share/login!" {:sidecar (or (not-empty (str (:share-sidecar config))) "byj-share")})}
       running {:task-id running :again? true}
       :else
       (let [task-id (promise)
@@ -499,8 +498,7 @@
                                                                   (or (last (remove str/blank? (str/split-lines text))) "the sidecar ended"))))
                                                 (< i 300) (do (Thread/sleep 100) (recur (inc i)))))))))
                        (str "sharing " title " — opening the share…"))
-                     (str "not sharing: " (or (not-empty (str (:share-sidecar config))) "byj-share")
-                          " is not on PATH — install it, or set :share-sidecar to the sidecar to run"))))]
+                     (tool-words/says "share/sidecar-missing" {:sidecar (or (not-empty (str (:share-sidecar config))) "byj-share")}))))]
     {:shared? shared?
      :start! start!
      :stop! stop!
@@ -552,8 +550,7 @@
                              (doseq [l (group-report (:out r))] (say l))
                              (say (str "not sharing them: " (str/trim (str (:err r) (:out r))))))))))
       (str "sharing " (count refs) " sessions as one group — opening the shares…"))
-    (str "not sharing: " (or (not-empty (str (:share-sidecar config))) "byj-share")
-         " is not on PATH — install it, or set :share-sidecar to the sidecar to run")))
+    (tool-words/says "share/sidecar-missing" {:sidecar (or (not-empty (str (:share-sidecar config))) "byj-share")})))
 
 (defonce ^:private sharers (atom {}))
 

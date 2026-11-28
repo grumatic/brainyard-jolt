@@ -95,8 +95,7 @@
         (case got
           :code {:task-id (:task-id r) :relay (share/relay-said (relay config))
                  :approve (str/join "\n" (lines))
-                 :next (str "Give the person the link and the code above, word for word, to approve in a browser where they are"
-                            " signed in. Then task$wait on " (:task-id r) " (up to 300000 ms): it completes once they approve.")}
+                 :next (tool-words/says "share-tools/login" {:task-id (:task-id r)})}
           :ended {:error (str "byj-share login ended: " (share/ended-why (take-last 2 (lines))))}
           {:error (str "byj-share login printed no code within " wait-ms " ms; task$detail " (:task-id r) " shows what it printed")})))))
 
@@ -199,7 +198,7 @@
                 (when (and r (not (and (#{:reads :none} (:level r)) (not (:reads-anywhere r)) (empty? (:services r)))))
                   (cond
                     (nil? permission-fn)
-                    (str "not sharing agent:" nm ": it can do more than read, and no one is here to confirm it")
+                    (tool-words/says "share-tools/confirm-agents" {:nm nm})
                     (not (:allowed (permission-fn {:display (summary r) :pattern (str "share agent:" nm)})))
                     (str "not sharing agent:" nm ": not confirmed"))))))
           refs)))
@@ -235,8 +234,8 @@
     (not (or (some-> share-box deref) (share/running-task ctx))) (share/report nil false)
     :else (do (events/emit! ctx :session.share/control {:action (if on? :record-on :record-off)})
               (if on?
-                "recording this share — everyone watching is told, and it is uploaded for review when the share ends"
-                "recording stopped — what was kept is uploaded for review when the share ends"))))
+                (tool-words/says "share-tools/record!")
+                (tool-words/says "share-tools/record! 2")))))
 
 (defn control!
   "`stop`, `pause`, `resume` or `kick` this session's share — said to the
@@ -265,7 +264,7 @@
     (let [argv (cond-> [bin "ls" "--dir" (str (or (:project-dir config) (:working-dir config) "."))] all? (conj "--all"))
           r (try (apply fx/sh {:out :string :err :string} argv) (catch Throwable e {:exit 1 :err (ex-message e)}))]
       (str/trim (str (:out r) (:err r))))
-    "byj-share is not on PATH — install it (`byj doctor` says how), or set :share-sidecar"))
+    (tool-words/says "share-tools/ls")))
 
 ;; --- the commands --------------------------------------------------------------
 

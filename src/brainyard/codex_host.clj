@@ -23,6 +23,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [ebb.core :as m]
+            [brainyard.tool-words :as tool-words]
             [brainyard.agent-host :as ah]
             [brainyard.codex-sessions :as cxs]
             [brainyard.effect :as fx]
@@ -384,7 +385,7 @@
    (let [o (m/? (fx/task-of #(observe id {:home home})))]
      (cond
        (or (str/blank? line) (str/includes? line "\n"))
-       {:error "type-line types one line; put anything longer in a file and send a line that points at it"}
+       {:error (tool-words/says "codex-host/type-line")}
        (not (:running? o)) {:error (str "session " id " is not running here")}
        (not= :idle (:status o)) {:error (str "session " id " is " (name (:status o)) ", not idle")}
        :else

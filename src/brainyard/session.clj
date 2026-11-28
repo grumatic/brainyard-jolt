@@ -18,6 +18,7 @@
     :emit        (fn [kind text])            kind ∈ :answer :info :error"
   (:require [brainyard.projects :as projects]
             [clojure.edn :as edn]
+            [brainyard.tool-words :as tool-words]
             [brainyard.clock :as clock]
             [clojure.java.io :as io]
             [clojure.pprint]
@@ -2651,7 +2652,7 @@
         {:keys [file buffer line column modified region org]} context
         {:keys [heading block]} org]
     (if (or error (nil? answer))
-      (fill-once (:none t) {:why (or error "no editor of this project that can say is running — emacs, started from the Terminal view, can")})
+      (fill-once (:none t) {:why (or error (tool-words/says "session/editor-context-text"))})
       (fill-once (:context t)
                  {:program program
                   :where (if file (fill-once (:file t) {:file file}) (fill-once (:buffer t) {:buffer buffer}))
@@ -2711,7 +2712,7 @@
                                        (terminal/context! (or (:project-dir config) (:working-dir config) ".")))
                                (catch Throwable e {:error (or (ex-message e) (str e))}))]
                (when (or (nil? answer) (:error answer))
-                 (emit ctx :info (str mention ": " (or (:error answer) "no editor of this project is running that can say what it shows — start emacs from the Terminal view"))))
+                 (emit ctx :info (str mention ": " (or (:error answer) (tool-words/says "session/editor-context")))))
                (events/emit! ctx :session.editor/context
                              (if (:program answer)
                                {:program (:program answer) :file (get-in answer [:context :file])

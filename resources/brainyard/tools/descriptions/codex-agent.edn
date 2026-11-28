@@ -23,4 +23,17 @@
  "codex$open :args"
   "more codex CLI options, space separated"
  "codex$open :worktree"
-  "a new one works in a git worktree of its own, on :branch"}
+  "a new one works in a git worktree of its own, on :branch"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "codex-agent/say"
+  "Read {file} and follow it — it is from the person who gave you this task."
+ "codex-agent/guard-alone-note"
+  "Codex's sandbox cannot start here, so this session's commands run unsandboxed (-s danger-full-access): the publish guard, its PreToolUse hook, is all that stands between it and a push or a pull request."
+ "codex-agent/open"
+  "no Codex session {session} running here or saved: give \"new\" — one in another terminal is not driven from here (session$send codex:{session} hands it a task)"
+ "codex-agent/reopen"
+  "Codex thread {thread} is held by a Codex outside byj's tmux server, so it is not resumed here"
+ "codex-agent/handoff"
+  "
+Once it is pushed — or merged here — to clean up (the Codex session first, saved and resumable):
+  "}

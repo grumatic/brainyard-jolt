@@ -125,4 +125,7 @@
  "emacs$org-execute :line"
   "A line inside the block, from 1."
  "emacs$org-execute :save"
-  "Save the org file after (default false); refused over unsaved edits."}
+  "Save the org file after (default false); refused over unsaved edits."
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "emacs/commands"
+  "the project's Emacs daemon is not running: start emacs from the right rail's Terminal view (ctrl+r), or set :emacs-server to the person's own Emacs server (\"server\") in ~/.brainyard/config.edn"}

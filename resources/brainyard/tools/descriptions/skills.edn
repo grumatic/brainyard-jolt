@@ -61,4 +61,11 @@
  "skill$<name> result"
   ":content is the whole SKILL.md to follow; a skill that runs in an agent returns its :answer instead"
  "skills$* :type"
-  "brainyard | claude | agents | builtin (omit for all)"}
+  "brainyard | claude | agents | builtin (omit for all)"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "skills/describe"
+  "{description} — runs in its own agent; `question` is the task, and you get back its answer, not the procedure."
+ "skills/import!"
+  "could not tell the skill's name — pass name, or add a `name:` to the frontmatter"
+ "skills/import! 2"
+  "the SKILL.md has no description in its frontmatter — the open standard asks for name and description"}

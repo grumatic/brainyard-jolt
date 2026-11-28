@@ -4,8 +4,8 @@
 (ns brainyard.src-prose-test
   "The kernel keeps no prose (byj-2e8.7, RFC-001): every word the model reads
   is a resource, so a sentence of more than a dozen words written in src is
-  either one a person reads — the command line, the screen, a config key's or
-  an event's documentation — or a debt with a bead. The source is read as
+  one a person reads — the command line, the screen, a config key's or an
+  event's documentation. The source is read as
   data, docstrings aside, the string arguments of one `str` call read as one
   string; every definition holding such a sentence is in
   `test/fixtures/src-prose.edn` with how many and why, and a new one fails

@@ -39,4 +39,7 @@
  "hook$create :on-error"
   "gated events only: what a failing body decides — allow (default) or block"
  "hook$create result"
-  "the error lists every problem"}
+  "the error lists every problem"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "hookbox/task-poll-park"
+  "Parked — {tid} is still running. I stopped polling it: this turn ends here, and I will be given a fresh turn when the task finishes."}

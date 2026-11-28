@@ -68,7 +68,7 @@
   (str "input-schema must be a malli [:map ...] schema"
        (cond
          (and (sequential? form) (seq form) (every? map? form))
-         " — one [:map …] whose entries are the arguments, not a list of parameter maps"
+         (tool-words/says "toolbox/not-a-map-schema")
          (and (sequential? form) (string? (first form)))
          " — malli's names are keywords (:map, :string), not strings; send the schema as one string of EDN text"
          :else "")
@@ -85,7 +85,7 @@
     (cond
       (= ::bad form) "input-schema is not readable EDN"
       (and (nil? form) (some? params))
-      ":params is retired — declare the arguments as :input-schema, a malli [:map [:k [:string {:desc \"…\"}]] …]"
+      (tool-words/says "toolbox/read-input-schema")
       (nil? form) [:map]
       (nil? (schema/map-entries form)) (not-a-map-schema form)
       :else (try (schema/schema form) form
@@ -320,9 +320,7 @@
   (when (and (some? output-schema)
              (not (and (string? output-schema) (str/blank? output-schema)))
              (nil? (schema/read-output-schema output-schema)))
-    (str "output-schema is not a malli schema — write the result's shape as EDN, e.g. \"[:map [:lines :int]]\"; "
-         "a result that is one shape or an error is \"[:or [:map [:lines :int]] [:map [:error-message :string]]]\", "
-         "and a part whose shape varies is :any")))
+    (tool-words/says "toolbox/output-schema-problem")))
 
 (defn- creation
   "`compile-tool` for a tool being made: its problems include a prose

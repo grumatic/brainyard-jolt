@@ -1,0 +1,7 @@
+;; What the model reads of what brainyard/claude_host.clj's tools say back to it:
+;; errors that say what to do next, notes, refusals (brainyard.tool-words/says,
+;; byj-2e8.9). Read by the model, so a resource (RFC-001).
+{"claude-host/type-line"
+  "type-line types one line; put anything longer in a file and send a line that points at it"
+ "claude-host/send-message"
+  "session {id} began a turn as the message came, and took it into that turn, where nothing answers it"}

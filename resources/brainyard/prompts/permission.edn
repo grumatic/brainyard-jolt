@@ -6,10 +6,28 @@
 ;;
 ;; :profile-hold {axis} {level} the profile axis that held the call and its level
 ;; :person-allowed {display} the call, {axis} the profile axis
+;; :hold-*       {axis} the profile axis that asks the person first
+;; :logins-*-lists {path} the path named, {holds} the login or key it holds
 {:approval "To allow it: approve interactively, add a matching :tool-allow-tools glob, or set :permission-mode :auto-approve."
  :deny "This tool is denied by :tool-deny-tools. No permission mode overrides it — narrow or remove the matching glob to allow it."
  :classifier "To let such a call run: shift+tab to ask-each-time and answer it yourself, /allow-path DIR for a directory, or a :tool-allow-tools glob."
  :profile "The project's profile is the person's (RFC-073): no tool writes it on its own. Reading it — read-file, or a shell line that only reads it (cat, grep, sed -n) — is not refused, and a shell line that may change it is asked of the person every time. To change it as the person asks, call profile$edit with what changes: it shows them the change and writes it on their yes. Where there is no profile$edit, say what should change, and the person runs /init."
  :profile-hold "The project's profile (.brainyard/profile.edn, RFC-073) sets {axis} to {level}; the person changes it, through profile$edit on their yes, not a tool on its own."
  :loop "A loop is the project's when a person makes it so (RFC-071): write the candidate to another file and try it with --loop; a person accepts it, or puts it there by hand."
- :person-allowed "The person said yes to `{display}`: the project's profile has {axis} ask them first, and they allowed this."}
+ :person-allowed "The person said yes to `{display}`: the project's profile has {axis} ask them first, and they allowed this."
+ ;; the reasons a gate gives, and the hints of a login or another project's folder (byj-2e8.9)
+ :hold-deny-by-default "{axis} asks the person first in the project's profile, and the mode is :deny-by-default"
+ :hold-headless "{axis} asks the person first in the project's profile, and there is no interactive permission channel (headless)"
+ :refused-loop-path "it is the project's loop, which a person makes live, not a tool"
+ :refused-loop-command "it names a project's loop, which a person makes live, not a tool"
+ :refused-loop-dir "it removes or moves the directory holding a project's loop, which a person makes live, not a tool"
+ :refused-profile-deny-by-default "it may change the project's profile, which the person confirms, and the mode is :deny-by-default"
+ :refused-profile-headless "it may change the project's profile, which the person confirms, and there is no interactive permission channel (headless)"
+ :refused-profile-dir "it removes or moves the directory holding the project's profile, which the person confirms, not a tool"
+ :refused-quote-open "the command leaves a quote open, which an allow-list cannot segment — close it, or run the parts as separate calls"
+ :logins-path-lists "A person's logins and keys are read by no tool. {path} holds {holds}: list-dir may list it; search a directory under it that does not hold one."
+ :logins-path "A person's logins and keys are read by no tool; name a narrower path that does not hold one."
+ :logins-command-lists "A person's logins and keys are read by no tool. A line that only lists {path} (ls, find without -exec, stat, du, tree), with no xargs, $(…) or read loop, may name it; to search files, name a directory under it that does not hold {holds}."
+ :logins-command "A person's logins and keys are read by no tool."
+ :project-homes-path "A project's tools reach its own folder in ~/.brainyard/projects only (byj project path names it); byj session list and session$* tools read its sessions. :project-homes-shared? true in config opens the others."
+ :project-homes-command "A project's tools reach its own folder in ~/.brainyard/projects only. :project-homes-shared? true in config opens the others."}

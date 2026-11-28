@@ -18,6 +18,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [brainyard.tool-words :as tool-words]
             [brainyard.effect :as fx]
             [brainyard.hooks :as hooks]
             [brainyard.events :as events]
@@ -44,8 +45,7 @@
   does not go looking for them (byj-gly.315.11: in the sim pilot it ran
   `pkill`, and the gate put that to the person); and how to give it longer."
   [timeout]
-  (str "command timed out after " timeout " ms; it and every process it started were stopped, so nothing of it is"
-       " left running. If it needs longer, run it again with a larger :timeout (ms)."))
+  (tool-words/says "tools/timed-out" {:timeout timeout}))
 
 (defonce ^:private background
   ;; process group id → {:session :command}: groups a bash call left running

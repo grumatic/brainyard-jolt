@@ -25,4 +25,7 @@
  "session$start :question"
   "its first turn — self-contained: the new session has not seen this conversation"
  "session$* :session"
-  "a live session's id, a prefix of it, or its label (session$list) — a byj session's, a Claude Code session's as claude:<id>, or a Codex session's as codex:<thread>"}
+  "a live session's id, a prefix of it, or its label (session$list) — a byj session's, a Claude Code session's as claude:<id>, or a Codex session's as codex:<thread>"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "channel/commands"
+  "{session-id} cannot be reached: {why}. Run it inside tmux, or from byj's agent page, to hand it work; or give the task to a new Claude Code session (agent$claude)."}

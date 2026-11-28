@@ -34,6 +34,12 @@
 (defn- described-call? [v]
   (and (seq? v) (= 'tool-words/description (first v))))
 
+(defn- asking-call?
+  "A call that reads words from the table: a description, or what a tool says
+  back (byj-2e8.9)."
+  [v]
+  (and (seq? v) (contains? '#{tool-words/description tool-words/says} (first v))))
+
 (def ^:private other-resources
   "Tools whose description is a prompt resource of its own, read whole."
   {"meta-agent$create" "prompts/meta-agent-create.md"
@@ -71,7 +77,7 @@
   ;; "…read-only" "…")` asks for both
   (let [asked (set (for [[_ form] (forms)
                          node (nodes form)
-                         :when (described-call? node)
+                         :when (asking-call? node)
                          id (nodes (second node))
                          :when (string? id)]
                      id))

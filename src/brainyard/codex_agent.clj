@@ -138,7 +138,7 @@
   [config sid text]
   (let [text (str/trim (str text))
         line (if (or (> (count text) claude-agent/typed-chars) (str/includes? text "\n"))
-               (str "Read " (guidance-file config sid text) " and follow it — it is from the person who gave you this task.")
+               (tool-words/says "codex-agent/say" {:file (guidance-file config sid text)})
                text)]
     (if (str/blank? text)
       {:error "nothing to say"}
@@ -163,8 +163,7 @@
 
 (def guard-alone-note
   "What a delegation says when its session runs without Codex's sandbox."
-  (str "Codex's sandbox cannot start here, so this session's commands run unsandboxed (-s danger-full-access): "
-       "the publish guard, its PreToolUse hook, is all that stands between it and a push or a pull request."))
+  (tool-words/says "codex-agent/guard-alone-note"))
 
 (defn- sandbox
   "The sandbox a delegated session starts in (RFC-049 decision 7): Codex's
@@ -251,8 +250,7 @@
               (:error said) said
               :else (begin! session dir (:branch rec) "resumed" sb)))
 
-      :else {:error (str "no Codex session " session " running here or saved: give \"new\" — "
-                         "one in another terminal is not driven from here (session$send codex:" session " hands it a task)")})))
+      :else {:error (tool-words/says "codex-agent/open" {:session session})})))
 
 (defn reopen
   "Delegation `thread` running on byj's tmux server, for the person to watch
@@ -275,7 +273,7 @@
       (not (and dir (.isDirectory (io/file (str dir)))))
       {:error (str "its folder " dir " is gone" (some->> (:stopped-why r) (str " — ")) ": Codex resumes a thread in the folder it ran in")}
       (cxs/live? h thread)
-      {:error (str "Codex thread " thread " is held by a Codex outside byj's tmux server, so it is not resumed here")}
+      {:error (tool-words/says "codex-agent/reopen" {:thread thread})}
       :else
       (let [sb (sandbox config)
             s (if (:error sb) sb (host/start! (assoc (start-opts config dir (:mode sb) {}) :resume thread)))
@@ -389,7 +387,7 @@
                            (when-let [stat (lines (sh-in dir "git" "diff" "--stat=100" (str base "..." branch)))]
                              (str "\nChanged:\n" (indented (map str/trim stat))))
                            "\n\nNot pushed: a Codex session does not publish. To publish:\n  " push-cmd "\n  " pr-cmd
-                           "\nOnce it is pushed — or merged here — to clean up (the Codex session first, saved and resumable):\n  "
+                           (tool-words/says "codex-agent/handoff")
                            cleanup-cmd)}))))))
 
 (defn finish

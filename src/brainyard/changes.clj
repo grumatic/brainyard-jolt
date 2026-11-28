@@ -40,6 +40,7 @@
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [brainyard.tool-words :as tool-words]
             [brainyard.clock :as clock]
             [brainyard.effect :as fx]
             [brainyard.persist :as persist]
@@ -357,10 +358,10 @@
 
 (defn- busy-error [root id]
   (when-let [[{:keys [session turn] p :pid} :as all] (seq (running root id))]
-    {:error (str "session " session " is in the middle of turn " turn " in this work tree"
-                 (when (not= (str p) (str @pid)) (str " (process " p ")"))
-                 (when (next all) (str ", and " (dec (count all)) " more"))
-                 ": it may be writing these files, so nothing was changed — try again when its turn ends")
+    {:error (tool-words/says "changes/busy-error"
+                             {:session session :turn turn
+                              :process (when (not= (str p) (str @pid)) (str " (process " p ")"))
+                              :more (when (next all) (str ", and " (dec (count all)) " more"))})
      :running all}))
 
 (defn begin-turn!
@@ -574,7 +575,7 @@
             (let [{:keys [files error]} (apply-tree! (:dir w) head target)]
               (if error
                 (do (worktree/remove! r (:dir w) branch)
-                    {:error (str "the worktree's files could not be put as the turn began, so it was removed: " error)})
+                    {:error (tool-words/says "changes/worktree!" {:error error})})
                 {:dir (:dir w) :project-dir (worktree/within r (or (:project-dir config) (:working-dir config) r) (:dir w))
                  :branch branch :base head :files files}))))))
     (no-git config)))

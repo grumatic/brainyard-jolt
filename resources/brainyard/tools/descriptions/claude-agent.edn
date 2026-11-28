@@ -37,4 +37,19 @@
  "claude$handoff :publish"
   "the task told the session to push and open the pull request"
  "claude$handoff :cleanup"
-  "the task asked for the worktree and branch to be removed once published"}
+  "the task asked for the worktree and branch to be removed once published"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "claude-agent/say"
+  "Read {file} and follow it — it is from the person who gave you this task."
+ "claude-agent/open"
+  "session {sid} is working: it can be given the right to publish once its turn is over"
+ "claude-agent/open 2"
+  "session {sid} is running outside this agent's own tmux sessions, so it is not resumed (that would be a second process on one session) nor driven from here. session$send claude:{sid} hands it a task when it runs in tmux; else give \"new\"."
+ "claude-agent/reopen"
+  "session {sid} is running outside byj's tmux server, so it is not resumed here (that would be a second process on one session)"
+ "claude-agent/handoff"
+  "
+Once it is pushed — or merged here — to clean up (the Claude Code session first, saved and resumable):
+  "
+ "claude-agent/handoff 2"
+  "The task asked for the work to be pushed and a pull request opened; neither was. "}

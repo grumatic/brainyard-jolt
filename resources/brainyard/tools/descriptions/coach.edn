@@ -11,4 +11,9 @@
  "coach$set :subject"
   "code (the default) or emacs, for learning Emacs itself."
  "coach$set :stop"
-  "End coaching."}
+  "End coaching."
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "coach/set-stance!"
+  "this session keeps nothing between turns (no session id), so it cannot keep coaching"
+ "coach/set-stance! 2"
+  "give :goal, what the person wants to be able to do, or :stop"}

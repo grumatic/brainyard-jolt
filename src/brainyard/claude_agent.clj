@@ -212,7 +212,7 @@
         box? (and (nil? (host/target sid h)) (some? (host/inbox sid h)))
         line (when-not box?
                (if (or (> (count text) typed-chars) (str/includes? text "\n"))
-                 (str "Read " (guidance-file config sid text) " and follow it — it is from the person who gave you this task.")
+                 (tool-words/says "claude-agent/say" {:file (guidance-file config sid text)})
                  text))]
     (if (str/blank? text)
       {:error "nothing to say"}
@@ -374,7 +374,7 @@
         restart (when (and publish? (not new?) (not (str/blank? (str brief))) (contains? (set (host/running)) sid)
                            (not (:publish (read-record config sid))))
                   (if (= "busy" (:status (host/record sid h)))
-                    {:error (str "session " sid " is working: it can be given the right to publish once its turn is over")}
+                    {:error (tool-words/says "claude-agent/open" {:sid sid})}
                     (host/stop! sid)))
         live (set (host/running))
         saved-now #(into {} (map (juxt :id identity)) (:saved (cs/sessions (project config) :home h)))
@@ -457,8 +457,7 @@
       ;; and not driven: session$send hands it a task when it runs in tmux
       ;; (byj-gly.429)
       (some #(= sid (:id %)) (cs/live (project config) h))
-      {:error (str "session " sid " is running outside this agent's own tmux sessions, so it is not resumed (that would be a second process on one session) "
-                   "nor driven from here. session$send claude:" sid " hands it a task when it runs in tmux; else give \"new\".")}
+      {:error (tool-words/says "claude-agent/open 2" {:sid sid})}
 
       :else {:error (str "no session " sid " here: give \"new\", or the id of one running here or saved")})))
 
@@ -488,7 +487,7 @@
       ;; a moment to (provenance P-31), as `open` gives it
       (let [live? #(some (fn [s] (= sid (:id s))) (cs/live (project config) h))]
         (and (live?) (not= :gone (run (fx/poll-until 200 ::not-yet #(if (live?) ::not-yet :gone)) 5000))))
-      {:error (str "session " sid " is running outside byj's tmux server, so it is not resumed here (that would be a second process on one session)")}
+      {:error (tool-words/says "claude-agent/reopen" {:sid sid})}
       :else
       (let [s (host/start! (assoc (start-opts config sid dir {:publish (:publish r)}) :resume? true))
             u (when-not (:error s) (run (host/ready sid {:home h :timeout-ms 30000}) 40000))]
@@ -676,7 +675,7 @@
                        (if url
                          (str "  — which updates its pull request, already open: " url)
                          (str "  " pr-cmd))
-                       "\nOnce it is pushed — or merged here — to clean up (the Claude Code session first, saved and resumable):\n  "
+                       (tool-words/says "claude-agent/handoff")
                        cleanup-cmd)]
         (if-not publish?
           (do (update-record! config session-id merge {:published "handed-off"} (when url {:pr-url url}))
@@ -689,7 +688,7 @@
                         url (str "Its pull request is " url ", but " remote "/" branch
                                  " is not at the branch's last commit. Push it:\n  " push-cmd)
                         pushed? (str "Pushed to " remote ", but no pull request was found for " branch ". Open it:\n  " pr-cmd)
-                        :else (str "The task asked for the work to be pushed and a pull request opened; neither was. " guide))
+                        :else (str (tool-words/says "claude-agent/handoff 2") guide))
                 tidy (when (flag? cleanup)
                        (cond
                          (not done?) "Not cleaned up: the work is not published yet."

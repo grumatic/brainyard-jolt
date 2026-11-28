@@ -27,4 +27,9 @@
  "team$assign :task"
   "a self-contained task: goal, context, where, and what to report back"
  "team$assign :question"
-  "the same as :task"}
+  "the same as :task"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "teams/spawn!"
+  "its worktree has .brainyard/ as committed: {paths} not committed here, so not there — commit it for the member to read it"
+ "teams/close!"
+  "worktrees are left for you to merge (git merge <branch>) and remove (git worktree remove <dir>)"}

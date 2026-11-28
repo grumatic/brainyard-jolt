@@ -1,0 +1,5 @@
+;; What the model reads of what brainyard/agent_reach.clj's tools say back to it:
+;; errors that say what to do next, notes, refusals (brainyard.tool-words/says,
+;; byj-2e8.9). Read by the model, so a resource (RFC-001).
+{"agent-reach/summary"
+  "; a call that would ask is refused — no one is there to approve it"}

@@ -1,0 +1,7 @@
+;; What the model reads of what brainyard/changes.clj's tools say back to it:
+;; errors that say what to do next, notes, refusals (brainyard.tool-words/says,
+;; byj-2e8.9). Read by the model, so a resource (RFC-001).
+{"changes/busy-error"
+  "session {session} is in the middle of turn {turn} in this work tree{process}{more}: it may be writing these files, so nothing was changed — try again when its turn ends"
+ "changes/worktree!"
+  "the worktree's files could not be put as the turn began, so it was removed: {error}"}

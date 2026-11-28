@@ -39,4 +39,15 @@
  "share$control :ref"
   "Another share to act on; none: this session's."
  "share$control :user"
-  "For kick: who to remove."}
+  "For kick: who to remove."
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "share-tools/login"
+  "Give the person the link and the code above, word for word, to approve in a browser where they are signed in. Then task$wait on {task-id} (up to 300000 ms): it completes once they approve."
+ "share-tools/confirm-agents"
+  "not sharing agent:{nm}: it can do more than read, and no one is here to confirm it"
+ "share-tools/record!"
+  "recording this share — everyone watching is told, and it is uploaded for review when the share ends"
+ "share-tools/record! 2"
+  "recording stopped — what was kept is uploaded for review when the share ends"
+ "share-tools/ls"
+  "byj-share is not on PATH — install it (`byj doctor` says how), or set :share-sidecar"}

@@ -432,7 +432,7 @@
       :effects #{}
       :fn (fn [_ _ctx]
             (or (context! dir)
-                {:error "no terminal program of this project is running that can say what it shows — for Emacs, emacs$context"}))}]))
+                {:error (tool-words/says "terminal/commands")}))}]))
 
 ;; --- the view ----------------------------------------------------------------------
 

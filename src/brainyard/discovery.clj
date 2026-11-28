@@ -9,6 +9,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [brainyard.tool-words :as tool-words]
             [brainyard.config :as config]
             [brainyard.schema :as schema]
             [brainyard.toolbox :as toolbox]
@@ -124,10 +125,7 @@
                                 shown (take listed-per-family ids)]]
                       (cond-> {:family fam :count (count ids) :tools (vec shown)}
                         (> (count ids) listed-per-family) (assoc :more (- (count ids) listed-per-family)))))
-     :next (str "This is a summary. For a family's tools with their descriptions, call list-tools with"
-                " :family (e.g. {:family \"config\"}); to find a tool by what it does, :pattern — a"
-                " case-insensitive regex over ids and descriptions (e.g. {:pattern \"issue\"}). Then"
-                " get-tool-info {:tool-id \"…\"} for the parameters of the one you will call.")}))
+     :next (tool-words/says "discovery/family-summary")}))
 
 (defn- room
   "What a listing may take of one result: under `:max-output-chars`, so it is
@@ -136,7 +134,7 @@
   (int (* 0.85 (get-in ctx [:config :max-output-chars] 16000))))
 
 (def ^:private detail-note
-  "with their parameters they do not fit in one result — ask for :detail with a :family or a :pattern that names fewer")
+  (tool-words/says "discovery/detail-note"))
 
 (defn- ids-by-family
   "Every tool's id by family, and `why` the listing is no more than that."

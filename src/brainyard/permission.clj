@@ -668,9 +668,9 @@
     (case level
       :never (refuse (str axis " is :never in the project's profile"))
       (if (= :deny-by-default (resolve-mode (mode ctx)))
-        (refuse (str axis " asks the person first in the project's profile, and the mode is :deny-by-default"))
+        (refuse (said :hold-deny-by-default {:axis axis}))
         (let [r (ask-person ctx (assoc request :profile/axis axis) refuse
-                            (str axis " asks the person first in the project's profile, and there is no interactive permission channel (headless)"))]
+                            (said :hold-headless {:axis axis}))]
           ;; the person's yes, said to the model: a simulation's turn took
           ;; a commit the person allowed for one made without them (byj-71w.7)
           (when (and (nil? r) (:st-memory ctx))
@@ -708,7 +708,7 @@
        (let [project-dir (config ctx :project-dir working-dir)
              paths (call-paths tool args working-dir)]
          (or (when-let [p (first (keep #(loop-file project-dir %) paths))]
-               (loop-refusal "path-permission-gate" p "it is the project's loop, which a person makes live, not a tool"))
+               (loop-refusal "path-permission-gate" p (said :refused-loop-path)))
              ;; and its profile: how far an agent goes on its own, which an
              ;; agent that could write it could raise (RFC-073, byj-71w.2)
              (when-let [p (first (keep #(profile-file project-dir %) paths))]
@@ -737,9 +737,8 @@
                       :reason-prefix "Path refused"
                       :error-prefix "Tool call refused (path)"
                       :hint (if (holds-only? d p home)
-                              (str "A person's logins and keys are read by no tool. " p " holds " d
-                                   ": list-dir may list it; search a directory under it that does not hold one.")
-                              "A person's logins and keys are read by no tool; name a narrower path that does not hold one.")})))
+                              (said :logins-path-lists {:path p :holds d})
+                              (said :logins-path))})))
    ;; another project's folder in the home — its sessions, logs, records —
    ;; closed to this one's tools unless :project-homes-shared? (RFC-016's
    ;; second revision, byj-84c.7); a tool that lists names alone may list
@@ -754,9 +753,7 @@
                       :reason (str "it is another project's sessions and records (" f ")")
                       :reason-prefix "Path refused"
                       :error-prefix "Tool call refused (path)"
-                      :hint (str "A project's tools reach its own folder in ~/.brainyard/projects only (byj project path names it);"
-                                 " byj session list and session$* tools read its sessions."
-                                 " :project-homes-shared? true in config opens the others.")})))
+                      :hint (said :project-homes-path)})))
    (when (config ctx :path-permission? true)
     (let [tool (some-> (:tools ctx) deref (get tool-name))
           working-dir (config ctx :working-dir ".")
@@ -873,7 +870,7 @@
                 {:reason (str "the command uses " what " (" frag "), which an allow-list cannot check"
                               " — run the parts as separate calls")})
               (when (unclosed-quote? line)
-                {:reason "the command leaves a quote open, which an allow-list cannot segment — close it, or run the parts as separate calls"})
+                {:reason (said :refused-quote-open)})
               (when-let [prog (first (remove (fn [p]
                                                (or (first-match bash-allow-commands p)
                                                    (first-match bash-allow-commands
@@ -993,24 +990,24 @@
        ;; a project's loop file it names — a tripwire, as a login's is; before
        ;; anything asks, so a person is not asked about what is refused (byj-ng7.12)
        (when-let [f (first (mapcat named-loop-files commands))]
-         (loop-refusal "bash-command-gate" f "it names a project's loop, which a person makes live, not a tool"))
+         (loop-refusal "bash-command-gate" f (said :refused-loop-command)))
        ;; a line that may change the project's profile: the person's, asked
        ;; every time and never in :deny-by-default or headless; what only
        ;; reads it passes (RFC-073, byj-bdd)
        (when profile-line
          (let [refuse (fn [reason] (profile-refusal "bash-command-gate" profile-line reason))]
            (if (= :deny-by-default (resolve-mode (mode ctx)))
-             (refuse "it may change the project's profile, which the person confirms, and the mode is :deny-by-default")
+             (refuse (said :refused-profile-deny-by-default))
              (ask-person ctx {:type :command :action :run :tool tool-name
                               :display (str "change the project's profile (.brainyard/profile.edn) with:\n" profile-line)
                               :every-time? true}
                          refuse
-                         "it may change the project's profile, which the person confirms, and there is no interactive permission channel (headless)"))))
+                         (said :refused-profile-headless)))))
        ;; and the directory holding either, taken away whole (byj-cst)
        (when-let [[w what] (first (mapcat #(removed-guarded-dirs % (config ctx :working-dir ".")) commands))]
          (if (= :profile what)
-           (profile-refusal "bash-command-gate" w "it removes or moves the directory holding the project's profile, which the person confirms, not a tool")
-           (loop-refusal "bash-command-gate" w "it removes or moves the directory holding a project's loop, which a person makes live, not a tool")))
+           (profile-refusal "bash-command-gate" w (said :refused-profile-dir))
+           (loop-refusal "bash-command-gate" w (said :refused-loop-dir))))
        ;; what the project's profile governs — a commit, a push, a bead
        ;; filed or closed — as its axis says, before the rest of the gate:
        ;; an :ask is the person's even where the mode would not ask (byj-71w.5)
@@ -1078,10 +1075,8 @@
                             :reason-prefix "Command refused"
                             :error-prefix "Tool call refused (command)"
                             :hint (if holds?
-                                    (str "A person's logins and keys are read by no tool. A line that only lists "
-                                         p " (ls, find without -exec, stat, du, tree), with no xargs, $(…) or read loop, may name it;"
-                                         " to search files, name a directory under it that does not hold " d ".")
-                                    "A person's logins and keys are read by no tool.")}))))
+                                    (said :logins-command-lists {:path p :holds d})
+                                    (said :logins-command))}))))
        ;; another project's folder in the home, named in a command (byj-7sp.6, byj-84c.7): a
        ;; tripwire, as the deny list is; a line that only lists names may
        ;; name the folder holding them
@@ -1096,8 +1091,7 @@
                           :reason (str "it names another project's sessions and records (" f "): " p)
                           :reason-prefix "Command refused"
                           :error-prefix "Tool call refused (command)"
-                          :hint (str "A project's tools reach its own folder in ~/.brainyard/projects only."
-                                     " :project-homes-shared? true in config opens the others.")})))
+                          :hint (said :project-homes-command)})))
        ;; the paths it names
        (when (config ctx :path-permission? true)
          (let [working-dir (config ctx :working-dir ".")

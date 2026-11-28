@@ -7,6 +7,7 @@
   both `byj agent` (main) and a session's `/share agent:NAME` (share-tools,
   which agent loads) ask it, and it builds a ctx through agent."
   (:require [clojure.string :as str]
+            [brainyard.tool-words :as tool-words]
             [brainyard.agent :as agent]
             [brainyard.agents :as agents]
             [brainyard.llm :as llm]
@@ -89,4 +90,4 @@
                                              (when (seq service-writes) (str " and change things there (" (str/join ", " service-writes) ")"))))])))
        (if (= :auto-approve permission-mode)
          "; nothing asks first: this project runs auto-approve"
-         "; a call that would ask is refused — no one is there to approve it")))
+         (tool-words/says "agent-reach/summary"))))

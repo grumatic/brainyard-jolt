@@ -49,4 +49,11 @@
  "schedule$watch :note"
   "A line to yourself, given back when it fires."
  "schedule$* :id"
-  "The job's id, as schedule$list gives it."}
+  "The job's id, as schedule$list gives it."
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "schedule/add!"
+  "give :cron \"m h dom mon dow\" (recurring), or :at epoch-ms or :in a delay like \"20m\" (once)"
+ "schedule/add-watch!"
+  "give :cmd (a command to run) or :path (a file to look at)"
+ "schedule/commands"
+  "It runs as a turn of this session when due, if the session is idle then."}

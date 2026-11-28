@@ -1306,7 +1306,7 @@
   "The `workflow$*` commands (RFC-076)."
   [config]
   (let [opt (fn [k desc] [k {:optional true} [:any {:desc desc}]])
-        dir (opt :dir "the project directory; this project when absent")]
+        dir (opt :dir (tool-words/description "workflow$* :dir"))]
     [{:name "workflow$list" :kind :command
       :description (tool-words/description "workflow$list")
       :input-schema [:map dir]
@@ -1340,64 +1340,66 @@
       :fn (fn [args ctx] (remove-workflow config ctx args))}
      {:name "workflow$runs" :kind :command
       :description (tool-words/description "workflow$runs")
-      :input-schema [:map dir (opt :workflow "only this workflow's runs") (opt :limit "how many; 10 when absent")]
+      :input-schema [:map dir (opt :workflow (tool-words/description "workflow$runs :workflow")) (opt :limit (tool-words/description "workflow$runs :limit"))]
       :output-schema [:map [:text :string]]
       :effects #{:fs/read}
       :fn (fn [args _] (list-runs config args))}
      {:name "workflow$verdict" :kind :command
       :description (tool-words/description "workflow$verdict")
       :input-schema [:map dir [:run [:any {:desc (tool-words/description "workflow$verdict :run")}]] [:verdict [:string {:desc (tool-words/description "workflow$verdict :verdict")}]]
-                     (opt :note "the person's note")]
+                     (opt :note (tool-words/description "workflow$verdict :note"))]
       :output-schema [:map [:text :string]]
       :effects #{:fs/read :fs/write}
       :fn (fn [args _] (record-verdict config args))}
      {:name "workflow$start" :kind :command
       :description (tool-words/description "workflow$start")
-      :input-schema [:map dir (opt :workflow "the workflow's id") (opt :work "what the run works on: words, or an issue's id first: its id in beads, or #N")
-                     (opt :worktree "yes to run it in a worktree of its own")
-                     (opt :from "a branch or commit its worktree starts from, not HEAD; asks for a worktree of its own")
-                     (opt :by-hand "yes to wait after each stage for the person to hand it on (workflow$resume)")]
+      :input-schema [:map dir (opt :workflow (tool-words/description "workflow$start :workflow")) (opt :work (tool-words/description "workflow$start :work"))
+                     (opt :worktree (tool-words/description "workflow$start :worktree"))
+                     (opt :from (tool-words/description "workflow$start :from"))
+                     (opt :by-hand (tool-words/description "workflow$start :by-hand"))]
       :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (start-run config ctx args))}
      {:name "workflow$again" :kind :command
       :description (tool-words/description "workflow$again")
-      :input-schema [:map dir (opt :run "the number of the run to run again") (opt :note "what to change, in the person's words; else the verdict's note")]
+      :input-schema [:map dir (opt :run (tool-words/description "workflow$again :run")) (opt :note (tool-words/description "workflow$again :note"))]
       :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (again-run config ctx args))}
      {:name "workflow$resume" :kind :command
       :description (tool-words/description "workflow$resume")
-      :input-schema [:map dir (opt :run "the run's number") (opt :note "what the person adds for the stage, else nothing")]
+      :input-schema [:map dir (opt :run (tool-words/description "workflow$resume :run")) (opt :note (tool-words/description "workflow$resume :note"))]
       :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (resume-run config ctx args))}
      {:name "workflow$check" :kind :command
       :description (tool-words/description "workflow$check")
-      :input-schema [:map dir (opt :run "the run's number") (opt :answer "the stage's answer")]
+      :input-schema [:map dir (opt :run (tool-words/description "workflow$check :run")) (opt :answer (tool-words/description "workflow$check :answer"))]
       :output-schema [:map [:text :string]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args _] (check-stage config args))}
      {:name "workflow$settle" :kind :command
       :description (tool-words/description "workflow$settle")
-      :input-schema [:map dir (opt :run "the run's number") (opt :status "done, retry, ask or stop")
-                     (opt :question "for ask") (opt :summary "one line") (opt :answer "the stage's answer")
-                     (opt :usage "the run's usage so far") (opt :stage-usage "what the stage's turn spent")]
+      :input-schema [:map dir (opt :run (tool-words/description "workflow$settle :run")) (opt :status (tool-words/description "workflow$settle :status"))
+                     (opt :question (tool-words/description "workflow$settle :question"))
+                     (opt :summary (tool-words/description "workflow$settle :summary"))
+                     (opt :answer (tool-words/description "workflow$settle :answer"))
+                     (opt :usage (tool-words/description "workflow$settle :usage")) (opt :stage-usage (tool-words/description "workflow$settle :stage-usage"))]
       :output-schema [:map [:stop :any] [:stopped :any] [:brief :any] [:stage :any] [:elsewhere {:optional true} :any]
                       [:usage-cost-usd {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (settle-stage config ctx args))}
      {:name "workflow$report" :kind :command
       :description (tool-words/description "workflow$report")
-      :input-schema [:map dir (opt :run "the run's number") (opt :stopped "why it ended")
-                     (opt :managing "whether the turn managed the workflows instead") (opt :answer "that turn's answer")
-                     (opt :stage-usage "what that turn spent")]
+      :input-schema [:map dir (opt :run (tool-words/description "workflow$report :run")) (opt :stopped (tool-words/description "workflow$report :stopped"))
+                     (opt :managing (tool-words/description "workflow$report :managing")) (opt :answer (tool-words/description "workflow$report :answer"))
+                     (opt :stage-usage (tool-words/description "workflow$report :stage-usage"))]
       :output-schema [:map [:text :string] [:usage-cost-usd {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (report-run config ctx args))}
      {:name "workflow$delegate" :kind :command
       :description (tool-words/description "workflow$delegate")
-      :input-schema [:map dir (opt :run "the run's number") (opt :brief "the stage's brief")]
+      :input-schema [:map dir (opt :run (tool-words/description "workflow$delegate :run")) (opt :brief (tool-words/description "workflow$delegate :brief"))]
       :output-schema [:map [:answer :any] [:usage :any]]
       :effects #{:fs/read :fs/write :process :session/send}
       :fn (fn [args ctx] (delegate-stage config ctx args))}]))

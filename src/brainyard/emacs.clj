@@ -388,7 +388,7 @@ that load it and bind its commands."
                (if-not (reachable? config opts)
                  {:server s :up false
                   :how (if (project-server? config)
-                         "the project's Emacs daemon is not running: start emacs from the right rail's Terminal view (ctrl+r), or set :emacs-server to the person's own Emacs server (\"server\") in ~/.brainyard/config.edn"
+                         (tool-words/says "emacs/commands")
                          (str "no Emacs server " s " is running: in that Emacs, M-x server-start"))}
                  (let [r (call! config "status" {} opts)]
                    (if (:error r) {:server s :up true :error (:error r)} (merge {:server s :up true} (:ok r)))))))}]

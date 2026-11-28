@@ -28,6 +28,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [ebb.core :as m]
+            [brainyard.tool-words :as tool-words]
             [brainyard.agent-host :as ah]
             [brainyard.claude-sessions :as cs]
             [brainyard.effect :as fx]
@@ -397,7 +398,7 @@
    (let [r (m/? (fx/task-of #(record id home)))]
      (cond
        (or (str/blank? line) (str/includes? line "\n"))
-       {:error "type-line types one line; put anything longer in a file and send a line that points at it"}
+       {:error (tool-words/says "claude-host/type-line")}
        (not= "idle" (:status r)) {:error (str "session " id " is " (or (:status r) "not up") ", not idle")}
        :else
        (let [dir (:cwd r)
@@ -479,7 +480,7 @@
                                     (or taken-ms 5000) ::timeout))]
              (case o
                :taken {:sent true}
-               :absorbed {:error (str "session " id " began a turn as the message came, and took it into that turn, where nothing answers it")}
+               :absorbed {:error (tool-words/says "claude-host/send-message" {:id id})}
                {:error (str "session " id " did not take the message within " (or taken-ms 5000) " ms")}))))))))
 
 (defn choose

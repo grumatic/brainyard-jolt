@@ -701,8 +701,7 @@
                 ;; a Claude Code session's turn, typed into its terminal; refused
                 ;; at once when nothing can reach it, not as a task that fails
                 (and (:claude t) (not (:reachable? s)))
-                {:error (str (:session-id s) " cannot be reached: " (:why s)
-                             ". Run it inside tmux, or from byj's agent page, to hand it work; or give the task to a new Claude Code session (agent$claude).")}
+                {:error (tool-words/says "channel/commands" {:session-id (:session-id s) :why (:why s)})}
                 (:claude t)
                 (let [timeout (:claude-handover-timeout-ms config 1800000)
                       id (tasks/start!

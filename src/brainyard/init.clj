@@ -202,9 +202,9 @@
   (vec (for [{:keys [tracker github-repo]} (when (sequential? (:issues p)) (:issues p))
              :let [msg (case tracker
                          :beads (when-not (.isDirectory (io/file dir ".beads"))
-                                  "it keeps the issues in beads, and beads is not set up here (no .beads/): /init sets it up")
+                                  (tool-words/says "init/tracker-problems"))
                          :github (when-not (or (not (str/blank? github-repo)) (github-origin? dir))
-                                   "it keeps the issues in GitHub, and names no :github-repo with no github.com remote here")
+                                   (tool-words/says "init/tracker-problems 2"))
                          nil)]
              :when msg]
          msg)))
@@ -1003,7 +1003,7 @@
             agents (io/file dir "AGENTS.md")]
         (put-profile! dir data)
         {:written? true
-         :text (str "The person said yes when asked, shown this draft, so the profile is written as they confirmed it: .brainyard/profile.edn (" (name (:preset resolved)) ")"
+         :text (str (tool-words/says "init/write-profile") (name (:preset resolved)) ")"
                     (when (.isFile agents) ", shown in AGENTS.md")
                     "; added to git, to commit with /init's other files."
                     (when (seq ids)

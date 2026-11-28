@@ -762,10 +762,7 @@
                  " agent-registry$ask {\"id\": \"%s\", \"question\": \"…\"}; end it with"
                  " agent-registry$close {\"id\": \"%s\"} when you are done with it.")
             id id id)
-    (format (str "This subagent is alive for the rest of this turn as \"%s\" and remembers this"
-                 " exchange. Ask it more with agent-registry$ask {\"id\": \"%s\", \"question\": \"…\"}"
-                 " while you are still working; it ends when this turn does, so do not offer it"
-                 " to the user as something to come back to.")
+    (format (tool-words/says "agents/ask-hint")
             id id)))
 
 (defn dispatch

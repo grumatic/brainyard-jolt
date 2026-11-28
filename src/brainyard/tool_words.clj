@@ -4,8 +4,10 @@
 (ns brainyard.tool-words
   "What the model reads of a built-in tool: its description, by tool id
   (byj-2e8.5), and its arguments' and result's, as \"<tool> :arg\" and
-  \"<tool> result :field\" (byj-2e8.9). The words are `resources/brainyard/tools/descriptions/`'s, a
-  file per namespace that defines tools, named in that folder's `index.edn`;
+  \"<tool> result :field\", and what its tools say back, by
+  \"<namespace>/<definition>\" (`says`, byj-2e8.9). The words are
+  `resources/brainyard/tools/descriptions/`'s, a file per namespace, named in
+  that folder's `index.edn`;
   the tool's body, schema and effects stay where they are, in the namespace
   that runs it. A primitive tool's whole spec is already a resource
   (`resources/brainyard/tools/<name>.edn`, RFC-010) and is not here.
@@ -45,3 +47,10 @@
                     (throw (ex-info (str "no description for tool " id " in " dir) {:tool id})))
                 #"\{([a-z-]+)\}"
                 (fn [[whole n]] (if-let [[_ v] (find m (keyword n))] (str v) whole)))))
+
+(defn says
+  "What a tool says back to the model — an error that says what to do next, a
+  note, a refusal — `id` (\"<namespace>/<definition>\") with each `{name}`
+  filled from `m`, as `description` fills a description (byj-2e8.9)."
+  ([id] (description id {}))
+  ([id m] (description id m)))

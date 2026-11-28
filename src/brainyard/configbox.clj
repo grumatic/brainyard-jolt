@@ -58,17 +58,13 @@
     (str k " is not a config key. `config$read` lists what is.")
 
     (= :permissions (get-in config/config-items [k :family]))
-    (str k " is a permission key and is never written from inside a turn (RFC-012). "
-         "A config file outlives the session, so this would widen the gate permanently. "
-         "Edit .brainyard/config.edn by hand, or pass the flag for this run.")
+    (tool-words/says "configbox/unwritable*" {:k k})
 
     (= :builtin-hooks? k)
-    (str k " installs the permission gates; turning it off from inside a turn would "
-         "disarm them for every later run. Edit the file by hand.")
+    (tool-words/says "configbox/unwritable* 2" {:k k})
 
     (per-run-keys k)
-    (str k " belongs to a single run, not to a config file — the CLI and the "
-         "environment set it. Persisting it would give two answers to where this run is.")))
+    (tool-words/says "configbox/unwritable* 3" {:k k})))
 
 (defn unwritable
   "Why `k` may not be written, or nil.
@@ -340,9 +336,7 @@
 
       (and (not unset?) (seq (secrets-in v)))
       {:ok? false :stage :secret :key k :matches (secrets-in v)
-       :error (str "that looks like a secret. config.edn is read into the process and a "
-                   "project's is committed with the repo — put it in .env and reference it "
-                   "by environment variable instead.")}
+       :error (tool-words/says "configbox/set-key!")}
 
       (and expected-mtime (.isFile f) (not= expected-mtime (.lastModified f)))
       {:ok? false :stage :mtime :expected expected-mtime :actual (.lastModified f)

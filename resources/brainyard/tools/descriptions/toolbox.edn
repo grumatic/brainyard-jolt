@@ -41,4 +41,11 @@
  "tool$run result"
   "the body's value; {:error \"Invalid Tool Lisp: ...\"} listing every problem, or {:error-message \"Tool Lisp: ...\"} when it fails while running"
  "tool$test result"
-  "the tool's own result; or, when its :output-schema is a schema the result does not match, {:result, :output-problems [string]}"}
+  "the tool's own result; or, when its :output-schema is a schema the result does not match, {:result, :output-problems [string]}"
+ ;; what its tools say back to the model, as "<namespace>/<definition>" (byj-2e8.9)
+ "toolbox/not-a-map-schema"
+  " — one [:map …] whose entries are the arguments, not a list of parameter maps"
+ "toolbox/read-input-schema"
+  ":params is retired — declare the arguments as :input-schema, a malli [:map [:k [:string {:desc \"…\"}]] …]"
+ "toolbox/output-schema-problem"
+  "output-schema is not a malli schema — write the result's shape as EDN, e.g. \"[:map [:lines :int]]\"; a result that is one shape or an error is \"[:or [:map [:lines :int]] [:map [:error-message :string]]]\", and a part whose shape varies is :any"}
