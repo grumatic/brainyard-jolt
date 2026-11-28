@@ -62,6 +62,23 @@ finds the cause in those traces, not in a score. The overlay
 (`prompts/react-agent-instruction.md`, and `agents/general-purpose.md`, which
 opens with it) keeps its channel rules without a name.
 
+<!-- divergence: no-coact-instruction-after-a-subagents -->
+**A subagent's instruction is not followed by coact-agent's one line.**
+brainyard dispatches a coact-derived agent called as a tool through
+`run-coact-derived`, which appends coact-agent's `coact-instruction` after the
+agent's own, a blank line between: "Use your available output channels to
+answer the user's question. Channel rules, formats, and the truncated-results
+playbook are in the system context above." Its logged requests show it after
+predictor-agent's instruction, called from a turn. A root turn is set up from
+the agent's own definition (`setup-agent-by-id`) and is sent no such line: the
+16 logged root turns of its react-agent carry the overlay alone under
+`## Instructions`, as a root turn here does. A subagent here is sent its
+persona alone too. The line's first sentence restates what think-act's
+instructions above it say, and its second points at a section this port's
+system prompt does not have: brainyard's Large Tool Results Playbook. Here
+the advice is in the stub that stands in for an elided result, where the cut
+is (RFC-014).
+
 ## Session loop
 
 <!-- divergence: history-fixed-depth -->

@@ -30,6 +30,9 @@
  {:id "meta-harness-identity"
   :brainyard "agent/common/coact_agent.clj coact-instructions-template (\"You are a CoAct agent\"), agent/common/react_agent.clj react-instruction (\"You are a tool-only ReAct agent\")"
   :test "brainyard.prompt-golden-test/a-react-turn"}
+ {:id "no-coact-instruction-after-a-subagents"
+  :brainyard "agent/common/coact_agent.clj run-coact-derived, merge-derived-instruction, coact-instruction; agent/core/agent.clj setup-agent-by-id"
+  :test "brainyard.prompt-golden-test/a-subagents-first-call"}
  {:id "directive-without-code-blocks"
   :brainyard "clj-llm/core/claude_code.clj structured-output-directive"
   :test "brainyard.divergences-test/directive-names-no-code-channel"}
