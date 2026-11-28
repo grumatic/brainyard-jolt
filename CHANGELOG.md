@@ -23,6 +23,9 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   left at once (from `byj turns rewind`, or a `/fork` that put the files
   back) could lose one. And a notes file that could not be read was deleted
   along with its notes; it is now kept.
+- **Moving a project's old session folders says when it fails.** The move
+  into the home is no longer recorded as done before it runs. A failed move
+  is written to the project's event log and tried again a minute later.
 
 ## v0.3.22 — 2026-11-28
 

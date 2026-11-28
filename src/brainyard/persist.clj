@@ -24,6 +24,8 @@
             [clojure.pprint]
             [clojure.string :as str]
             [brainyard.effect :as fx]
+            [brainyard.eventlog :as eventlog]
+            [brainyard.events :as events]
             [brainyard.projects :as projects]
             [brainyard.schema :as schema]
             [brainyard.worktree :as worktree]
@@ -520,16 +522,40 @@
                 (empty? (System/getProperty "brainyard.projects-home"))
                 (empty? (System/getenv "BY_PROJECTS_HOME")))))
 
+(def ^:private migration-failed
+  "Project → when its last migration failed: one is tried again a minute
+  later at the soonest, not on every path asked for meanwhile."
+  (atom {}))
+
 (defn- migrate-once!
   "`migrate!` the project when its legacy folders are there and have changed
   since this process last moved from them: a stat per kind, and a move only
   the first time a project is touched (or when an older byj added to them);
-  only where `auto-migrate?` says so."
+  only where `auto-migrate?` says so.
+
+  A migration is stamped done only once it is: it was stamped before it ran,
+  and one that threw was never tried again in the process and said nothing
+  (byj-ku1.4). A failure is written to the project's event log as
+  `:session/migration-failed` and tried again a minute later."
   [config]
-  (let [stamp (vec (for [k kinds :let [d (legacy-dir config k)]] (when (.isDirectory d) (.lastModified d))))]
-    (when (and (some some? stamp) (auto-migrate?) (not= stamp (get @migrated (project-of config))))
-      (swap! migrated assoc (project-of config) stamp)
-      (try (migrate! config) (catch Throwable _ nil)))))
+  (let [stamp (vec (for [k kinds :let [d (legacy-dir config k)]] (when (.isDirectory d) (.lastModified d))))
+        p (project-of config)
+        now (System/currentTimeMillis)]
+    (when (and (some some? stamp) (auto-migrate?) (not= stamp (get @migrated p))
+               (< (+ (get @migration-failed p 0) 60000) now))
+      (try (migrate! config)
+           (swap! migrated assoc p stamp)
+           (swap! migration-failed dissoc p)
+           (catch Throwable e
+             (swap! migration-failed assoc p now)
+             (when-let [f (eventlog/log-file config)]
+               ;; persist has no bus: the event goes through the one door to
+               ;; a handler that is the event log's line
+               (events/emit! (fn [event data]
+                               (try (io/make-parents f)
+                                    (spit f (str (pr-str (eventlog/record {} event data)) "\n") :append true)
+                                    (catch Throwable _ nil)))
+                             :session/migration-failed {:project (str p) :error (ex-message e)})))))))
 
 (defn- mark-project!
   "The project's folder holds its record once the folder is there — one

@@ -9,6 +9,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.json :as json]
+            [brainyard.eventlog]
             [brainyard.persist :as persist]
             [brainyard.projects :as projects]
             [brainyard.schema]
@@ -238,6 +239,33 @@
       (is (= ["kept"] (persist/take-notes! c "s1")))
       (is (= 1 (count (filter #(str/ends-with? (.getName %) ".bad")
                               (.listFiles (.getParentFile (persist/notes-file c "s1"))))))))))
+
+(deftest a-failed-migration-says-so-and-is-tried-again
+  ;; byj-ku1.4: migrate-once! stamped the project migrated before migrate!
+  ;; ran and swallowed its failure: never tried again, never said
+  (let [dir (fresh-dir "migrate-fails")
+        c (config dir)
+        calls (atom 0)
+        fail? (atom true)]
+    (.mkdirs (io/file dir ".brainyard" "sessions" "legacy-1"))
+    (with-redefs-fn {#'brainyard.persist/auto-migrate? (constantly true)
+                     #'brainyard.persist/migrate! (fn [_] (swap! calls inc)
+                                                    (if @fail? (throw (ex-info "disk says no" {})) {:moved 0 :left []}))}
+      (fn []
+        (persist/sessions-dir c)
+        (is (= 1 @calls))
+        (let [log (brainyard.eventlog/log-file c)]
+          (is (and log (str/includes? (slurp log) ":session/migration-failed")) "the event log says it failed")
+          (is (str/includes? (slurp log) "disk says no")))
+        (persist/sessions-dir c)
+        (is (= 1 @calls) "not tried again on every path asked for")
+        ;; a minute on: tried again, and done once it is
+        (swap! @#'brainyard.persist/migration-failed update (persist/project-of c) - 120000)
+        (reset! fail? false)
+        (persist/sessions-dir c)
+        (is (= 2 @calls))
+        (persist/sessions-dir c)
+        (is (= 2 @calls) "stamped once done")))))
 
 (defn- reply [m] (json/write-str (merge {:reasoning "r" :tool-calls [] :answer ""} m)))
 

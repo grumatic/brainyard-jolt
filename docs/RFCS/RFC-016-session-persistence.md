@@ -368,6 +368,7 @@ someone with three and then shows them one (`byj-gly.75`).
 | A project's sessions are kept in its folder of the registry, whose home is the registry's: the `brainyard.projects-home` property, `BY_PROJECTS_HOME`, then `$HOME`; a test run's is its own, emptied as it starts, carried to every process it starts, and `test-run/run` fails a run that left a test's project folder in the person's. | `persist-test/the-projects-home-is-the-runs-own-in-a-test`, `effect-test/a-process-started-keeps-off-the-persons-stores-as-this-one-does` |
 | A session is kept in `<home>/.brainyard/projects/<project-slug>/sessions/`, the folder holding the registry's record, unlisted until the project is registered; a worktree is a project folder of its own. | `persist-test/a-session-is-kept-in-the-persons-home` |
 | A session kept before is moved, with its transcripts, the first time its project is touched, and the old folders go; one an older byj holds stays, is listed and read where it is, and `migrate!` says it left it. Only into the person's own home: a test run's never moves a project's on its own. | `persist-test/a-session-kept-before-is-moved-the-first-time-its-project-is-touched`, `persist-test/a-session-an-older-byj-holds-stays-and-is-listed-until-it-is-free`, `persist-test/a-test-run-never-moves-a-projects-sessions-on-its-own` |
+| A move that fails when the project is touched is written to the event log, not tried on every path asked for, tried again a minute later, and recorded done only once it is. | `persist-test/a-failed-migration-says-so-and-is-tried-again` |
 | A gone project's sessions are kept until `:session-ttl-days`, no keep count saving them, then removed with their transcripts, never a held one; its folders go with its last, and its record too when it was never registered, a registered one listed missing; a project that is there keeps its rules. | `persist-test/a-gone-projects-sessions-are-kept-until-the-ttl-then-go` |
 | Every path to a session's folder, transcripts and tasks is built by `persist/state-dir`, no other namespace. | `persist-test/only-persist-says-where-a-session-is-kept` |
 | A session says where it is kept: the list's `dir` and `project-dir`, `byj session path`, exit 1 for none; both shapes are byj's contract. | `sdk-test/a-session-says-where-it-is-kept`, `contract-test/a-projects-sessions-are-byjs-contract` |
@@ -516,6 +517,13 @@ the first time it is opened (resume, load, fork, delete). Listing reads both
 until the old folder is empty, which is then removed. `byj session migrate
 [--all]` moves a project's, or every registered project's, at once. A live
 session is never moved.
+
+The move made when a project is first touched is recorded as done only once
+it is. It used to be recorded before it ran, so a move that failed was never
+tried again in that process, and nothing said it had failed (`byj-ku1.4`).
+A failure is written to the project's event log as
+`:session/migration-failed`, and the move is tried again a minute later at
+the soonest.
 
 ### Another project's sessions
 
