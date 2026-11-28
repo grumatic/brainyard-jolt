@@ -1,0 +1,15 @@
+;; What a refused tool call tells the model about getting past the refusal:
+;; the hint after the reason in the refusal's {:error …} (brainyard's
+;; deny-replace), and the notice that the person allowed a call the project's
+;; profile asks them about. Read by the model, so a resource (RFC-001);
+;; permission.clj fills each {name} in one pass (byj-2e8.6).
+;;
+;; :profile-hold {axis} {level} the profile axis that held the call and its level
+;; :person-allowed {display} the call, {axis} the profile axis
+{:approval "To allow it: approve interactively, add a matching :tool-allow-tools glob, or set :permission-mode :auto-approve."
+ :deny "This tool is denied by :tool-deny-tools. No permission mode overrides it — narrow or remove the matching glob to allow it."
+ :classifier "To let such a call run: shift+tab to ask-each-time and answer it yourself, /allow-path DIR for a directory, or a :tool-allow-tools glob."
+ :profile "The project's profile is the person's (RFC-073): no tool writes it on its own. Reading it — read-file, or a shell line that only reads it (cat, grep, sed -n) — is not refused, and a shell line that may change it is asked of the person every time. To change it as the person asks, call profile$edit with what changes: it shows them the change and writes it on their yes. Where there is no profile$edit, say what should change, and the person runs /init."
+ :profile-hold "The project's profile (.brainyard/profile.edn, RFC-073) sets {axis} to {level}; the person changes it, through profile$edit on their yes, not a tool on its own."
+ :loop "A loop is the project's when a person makes it so (RFC-071): write the candidate to another file and try it with --loop; a person accepts it, or puts it there by hand."
+ :person-allowed "The person said yes to `{display}`: the project's profile has {axis} ask them first, and they allowed this."}

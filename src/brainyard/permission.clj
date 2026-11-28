@@ -17,7 +17,8 @@
   turn goes on (a block would end it, which is the wrong shape for \"ask again
   with permission\"). An allow is an abstention, not a licence: it only means
   this gate has nothing to say, and a later gate may still refuse."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.configbox :as configbox]
             [brainyard.config :as config]
@@ -69,11 +70,36 @@
 
 ;; --- refusals ---------------------------------------------------------------------
 
+(defn- read-resource [path]
+  (edn/read-string (slurp (or (io/resource path)
+                              (throw (ex-info (str "resource not found: " path) {:path path}))))))
+
+(def ^:private words
+  "What a refusal tells the model about getting past it, `prompts/permission.edn`
+  (byj-2e8.6)."
+  (read-resource "brainyard/prompts/permission.edn"))
+
+(defn- said
+  "Words `k` of `prompts/permission.edn`, each `{name}` filled from `m` in one
+  pass, so a filled-in value — a command, a path — is never read for names."
+  ([k] (said k {}))
+  ([k m]
+   (str/replace (or (get words k) (throw (ex-info (str "no permission words " k) {:words k})))
+                #"\{([a-z-]+)\}"
+                (fn [[whole n]] (if-let [[_ v] (find m (keyword n))] (str v) whole)))))
+
+(def ^:private read-only
+  "The programs the gates count as only reading, `permission/read-only.edn`
+  (byj-2e8.6): policy as data, read once."
+  (read-resource "brainyard/permission/read-only.edn"))
+
 (def approval-hint
-  "To allow it: approve interactively, add a matching :tool-allow-tools glob, or set :permission-mode :auto-approve.")
+  "The hint of a call refused for want of the person's approval."
+  (said :approval))
 
 (def deny-hint
-  "This tool is denied by :tool-deny-tools. No permission mode overrides it — narrow or remove the matching glob to allow it.")
+  "The hint of a call `:tool-deny-tools` refuses."
+  (said :deny))
 
 (defn deny-replace
   "brainyard's `deny-replace`: the refusal the model reads, as a tool result."
@@ -104,7 +130,7 @@
 (def classifier-hint
   "What a call the auto-mode classifier blocked says about letting one through:
   the person decides, not a turn — there is no override at the block itself."
-  "To let such a call run: shift+tab to ask-each-time and answer it yourself, /allow-path DIR for a directory, or a :tool-allow-tools glob.")
+  (said :classifier))
 
 (defn- classify
   "The auto-mode classifier's verdict on `request`, or nil when it does not
@@ -461,17 +487,24 @@
 
 (declare command-segments segment-text)
 
+(defn- one-of
+  "A pattern matching any of `words` as written, alone or before a space."
+  [words]
+  (str "(?:" (str/join "|" (map #(str/replace % #"[.*+?^$\\|()\[\]{}]" (fn [c] (str "\\" c))) words)) ")(?:\\s|$)"))
+
 (def ^:private git-keeping
   ;; git commands that read the profile or record it as it is, and change
   ;; nothing of the file: committing the profile /init staged is the person's
-  ;; next step, and a simulation's was refused by the tripwire (byj-71w.7)
-  #"^git (?:-C \S+ )?(?:add|commit|diff|show|log|status|ls-files|check-ignore|blame)(?:\s|$)")
+  ;; next step, and a simulation's was refused by the tripwire (byj-71w.7).
+  ;; Which ones is permission/read-only.edn's :profile-git
+  (re-pattern (str "^git (?:-C \\S+ )?" (one-of (:profile-git read-only)))))
 
 (def ^:private profile-reading
   ;; commands that read what they name and write nothing of it: a model
   ;; reads the profile with grep or sed -n as often as with read-file, and
-  ;; was refused (byj-bdd)
-  #"^(?:cat|bat|head|tail|less|more|grep|egrep|fgrep|rg|ag|wc|jq|ls|stat|file|diff|cmp|md5|md5sum|shasum|sha1sum|sha256sum|sed|awk|gawk)(?:\s|$)")
+  ;; was refused (byj-bdd). Which ones is permission/read-only.edn's
+  ;; :profile-readers
+  (re-pattern (str "^" (one-of (:profile-readers read-only)))))
 
 (defn- reads-profile-only?
   "Does shell `segment` only read what it names: a reading command, or git
@@ -549,9 +582,7 @@
 (def ^:private profile-hint
   ;; the way to the change the person asked for, not only the wall: told
   ;; only to have the person edit the EDN, a model left them to (byj-8b3)
-  (str "The project's profile is the person's (RFC-073): no tool writes it on its own. Reading it — read-file, or a shell line that only reads it (cat, grep, sed -n) — is not refused, and a shell line that may change it is asked of the person every time."
-       " To change it as the person asks, call profile$edit with what changes: it shows them the change and writes it on their yes."
-       " Where there is no profile$edit, say what should change, and the person runs /init."))
+  (said :profile))
 
 (defn- profile-refusal [by display reason]
   (deny-replace {:by by :display display :reason reason
@@ -633,8 +664,7 @@
                  (deny-replace {:by by :display display :reason reason
                                 :reason-prefix "Refused by the project's profile"
                                 :error-prefix "Tool call refused (profile)"
-                                :hint (str "The project's profile (.brainyard/profile.edn, RFC-073) sets "
-                                           axis " to " level "; the person changes it, through profile$edit on their yes, not a tool on its own.")}))]
+                                :hint (said :profile-hold {:axis axis :level level})}))]
     (case level
       :never (refuse (str axis " is :never in the project's profile"))
       (if (= :deny-by-default (resolve-mode (mode ctx)))
@@ -645,13 +675,11 @@
           ;; a commit the person allowed for one made without them (byj-71w.7)
           (when (and (nil? r) (:st-memory ctx))
             (swap! (:st-memory ctx) update :pending-notices (fnil conj [])
-                   (str "The person said yes to `" display "`: the project's profile has " (name axis)
-                        " ask them first, and they allowed this.")))
+                   (said :person-allowed {:display display :axis (name axis)})))
           r)))))
 
 (def ^:private loop-hint
-  (str "A loop is the project's when a person makes it so (RFC-071): write the candidate to"
-       " another file and try it with --loop; a person accepts it, or puts it there by hand."))
+  (said :loop))
 
 (defn- loop-refusal [by display reason]
   (deny-replace {:by by :display display :reason reason
@@ -866,8 +894,8 @@
   "Programs that read what they are given as names and metadata, never what
   is in a file under a directory: one may name a directory that holds a
   :denied-paths entry (byj-all). `cd` is not one: a relative path after it
-  reaches the entry unseen."
-  #{"ls" "stat" "du" "tree" "find" "test" "[" "realpath" "readlink" "basename" "dirname"})
+  reaches the entry unseen. Which ones is permission/read-only.edn's."
+  (set (:name-listers read-only)))
 
 (def ^:private opens-what-it-lists
   ;; what in a line could open the files a lister names: xargs or a read loop

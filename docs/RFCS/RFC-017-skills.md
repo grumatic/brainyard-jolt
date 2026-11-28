@@ -422,6 +422,7 @@ family, brainyard's keys and defaults: `:enable-skill-distillation` (false),
 
 | invariant | enforced by |
 |---|---|
+| A skill run in an agent is told so in `prompts/skill-agent.md`'s words around its SKILL.md, filled in one pass, so a definition holding `{name}` or `{content}` is sent as written (byj-2e8.6). | `skills-test/a-skill-definition-is-sent-as-written`, `prompt-golden-test/a-skill-agents-first-call` |
 | A skill is found by its description when every word searched for starts one of its words; one word of two, or a word inside another, is not a match. | `skills-test/a-skill-is-found-by-what-its-description-says-it-is-for` |
 | A SKILL.md imported from a path is a brainyard skill callable at once; one without a frontmatter description is refused. | `skills-test/a-skill-is-imported-from-a-path` |
 | search, install and sync run the skills CLI's command lines as it is; search reads the packages out; a package, an agent and an owner are never an option to npx; a failed CLI is an error; they declare :process and :net/http. | `skills-test/a-package-is-found-installed-and-synced-through-npx-skills` |

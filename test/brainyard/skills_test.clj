@@ -560,3 +560,11 @@
       (is (empty? (self-improve/refine-triggers
                    c {:terminated-by :error
                       :trajectory-iterations [{:tool-results [{:tool-name (str "skill$" shipped) :tool-error? true}]}]}))))))
+
+(deftest a-skill-definition-is-sent-as-written
+  ;; byj-2e8.6: the instruction around a SKILL.md is prompts/skill-agent.md's,
+  ;; filled in one pass, so a definition holding the template's own names
+  ;; reaches the model as written
+  (let [text (skills/skill-agent-instruction "s" "use {name} and {content}")]
+    (is (str/starts-with? text "You are executing the skill `s`."))
+    (is (str/ends-with? text "## SKILL DEFINITION\nuse {name} and {content}"))))

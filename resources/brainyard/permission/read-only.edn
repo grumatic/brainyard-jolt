@@ -1,0 +1,18 @@
+;; The shell programs the permission gates count as only reading what they
+;; are given (RFC-012), read when permission.clj loads (byj-2e8.6). Policy, not
+;; words: each list decides what a gate lets through without asking.
+;;
+;; :profile-readers  read what they name and write nothing of it, so a line of
+;;                   them may name the project's profile (byj-bdd); sed and awk
+;;                   still not when they edit in place, and no line with a
+;;                   redirection into a file
+;; :profile-git      git subcommands that read the profile or record it as it
+;;                   is, changing nothing of the file (byj-71w.7)
+;; :name-listers     read what they are given as names and metadata, never
+;;                   what is in a file under a directory, so one may name a
+;;                   directory that holds a :denied-paths entry (byj-all); cd
+;;                   is not one: a relative path after it reaches the entry
+;;                   unseen
+{:profile-readers ["cat" "bat" "head" "tail" "less" "more" "grep" "egrep" "fgrep" "rg" "ag" "wc" "jq" "ls" "stat" "file" "diff" "cmp" "md5" "md5sum" "shasum" "sha1sum" "sha256sum" "sed" "awk" "gawk"]
+ :profile-git ["add" "commit" "diff" "show" "log" "status" "ls-files" "check-ignore" "blame"]
+ :name-listers ["ls" "stat" "du" "tree" "find" "test" "[" "realpath" "readlink" "basename" "dirname"]}

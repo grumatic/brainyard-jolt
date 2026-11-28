@@ -285,12 +285,13 @@
 (defn skill-agent-instruction
   "brainyard's `skill-system-prompt`, which it passes to skill-agent as
   `agent-context`. Here it IS the synthesized agent's instruction, which is the
-  same place in the prompt (RFC-018 folds `:tool-context` into it)."
+  same place in the prompt (RFC-018 folds `:tool-context` into it). The words
+  are `prompts/skill-agent.md`'s."
   [name content]
-  (str "You are executing the skill `" name "`. "
-       "Read its definition below and follow its instructions to answer "
-       "the user's question. Be concise and accurate.\n\n"
-       "## SKILL DEFINITION\n" content))
+  ;; one pass: a SKILL.md holding `{name}` is sent as written (byj-2e8.6)
+  (str/replace (str/trim-newline (slurp (io/resource "brainyard/prompts/skill-agent.md")))
+               #"\{(name|content)\}"
+               (fn [[_ k]] (if (= "name" k) (str name) (str content)))))
 
 (defn- delegate
   "brainyard's `delegate-to-skill-agent`: run the skill in a fresh agent and
