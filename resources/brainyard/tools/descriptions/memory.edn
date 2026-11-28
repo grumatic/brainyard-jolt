@@ -1,0 +1,11 @@
+;; What the model reads of each tool brainyard/memory.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"memory$history"
+  "Search what this project was ASKED and ANSWERED in earlier sessions. Use it before re-deriving something that sounds like it has been worked out before, or to find how a question was answered last time. This is a record of turns, not of decisions — memory$recall is where the decisions are."
+ "memory$recall"
+  "Search durable memory — what was learned in earlier sessions and written down. Reach for it when a question sounds like it has been settled before, or when you are about to assume something about this project you cannot see in front of you. Nothing is recalled automatically; this is the only way memory enters a turn."
+ "memory$read"
+  "Read one memory in full by its key, after memory$recall named it."
+ "memory$remember"
+  "Write something down for a later session: a decision and why, a constraint that is not in the code, a dead end worth not repeating. Not a summary of what you just did — the transcript already has that, and a memory nobody needs is a memory in everyone's way."}

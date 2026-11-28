@@ -16,7 +16,8 @@
 
   brainyard has no counterpart: its exec-agent drove a todo list, and was
   not ported (RFC-023)."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -499,7 +500,7 @@
   [config]
   (let [any-arg (fn [k desc] [k {:optional true} [:any {:desc desc}]])]
     [{:name "drive$next" :kind :command
-      :description "/drive's next step: the next ready bead, or GitHub issue no one is assigned, of the trackers the profile names, claimed, with its brief — or why the run stops (no profile, no tracker it works, the profile's limits, nothing ready, the person said no)."
+      :description (tool-words/description "drive$next")
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :failures "failures in a row so far")
                      (any-arg :usage "the run's usage so far") (any-arg :since "when the run began")
                      (any-arg :retry "a bead to work again") (any-arg :retry-note "what it lacked")
@@ -510,13 +511,13 @@
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (next-bead config ctx args))}
      {:name "drive$check" :kind :command
-      :description "What a bead's or GitHub issue's turn left: uncommitted files, the commits since the step began, its status, and what the profile expects. Reads only."
+      :description (tool-words/description "drive$check")
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :bead "the bead") (any-arg :head "HEAD when the step began")]
       :output-schema [:map [:text :string] [:clean? :any] [:committed? :any] [:status :any] [:dependencies {:optional true} :any]]
       :effects #{:fs/read :process}
       :fn (fn [args _] (check-bead config args))}
      {:name "drive$settle" :kind :command
-      :description "Act on the judgement of a bead's or GitHub issue's turn: close it as the profile says, count a retry, set aside one whose turns are spent, or stop the run with the question for the person."
+      :description (tool-words/description "drive$settle")
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :bead "the bead") (any-arg :title "its title")
                      (any-arg :status "done, retry, ask or stop") (any-arg :question "for ask") (any-arg :summary "one line")
                      (any-arg :bead-status "the bead's status after the turn") (any-arg :failures "failures so far")
@@ -528,7 +529,7 @@
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (settle config ctx args))}
      {:name "drive$report" :kind :command
-      :description "/drive's answer: each step and why it stopped; a bead the run claimed and did not settle is released."
+      :description (tool-words/description "drive$report")
       :input-schema [:map (any-arg :dir "the project directory") (any-arg :log "the run's log") (any-arg :stopped "why it stopped")
                      (any-arg :since "when the run began")]
       :output-schema [:map [:text :string]]

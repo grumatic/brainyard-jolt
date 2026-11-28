@@ -1,0 +1,9 @@
+;; What the model reads of each tool brainyard/store.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"store$get"
+  "Read what was kept under a key with store$put — by this call, an earlier one, or an earlier session of this project. A Tool Lisp body's state between calls."
+ "store$put"
+  "Keep a value under a key, for a later call or session of this project to read with store$get; with no value, forget the key. EDN data only. A Tool Lisp body has no atoms: this is where it keeps state."
+ "store$keys"
+  "The keys store$put has kept, sorted; with a prefix, only those starting so."}

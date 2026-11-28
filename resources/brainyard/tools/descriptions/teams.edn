@@ -1,0 +1,15 @@
+;; What the model reads of each tool brainyard/teams.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"team$create"
+  "Start a team this session leads: members that work at once, each a live session of its own. Returns how to lead one — read it before starting members."
+ "team$spawn"
+  "Start a member of the team: a live session of its own with a role (an agent spec, agent$list names them), optionally on another model and in its own git worktree for code edits. Waits until it is up."
+ "team$assign"
+  "Hand the team a task without waiting. The task must stand on its own: the member has not seen this conversation. With :member, that member gets it and its answer lands as a background task (task$wakeup on its id). Without :member, it goes on the team's board and the next free member takes it — assign every part this way, then task$wakeup once on the dispatcher, which lands when all of them are answered."
+ "team$status"
+  "The team: each member, whether it is up, and each assignment — running, completed or failed — with the start of its answer."
+ "team$resume"
+  "After this session was resumed: bring the team's members back, each its own session continued, under its old role, model and worktree. Assignments that were running are lost — assign them again."
+ "team$close"
+  "Close one member, or with no :member the whole team. Worktrees are left, with their branches, for merging."}

@@ -1,0 +1,13 @@
+;; What the model reads of each tool brainyard/hookbox.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"hook$events"
+  "List the agent events a hook can observe, with their payload keys."
+ "hook$validate"
+  "Check a user hook definition (same args as hook$create, all optional but body) without saving it; with `sample`, run the body on that sample event."
+ "hook$list"
+  "List the registered hooks, built-in and user."
+ "hook$read"
+  "Read a user hook's definition, including its Tool Lisp body."
+ "hook$delete"
+  "Delete a user hook: unregister it and remove its files."}

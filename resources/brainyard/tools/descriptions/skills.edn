@@ -1,0 +1,21 @@
+;; What the model reads of each tool brainyard/skills.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"skills$list"
+  "List skills across types, most local first, the built-in ones last. Optional :type (brainyard|claude|agents|builtin) and :scope (project|user|builtin)."
+ "skills$find"
+  "Search INSTALLED skills by query; ranked, local-only. An empty result means there is no such skill — just carry on."
+ "skills$read"
+  "Read a skill's SKILL.md + metadata without committing to it. To use a skill, call it by name instead — that is what loads it."
+ "skills$write"
+  "Mutate a skill on disk via :op — create (needs :skill-name + :content, the whole SKILL.md with its frontmatter), update (needs :skill-name), or remove (needs :skill-name). Writes brainyard skills only; the change is callable at once as skill$<name>."
+ "skills$reload"
+  "Re-read every skill root and register what is there now — after writing a SKILL.md with write-file, say."
+ "skills$install"
+  "Install a skill package globally (npx skills add -g): 'owner/repo' or 'owner/repo@skill', as skills$search lists them. Callable at once as skill$<name>."
+ "skills$search"
+  "Search the skills marketplace (npx skills find) for packages you could INSTALL — not the skills you have, which skills$find searches. Each result's :package goes to skills$install as it is. A few seconds."
+ "skills$import"
+  "Import an external SKILL.md (the agentskills.io open standard) from a local path — the file, or the directory holding it — as a brainyard skill. Its frontmatter needs a description."
+ "skills$sync"
+  "Update every globally installed skill to its latest version (npx skills update -g)."}

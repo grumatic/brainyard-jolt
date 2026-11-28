@@ -15,7 +15,8 @@
   publishes what it shares to the people it invites, so `share$start` carries
   the `:share/publish` effect, which `:tool-ask-effects` asks about by
   default (RFC-012)."
-  (:require [clojure.string :as str]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.string :as str]
             [brainyard.channel :as channel]
             [brainyard.effect :as fx]
             [brainyard.events :as events]
@@ -282,26 +283,19 @@
   share is the session's (registered behind `:share-tools?`)."
   [_config]
   [{:name "share$status" :kind :command
-    :description "Where sharing stands: whether this session is shared, its page, who is watching and in what role, and the other shares this session started."
+    :description (tool-words/description "share$status")
     :input-schema [:map]
     :output-schema [:or [:map [:status :string]] err]
     :effects #{}
     :fn (fn [_ ctx] {:status (status ctx)})}
    {:name "share$ls" :kind :command
-    :description (str "What can be shared, from byj-share: this project's byj, Claude Code and Codex sessions, tmux terminals and byj's agents,"
-                      " each with the reference share$start takes (byj:ID, claude:ID, codex:ID, term:NAME, agent:NAME).")
+    :description (tool-words/description "share$ls")
     :input-schema [:map [:all {:optional true} [:boolean {:desc "Every session on this machine, not only this project's."}]]]
     :output-schema [:or [:map [:sessions :string]] err]
     :effects #{:process}
     :fn (fn [{:keys [all]} ctx] {:sessions (ls ctx all)})}
    {:name "share$start" :kind :command
-    :description (str "Share this session, or the sessions named, with the people the person invites: they watch it live in a browser."
-                      " With no :refs, this session. :refs names others — byj:ID, claude:ID, codex:ID (an id prefix will do),"
-                      " term:NAME (a tmux session, made if there is none, typed into from the page), agent:NAME (one of byj's agents —"
-                      " prefer a read-only one such as explore; one that does more than read is shared only once the person confirms it —"
-                      " asked by invited callers), or team; several are shared as one group. Each ends when this session does."
-                      " Returns the share's page and its coach and watch links once the relay has it open. Publishes what it shares:"
-                      " never start a share the person did not ask for.")
+    :description (tool-words/description "share$start")
     :input-schema [:map
                    [:refs {:optional true} [:vector {:desc "What to share; none: this session."} :string]]
                    [:target {:optional true} [:string {:desc "link (the default: invite links), or class:CODE to share into a class."}]]
@@ -317,19 +311,13 @@
                                :max-messages max-messages :max-cost max-cost :wait-ms 20000}
                           #(say ctx %))})}
    {:name "share$login" :kind :command
-    :description (str "Log byj-share in to the relay this session shares through, when share$start says this device is not"
-                      " logged in, or is logged in to another relay. Returns at once with a link and a code the person"
-                      " approves in a browser, and the task that completes once they have; logging in replaces byj-share's"
-                      " login for any other relay.")
+    :description (tool-words/description "share$login")
     :input-schema [:map]
     :output-schema [:or [:map [:task-id :string] [:relay :string] [:approve :string] [:next :string]] err]
     :effects #{:process :net/http}
     :fn (fn [_ ctx] (login ctx 15000))}
    {:name "share$record" :kind :command
-    :description (str "Turn a running share's recording on or off: this session's (no :ref) or another by reference (byj:ID, claude:ID,"
-                      " term:NAME, agent:NAME …). On, it keeps the share's events from its start and its screen from now, tells"
-                      " everyone watching, and uploads it for review when the share ends; off, it keeps nothing more. Only when the"
-                      " person asked to record, or to stop recording.")
+    :description (tool-words/description "share$record")
     :input-schema [:map
                    [:on [:boolean {:desc "true to record, false to stop recording."}]]
                    [:ref {:optional true} [:string {:desc "Another share; none: this session's."}]]]
@@ -337,8 +325,7 @@
     :effects #{:share/publish :process}
     :fn (fn [{:keys [on ref]} ctx] {:result (record! ctx (true? on) ref)})}
    {:name "share$control" :kind :command
-    :description (str "Stop, pause or resume a share, or remove someone from this session's. With no :ref, this session's share;"
-                      " with one, that share (byj:ID, claude:ID, term:NAME, agent:NAME …). :user is whom kick removes — share$status names them.")
+    :description (tool-words/description "share$control")
     :input-schema [:map
                    [:action [:enum {:desc "What to do."} "stop" "pause" "resume" "kick"]]
                    [:ref {:optional true} [:string {:desc "Another share to act on; none: this session's."}]]

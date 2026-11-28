@@ -20,7 +20,8 @@
   (provenance P-10), so the local offset is the OS's, as `brainyard.clock`
   keeps it — asked again every few minutes, so a daylight-saving change is
   noticed within them (byj-gly.382)."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [brainyard.clock :as clock]
             [clojure.java.io :as io]
@@ -462,10 +463,7 @@
   no counterpart, as the front end's idle poll is that pass."
   [_config]
   [{:name "schedule$add" :kind :command
-    :description (str "Set a prompt to run as a turn of this session later: on a cron (recurring), at a time, or after"
-                      " a delay (once). It fires only while this session is open, between turns, as if typed;"
-                      " a recurring one expires after 7 days. To pace a loop yourself, add a one-shot with :in"
-                      " and the same prompt, once per iteration.")
+    :description (tool-words/description "schedule$add")
     :input-schema [:map
                    [:prompt [:string {:desc "What to run, as the person would type it — a question, or a /command."}]]
                    [:cron {:optional true} [:string {:desc "Recurring: 5-field cron in local time, 'min hour day-of-month month day-of-week', e.g. '*/10 * * * *' or '0 9 * * 1-5'."}]]
@@ -488,14 +486,7 @@
                          :note "It runs as a turn of this session when due, if the session is idle then."}
                   (:expires-at r) (assoc :expires-at (:expires-at r)))))))}
    {:name "schedule$watch" :kind :command
-    :description (str "Watch something in the background and be woken with a turn when it changes — Claude Code's"
-                      " Monitor. Give :cmd (run every :every, its output and exit compared) or :path (a file's"
-                      " modification time). It fires when :when holds: changed (the default; the first look is"
-                      " the baseline), matches (:re against the output), zero-exit, nonzero-exit, increased,"
-                      " threshold (:cmp :value). Use it to follow a long job — a task$run, a server, a CI run, a"
-                      " log — instead of waiting with task$wait or polling in this turn: end the turn, and the"
-                      " watch brings you back. :once (default true) stops it after it fires; it lives :for"
-                      " (default 1 day). Fires only while this session is open, between turns.")
+    :description (tool-words/description "schedule$watch")
     :input-schema [:map
                    [:cmd {:optional true} [:string {:desc "A shell command to run each look, in the project, e.g. 'tail -n 5 build.log' or 'test -f out/done'."}]]
                    [:path {:optional true} [:string {:desc "Or a file whose modification time is watched."}]]
@@ -529,24 +520,24 @@
                  :note (str "Watching. End this turn; you will be woken with a turn when it fires"
                             (when (:once r) ", once") ". schedule$remove " (:id r) " stops it.")}))))}
    {:name "schedule$list" :kind :command
-    :description "This session's scheduled prompts and watches: id, cron, once or what it watches, next fire, expiry, last run."
+    :description (tool-words/description "schedule$list")
     :input-schema [:map]
     :output-schema [:map [:schedules [:vector :any]]]
     :effects #{:fs/read}
     :fn (fn [_ ctx] {:schedules (mapv summary (filter #(mine? % (session-of ctx)) (specs (project-of ctx))))})}
    {:name "schedule$remove" :kind :command
-    :description "Remove a scheduled prompt — how a loop is stopped."
+    :description (tool-words/description "schedule$remove")
     :input-schema id-arg :output-schema [:or [:map [:removed :string]] err] :effects #{:fs/write}
     :fn (fn [{:keys [id]} ctx] (if (remove! (project-of ctx) id) {:removed id} {:error (str "no schedule '" id "'")}))}
    {:name "schedule$enable" :kind :command
-    :description "Enable a scheduled prompt, its next fire worked out again."
+    :description (tool-words/description "schedule$enable")
     :input-schema id-arg :output-schema [:or [:map [:id :string] [:enabled :boolean]] err] :effects #{:fs/write}
     :fn (fn [{:keys [id]} ctx] (let [r (set-enabled! (project-of ctx) id true)] (if (:error r) r {:id id :enabled true})))}
    {:name "schedule$disable" :kind :command
-    :description "Disable a scheduled prompt; it is kept, and does not fire."
+    :description (tool-words/description "schedule$disable")
     :input-schema id-arg :output-schema [:or [:map [:id :string] [:enabled :boolean]] err] :effects #{:fs/write}
     :fn (fn [{:keys [id]} ctx] (let [r (set-enabled! (project-of ctx) id false)] (if (:error r) r {:id id :enabled false})))}
    {:name "schedule$run-now" :kind :command
-    :description "Run a scheduled prompt at the session's next idle moment; its schedule after that is unchanged."
+    :description (tool-words/description "schedule$run-now")
     :input-schema id-arg :output-schema [:or [:map [:id :string] [:queued :boolean]] err] :effects #{:fs/write}
     :fn (fn [{:keys [id]} ctx] (let [r (run-now! (project-of ctx) id)] (if (:error r) r {:id id :queued true})))}])

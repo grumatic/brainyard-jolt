@@ -1,0 +1,15 @@
+;; What the model reads of each tool brainyard/terminal.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"terminal$list"
+  "The terminal programs of this project: each one the Terminal view offers (a shell, editors, htop, the event log, the project's own) with whether it is installed and whether it is running in its tmux session, for how long; and any of this project's programs running that the catalogue does not name. A running one outlives this session."
+ "terminal$start"
+  "Start one of terminal$list's programs that is not running, by name, in a tmux session of its own in the project directory. It keeps running after this session ends until terminal$stop stops it. Use terminal$send to type into it and terminal$capture to read its screen. Only what the catalogue names (.brainyard/terminal.edn adds more)."
+ "terminal$stop"
+  "Stop a running terminal program of this project, by name: its tmux session ends, and whatever runs in it with it."
+ "terminal$send"
+  "Type into a running terminal program: :text as it is, then Enter unless :enter is false — in a shell, a command it runs; or :keys, tmux's names for keys in order (C-c to interrupt, Up, Escape, q). Read what it did with terminal$capture."
+ "terminal$capture"
+  "What a running terminal program's screen shows now; with :lines, that many lines back from the bottom, scrollback included. The newest part, when there is more than fits."
+ "terminal$context"
+  "What the person is looking at in their editor, when one of this project's terminal programs that can say runs (an entry of .brainyard/terminal.edn with :context; for Emacs, emacs$context): the file and buffer, the line and column of the cursor, whether it has unsaved edits, and the text they selected, if any. Ask when they say \"this\", \"here\" or \"the selection\" about code they are looking at."}

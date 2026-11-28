@@ -25,7 +25,8 @@
       - [ ] [check] run the suite
 
   The tag is advisory. A workflow routes on it; nothing enforces it."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.config :as config]))
@@ -193,10 +194,7 @@
   [config]
   (when (:todos? config true)
     [{:name "todo$create" :kind :command
-      :description (str "Write a checklist that OUTLIVES this turn, as <slug>.md in the project's todos folder, kept outside the repository."
-                        " Use it when a task has more steps than one turn should carry: the list is"
-                        " what lets a later turn pick up where this one stopped. An item may name how"
-                        " it should be done with `via`.")
+      :description (tool-words/description "todo$create")
       :input-schema [:map [:slug [:string {:desc "File name, e.g. retry-budget."}]]
                           [:title {:optional true} :string]
                           [:items [:vector {:desc "Strings, or maps {text, via}."} [:or :string :map]]]
@@ -208,7 +206,7 @@
                  (catch Throwable e {:error (ex-message e)})))}
 
      {:name "todo$list" :kind :command
-      :description "List the checklists this project has, with how much of each is left."
+      :description (tool-words/description "todo$list")
       :input-schema [:map]
       :output-schema [:map [:todos [:vector [:map [:slug :string] [:title :string] [:count :int] [:remaining :int]]]]]
       :effects #{:fs/read}
@@ -220,7 +218,7 @@
                               :remaining (count (remove :done? (:items t)))}))}))}
 
      {:name "todo$read" :kind :command
-      :description "Read a checklist: every item, its index, whether it is done, and its `via` tag."
+      :description (tool-words/description "todo$read")
       :input-schema [:map [:slug :string]]
       :output-schema [:or [:map [:slug :string] [:title :string] [:plan {:optional true} :string] [:path :string]
                         [:remaining :int] [:has-work :boolean] [:items [:vector item-schema]]]
@@ -231,8 +229,7 @@
                  (catch Throwable e {:error (ex-message e)})))}
 
      {:name "todo$next" :kind :command
-      :description (str "The first item not yet done. Returns :exhausted true when the list is"
-                        " finished, which is how a loop over a checklist knows to stop.")
+      :description (tool-words/description "todo$next")
       :input-schema [:map [:slug :string]]
       :output-schema [:or {:desc ":index and :text are nil once :exhausted"}
                  [:map [:index [:maybe :int]] [:text [:maybe :string]] [:via {:optional true} :string]
@@ -244,9 +241,7 @@
                  (catch Throwable e {:error (ex-message e)})))}
 
      {:name "todo$done" :kind :command
-      :description (str "Mark one item done, by index or by enough of its text to be unique."
-                        " Mark it only when there is evidence it IS done — a checklist that lies"
-                        " is worse than no checklist, because the next turn believes it.")
+      :description (tool-words/description "todo$done")
       :input-schema [:map [:slug :string]
                           [:index {:optional true} :int]
                           [:text {:optional true} [:string {:desc "Enough of the item to be unique."}]]]
@@ -259,7 +254,7 @@
                  (catch Throwable e {:error (ex-message e)})))}
 
      {:name "todo$add" :kind :command
-      :description "Append items to a checklist — what a step turned out to need that the plan missed."
+      :description (tool-words/description "todo$add")
       :input-schema [:map [:slug :string]
                           [:items [:vector [:or :string :map]]]]
       :output-schema [:or [:map [:slug :string] [:added :int] [:count :int] [:path :string]] error-schema]

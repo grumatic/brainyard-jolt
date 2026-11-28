@@ -14,7 +14,8 @@
   One EDN map per project, `~/.brainyard/projects/<slug>/store.edn`: a string key to any EDN
   value. Written whole and atomically, one writer at a time in a process — a
   body's `pmap` may put from several threads at once."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint]
@@ -83,8 +84,7 @@
   "`store$get`, `store$put` and `store$keys`."
   [_config]
   [{:name "store$get" :kind :command
-    :description (str "Read what was kept under a key with store$put — by this call, an earlier one, or an"
-                      " earlier session of this project. A Tool Lisp body's state between calls.")
+    :description (tool-words/description "store$get")
     :input-schema [:map [:key [:string {:desc "The key it was put under."}]]]
     :output-schema [:or [:map [:key :string] [:found :boolean] [:value {:optional true} :any]] error-schema]
     :effects #{:fs/read :store/read}
@@ -95,9 +95,7 @@
                   (contains? m key) (assoc :value (get m key))))))}
 
    {:name "store$put" :kind :command
-    :description (str "Keep a value under a key, for a later call or session of this project to read with"
-                      " store$get; with no value, forget the key. EDN data only. A Tool Lisp body has no"
-                      " atoms: this is where it keeps state.")
+    :description (tool-words/description "store$put")
     :input-schema [:map [:key [:string {:desc "A name for it, e.g. last-scan."}]]
                    [:value {:optional true} [:any {:desc "Any data: a map, a vector, a string, a number. Omit to forget the key."}]]]
     :output-schema [:or [:map [:key :string] [:stored {:optional true} :boolean] [:removed {:optional true} :boolean]]
@@ -106,7 +104,7 @@
     :fn (fn [{:keys [key value]} ctx] (put! (:config ctx) key value))}
 
    {:name "store$keys" :kind :command
-    :description "The keys store$put has kept, sorted; with a prefix, only those starting so."
+    :description (tool-words/description "store$keys")
     :input-schema [:map [:prefix {:optional true} [:string {:desc "Only keys starting with this."}]]]
     :output-schema [:map [:keys [:vector :string]]]
     :effects #{:fs/read :store/read}

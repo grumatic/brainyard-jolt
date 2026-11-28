@@ -16,7 +16,8 @@
   begins and puts `prompts/coach.edn`, filled in, into the turn's
   user-context (`context-text`), as `@here` puts the editor. How to coach is
   that prompt's, not this namespace's (RFC-001)."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.persist :as persist]))
@@ -86,11 +87,7 @@
   "`coach$set`, the session's own agent's: where the stance is set and ended."
   [config]
   [{:name "coach$set" :kind :command
-    :description (str "Start coaching the person toward a goal, or stop. While it is on, every turn is told the goal and how to coach:"
-                      " they write the code; you hint by degrees, check what they wrote and leave findings as notes, and write their"
-                      " code only when they ask. It lasts until stopped, across turns and a resume. :level beginner or practitioner"
-                      " (the default) says how much a hint gives away. :subject emacs coaches Emacs itself, from a lesson"
-                      " (emacs$lessons), checking what they did with emacs$habits; code (the default) their code.")
+    :description (tool-words/description "coach$set")
     :input-schema [:map
                    [:goal {:optional true} [:string {:desc "What the person wants to be able to do, in their words."}]]
                    [:level {:optional true} [:string {:desc "beginner or practitioner."}]]

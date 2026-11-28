@@ -21,7 +21,8 @@
   brainyard runs jobs on a fixed pool of four daemon threads; here they are ebb
   tasks on `blk`, which is an unbounded cached pool, so there is no queue and no
   pool size to get wrong."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint]
             [clojure.string :as str]
@@ -538,11 +539,7 @@
   before a wakeup could fire — brainyard's rule."
   []
   {:name "task$wakeup" :kind :command
-   :description (str "Park this turn and be resumed automatically when a background task finishes."
-                     " Answer in one line and STOP — do not call another tool; you will be given a fresh"
-                     " turn when it lands, with this conversation behind you. Use this for a long wait,"
-                     " where task$wait would hold the session open doing nothing;"
-                     " use task$wait for a short one.")
+   :description (tool-words/description "task$wakeup")
    :input-schema [:map [:task-id {:optional true} [:string {:desc "The task to wait for."}]]
                        [:delay-ms {:optional true} [:int {:desc "Or resume after this long, with no task."}]]
                        [:note {:optional true} [:string {:desc "A line to yourself, given back when you resume."}]]]
@@ -587,11 +584,7 @@
   a turn submitter (`task$wakeup`) and streamed output."
   []
   [{:name "task$run" :kind :command
-    :description (str "Start a job in the background and get a task-id back. Use it for work you know will"
-                      " take minutes — a build, a long test run — so the turn is not spent waiting."
-                      " job-type \"bash\" takes `command`; job-type \"tool\" takes `tool-id` and `tool-args`"
-                      " and runs any registered tool, gates and all. Poll with task$detail, block with task$wait,"
-                      " stop with task$cancel.")
+    :description (tool-words/description "task$run")
     :input-schema [:map [:job-type [:string {:desc "\"bash\" or \"tool\""}]]
                         [:command {:optional true} [:string {:desc "bash: the command line"}]]
                         [:tool-id {:optional true} [:string {:desc "tool: the tool to run"}]]
@@ -639,7 +632,7 @@
               :else {:error (str "Unknown :job-type '" job-type "'. Valid: bash tool")})))}
 
    {:name "task$list" :kind :command
-    :description "Every background task this session started, with its status."
+    :description (tool-words/description "task$list")
     :input-schema [:map [:status {:optional true} [:string {:desc "Filter: running, completed, failed, cancelled"}]]]
     :output-schema [:map [:tasks [:vector [:map [:id :string] [:name :string]
                                      [:status [:enum :running :completed :failed :cancelled]]
@@ -660,10 +653,7 @@
             {:tasks rows :total (count rows)}))}
 
    {:name "task$detail" :kind :command
-    :description (str "One task: its status, how long it has been running, and whatever it has printed SO FAR."
-                      " :last-output-age-ms is how long since it last printed anything — that, not elapsed time,"
-                      " is what tells a working task from a wedged one. A task can be quiet for minutes and be"
-                      " perfectly healthy, so do not cancel one on a quiet window alone.")
+    :description (tool-words/description "task$detail")
     :input-schema [:map [:task-id [:string {:desc "e.g. task-mkq8f3x2-7"}]]]
     :output-schema [:or {:desc ":output is what it has printed so far; :result, :completed-at and :output-file arrive once it has finished"}
                detail-schema error-schema]
@@ -674,9 +664,7 @@
             (or (collected! ctx (snapshot (:task-registry ctx) task-id)) (not-found task-id))))}
 
    {:name "task$wait" :kind :command
-    :description (str "Block until a task finishes, or until `timeout-ms` passes — on timeout it is reported as still running, never cancelled."
-                      " A wait is held to the most any call is waited on (:auto-background-timeout-ms, 180000 ms by default):"
-                      " for longer, park with task$wakeup and end the turn.")
+    :description (tool-words/description "task$wait")
     :input-schema [:map [:task-id :string]
                         [:timeout-ms [:int {:desc "how long to wait before giving up on waiting; at most :auto-background-timeout-ms"}]]]
     :output-schema [:or {:desc "the task$detail shape; :still-running true when the wait timed out, and the task is not cancelled"}
@@ -701,7 +689,7 @@
                 (not-found task-id)))))}
 
    {:name "task$cancel" :kind :command
-    :description "Stop a running task. A bash task's whole process tree goes with it."
+    :description (tool-words/description "task$cancel")
     :input-schema [:map [:task-id :string]]
     :output-schema [:or [:map [:result :string]] error-schema]
     :effects #{:dynamic}

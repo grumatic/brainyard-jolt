@@ -19,7 +19,8 @@
     - the call graph — a composite may not reach itself (no recursion);
     - argument checks on literal tool-call maps;
     - effects — a composite's :effects are the union over what it can call."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint]
             [clojure.string :as str]
@@ -381,7 +382,7 @@
                   (cond-> (assoc (describe tool) :name (user-tool-name (:name tool)) :persisted path)
                     repaired (assoc :repaired (repaired-note repaired)))))))}
      {:name "tool$validate" :kind :command
-      :description "Check a user tool definition (same args as tool$create) without saving it."
+      :description (tool-words/description "tool$validate")
       :input-schema definition-schema
       :output-schema [:or [:map [:valid :boolean] [:effects [:vector :keyword]] [:calls [:vector :string]]
                         [:repaired {:optional true} [:map [:note :string] [:lines [:vector :string]]]]]
@@ -395,13 +396,13 @@
                          :effects (vec (sort (effects (atom (assoc @reg (:name tool) tool)) (:name tool))))}
                   repaired (assoc :repaired (repaired-note repaired))))))}
      {:name "tool$list" :kind :command
-      :description "List user tools."
+      :description (tool-words/description "tool$list")
       :input-schema [:map]
       :output-schema [:map [:tools [:vector [:map [:id :string] [:description :string] [:effects [:vector :keyword]]]]]]
       :effects #{}
       :fn (fn [_ _] {:tools (mapv describe (user-tools reg))})}
      {:name "tool$read" :kind :command
-      :description "Read a user tool's definition, including its Tool Lisp body."
+      :description (tool-words/description "tool$read")
       :input-schema [:map [:name [:string {:desc "tool name or id"}]]]
       :output-schema [:or [:map [:id :string] [:name :string] [:description :string]
                         [:input-schema [:vector :any]]
@@ -415,7 +416,7 @@
                      {:name (user-tool-name (:name t)) :calls (vec (sort (:calls t)))})
               {:error (str "no user tool " name)}))}
      {:name "tool$delete" :kind :command
-      :description "Delete a user tool and its files."
+      :description (tool-words/description "tool$delete")
       :input-schema [:map [:name [:string {:desc "tool name or id"}]]]
       :output-schema [:or {:desc ":dependents are the tool ids still calling it"}
                  [:map [:deleted :string] [:dependents [:vector :string]]]
@@ -443,7 +444,7 @@
                 {:error (str "Invalid Tool Lisp:\n- " (str/join "\n- " problems))}
                 (run-composite reg form (get-in ctx [:config :tool-lisp-budget]) (or args {}) ctx))))}
      {:name "tool$test" :kind :command
-      :description "Run a tool (usually a user tool you just defined) on sample args and return its result."
+      :description (tool-words/description "tool$test")
       :input-schema [:map [:name [:string {:desc "tool name or id, e.g. count-lines"}]]
                           [:args {:optional true} [:map {:desc "the tool's args"}]]]
       :output-schema "the tool's own result; or, when its :output-schema is a schema the result does not match, {:result, :output-problems [string]}"

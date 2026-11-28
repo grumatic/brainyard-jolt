@@ -28,7 +28,8 @@
   brainyard's, which the registry refreshes after so a skill written in a turn
   is callable in it. What an agent learns becomes a skill through
   `brainyard.self-improve`, staged for a person to accept."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.agents :as agents]
@@ -415,7 +416,7 @@
   ported."
   [config]
   [{:name "skills$list" :kind :command
-    :description "List skills across types, most local first, the built-in ones last. Optional :type (brainyard|claude|agents|builtin) and :scope (project|user|builtin)."
+    :description (tool-words/description "skills$list")
     :input-schema [:map type-param
                         [:scope {:optional true} [:string {:desc "project | user | builtin (omit for all)"}]]]
     :output-schema [:map {:desc "most local first; a shadowed skill names the one that shadows it"}
@@ -426,7 +427,7 @@
           (let [ss (of-type (resolve-names (list-skills config)) type scope)]
             {:result (mapv #(assoc (summary %) :path (:path %)) ss) :count (count ss)}))}
    {:name "skills$find"  :kind :command
-    :description "Search INSTALLED skills by query; ranked, local-only. An empty result means there is no such skill — just carry on."
+    :description (tool-words/description "skills$find")
     :input-schema [:map [:query [:string {:desc "key nouns of the task"}]]
                         type-param
                         [:limit {:optional true} [:int {:desc "max matches (default 20)"}]]]
@@ -448,7 +449,7 @@
                              hits)
                :count (count hits)})))}
    {:name "skills$read" :kind :command
-    :description "Read a skill's SKILL.md + metadata without committing to it. To use a skill, call it by name instead — that is what loads it."
+    :description (tool-words/description "skills$read")
     :input-schema [:map [:skill-name [:string {:desc "skill name"}]]
                         type-param
                         [:scope {:optional true} [:string {:desc "project | user | builtin"}]]]
@@ -779,9 +780,7 @@
   any other write."
   [config reg & [run-turn]]
   [{:name "skills$write" :kind :command
-    :description (str "Mutate a skill on disk via :op — create (needs :skill-name + :content, the whole SKILL.md"
-                      " with its frontmatter), update (needs :skill-name), or remove (needs :skill-name)."
-                      " Writes brainyard skills only; the change is callable at once as skill$<name>.")
+    :description (tool-words/description "skills$write")
     :input-schema [:map
                    [:op [:enum "create" "update" "remove"]]
                    [:skill-name [:string {:desc "lowercase-kebab; other characters are dropped"}]]
@@ -799,14 +798,14 @@
     :effects #{:fs/write :tools/define}
     :fn (fn [args _] (write! config reg run-turn args))}
    {:name "skills$reload" :kind :command
-    :description "Re-read every skill root and register what is there now — after writing a SKILL.md with write-file, say."
+    :description (tool-words/description "skills$reload")
     :input-schema [:map]
     :output-schema [:map [:registered [:vector :string]] [:unregistered [:vector :string]]
                     [:shadowed [:vector :any]] [:total :int]]
     :effects #{:fs/read :tools/define}
     :fn (fn [_ _] (refresh! config reg run-turn))}
    {:name "skills$install" :kind :command
-    :description "Install a skill package globally (npx skills add -g): 'owner/repo' or 'owner/repo@skill', as skills$search lists them. Callable at once as skill$<name>."
+    :description (tool-words/description "skills$install")
     :input-schema [:map [:package [:string {:desc "owner/repo or owner/repo@skill"}]]
                    [:agent {:optional true} [:string {:desc "the agents to link it into, e.g. claude-code or codex, * for all; omit for the ones the CLI finds"}]]]
     :output-schema [:or [:map [:result :string] [:registered [:vector :string]]]
@@ -814,9 +813,7 @@
     :effects #{:process :net/http :fs/write :tools/define}
     :fn (fn [args _] (install! config reg run-turn args))}
    {:name "skills$search" :kind :command
-    :description (str "Search the skills marketplace (npx skills find) for packages you could INSTALL — not the"
-                      " skills you have, which skills$find searches. Each result's :package goes to skills$install as it is."
-                      " A few seconds.")
+    :description (tool-words/description "skills$search")
     :input-schema [:map [:query [:string {:desc "what the skill should do, e.g. typescript, pdf, deploy"}]]
                    [:owner {:optional true} [:string {:desc "only packages from this GitHub owner"}]]]
     :output-schema [:or [:map [:result :string] [:packages [:vector [:map [:package :string] [:installs {:optional true} :string]]]]]
@@ -824,7 +821,7 @@
     :effects #{:process :net/http}
     :fn (fn [args _] (search! args))}
    {:name "skills$import" :kind :command
-    :description "Import an external SKILL.md (the agentskills.io open standard) from a local path — the file, or the directory holding it — as a brainyard skill. Its frontmatter needs a description."
+    :description (tool-words/description "skills$import")
     :input-schema [:map [:path [:string {:desc "a SKILL.md, or a directory holding one"}]]
                    [:name {:optional true} [:string {:desc "the skill's name; else the frontmatter's name, else the directory's"}]]
                    [:scope {:optional true} [:enum {:desc "project (default) or user"} "project" "user"]]]
@@ -836,7 +833,7 @@
     :effects #{:fs/read :fs/write :tools/define}
     :fn (fn [args _] (import! config reg run-turn args))}
    {:name "skills$sync" :kind :command
-    :description "Update every globally installed skill to its latest version (npx skills update -g)."
+    :description (tool-words/description "skills$sync")
     :input-schema [:map]
     :output-schema [:or [:map [:result :string]] [:map [:error :string]]]
     :effects #{:process :net/http :fs/write :tools/define}

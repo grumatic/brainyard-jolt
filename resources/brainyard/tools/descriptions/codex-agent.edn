@@ -1,0 +1,17 @@
+;; What the model reads of each tool brainyard/codex_agent.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"codex$sessions"
+  "The project's Codex sessions a task could go to: running here, in another terminal, or saved; which ones you already drive."
+ "codex$open"
+  "Hand a brief to a Codex session: a new one (session \"new\"), one running here, or a saved one resumed."
+ "codex$await"
+  "Wait until a Codex session's turn is over: done, waiting on an approval dialog, gone, or timed out; what it answered."
+ "codex$say"
+  "Tell a Codex session something as the person would: typed when one short line, else from a file it is pointed at."
+ "codex$choose"
+  "Answer the approval dialog a Codex session shows: 1 yes, 2 yes and don't ask again, 3 no (which ends its turn)."
+ "codex$handoff"
+  "Hand back a finished delegation's branch: what the session changed committed for it (it cannot commit in Codex's sandbox), its commits and changed files, and the commands that push it and open its pull request. Never pushes or merges."
+ "codex$finish"
+  "Record how a delegation ended: its verdict and the report."}

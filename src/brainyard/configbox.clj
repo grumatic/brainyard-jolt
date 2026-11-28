@@ -18,7 +18,8 @@
   session that wrote it, so an agent that can widen its own permission gate can
   widen it permanently, and the one thing a gate must not be is something the
   gated party can edit."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
@@ -461,12 +462,7 @@
   [cfg]
   (into
    [{:name "config$read" :kind :command
-     :description (str "This run's effective settings: every key, its value, and WHICH LAYER it came"
-                       " from (default, the user's file, the project's file, a CLI flag, the"
-                       " environment). Read it before proposing a change — a key set in a file can be"
-                       " outranked by a flag, and then editing the file does nothing."
-                       " :default is what unsetting a key would give back, and :changed? marks"
-                       " the keys this project actually differs from stock on.")
+     :description (tool-words/description "config$read")
      :input-schema [:map [:key {:optional true} [:string {:desc "One key, e.g. max-iterations. Omit for all."}]]
                          [:family {:optional true} [:string {:desc "Only this family: tools, permissions, session, context, hooks…"}]]]
      :output-schema [:or {:desc "one row per key; :source is the layer it came from (default, user, project, caller, env), :default what unsetting it gives back, :files the config.edn files that exist"}
@@ -492,12 +488,7 @@
                                   [:project :user]))})))}
 
     {:name "config$reload" :kind :command
-     :description (str "Re-read the config files and say what CHANGED and what is SHADOWED."
-                       " A key can be edited in the file and still not take effect, because a CLI"
-                       " flag or an environment variable outranks it — that is the whole of"
-                       " \"I edited config.edn and nothing happened\". A change is put in force at the"
-                       " start of the NEXT turn — this turn keeps the tools and prompt it began with —"
-                       " except the few keys read only when a run starts, which wait for the next session.")
+     :description (tool-words/description "config$reload")
      :input-schema [:map]
      :output-schema [:map {:desc ":changed is in force from the next turn; :shadowed is changed on disk but outranked by a flag or the environment"}
                [:changed [:vector [:map [:key :keyword] [:from :any] [:to :any]
@@ -519,7 +510,7 @@
                                "."))))}
 
     {:name "config$snapshots" :kind :command
-     :description "Saved copies of config.edn, newest first — one is taken before every write."
+     :description (tool-words/description "config$snapshots")
      :input-schema [:map [:scope {:optional true} [:string {:desc "project | user | auto (default auto)"}]]]
      :output-schema [:map {:desc "newest first"}
                [:snapshots [:vector [:map [:path :string] [:name :string] [:bytes :int] [:mtime :int]]]]
@@ -531,12 +522,7 @@
 
    (when (:config-write? cfg true)
      [{:name "config$set" :kind :command
-       :description (str "Change one setting and persist it to .brainyard/config.edn."
-                         " The value is a STRING, coerced by the key's declared type."
-                         " A snapshot is taken first and the file is re-read after, so a write that"
-                         " does not read back is put straight back."
-                         " Permission and sandbox settings CANNOT be changed this way — say what you"
-                         " would change and why, and let the person edit the file.")
+       :description (tool-words/description "config$set")
        :input-schema [:map [:key [:string {:desc "The key, e.g. max-iterations."}]]
                            [:value [:string {:desc "The new value, as text; coerced by the key's type."}]]
                            [:reason [:string {:desc "Why — it names the snapshot."}]]
@@ -563,7 +549,7 @@
                          {:reason reason :expected-mtime expected-mtime})))}
 
       {:name "config$unset" :kind :command
-       :description "Remove a key from config.edn, so its default (or a lower layer) applies again."
+       :description (tool-words/description "config$unset")
        :input-schema [:map [:key [:string {:desc "The key to remove."}]]
                            [:reason [:string {:desc "Why — it names the snapshot."}]]
                            [:scope {:optional true} [:string {:desc "project | user | auto (default auto)"}]]]
@@ -584,7 +570,7 @@
                        {:reason reason :unset? true}))}
 
       {:name "config$revert" :kind :command
-       :description "Put back a saved copy of config.edn — by :steps (1 = most recent) or :path."
+       :description (tool-words/description "config$revert")
        :input-schema [:map [:steps {:optional true} [:int {:desc "1 is the most recent snapshot."}]]
                            [:path {:optional true} [:string {:desc "An exact snapshot path from config$snapshots."}]]
                            [:scope {:optional true} [:string {:desc "project | user | auto (default auto)"}]]]

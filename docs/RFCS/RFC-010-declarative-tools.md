@@ -47,6 +47,16 @@ zone (RFC-005).
 | primitive | `resources/brainyard/tools/<name>.edn` (listed in `index.edn`) | `:impl` names a kernel fn in `brainyard.tools/impls` (or `brainyard.discovery/impls`) |
 | user tool (composite) | `<working-dir>/.brainyard/tools/<name>.edn` | Tool Lisp: `<name>.clj` beside it, or an inline `:body` |
 
+A built-in tool that is neither — a command whose body is a fn in the
+namespace that owns its family (`todo$…` in `brainyard.todo`, `agent$<name>`
+in `brainyard.agents`) — keeps its schema and body there and its description
+in `resources/brainyard/tools/descriptions/<namespace>.edn`, by tool id,
+read with `brainyard.tool-words/description` (byj-2e8.5). A description with
+a part known only at run time names it `{name}` — an agent's own line, an MCP
+server's name, a configured limit — filled in one pass. The few whose
+description is a prompt of its own (`tool$create`, `tool$run`,
+`hook$create`, `meta-agent$create`) read it whole.
+
 ```clojure
 ;; primitive
 {:name "read-file" :description "…" :input-schema [:map [:path [:string {:desc "…"}]] …]
@@ -849,6 +859,7 @@ language anyway — and then the pipeline is `let` with extra syntax.
 
 | invariant | enforced by |
 |---|---|
+| Every built-in tool's description is a resource: no tool map in `src/` holds its own, every one a tool asks for is in `tools/descriptions/`, and every one there is asked for; the index names every file. | `tool-words-test/every-tool-description-is-a-resource`, `tool-words-test/every-description-is-asked-for-and-every-one-asked-for-is-there`, `tool-words-test/every-descriptions-file-is-in-the-index` |
 | A spec's `:arg-aliases` are renamed before its schema is checked; an alias and its canonical name with different values are refused, naming both; a missing argument's problem names its aliases; a turn records the call as sent. | `agent-test/update-file-takes-the-names-models-send`, `agents-test/ask-takes-the-name-the-dispatch-result-gives` |
 | A `tool$run` body has a shape its literals do not change, nor the reader's numbering of a `#(…)` literal's parameters; only a run that worked, in a turn that answered, is a candidate; a judge is called when a shape repeats or a body composes tools. | `tool-distill-test/a-body-has-a-shape`, `tool-distill-test/only-a-run-that-worked-in-a-turn-that-answered-is-a-candidate`, `tool-distill-test/a-judge-is-called-when-a-body-repeats-or-composes` |
 | A draft is staged only when it compiles and, if it only reads, reproduces its runs; one that could do more is staged unproved and never run for the judge. | `tool-distill-test/a-draft-is-proved-before-it-is-staged` |

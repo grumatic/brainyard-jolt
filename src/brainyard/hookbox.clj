@@ -14,7 +14,8 @@
   on a gated event returns a decision — brainyard's v1 refuses gated user
   hooks; an interpreted, budgeted body makes it safe here (divergence
   `user-hooks-may-gate`)."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint]
             [clojure.string :as str]
@@ -319,7 +320,7 @@
   and persisting under `dir`."
   [hook-reg tool-reg dir]
   [{:name "hook$events" :kind :command
-    :description "List the agent events a hook can observe, with their payload keys."
+    :description (tool-words/description "hook$events")
     :input-schema [:map]
     :output-schema [:map {:desc "a hook on a gated event returns a decision"}
               [:events [:vector [:map [:event :string] [:payload-keys [:vector :keyword]]
@@ -346,7 +347,7 @@
                 (hooks/register! hook-reg entry)
                 {:id (:id entry) :event (subs (str (:event entry)) 1) :persisted path}))))}
    {:name "hook$validate" :kind :command
-    :description "Check a user hook definition (same args as hook$create, all optional but body) without saving it; with `sample`, run the body on that sample event."
+    :description (tool-words/description "hook$validate")
     :input-schema [:map [:body [:string {:desc "Tool Lisp: (fn [event] ...)"}]]
                         [:id {:optional true} :string]
                         [:event {:optional true} :string]
@@ -381,7 +382,7 @@
                           (catch Throwable e
                             (if (fx/cancelled? e) (throw e) {:error (str "Tool Lisp: " (ex-message e))})))))))}
    {:name "hook$list" :kind :command
-    :description "List the registered hooks, built-in and user."
+    :description (tool-words/description "hook$list")
     :input-schema [:map]
     :output-schema [:map
               [:hooks [:vector [:map [:id :string] [:event :string] [:priority :int] [:source :keyword]
@@ -394,7 +395,7 @@
                            (:match-spec e) (assoc :match (:match-spec e))
                            (:doc e) (assoc :doc (:doc e)))))})}
    {:name "hook$read" :kind :command
-    :description "Read a user hook's definition, including its Tool Lisp body."
+    :description (tool-words/description "hook$read")
     :input-schema [:map [:id [:string {:desc "hook id"}]]]
     :output-schema [:or
               [:map [:id :string] [:event :string] [:match [:map-of :keyword :any]] [:priority :int]
@@ -408,7 +409,7 @@
               (:on-error-policy e) (assoc :on-error (:on-error-policy e)))
             {:error (str "no user hook named \"" id "\"")}))}
    {:name "hook$delete" :kind :command
-    :description "Delete a user hook: unregister it and remove its files."
+    :description (tool-words/description "hook$delete")
     :input-schema [:map [:id [:string {:desc "hook id"}]]]
     :output-schema [:or [:map [:deleted :string]] [:map [:error :string]]]
     :effects #{:fs/write :hooks/define}

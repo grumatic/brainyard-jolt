@@ -20,7 +20,8 @@
   changes the system message of every later turn, so accepting one is reachable
   only from the CLI (`by programs accept`), never as a tool — an agent that
   could accept its own proposal would be choosing its own future instructions."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -620,8 +621,7 @@
   [config]
   (when (:programs? config true)
     [{:name "program$list" :kind :command
-      :description (str "List predictors with their params source, datasets and the metrics available."
-                        " Start here before evaluating or compiling anything.")
+      :description (tool-words/description "program$list")
       :input-schema [:map]
       :output-schema [:map {:desc ":params is where a predictor's params come from, or \"none\"; :strategy and :params are absent for one that does not load"}
                 [:predictors [:vector [:map [:id :string] [:datasets [:vector :string]]
@@ -642,9 +642,7 @@
                :metrics (into (sorted-map) (update-vals metrics :doc))}))}
 
      {:name "program$build-dataset" :kind :command
-      :description (str "Build a dataset for a predictor from this project's prediction log."
-                        " The labels are the model's OWN past outputs — silver, not gold — so say so"
-                        " when reporting anything measured on it. Built from the event log.")
+      :description (tool-words/description "program$build-dataset")
       :input-schema [:map [:predictor-id [:string {:desc "The predictor's id."}]]
                           [:name [:string {:desc "Dataset name."}]]
                           [:session-id {:optional true} [:string {:desc "One session; default every session."}]]
@@ -662,10 +660,7 @@
                  (catch Throwable e (merge (err e) (select-keys (ex-data e) [:records :sessions :skipped])))))}
 
      {:name "program$eval" :kind :command
-      :description (str "Measure a predictor on a dataset with a named metric; writes a report."
-                        " Use :repeats 3 or more for anything you intend to COMPARE — a single pass"
-                        " cannot tell a real difference from run-to-run noise, and never report a"
-                        " score without its spread.")
+      :description (tool-words/description "program$eval")
       :input-schema [:map [:predictor-id :string]
                           [:dataset :string]
                           [:metric {:optional true} [:string {:desc "Default exact-match; program$list has the names."}]]
@@ -704,10 +699,7 @@
                  (catch Throwable e (err e))))}
 
      {:name "program$compile" :kind :command
-      :description (str "Propose demos for a predictor from a dataset and write a PROPOSAL for a person"
-                        " to review. Nothing is applied: a params file changes every later turn's prompt,"
-                        " so only `by programs accept` installs one. A proposal whose winner is zero-shot"
-                        " is a result, not a failure.")
+      :description (tool-words/description "program$compile")
       :input-schema [:map [:predictor-id :string]
                           [:dataset :string]
                           [:optimizer {:optional true} [:string {:desc "labeled-few-shot|bootstrap-few-shot (default bootstrap-few-shot)."}]]
@@ -739,7 +731,7 @@
                  (catch Throwable e (err e))))}
 
      {:name "program$proposals" :kind :command
-      :description "List a predictor's proposals and their review status. Accepting one is a person's job."
+      :description (tool-words/description "program$proposals")
       :input-schema [:map [:predictor-id :string]]
       :output-schema [:or {:desc "newest first"}
                 [:map [:proposals [:vector [:map [:proposal-id :string] [:status :string]

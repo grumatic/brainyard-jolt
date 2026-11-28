@@ -1,0 +1,5 @@
+;; What the model reads of each tool brainyard/trajectory_export.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"trajectory$export"
+  "Write this project's recorded turns out as a dataset — every turn's question, tool calls and answer, in the OpenAI fine-tuning shape. Secrets are redacted unless you turn that off. Use it when someone asks for training data or wants the agent's history in one file; to ASK what happened, prefer log$search or memory$history."}

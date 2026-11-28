@@ -1,0 +1,17 @@
+;; What the model reads of each tool brainyard/schedule.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"schedule$add"
+  "Set a prompt to run as a turn of this session later: on a cron (recurring), at a time, or after a delay (once). It fires only while this session is open, between turns, as if typed; a recurring one expires after 7 days. To pace a loop yourself, add a one-shot with :in and the same prompt, once per iteration."
+ "schedule$watch"
+  "Watch something in the background and be woken with a turn when it changes — Claude Code's Monitor. Give :cmd (run every :every, its output and exit compared) or :path (a file's modification time). It fires when :when holds: changed (the default; the first look is the baseline), matches (:re against the output), zero-exit, nonzero-exit, increased, threshold (:cmp :value). Use it to follow a long job — a task$run, a server, a CI run, a log — instead of waiting with task$wait or polling in this turn: end the turn, and the watch brings you back. :once (default true) stops it after it fires; it lives :for (default 1 day). Fires only while this session is open, between turns."
+ "schedule$list"
+  "This session's scheduled prompts and watches: id, cron, once or what it watches, next fire, expiry, last run."
+ "schedule$remove"
+  "Remove a scheduled prompt — how a loop is stopped."
+ "schedule$enable"
+  "Enable a scheduled prompt, its next fire worked out again."
+ "schedule$disable"
+  "Disable a scheduled prompt; it is kept, and does not fire."
+ "schedule$run-now"
+  "Run a scheduled prompt at the session's next idle moment; its schedule after that is unchanged."}

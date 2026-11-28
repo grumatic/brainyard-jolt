@@ -1,0 +1,19 @@
+;; What the model reads of each tool brainyard/claude_agent.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"claude$sessions"
+  "The project's Claude Code sessions a task could go to: running here, in another terminal, or saved; which ones you already drive."
+ "claude$worktree"
+  "A git worktree of the project on a new branch, for a Claude Code session to work in; the existing one when the branch already has one here."
+ "claude$open"
+  "Hand a brief to a Claude Code session: a new one (session \"new\"), one running here, or a saved one resumed."
+ "claude$await"
+  "Wait until a Claude Code session's turn is over: done, waiting on a dialog, gone, or timed out; what it answered and what the delegation has cost."
+ "claude$say"
+  "Tell a Claude Code session something as the person would: typed when one short line, else from a file it is pointed at."
+ "claude$choose"
+  "Answer the dialog a Claude Code session shows: on a permission dialog 1 is yes, 3 is no."
+ "claude$handoff"
+  "What a finished delegation hands back about its branch: its commits and changed files, and either the commands that push it and open its pull request (the default: publishing is the caller's), or — when the task told the session to publish — what it published, and with cleanup its worktree and branch removed. Never pushes or merges."
+ "claude$finish"
+  "Record how a delegation ended: its verdict and the report."}

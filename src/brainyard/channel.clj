@@ -34,7 +34,8 @@
   person, `{:user :name :role}`, and it may need its owner's `:approval`
   (`:owner`, or `:consent` — no prompt, still marked): RFC-043, the share
   sidecar's."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.walk :as walk]
@@ -642,9 +643,7 @@
   (let [timeout (:ask-timeout-ms config 120000)]
     (into
     [{:name "session$list" :kind :command
-      :description (str "The live sessions of this project other than this one — byj's, Claude Code's as claude:<id>, and Codex's as codex:<thread> — "
-                        "their ids, labels and what each last asked. Their ids are what session$ask and session$send take. "
-                        "A Claude Code session is reachable only when it runs in tmux: one that is not says why. A Codex session is reachable wherever it runs.")
+      :description (tool-words/description "session$list")
       :input-schema [:map [:all {:optional true} [:boolean {:desc "include byj sessions no longer live"}]]]
       :output-schema [:map [:sessions [:vector :any]] [:count :int]]
       :effects #{:fs/read}
@@ -657,7 +656,7 @@
                                    (codex-reach/sessions config (codex-opts config))))]
               {:sessions ss :count (count ss)}))}
      {:name "session$status" :kind :command
-      :description "Whether a live session is idle or running a turn, how many requests wait for it, and its model."
+      :description (tool-words/description "session$status")
       :input-schema [:map session-param]
       :output-schema [:map [:status :keyword]]
       :effects #{:fs/read}
@@ -668,9 +667,7 @@
                     (:codex t) (codex-reach/status (:codex t) (codex-opts config))
                     :else (ask-over config session {:op :status} 10000))))}
      {:name "session$ask" :kind :command
-      :description (str "Ask another live session something and wait for its answer. It runs as a turn of THAT session, "
-                        "with its own history and tools, when it is next waiting; this waits up to :timeout-ms ("
-                        timeout " by default). To hand work off without waiting, use session$send.")
+      :description (tool-words/description "session$ask" {:timeout timeout})
       :input-schema [:map session-param
                      [:question [:string {:desc "what that session should do or answer — self-contained: it has not seen this conversation"}]]
                      [:timeout-ms {:optional true} [:int {:desc "the longest to wait"}]]]
@@ -689,8 +686,7 @@
                         (spent! ctx session r)
                         r))))}
      {:name "session$send" :kind :command
-      :description (str "Hand another live session a task without waiting: it runs as a turn of that session, and its answer "
-                        "arrives as a background task of this one — task$wakeup resumes you when it lands, task$wait waits for it.")
+      :description (tool-words/description "session$send")
       :input-schema [:map session-param
                      [:question [:string {:desc "the task — self-contained: that session has not seen this conversation"}]]]
       :output-schema [:or [:map [:task-id :string] [:session-id :string]] [:map [:error :string]]]
@@ -738,7 +734,7 @@
                   {:task-id id :session-id (:session-id s)
                    :note "its answer is this task's result: task$wakeup to be resumed when it lands"}))))}
      {:name "session$cancel" :kind :command
-      :description "Cancel the turn another live session is running, whoever started it."
+      :description (tool-words/description "session$cancel")
       :input-schema [:map session-param]
       :output-schema [:map [:status :keyword]]
       :effects #{:session/send}
@@ -750,9 +746,7 @@
                     :else (ask-over config session {:op :cancel} 10000))))}]
      (when start-session
        [{:name "session$start" :kind :command
-         :description (str "Start a new session beside this one, in this window, with :question as its first turn: it carries on there "
-                           "on its own, with this project, model and permission mode, and the person can switch to it. "
-                           "Returns its id, which session$status and session$send take. For a session already running, use session$send.")
+         :description (tool-words/description "session$start")
          :input-schema [:map [:question [:string {:desc "its first turn — self-contained: the new session has not seen this conversation"}]]]
          :output-schema [:or [:map [:session-id :string]] [:map [:error :string]]]
          :effects #{:session/send}

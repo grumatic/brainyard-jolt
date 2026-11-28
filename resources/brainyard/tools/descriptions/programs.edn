@@ -1,0 +1,13 @@
+;; What the model reads of each tool brainyard/programs.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"program$list"
+  "List predictors with their params source, datasets and the metrics available. Start here before evaluating or compiling anything."
+ "program$build-dataset"
+  "Build a dataset for a predictor from this project's prediction log. The labels are the model's OWN past outputs — silver, not gold — so say so when reporting anything measured on it. Built from the event log."
+ "program$eval"
+  "Measure a predictor on a dataset with a named metric; writes a report. Use :repeats 3 or more for anything you intend to COMPARE — a single pass cannot tell a real difference from run-to-run noise, and never report a score without its spread."
+ "program$compile"
+  "Propose demos for a predictor from a dataset and write a PROPOSAL for a person to review. Nothing is applied: a params file changes every later turn's prompt, so only `by programs accept` installs one. A proposal whose winner is zero-shot is a result, not a failure."
+ "program$proposals"
+  "List a predictor's proposals and their review status. Accepting one is a person's job."}

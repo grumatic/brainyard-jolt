@@ -1,0 +1,15 @@
+;; What the model reads of each tool brainyard/flow.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"flow$check"
+  "Check a behavior-tree loop WITHOUT running it, and report every problem at once: unregistered leaf fns, predictors and tools that do not exist or whose :in/:out name fields they do not have, unknown config keys, zones and hook events, duplicate node ids, and an unbounded :repeat. Use it after editing a loop and before running one — the errors it finds are mostly SILENT at run time (a mistyped config key reads nil, a mistyped zone sends no text)."
+ "flow$format"
+  "The behavior-tree format: the node kinds, how a leaf names what it runs, how the blackboard is fed, and a worked example. READ THIS BEFORE WRITING OR EDITING A LOOP — the format is not guessable, and flow$check can tell you what is wrong with a tree but not what a node is."
+ "flow$status"
+  "What is implemented in a loop and what is not: every leaf, what implements it, and whether it is ready, missing (it names a tool or predictor that does not exist) or failing. Use it to decide what to work on next, and to know when a workflow is finished — nothing missing, nothing failing."
+ "flow$brief"
+  "Everything needed to implement ONE node, and nothing else: what it must read, which nodes supply each key, what it must write, and which nodes downstream read each. Read a brief before writing a node's tool or predictor — the contract comes from the node's neighbours, so satisfying it is enough."
+ "flow$probe"
+  "Run ONE node against a blackboard you supply and report what it wrote. This is how a node is debugged without running the whole loop to reach it: seed only the keys its brief says it reads, and check what comes back against what the brief says it writes."
+ "flow$patch"
+  "Edit a loop STRUCTURALLY instead of rewriting its file. Give the hash you read (flow$check reports it) and a list of ops; the patch is refused if the tree changed since, if an op names a node that is not there, or if the result would not check — so the tree on disk always runs. Ops: add-node (:parent, :after, :node), remove-node (:node), set-opt (:node :key :value, nil removes), rename-node (:node :to)."}

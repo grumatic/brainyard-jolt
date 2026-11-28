@@ -27,7 +27,8 @@
   Deriving it from result text would have been a guess dressed as a
   measurement, which is the one thing a metric must not be."
   (:refer-clojure :exclude [iteration])
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.trajectory :as trajectory]))
@@ -358,11 +359,7 @@
   [config]
   (when (seq (trajectory/sessions config))
     [{:name "session$analytics" :kind :command
-      :description (str "How this project's agent has been doing: success rate, iterations per turn,"
-                        " latency, cache hit rate, tool use and what it cost, over the recorded"
-                        " turns. Reach for it when asked whether something is working well or"
-                        " where time or money is going — not to find out WHAT happened, which is"
-                        " log$search and memory$history.")
+      :description (tool-words/description "session$analytics")
       :input-schema [:map [:session-id {:optional true} [:string {:desc "One session. Omit for all of them."}]]
                           [:detail {:optional true} [:string {:desc "summary (default) for the headline numbers, full for every metric."}]]]
       :output-schema returns

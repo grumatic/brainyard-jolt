@@ -18,7 +18,8 @@
   The checks that matter most are the silent ones. A `:config/max-iteratons`
   typo reads `nil` today and the loop runs once; a misspelled zone sends no text
   and the model simply does worse. Neither fails, which is why neither is found."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.set :as set]
@@ -634,12 +635,7 @@
   [config]
   (when (:flows? config true)
     [{:name "flow$check" :kind :command
-      :description (str "Check a behavior-tree loop WITHOUT running it, and report every problem at once:"
-                        " unregistered leaf fns, predictors and tools that do not exist or whose :in/:out"
-                        " name fields they do not have, unknown config keys, zones and hook events,"
-                        " duplicate node ids, and an unbounded :repeat. Use it after editing a loop and"
-                        " before running one — the errors it finds are mostly SILENT at run time"
-                        " (a mistyped config key reads nil, a mistyped zone sends no text).")
+      :description (tool-words/description "flow$check")
       :input-schema [:map [:tree [:string {:desc "The loop: a bundled loop's name (react, plan-act-eval), a resource path, or a file path of the loop EDN."}]]]
       :output-schema [:map {:desc ":nodes and :hash are absent when the tree cannot be loaded; :hash is what flow$patch guards against"}
                 [:ok :boolean]
@@ -653,20 +649,14 @@
                 tree (assoc :nodes (count (bt/nodes tree)) :hash hash))))}
 
      {:name "flow$format" :kind :command
-      :description (str "The behavior-tree format: the node kinds, how a leaf names what it runs,"
-                        " how the blackboard is fed, and a worked example. READ THIS BEFORE WRITING"
-                        " OR EDITING A LOOP — the format is not guessable, and flow$check can tell"
-                        " you what is wrong with a tree but not what a node is.")
+      :description (tool-words/description "flow$format")
       :input-schema [:map]
       :output-schema [:map [:format :string]]
       :effects #{}
       :fn (fn [_ _] {:format (slurp (io/resource "brainyard/prompts/loop-format.md"))})}
 
      {:name "flow$status" :kind :command
-      :description (str "What is implemented in a loop and what is not: every leaf, what implements it,"
-                        " and whether it is ready, missing (it names a tool or predictor that does not"
-                        " exist) or failing. Use it to decide what to work on next, and to know when a"
-                        " workflow is finished — nothing missing, nothing failing.")
+      :description (tool-words/description "flow$status")
       :input-schema [:map [:tree [:string {:desc "The loop: a bundled loop's name (react, plan-act-eval), a resource path, or a file path of the loop EDN."}]]]
       :output-schema [:or
                 [:map [:nodes :int] [:ready :int] [:missing :int] [:failing :int]
@@ -684,10 +674,7 @@
               (if-not tree {:error (:problem (first problems))} (status tree opts))))}
 
      {:name "flow$brief" :kind :command
-      :description (str "Everything needed to implement ONE node, and nothing else: what it must read,"
-                        " which nodes supply each key, what it must write, and which nodes downstream"
-                        " read each. Read a brief before writing a node's tool or predictor — the"
-                        " contract comes from the node's neighbours, so satisfying it is enough.")
+      :description (tool-words/description "flow$brief")
       :input-schema [:map [:tree :string]
                           [:node [:string {:desc "The node's :id, e.g. react/think-act."}]]]
       :output-schema [:or {:desc "a key the caller reads when the loop ends is :exported, not :unused"}
@@ -710,10 +697,7 @@
                 (brief tree (keyword (str/replace (str node) #"^:" "")) opts))))}
 
      {:name "flow$probe" :kind :command
-      :description (str "Run ONE node against a blackboard you supply and report what it wrote."
-                        " This is how a node is debugged without running the whole loop to reach it:"
-                        " seed only the keys its brief says it reads, and check what comes back"
-                        " against what the brief says it writes.")
+      :description (tool-words/description "flow$probe")
       :input-schema [:map [:tree :string]
                           [:node [:string {:desc "The node's :id."}]]
                           [:memory {:optional true} [:map {:desc "Blackboard keys to seed, as a map."}]]]
@@ -732,12 +716,7 @@
                        ctx))))}
 
      {:name "flow$patch" :kind :command
-      :description (str "Edit a loop STRUCTURALLY instead of rewriting its file. Give the hash you"
-                        " read (flow$check reports it) and a list of ops; the patch is refused if the"
-                        " tree changed since, if an op names a node that is not there, or if the result"
-                        " would not check — so the tree on disk always runs. Ops: add-node (:parent,"
-                        " :after, :node), remove-node (:node), set-opt (:node :key :value, nil removes),"
-                        " rename-node (:node :to).")
+      :description (tool-words/description "flow$patch")
       :input-schema [:map [:path [:string {:desc "File path of the loop EDN (not a bundled resource)."}]]
                           [:expect-hash {:optional true} [:string {:desc "The hash you read; omit to skip the guard."}]]
                           [:ops [:vector {:desc "Ops to apply in order."} :map]]]

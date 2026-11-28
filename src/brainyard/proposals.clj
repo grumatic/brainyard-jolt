@@ -27,7 +27,8 @@
   Accepting is never the model's: brainyard's rule that nothing it drafts
   goes live unreviewed, kept by not giving the proposer the key (RFC-017,
   RFC-021)."
-  (:require [clojure.java.io :as io]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.loop-proposals :as loop-proposals]
             [brainyard.programs :as programs]
@@ -200,9 +201,7 @@
   not here: a gate the proposer can open is no gate."
   [config]
   [{:name "proposal$list" :kind :command
-    :description (str "List what self-improvement proposed and a person has not yet decided on: skills, "
-                      "user tools, predictor params, loops — newest first. None is live until a person accepts it "
-                      "(/proposals in the session).")
+    :description (tool-words/description "proposal$list")
     :input-schema [:map [:kind {:optional true} [:string {:desc "only this kind: skill, tool, program or loop"}]]]
     :output-schema [:map [:proposals [:vector [:map [:id :string] [:kind :keyword] [:name :string]
                                                [:summary {:optional true} [:maybe :string]]
@@ -211,7 +210,7 @@
     :effects #{:fs/read}
     :fn (fn [{:keys [kind]} _] {:proposals (list-all config kind)})}
    {:name "proposal$read" :kind :command
-    :description "Read one proposal by its id from proposal$list: the draft as it would go live, and why it was proposed."
+    :description (tool-words/description "proposal$read")
     :input-schema [:map [:id [:string {:desc "the proposal's id, e.g. skill/list-twice"}]]]
     :output-schema [:or [:map [:id :string] [:kind :keyword] [:body [:maybe :string]]] [:map [:error :string]]]
     :effects #{:fs/read}

@@ -28,7 +28,8 @@
   Only stdio is ported. A remote server is still reachable by spawning
   `npx -y mcp-remote <url>`, which is what brainyard's own HTTP seeds do
   (divergence `mcp-is-stdio-only`)."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.effect :as fx]
@@ -364,9 +365,9 @@
                                 (contains? (:read-only-tools client) name)))]
     {:name (tool-id server name)
      :kind :command
-     :description (str (or description "an MCP tool")
-                       "  (from the MCP server `" server "`"
-                       (when read-only? ", read-only") ")")
+     :description (tool-words/description (if read-only? "mcp$<server>$<tool> read-only" "mcp$<server>$<tool>")
+                                          {:description (or description (tool-words/description "mcp$<server>$<tool> undescribed"))
+                                           :server server})
      :input-schema (input-schema inputSchema)
      :output-schema [:or {:desc "the content blocks flattened to text; a result with no content blocks is passed through as it came"}
               [:map [:result [:or :string [:map-of :any :any]]]]
@@ -777,9 +778,7 @@
   [config clients]
   (when (and (:mcp? config true) (seq clients))
     [{:name "mcp$servers" :kind :command
-      :description (str "List the connected MCP servers and the tools each offers."
-                        " Their tools are bound as `mcp$<server>$<tool>` and called directly,"
-                        " like any other tool.")
+      :description (tool-words/description "mcp$servers")
       :input-schema [:map]
       :output-schema [:map [:servers [:vector [:map [:name :string] [:running :boolean]
                                              [:server-info [:maybe [:map-of :any :any]]]

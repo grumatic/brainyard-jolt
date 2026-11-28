@@ -1,0 +1,15 @@
+;; What the model reads of each tool brainyard/share_tools.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"share$status"
+  "Where sharing stands: whether this session is shared, its page, who is watching and in what role, and the other shares this session started."
+ "share$ls"
+  "What can be shared, from byj-share: this project's byj, Claude Code and Codex sessions, tmux terminals and byj's agents, each with the reference share$start takes (byj:ID, claude:ID, codex:ID, term:NAME, agent:NAME)."
+ "share$start"
+  "Share this session, or the sessions named, with the people the person invites: they watch it live in a browser. With no :refs, this session. :refs names others — byj:ID, claude:ID, codex:ID (an id prefix will do), term:NAME (a tmux session, made if there is none, typed into from the page), agent:NAME (one of byj's agents — prefer a read-only one such as explore; one that does more than read is shared only once the person confirms it — asked by invited callers), or team; several are shared as one group. Each ends when this session does. Returns the share's page and its coach and watch links once the relay has it open. Publishes what it shares: never start a share the person did not ask for."
+ "share$login"
+  "Log byj-share in to the relay this session shares through, when share$start says this device is not logged in, or is logged in to another relay. Returns at once with a link and a code the person approves in a browser, and the task that completes once they have; logging in replaces byj-share's login for any other relay."
+ "share$record"
+  "Turn a running share's recording on or off: this session's (no :ref) or another by reference (byj:ID, claude:ID, term:NAME, agent:NAME …). On, it keeps the share's events from its start and its screen from now, tells everyone watching, and uploads it for review when the share ends; off, it keeps nothing more. Only when the person asked to record, or to stop recording."
+ "share$control"
+  "Stop, pause or resume a share, or remove someone from this session's. With no :ref, this session's share; with one, that share (byj:ID, claude:ID, term:NAME, agent:NAME …). :user is whom kick removes — share$status names them."}

@@ -1,0 +1,11 @@
+;; What the model reads of each tool brainyard/mcp.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"mcp$servers"
+  "List the connected MCP servers and the tools each offers. Their tools are bound as `mcp$<server>$<tool>` and called directly, like any other tool."
+ "mcp$<server>$<tool>"
+  "{description}  (from the MCP server `{server}`)"
+ "mcp$<server>$<tool> read-only"
+  "{description}  (from the MCP server `{server}`, read-only)"
+ "mcp$<server>$<tool> undescribed"
+  "an MCP tool"}

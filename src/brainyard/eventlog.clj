@@ -26,7 +26,8 @@
   and replies. Those belong to the prediction log, which is off until a project
   turns it on (RFC-021), and putting them here would quietly make this log the
   thing that one is deliberately not."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -245,11 +246,7 @@
   [config]
   (when (log-file config)
     [{:name "log$events" :kind :command
-      :description (str "What this project's agent DID in earlier runs, newest first."
-                        " Reach for it when something used to work, when a tool or hook is"
-                        " not behaving as its definition says, or when you need to know"
-                        " whether an earlier run hit the same problem. For what a turn"
-                        " concluded, prefer memory$history; this is the machinery underneath.")
+      :description (tool-words/description "log$events")
       :input-schema [:map [:event {:optional true} [:string {:desc "Exact event, e.g. tools/user-tool-skipped. Omit for all."}]]
                           [:level {:optional true} [:string {:desc "problem | trace | quiet — problem is the one worth asking for."}]]
                           [:session {:optional true} [:string {:desc "Only this session's events."}]]
@@ -295,8 +292,7 @@
                   {:events es :count (count es)}))))}
 
      {:name "log$search" :kind :command
-      :description (str "Search the event log for a phrase — a file path, a tool name, an error."
-                        " Every word of 3+ characters must appear in the same event.")
+      :description (tool-words/description "log$search")
       :input-schema [:map [:query [:string {:desc "Words that must all appear."}]]
                           [:limit {:optional true} [:int {:desc "Events to return (default 20)."}]]]
       :output-schema [:or {:desc "newest first; :withheld names the conversation keys dropped from :data"}

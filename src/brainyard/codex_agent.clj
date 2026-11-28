@@ -25,7 +25,8 @@
   the task.
 
   The record of each delegation is `~/.brainyard/projects/<slug>/codex-agents/<thread>.edn`."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -407,13 +408,13 @@
   agent$codex's own config turns it on."
   [config]
   [{:name "codex$sessions" :kind :command
-    :description "The project's Codex sessions a task could go to: running here, in another terminal, or saved; which ones you already drive."
+    :description (tool-words/description "codex$sessions")
     :input-schema [:map]
     :output-schema [:map [:sessions [:vector :any]] [:text :string]]
     :effects #{:fs/read}
     :fn (fn [_ _] (sessions config))}
    {:name "codex$open" :kind :command
-    :description "Hand a brief to a Codex session: a new one (session \"new\"), one running here, or a saved one resumed."
+    :description (tool-words/description "codex$open")
     :input-schema [:map
                    [:session [:string {:desc "\"new\", or a thread id from codex$sessions"}]]
                    [:brief [:string {:desc "what Codex is to do, standing on its own"}]]
@@ -427,32 +428,32 @@
     :effects #{:process :fs/write}
     :fn (fn [args _] (open config args))}
    {:name "codex$await" :kind :command
-    :description "Wait until a Codex session's turn is over: done, waiting on an approval dialog, gone, or timed out; what it answered."
+    :description (tool-words/description "codex$await")
     :input-schema [:map [:session-id :string] [:timeout-ms {:optional true} :int]]
     :output-schema [:map [:settled :string] [:answer :string] [:prompt :string] [:screen :string]
                     [:round :string] [:over-budget :string]]
     :effects #{:fs/read :fs/write}
     :fn (fn [args _] (await-turn config args))}
    {:name "codex$say" :kind :command
-    :description "Tell a Codex session something as the person would: typed when one short line, else from a file it is pointed at."
+    :description (tool-words/description "codex$say")
     :input-schema [:map [:session-id :string] [:text :string]]
     :output-schema [:or [:map [:sent :boolean]] [:map [:error :string]]]
     :effects #{:process}
     :fn (fn [{:keys [session-id text]} _] (say config session-id text))}
    {:name "codex$choose" :kind :command
-    :description "Answer the approval dialog a Codex session shows: 1 yes, 2 yes and don't ask again, 3 no (which ends its turn)."
+    :description (tool-words/description "codex$choose")
     :input-schema [:map [:session-id :string] [:choice :string]]
     :output-schema [:or [:map [:chosen :any] [:session-id :string] [:where :string] [:branch :string]] [:map [:error :string]]]
     :effects #{:process}
     :fn (fn [{:keys [session-id choice]} _] (choose config session-id choice))}
    {:name "codex$handoff" :kind :command
-    :description "Hand back a finished delegation's branch: what the session changed committed for it (it cannot commit in Codex's sandbox), its commits and changed files, and the commands that push it and open its pull request. Never pushes or merges."
+    :description (tool-words/description "codex$handoff")
     :input-schema [:map [:session-id :string] [:title {:optional true} :string] [:body {:optional true} :string]]
     :output-schema [:map [:summary :string] [:committed? {:optional true} :boolean]]
     :effects #{:process :fs/write}
     :fn (fn [args _] (handoff config args))}
    {:name "codex$finish" :kind :command
-    :description "Record how a delegation ended: its verdict and the report."
+    :description (tool-words/description "codex$finish")
     :input-schema [:map [:session-id :string] [:verdict {:optional true} :string] [:report {:optional true} :string]]
     :output-schema [:or [:map [:recorded :string]] [:map [:error :string]]]
     :effects #{:fs/write}

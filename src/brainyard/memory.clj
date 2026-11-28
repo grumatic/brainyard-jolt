@@ -28,7 +28,8 @@
   by keyword overlap when `:recall-mode` is conditional. Recall here is a tool
   the model calls, so memory costs the prompt one line until the moment it is
   worth more than that."
-  (:require [clojure.string :as str]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.string :as str]
             [brainyard.effect :as fx]
             [brainyard.json :as json]
             [brainyard.persist :as persist]
@@ -301,10 +302,7 @@
     (remove
      nil?
      [{:name "memory$history" :kind :command
-       :description (str "Search what this project was ASKED and ANSWERED in earlier sessions."
-                         " Use it before re-deriving something that sounds like it has been worked out"
-                         " before, or to find how a question was answered last time. This is a record of"
-                         " turns, not of decisions — memory$recall is where the decisions are.")
+       :description (tool-words/description "memory$history")
        :input-schema [:map [:query [:string {:desc "Key nouns; every word of 3+ characters must appear."}]]
                            [:limit {:optional true} [:int {:desc "Turns to return (default 5)."}]]]
        :output-schema [:or {:desc "newest first; :when is how long ago, :question and :answer clipped"}
@@ -323,10 +321,7 @@
 
       (when-let [c (and (available? config) (cmd config :memory-recall-cmd))]
         {:name "memory$recall" :kind :command
-         :description (str "Search durable memory — what was learned in earlier sessions and written down."
-                           " Reach for it when a question sounds like it has been settled before, or when you are"
-                           " about to assume something about this project you cannot see in front of you."
-                           " Nothing is recalled automatically; this is the only way memory enters a turn.")
+         :description (tool-words/description "memory$recall")
          :input-schema [:map [:query [:string {:desc (str "What you are looking for. How it matches is the store's business, not"
                                                     " this tool's: a single distinctive word usually finds more than a"
                                                     " phrase, so if a query comes back empty, try one word from it.")}]]]
@@ -342,7 +337,7 @@
 
       (when-let [c (cmd config :memory-read-cmd)]
         {:name "memory$read" :kind :command
-         :description "Read one memory in full by its key, after memory$recall named it."
+         :description (tool-words/description "memory$read")
          :input-schema [:map [:key [:string {:desc "The key memory$recall reported."}]]]
          :output-schema [:or [:map [:key :string] [:memory :string]]
                    [:map [:error :string]]]
@@ -355,9 +350,7 @@
 
       (when-let [c (cmd config :memory-store-cmd)]
         {:name "memory$remember" :kind :command
-         :description (str "Write something down for a later session: a decision and why, a constraint that is not"
-                           " in the code, a dead end worth not repeating. Not a summary of what you just did —"
-                           " the transcript already has that, and a memory nobody needs is a memory in everyone's way.")
+         :description (tool-words/description "memory$remember")
          :input-schema [:map [:content [:string {:desc "The insight, in a sentence or two, written for someone who was not here."}]]
                              [:key {:optional true} [:string {:desc (str "A slug naming its topic, as a person would search for it (deploy-freeze, staging-db-port);"
                                                                           " generated from the content otherwise. A later turn is told the key and the first line"

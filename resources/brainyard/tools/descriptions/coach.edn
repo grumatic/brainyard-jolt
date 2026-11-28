@@ -1,0 +1,5 @@
+;; What the model reads of each tool brainyard/coach.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"coach$set"
+  "Start coaching the person toward a goal, or stop. While it is on, every turn is told the goal and how to coach: they write the code; you hint by degrees, check what they wrote and leave findings as notes, and write their code only when they ask. It lasts until stopped, across turns and a resume. :level beginner or practitioner (the default) says how much a hint gives away. :subject emacs coaches Emacs itself, from a lesson (emacs$lessons), checking what they did with emacs$habits; code (the default) their code."}

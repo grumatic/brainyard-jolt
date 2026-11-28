@@ -14,7 +14,8 @@
   tool found for its version, and looks at the project's files. It installs
   nothing, writes nothing, and needs no network or model. The reference is
   brainyard's `env-detect` `executables.clj` (`detect-executables`)."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
@@ -1192,7 +1193,7 @@
   should say, and the model, not the person, writes the EDN (byj-8b3)."
   [config]
   [{:name "profile$edit" :kind :command
-    :description "Change this project's profile (.brainyard/profile.edn: its goal, scope, done criteria, preset, how far an agent goes on its own, its issue trackers) as the person asks you to. Pass only what changes; a field left out is kept. The person is shown each change and asked, every time; it is written, with AGENTS.md's profile block, only on their yes. Call it only for a change the person asked for — never to give yourself more room. Read the profile first with read-file. A project with no profile gets one from /init."
+    :description (tool-words/description "profile$edit")
     :input-schema [:map
                    [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
                    [:goal {:optional true} [:string {:desc "what the project is for, replacing the goal"}]]
@@ -1368,13 +1369,13 @@
   "The `init$*` commands (RFC-040)."
   [config]
   [{:name "init$check" :kind :command
-    :description "Where this machine and a project stand for brainyard: each tool it relies on (git, bd, tmux, claude, gh, codex) — found, its version, or how to install it — and the project's AGENTS.md, CLAUDE.md import, beads setup, skills and .gitignore. Reads only; installs nothing."
+    :description (tool-words/description "init$check")
     :input-schema [:map [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]]
     :output-schema [:map [:text :string] [:tools :any] [:project :any] [:missing-required :any]]
     :effects #{:fs/read :process}
     :fn (fn [args _] (check config args))}
    {:name "init$scaffold" :kind :command
-    :description "Write a project's starting files: AGENTS.md, a CLAUDE.md that imports it, and .brainyard/.gitignore naming what is not the repository's there (.env), with .brainyard/ taken out of .gitignore. Creates what is absent; in what exists, writes only brainyard's marked blocks, the import line or the missing lines, after a snapshot — never the person's text. A second run writes nothing."
+    :description (tool-words/description "init$scaffold")
     :input-schema [:map
                    [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
                    [:dry-run {:optional true} [:any {:desc "true: say what would be written, write nothing"}]]
@@ -1383,7 +1384,7 @@
     :effects #{:fs/read :fs/write}
     :fn (fn [args _] (scaffold config args))}
    {:name "init$beads" :kind :command
-    :description "Set up beads in a project with bd itself: bd init when there is no .beads/, then bd setup claude (and codex, when installed) where bd's own check says it is missing. Run it after init$scaffold, so CLAUDE.md already imports AGENTS.md. Says what bd ran and any commit bd made of its own files."
+    :description (tool-words/description "init$beads")
     :input-schema [:map
                    [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
                    [:prefix {:optional true} [:string {:desc "the issue prefix; bd's default (the directory name) when absent"}]]]
@@ -1391,13 +1392,13 @@
     :effects #{:fs/write :process}
     :fn (fn [args _] (beads config args))}
    {:name "init$survey" :kind :command
-    :description "What a project shows of itself, for drafting its AGENTS.md section: top-level entries, CI workflows, recent commits, and the head of its README and build files. Reads only."
+    :description (tool-words/description "init$survey")
     :input-schema [:map [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]]
     :output-schema [:map [:text :string]]
     :effects #{:fs/read :process}
     :fn (fn [args _] (survey config args))}
    {:name "init$next" :kind :command
-    :description "What to do next in a project brainyard was just set up in: committing /init's files, drafting AGENTS.md once there is code, example prompts to start with, beads. `prompt` is the one to suggest first. Reads only."
+    :description (tool-words/description "init$next")
     :input-schema [:map
                    [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
                    [:examples {:optional true} [:string {:desc "example requests for this project, one a line, shown in place of the generic ones"}]]]
@@ -1405,13 +1406,13 @@
     :effects #{:fs/read :process}
     :fn (fn [args _] (next-step config args))}
    {:name "init$onboard" :kind :command
-    :description "File a project's starter issues in beads with bd: a 'Get started with brainyard' epic with what to do first (commit /init's files, write the project's rules in AGENTS.md, say what the project is for, draft AGENTS.md once there is code) and one issue per missing optional tool. Run after init$beads. Files nothing when they were filed before."
+    :description (tool-words/description "init$onboard")
     :input-schema [:map [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]]
     :output-schema [:map [:text :string] [:filed {:optional true} :any] [:skipped {:optional true} :string]]
     :effects #{:fs/write :process}
     :fn (fn [args _] (onboard config args))}
    {:name "init$profile" :kind :command
-    :description "Show the person this project's drafted profile — what it is for, its scope, when it is done, how far an agent goes on its own — and, on their yes, write .brainyard/profile.edn, show it in AGENTS.md, and file its first issues in beads. Asks every time; headless, writes nothing."
+    :description (tool-words/description "init$profile")
     :input-schema [:map
                    [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
                    [:goal {:optional true} [:string {:desc "what the project is for"}]]
@@ -1425,7 +1426,7 @@
     :effects #{:fs/write :process}
     :fn (fn [args ctx] (write-profile config ctx args))}
    {:name "init$install" :kind :command
-    :description "Install tools brainyard relies on, by name (codex, tmux, gh, …): each only after the person says yes, with a package manager that asks nothing (brew, npm); any other install is given for the person to run. Headless, only lists the commands."
+    :description (tool-words/description "init$install")
     :input-schema [:map [:tools [:any {:desc "the tools to install, by name: a list, or names separated by commas or spaces"}]]]
     :output-schema [:map [:text :string] [:installed :any]]
     :effects #{:process :network}

@@ -15,7 +15,8 @@
   The catalogue is data (`resources/brainyard/terminal.edn`, RFC-001).
   Mechanism only: what is offered is the catalogue's, when it runs the
   person's."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.agent-host :as ah]
@@ -355,9 +356,7 @@
   [config]
   (let [dir (or (:project-dir config) (:working-dir config) ".")]
     [{:name "terminal$list" :kind :command
-      :description (str "The terminal programs of this project: each one the Terminal view offers (a shell, editors, htop, the event log, the project's own)"
-                        " with whether it is installed and whether it is running in its tmux session, for how long; and any of this project's"
-                        " programs running that the catalogue does not name. A running one outlives this session.")
+      :description (tool-words/description "terminal$list")
       :input-schema [:map]
       :output-schema [:map [:programs [:vector [:map [:name :string] [:running :boolean] [:installed :boolean]
                                                   [:uptime-s {:optional true} [:maybe :int]]
@@ -378,9 +377,7 @@
               {:programs (vec (concat (map row entries)
                                       (map #(row {:name %}) (remove (set (map :name entries)) (keys live)))))}))}
      {:name "terminal$start" :kind :command
-      :description (str "Start one of terminal$list's programs that is not running, by name, in a tmux session of its own in the project directory."
-                        " It keeps running after this session ends until terminal$stop stops it. Use terminal$send to type into it and"
-                        " terminal$capture to read its screen. Only what the catalogue names (.brainyard/terminal.edn adds more).")
+      :description (tool-words/description "terminal$start")
       :input-schema [:map [:name [:string {:desc "The program's name, as terminal$list gives it."}]]]
       :output-schema [:or [:map [:started :string]] err]
       :effects #{:process}
@@ -393,7 +390,7 @@
                 {:error (str name " is not installed")}
                 :else (if-let [problem (start! dir entry)] {:error problem} {:started name}))))}
      {:name "terminal$stop" :kind :command
-      :description "Stop a running terminal program of this project, by name: its tmux session ends, and whatever runs in it with it."
+      :description (tool-words/description "terminal$stop")
       :input-schema [:map [:name [:string {:desc "The program's name."}]]]
       :output-schema [:or [:map [:stopped :string]] err]
       :effects #{:process}
@@ -402,9 +399,7 @@
               {:error (str name " is not running")}
               (if-let [problem (stop! dir name)] {:error problem} {:stopped name})))}
      {:name "terminal$send" :kind :command
-      :description (str "Type into a running terminal program: :text as it is, then Enter unless :enter is false — in a shell, a command"
-                        " it runs; or :keys, tmux's names for keys in order (C-c to interrupt, Up, Escape, q). Read what it did with"
-                        " terminal$capture.")
+      :description (tool-words/description "terminal$send")
       :input-schema [:map
                      [:name [:string {:desc "The program's name."}]]
                      [:text {:optional true} [:string {:desc "Typed as it is."}]]
@@ -420,8 +415,7 @@
                       {:error problem}
                       {:sent name})))}
      {:name "terminal$capture" :kind :command
-      :description (str "What a running terminal program's screen shows now; with :lines, that many lines back from the bottom,"
-                        " scrollback included. The newest part, when there is more than fits.")
+      :description (tool-words/description "terminal$capture")
       :input-schema [:map
                      [:name [:string {:desc "The program's name."}]]
                      [:lines {:optional true} [:int {:desc "How many lines back to read, scrollback included."}]]]
@@ -432,10 +426,7 @@
               {:error (str name " is not running")}
               (capture! dir name {:lines lines})))}
      {:name "terminal$context" :kind :command
-      :description (str "What the person is looking at in their editor, when one of this project's terminal programs that can say runs"
-                        " (an entry of .brainyard/terminal.edn with :context; for Emacs, emacs$context): the file and buffer, the line and"
-                        " column of the cursor, whether it has unsaved edits, and the text they selected, if any. Ask when they say"
-                        " \"this\", \"here\" or \"the selection\" about code they are looking at.")
+      :description (tool-words/description "terminal$context")
       :input-schema [:map]
       :output-schema [:or [:map [:program :string] [:context [:map-of :keyword :any]]] err]
       :effects #{}

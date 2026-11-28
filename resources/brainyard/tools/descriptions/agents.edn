@@ -1,0 +1,21 @@
+;; What the model reads of each tool brainyard/agents.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"agent-registry$list"
+  "List the subagent instances you have dispatched and that are still alive. Each one remembers its own exchanges — ask it again rather than dispatching a fresh agent that starts from zero."
+ "agent-registry$detail"
+  "Everything known about one instance, including its last answer. Check it is :idle before asking it again."
+ "agent-registry$ask"
+  "Ask a subagent you already dispatched another question. It still has its own previous turns, so build on what it found rather than re-explaining — that is the whole reason it is still alive."
+ "agent-registry$close"
+  "End a subagent you are done with, freeing its slot. Anything it dispatched goes with it. Closing what you no longer need keeps a useful instance from being evicted at the cap."
+ "meta-agent$validate"
+  "Check a definition without saving it; with `sample`, run the unsaved agent on that question once and return its answer."
+ "meta-agent$list"
+  "Every agent this project can dispatch, with where it came from."
+ "meta-agent$read"
+  "One agent's full definition, including the instruction it runs on."
+ "meta-agent$delete"
+  "Delete an agent you defined. A built-in has no files to delete — define one of the same name to replace it instead."
+ "agent$<name>"
+  "{describe} — delegates to a fresh agent that starts with NO memory of this conversation: put everything it needs in `question` and `agent-context`. Returns its final answer and a `subagent-id`; it stays alive under that id, so follow up with agent-registry$ask rather than dispatching it again."}

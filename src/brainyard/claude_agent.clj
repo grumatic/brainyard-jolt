@@ -18,7 +18,8 @@
   instance find its session again when it is asked to continue. Guidance too
   long for one typed line is a file beside it, which Claude Code is given
   access to with `--add-dir`."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -816,19 +817,19 @@
   "The `claude$*` commands (RFC-039)."
   [config]
   [{:name "claude$sessions" :kind :command
-    :description "The project's Claude Code sessions a task could go to: running here, in another terminal, or saved; which ones you already drive."
+    :description (tool-words/description "claude$sessions")
     :input-schema [:map]
     :output-schema [:map [:sessions [:vector :any]] [:text :string]]
     :effects #{:fs/read}
     :fn (fn [_ _] (sessions config))}
    {:name "claude$worktree" :kind :command
-    :description "A git worktree of the project on a new branch, for a Claude Code session to work in; the existing one when the branch already has one here."
+    :description (tool-words/description "claude$worktree")
     :input-schema [:map [:branch [:string {:desc "the branch, e.g. bd/byj-123"}]]]
     :output-schema [:or [:map [:dir :string] [:branch :string]] [:map [:error :string]]]
     :effects #{:fs/write :process}
     :fn (fn [{:keys [branch]} _] (add-worktree config branch))}
    {:name "claude$open" :kind :command
-    :description "Hand a brief to a Claude Code session: a new one (session \"new\"), one running here, or a saved one resumed."
+    :description (tool-words/description "claude$open")
     :input-schema [:map
                    [:session [:string {:desc "\"new\", or a session id from claude$sessions"}]]
                    [:brief [:string {:desc "what Claude Code is to do, standing on its own"}]]
@@ -844,7 +845,7 @@
     :effects #{:process :fs/write}
     :fn (fn [args _] (open config args))}
    {:name "claude$await" :kind :command
-    :description "Wait until a Claude Code session's turn is over: done, waiting on a dialog, gone, or timed out; what it answered and what the delegation has cost."
+    :description (tool-words/description "claude$await")
     :input-schema [:map [:session-id :string]
                    [:timeout-ms {:optional true} :int]
                    [:max-cost-usd {:optional true} :double]]
@@ -853,19 +854,19 @@
     :effects #{:fs/read :fs/write}
     :fn (fn [args ctx] (await-turn config args ctx))}
    {:name "claude$say" :kind :command
-    :description "Tell a Claude Code session something as the person would: typed when one short line, else from a file it is pointed at."
+    :description (tool-words/description "claude$say")
     :input-schema [:map [:session-id :string] [:text :string]]
     :output-schema [:or [:map [:sent :boolean]] [:map [:error :string]]]
     :effects #{:process}
     :fn (fn [{:keys [session-id text]} _] (say config session-id text))}
    {:name "claude$choose" :kind :command
-    :description "Answer the dialog a Claude Code session shows: on a permission dialog 1 is yes, 3 is no."
+    :description (tool-words/description "claude$choose")
     :input-schema [:map [:session-id :string] [:choice :string]]
     :output-schema [:or [:map [:chosen :any] [:session-id :string] [:where :string] [:branch :string]] [:map [:error :string]]]
     :effects #{:process}
     :fn (fn [{:keys [session-id choice]} _] (choose config session-id choice))}
    {:name "claude$handoff" :kind :command
-    :description "What a finished delegation hands back about its branch: its commits and changed files, and either the commands that push it and open its pull request (the default: publishing is the caller's), or — when the task told the session to publish — what it published, and with cleanup its worktree and branch removed. Never pushes or merges."
+    :description (tool-words/description "claude$handoff")
     :input-schema [:map [:session-id :string]
                    [:publish {:optional true} [:any {:desc "the task told the session to push and open the pull request"}]]
                    [:cleanup {:optional true} [:any {:desc "the task asked for the worktree and branch to be removed once published"}]]
@@ -875,7 +876,7 @@
     :effects #{:process :fs/write}
     :fn (fn [args _] (handoff config args))}
    {:name "claude$finish" :kind :command
-    :description "Record how a delegation ended: its verdict and the report."
+    :description (tool-words/description "claude$finish")
     :input-schema [:map [:session-id :string] [:verdict {:optional true} :string] [:report {:optional true} :string]]
     :output-schema [:or [:map [:recorded :string] [:noted :boolean]] [:map [:error :string]]]
     :effects #{:fs/write :process}

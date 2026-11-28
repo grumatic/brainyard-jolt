@@ -24,7 +24,8 @@
   `@here` (`context!`), a clicked file (`open-file!`) and the revert after
   the agent's tools (`after-tools!`). The Terminal view's emacs entry is how
   the project's daemon is started."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.effect :as fx]
@@ -378,8 +379,7 @@ that load it and bind its commands."
         call (fn [op args] (answer (call! config op args opts)))]
     (cond->
      [{:name "emacs$status" :kind :command
-       :description (str "Which Emacs this session reaches and whether it is up: its server, Emacs's version, whether byj.el is loaded,"
-                         " and the project's buffers with which hold unsaved edits. The other emacs$ tools are offered only while it is up.")
+       :description (tool-words/description "emacs$status")
        :input-schema [:map]
        :output-schema [:map-of :keyword :any]
        :effects #{}
@@ -395,18 +395,13 @@ that load it and bind its commands."
       up?
       (into
        [{:name "emacs$context" :kind :command
-         :description (str "What the person is looking at in Emacs: the file or buffer, the cursor's line and column, whether it has unsaved"
-                           " edits, the text they selected, the major mode, the files in the other windows, and in an org file the heading"
-                           " path and the src block at point (language, name, line, header arguments, body). Ask when they say \"this\","
-                           " \"here\" or \"the selection\".")
+         :description (tool-words/description "emacs$context")
          :input-schema [:map]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :fn (fn [_ _ctx] (call "context" {}))}
         {:name "emacs$read" :kind :command
-         :description (str "A file's text as Emacs has it — unsaved edits included, which read-file does not see — or lines :start to :end"
-                           " of it; a file no buffer visits is read from the disk and says :visited false. :modified says whether the buffer"
-                           " differs from the disk. Clipped to its start past " max-chars " characters.")
+         :description (tool-words/description "emacs$read" {:max-chars max-chars})
          :input-schema [:map
                         [:file {:optional true} [:string {:desc "The file's path."}]]
                         [:buffer {:optional true} [:string {:desc "A buffer's name, for one visiting no file."}]]
@@ -421,9 +416,7 @@ that load it and bind its commands."
                  (call "read" (cond-> {} file (assoc :file (abs-path config file)) buffer (assoc :buffer buffer)
                                       start (assoc :start start) end (assoc :end end)))))}
         {:name "emacs$show" :kind :command
-         :description (str "Show the person a place in Emacs: visit :file at :line in the window they are in, highlight :line to :end until"
-                           " the next show, and put :message in the echo area. Changes nothing but what is on their screen. Use it to point"
-                           " at what you are explaining.")
+         :description (tool-words/description "emacs$show")
          :input-schema [:map
                         [:file [:string {:desc "The file's path."}]]
                         [:line {:optional true} [:int {:desc "The first line to highlight, from 1."}]]
@@ -435,9 +428,7 @@ that load it and bind its commands."
          :fn (fn [{:keys [file line end message]} _ctx]
                (call "show" (cond-> {:file (abs-path config file)} line (assoc :line line) end (assoc :end end) message (assoc :message message))))}
         {:name "emacs$eval" :kind :command
-         :description (str "Evaluate Emacs Lisp in the person's Emacs, every form in :code, lexically; the last value, printed. It runs as"
-                           " them, with everything their Emacs reaches, and holds their Emacs while it runs, so keep it quick and do only"
-                           " what was asked: try a command you are writing for them, or ask Emacs what no other emacs$ tool answers.")
+         :description (tool-words/description "emacs$eval")
          :input-schema [:map [:code [:string {:desc "Emacs Lisp, one form or several."}]]]
          :output-schema [:or [:map [:value :string]] err]
          :effects #{:editor/eval}
@@ -446,9 +437,7 @@ that load it and bind its commands."
                       (str/blank? (str code)) {:error "give :code"}
                       :else (call "eval" {:code code})))}
         {:name "emacs$note" :kind :command
-         :description (str "Leave notes on lines in the person's Emacs, where they work: each at the end of its line, dimmed, and all of"
-                           " them listed in *byj-notes*, which M-g n / M-g p (next-error) walk. :kind says what it is — issue, hint, good"
-                           " or question. With :clear, take notes away instead: :file's, or all of them. Changes nothing in any file.")
+         :description (tool-words/description "emacs$note")
          :input-schema [:map
                         [:notes {:optional true}
                          [:vector [:map
@@ -466,10 +455,7 @@ that load it and bind its commands."
                  (empty? notes) {:error "give :notes, or :clear"}
                  :else (call "note" {:notes (mapv #(update % :file (fn [f] (abs-path config f))) notes)})))}
         {:name "emacs$edit" :kind :command
-         :description (str "Change the person's buffer in Emacs: replace :old, which must be there exactly once, with :new, as one undo"
-                           " step. The buffer is left unsaved and the new text highlighted, so they see the change, keep it by saving, or"
-                           " undo it — their own unsaved edits stay as they were. Use it to show a change rather than make one behind them:"
-                           " write-file and update-file write the disk, under whatever they have not saved.")
+         :description (tool-words/description "emacs$edit")
          :input-schema [:map
                         [:file [:string {:desc "The file's path."}]]
                         [:old [:string {:desc "The exact text to replace, found once in the buffer."}]]
@@ -482,12 +468,7 @@ that load it and bind its commands."
                  {:error "give :old, the text to replace"}
                  (call "edit" {:file (abs-path config file) :old old :new (str new)})))}
         {:name "emacs$xref" :kind :command
-         :description (str "Where a name is defined, or with :references where it is used, as the person's Emacs knows it — their"
-                           " LSP server through eglot or lsp-mode, elisp, or a tags table — for the language of :file. Name it by"
-                           " :identifier (found on :line, or its first place in the file) or by :line and :column. Each place is"
-                           " file, line, column and the text Emacs shows for it; :backend says which answered, and null with a note"
-                           " when the file has none, which is not the same as nothing found. Read-only. More exact than grep where a"
-                           " server runs: it knows scope, overloads and imports.")
+         :description (tool-words/description "emacs$xref")
          :input-schema [:map
                         [:file [:string {:desc "A file in the language asked about: its buffer's backend answers."}]]
                         [:identifier {:optional true} [:string {:desc "The name, as written in the file."}]]
@@ -508,23 +489,14 @@ that load it and bind its commands."
                                 ;; references may search the project
                                 (assoc opts :timeout-ms (:emacs-execute-timeout-ms config 60000))))))}
         {:name "emacs$diagnostics" :kind :command
-         :description (str "The errors and warnings the person's Emacs shows for :file now — flymake's (eglot's LSP diagnostics among"
-                           " them) or flycheck's — for the buffer as it stands, unsaved edits included: line, column, severity, text and"
-                           " checker. :pending names checkers that have not reported since the last change, so ask again after a moment;"
-                           " :backend null with a note means nothing checks the file in Emacs, not that it is clean. Read-only.")
+         :description (tool-words/description "emacs$diagnostics")
          :input-schema [:map [:file [:string {:desc "The file's path."}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :path-params [:file]
          :fn (fn [{:keys [file]} _ctx] (call "diagnostics" {:file (abs-path config file)}))}
         {:name "emacs$describe" :kind :command
-         :description (str "What the person's own Emacs says about itself, from the keymaps and modes of :file's buffer (else the one in"
-                           " front of them) — their init, Doom's or Spacemacs's, evil's states — not the Emacs you remember. Give one of:"
-                           " :key (\"C-c C-c\") → the command it runs there, or the keys after it when it is a prefix; :command → its keys,"
-                           " whether it is interactive and its doc's first line, or that this Emacs has no such function; :prefix (\"C-c\")"
-                           " → every key that continues it there and what each runs; :apropos (\"rename symbol\") → commands whose names"
-                           " have all the words, bound ones first, with their keys; :modes true → the major mode and the minor modes on."
-                           " Check every key and command with it before telling the person one. Read-only.")
+         :description (tool-words/description "emacs$describe")
          :input-schema [:map
                         [:file {:optional true} [:string {:desc "A file whose buffer's keymaps answer; else the buffer in front of the person."}]]
                         [:key {:optional true} [:string {:desc "A key as Emacs writes it: \"C-c C-c\", \"M-x\", \"<f5>\"."}]]
@@ -546,12 +518,7 @@ that load it and bind its commands."
                    {:error "give one of :key, :command, :prefix, :apropos or :modes"}
                    (call "describe" (cond-> given file (assoc :file (abs-path config file)))))))}
         {:name "emacs$habits" :kind :command
-         :description (str "Which commands the person uses in Emacs, as byj-observe-mode saw them — theirs to turn on (M-x"
-                           " byj-observe-mode), keeping command names in their Emacs's memory, never what they type: the commands"
-                           " run most with the keys they used and the keys bound; :runs, a small command run many times in a row (a"
-                           " better command replaces it); :mx-with-keys, commands run through M-x that have a key; and the tips given,"
-                           " each with :used-since, how often its command ran after it. :on false says it is off. With :tip (a"
-                           " command) and :why, record a tip you gave instead, so a later look can tell whether it was taken up.")
+         :description (tool-words/description "emacs$habits")
          :input-schema [:map
                         [:tip {:optional true} [:string {:desc "A command you suggested, to record."}]]
                         [:why {:optional true} [:string {:desc "With :tip: what it is better for, one line."}]]]
@@ -560,10 +527,7 @@ that load it and bind its commands."
          :fn (fn [{:keys [tip why]} _ctx]
                (call "habits" (cond-> {} (not (str/blank? (str tip))) (assoc :tip tip :why (str why)))))}
         {:name "emacs$suggest" :kind :command
-         :description (str "Put a command in front of the person in Emacs, in *byj-howto*: :why (what it does for them, one line), the"
-                           " command, its keys in the buffer they are in — looked up there, never your word for them — its doc line,"
-                           " and a button that runs it. They press the keys or the button; you do not run it. Refused for a"
-                           " command their Emacs does not have.")
+         :description (tool-words/description "emacs$suggest")
          :input-schema [:map
                         [:command [:string {:desc "The command's name."}]]
                         [:why {:optional true} [:string {:desc "What it does for them, one line."}]]]
@@ -574,11 +538,7 @@ that load it and bind its commands."
                  {:error "give :command"}
                  (call "suggest" (cond-> {:command command} why (assoc :why why)))))}
         {:name "emacs$features" :kind :command
-         :description (str "What the person's Emacs has, to set it up or to say why something is missing: its version, init file and"
-                           " package archives; for each of :features (\"eglot\", \"cider\") whether it is loaded or loadable, for each of"
-                           " :packages whether it is installed, for each of :programs (\"clojure-lsp\") where it is on exec-path; with"
-                           " :file, that buffer's major mode, the language server eglot would start for it, whether that is found and"
-                           " whether eglot runs there. Read-only; ask it before suggesting an install or a setting.")
+         :description (tool-words/description "emacs$features")
          :input-schema [:map
                         [:features {:optional true} [:vector [:string {:desc "A feature, as require names it."}]]]
                         [:packages {:optional true} [:vector [:string {:desc "A package's name."}]]]
@@ -591,9 +551,7 @@ that load it and bind its commands."
                (call "features" (cond-> {:features (vec features) :packages (vec packages) :programs (vec programs)}
                                   file (assoc :file (abs-path config file)))))}
         {:name "emacs$lessons" :kind :command
-         :description (str "Lessons in using Emacs itself, for coaching (/emacs coach emacs: …): without :name, each lesson's name,"
-                           " title and summary; with :name, its steps — each a title and the commands that show it done — and its"
-                           " text. A lesson names commands, never keys: look each key up with emacs$describe.")
+         :description (tool-words/description "emacs$lessons")
          :input-schema [:map [:name {:optional true} [:string {:desc "A lesson's name."}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
@@ -604,21 +562,14 @@ that load it and bind its commands."
                    (or (some #(when (= name (:name %)) (select-keys % [:name :title :summary :steps :text])) ls)
                        {:error (str "no lesson " name "; there are " (str/join ", " (map :name ls)))}))))}
         {:name "emacs$org-outline" :kind :command
-         :description (str "An org file's structure as Emacs has it, unsaved edits included: its headings (level, title, line, TODO, tags)"
-                           " and src blocks — each block's name, language, first and last line, header arguments as written and :results"
-                           " as in force, the absolute file it tangles to (inherited :tangle included; null for none), the noweb references"
-                           " <<name>> in it, and whether it has results. Read it before editing a literate file: the org file is the source,"
-                           " and the files it tangles to are output.")
+         :description (tool-words/description "emacs$org-outline")
          :input-schema [:map [:file [:string {:desc "The org file."}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :path-params [:file]
          :fn (fn [{:keys [file]} _ctx] (call "org-outline" {:file (abs-path config file)}))}
         {:name "emacs$org-tangle" :kind :command
-         :description (str "Tangle an org file — write each src block to the file its :tangle says — through org-babel in the person's Emacs;"
-                           " the files written. Every target is checked against the directories tools may write before anything is written."
-                           " Refused while the org buffer holds unsaved edits, since org saves it first. Edit the org file's blocks, never"
-                           " the files they tangle to, then tangle, then build or test what it wrote.")
+         :description (tool-words/description "emacs$org-tangle")
          :input-schema [:map [:file [:string {:desc "The org file."}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{:fs/write}
@@ -635,11 +586,7 @@ that load it and bind its commands."
                                {:error (str "refused: " why)}
                                (call "org-tangle" {:file f :expect targets})))))))}
         {:name "emacs$org-execute" :kind :command
-         :description (str "Run one src block of an org file through org-babel in the person's Emacs, by its :name or by a :line inside it;"
-                           " its results go under it as #+RESULTS, as when the person runs it, and are returned with the value. The buffer"
-                           " is left unsaved unless :save. The block runs as the person, in their Emacs, which waits while it runs: a block"
-                           " that takes long holds their Emacs, and stopping it at the bound does not stop it. A language needs its babel"
-                           " backend set up there (shell and emacs-lisp always).")
+         :description (tool-words/description "emacs$org-execute")
          :input-schema [:map
                         [:file [:string {:desc "The org file."}]]
                         [:name {:optional true} [:string {:desc "The block's #+name."}]]

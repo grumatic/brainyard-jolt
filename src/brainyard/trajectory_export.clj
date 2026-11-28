@@ -20,7 +20,8 @@
   moment a project's turns stop being a local diagnostic and become a file that
   gets copied somewhere. `trajectory.edn` itself holds whatever the turn said,
   as brainyard's does."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [brainyard.json :as json]
@@ -200,11 +201,7 @@
   [config]
   (when (seq (trajectory/sessions config))
     [{:name "trajectory$export" :kind :command
-      :description (str "Write this project's recorded turns out as a dataset — every turn's"
-                        " question, tool calls and answer, in the OpenAI fine-tuning shape."
-                        " Secrets are redacted unless you turn that off. Use it when someone"
-                        " asks for training data or wants the agent's history in one file;"
-                        " to ASK what happened, prefer log$search or memory$history.")
+      :description (tool-words/description "trajectory$export")
       :input-schema [:map [:session-id {:optional true} [:string {:desc "One session. Omit for all of them."}]]
                           [:format {:optional true} [:string {:desc "openai-jsonl (default) or edn (the raw records)."}]]
                           [:redact {:optional true} [:boolean {:desc "Default true. Only pass false for a file that stays on this machine."}]]

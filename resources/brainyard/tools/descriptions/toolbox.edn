@@ -1,0 +1,13 @@
+;; What the model reads of each tool brainyard/toolbox.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"tool$validate"
+  "Check a user tool definition (same args as tool$create) without saving it."
+ "tool$list"
+  "List user tools."
+ "tool$read"
+  "Read a user tool's definition, including its Tool Lisp body."
+ "tool$delete"
+  "Delete a user tool and its files."
+ "tool$test"
+  "Run a tool (usually a user tool you just defined) on sample args and return its result."}

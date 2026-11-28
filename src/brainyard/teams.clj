@@ -22,7 +22,8 @@
   `resources/brainyard/prompts/team-lead.md`, handed to the leader when it
   creates a team, the way a skill's procedure arrives when it is called
   (RFC-017)."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -418,7 +419,7 @@
   where it stands, and close it."
   [config]
   [{:name "team$create" :kind :command
-    :description "Start a team this session leads: members that work at once, each a live session of its own. Returns how to lead one — read it before starting members."
+    :description (tool-words/description "team$create")
     :input-schema [:map [:name {:optional true} [:string {:desc "a short name for the team's work"}]]]
     :output-schema [:or [:map [:team :string] [:protocol :string]] [:map [:error :string]]]
     :effects #{:fs/write}
@@ -430,7 +431,7 @@
                                    :members [] :assignments []})
               {:team id :protocol (or (protocol) "")})))}
    {:name "team$spawn" :kind :command
-    :description "Start a member of the team: a live session of its own with a role (an agent spec, agent$list names them), optionally on another model and in its own git worktree for code edits. Waits until it is up."
+    :description (tool-words/description "team$spawn")
     :input-schema [:map
                    [:name [:string {:desc "the member's name within the team, e.g. tester"}]]
                    [:agent {:optional true} [:string {:desc "the agent spec whose persona it takes"}]]
@@ -441,10 +442,7 @@
     :effects #{:process :session/send}
     :fn (fn [args ctx] (spawn! ctx args))}
    {:name "team$assign" :kind :command
-    :description (str "Hand the team a task without waiting. The task must stand on its own: the member has not seen this conversation. "
-                      "With :member, that member gets it and its answer lands as a background task (task$wakeup on its id). "
-                      "Without :member, it goes on the team's board and the next free member takes it — assign every part this way, "
-                      "then task$wakeup once on the dispatcher, which lands when all of them are answered.")
+    :description (tool-words/description "team$assign")
     ;; `question` too, the word session$ask and session$send use: a model that
     ;; learned one of them reached for it here, and was refused
     :input-schema [:map [:member {:optional true} [:string {:desc "a member to give it to; leave out to put it on the board"}]]
@@ -458,19 +456,19 @@
           (let [args (update args :task #(or (not-empty %) (:question args)))]
             (if (str/blank? (str (:member args))) (enqueue! ctx (:task args)) (assign! ctx args))))}
    {:name "team$status" :kind :command
-    :description "The team: each member, whether it is up, and each assignment — running, completed or failed — with the start of its answer."
+    :description (tool-words/description "team$status")
     :input-schema [:map]
     :output-schema [:or [:map [:team :string] [:members [:vector :any]] [:assignments [:vector :any]]] [:map [:error :string]]]
     :effects #{:fs/read}
     :fn (fn [_ ctx] (status ctx))}
    {:name "team$resume" :kind :command
-    :description "After this session was resumed: bring the team's members back, each its own session continued, under its old role, model and worktree. Assignments that were running are lost — assign them again."
+    :description (tool-words/description "team$resume")
     :input-schema [:map]
     :output-schema [:or [:map [:resumed [:vector :string]]] [:map [:error :string]]]
     :effects #{:process :session/send}
     :fn (fn [_ ctx] (resume! ctx))}
    {:name "team$close" :kind :command
-    :description "Close one member, or with no :member the whole team. Worktrees are left, with their branches, for merging."
+    :description (tool-words/description "team$close")
     :input-schema [:map [:member {:optional true} :string]]
     :output-schema [:or [:map [:closed [:vector :string]]] [:map [:error :string]]]
     :effects #{:process :session/send}

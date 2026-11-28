@@ -1,0 +1,15 @@
+;; What the model reads of each tool brainyard/tasks.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"task$wakeup"
+  "Park this turn and be resumed automatically when a background task finishes. Answer in one line and STOP — do not call another tool; you will be given a fresh turn when it lands, with this conversation behind you. Use this for a long wait, where task$wait would hold the session open doing nothing; use task$wait for a short one."
+ "task$run"
+  "Start a job in the background and get a task-id back. Use it for work you know will take minutes — a build, a long test run — so the turn is not spent waiting. job-type \"bash\" takes `command`; job-type \"tool\" takes `tool-id` and `tool-args` and runs any registered tool, gates and all. Poll with task$detail, block with task$wait, stop with task$cancel."
+ "task$list"
+  "Every background task this session started, with its status."
+ "task$detail"
+  "One task: its status, how long it has been running, and whatever it has printed SO FAR. :last-output-age-ms is how long since it last printed anything — that, not elapsed time, is what tells a working task from a wedged one. A task can be quiet for minutes and be perfectly healthy, so do not cancel one on a quiet window alone."
+ "task$wait"
+  "Block until a task finishes, or until `timeout-ms` passes — on timeout it is reported as still running, never cancelled. A wait is held to the most any call is waited on (:auto-background-timeout-ms, 180000 ms by default): for longer, park with task$wakeup and end the turn."
+ "task$cancel"
+  "Stop a running task. A bash task's whole process tree goes with it."}

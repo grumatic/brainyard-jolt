@@ -1,0 +1,7 @@
+;; What the model reads of each tool brainyard/proposals.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"proposal$list"
+  "List what self-improvement proposed and a person has not yet decided on: skills, user tools, predictor params, loops — newest first. None is live until a person accepts it (/proposals in the session)."
+ "proposal$read"
+  "Read one proposal by its id from proposal$list: the draft as it would go live, and why it was proposed."}

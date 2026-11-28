@@ -1,0 +1,15 @@
+;; What the model reads of each tool brainyard/channel.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"session$list"
+  "The live sessions of this project other than this one — byj's, Claude Code's as claude:<id>, and Codex's as codex:<thread> — their ids, labels and what each last asked. Their ids are what session$ask and session$send take. A Claude Code session is reachable only when it runs in tmux: one that is not says why. A Codex session is reachable wherever it runs."
+ "session$status"
+  "Whether a live session is idle or running a turn, how many requests wait for it, and its model."
+ "session$send"
+  "Hand another live session a task without waiting: it runs as a turn of that session, and its answer arrives as a background task of this one — task$wakeup resumes you when it lands, task$wait waits for it."
+ "session$cancel"
+  "Cancel the turn another live session is running, whoever started it."
+ "session$start"
+  "Start a new session beside this one, in this window, with :question as its first turn: it carries on there on its own, with this project, model and permission mode, and the person can switch to it. Returns its id, which session$status and session$send take. For a session already running, use session$send."
+ "session$ask"
+  "Ask another live session something and wait for its answer. It runs as a turn of THAT session, with its own history and tools, when it is next waiting; this waits up to :timeout-ms ({timeout} by default). To hand work off without waiting, use session$send."}

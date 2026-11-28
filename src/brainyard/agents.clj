@@ -35,7 +35,8 @@
 
   Not ported: the parent trail (`byj-gly.39`), work tiers (`byj-gly.40`),
   background dispatch (`byj-gly.13`)."
-  (:require [clojure.edn :as edn]
+  (:require [brainyard.tool-words :as tool-words]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint]
             [clojure.string :as str]
@@ -899,11 +900,7 @@
   [agent run-turn]
   {:name (tool-id (:name agent))
    :kind :agent
-   :description (str (describe agent)
-                     " — delegates to a fresh agent that starts with NO memory of this"
-                     " conversation: put everything it needs in `question` and `agent-context`."
-                     " Returns its final answer and a `subagent-id`; it stays alive under that id,"
-                     " so follow up with agent-registry$ask rather than dispatching it again.")
+   :description (tool-words/description "agent$<name>" {:describe (describe agent)})
    :input-schema [:map [:question [:string {:desc "The task for this agent, stated in full."}]]
                        [:agent-context {:optional true} [:string {:desc "Anything it needs that it cannot find for itself: paths, decisions already made, what not to touch."}]]
                        ;; brainyard's router prose: a SHAPE of work, never a model
@@ -969,8 +966,7 @@
   not have — background tasks, sessions that share an agent, remote peers."
   [run-turn]
   [{:name "agent-registry$list" :kind :command
-    :description (str "List the subagent instances you have dispatched and that are still alive."
-                      " Each one remembers its own exchanges — ask it again rather than dispatching a fresh agent that starts from zero.")
+    :description (tool-words/description "agent-registry$list")
     :input-schema [:map]
     :output-schema [:map [:agents [:vector (into [:map] instance-summary-entries)]]
               [:total :int] [:total-turns :int]]
@@ -982,7 +978,7 @@
              :total-turns (reduce + 0 (map #(or (:answers %) 0) (vals instances)))}))}
 
    {:name "agent-registry$detail" :kind :command
-    :description "Everything known about one instance, including its last answer. Check it is :idle before asking it again."
+    :description (tool-words/description "agent-registry$detail")
     :input-schema [:map [:id [:string {:desc "Instance id, e.g. \"explore/amber-otter-42\" (the suffix alone works when it is unambiguous)."}]]]
     :output-schema [:or (into [:map] (concat instance-summary-entries
                                         [[:last-answer [:maybe :string]] [:turns :int]]))
@@ -998,8 +994,7 @@
               {:error-message (str "Instance not found: " id)})))}
 
    {:name "agent-registry$ask" :kind :command
-    :description (str "Ask a subagent you already dispatched another question. It still has its own previous"
-                      " turns, so build on what it found rather than re-explaining — that is the whole reason it is still alive.")
+    :description (tool-words/description "agent-registry$ask")
     :input-schema [:map [:id [:string {:desc "Instance id from a dispatch result's :subagent-id."}]]
                         [:question [:string {:desc "The follow-up, stated in full."}]]]
     ;; the dispatch result calls it :subagent-id, and a model carries that name
@@ -1054,8 +1049,7 @@
                               (assoc :agent (:agent inst) :subagent-id rid :askable? true)))))))))))}
 
    {:name "agent-registry$close" :kind :command
-    :description (str "End a subagent you are done with, freeing its slot. Anything it dispatched goes with it."
-                      " Closing what you no longer need keeps a useful instance from being evicted at the cap.")
+    :description (tool-words/description "agent-registry$close")
     :input-schema [:map [:id [:string {:desc "Instance id."}]]]
     :output-schema [:or {:desc "the instance and every instance it dispatched"}
              [:map [:closed [:vector :string]]] error-message-schema]
@@ -1153,7 +1147,7 @@
                  :note (str "callable now as " (tool-id name) "; it will be listed in the roster from the next turn")}))))}
 
    {:name "meta-agent$validate" :kind :command
-    :description "Check a definition without saving it; with `sample`, run the unsaved agent on that question once and return its answer."
+    :description (tool-words/description "meta-agent$validate")
     :input-schema (conj (schema/all-optional definition-schema)
                         [:sample {:optional true} [:string {:desc "A question to try the unsaved agent on."}]])
     :output-schema [:map [:valid :boolean] [:errors [:vector :string]] [:exists :boolean]
@@ -1172,7 +1166,7 @@
                      (:answer (dispatch spec {:question sample} ctx run-turn {:keep? false}))))))}
 
    {:name "meta-agent$list" :kind :command
-    :description "Every agent this project can dispatch, with where it came from."
+    :description (tool-words/description "meta-agent$list")
     :input-schema [:map]
     :output-schema [:map [:agents [:vector [:map [:name :string] [:id :string] [:description :string] [:source :string]
                                       [:version {:optional true} :int] [:dir {:optional true} :string]]]]
@@ -1195,7 +1189,7 @@
               (seq problems) (assoc :problems problems))))}
 
    {:name "meta-agent$read" :kind :command
-    :description "One agent's full definition, including the instruction it runs on."
+    :description (tool-words/description "meta-agent$read")
     :input-schema [:map [:name :string]]
     :output-schema [:or [:map [:name :string] [:description {:optional true} :string] [:instruction :string]
                   [:tool-context {:optional true} :string] [:source :string]
@@ -1209,7 +1203,7 @@
             {:error (str "no agent named " name)}))}
 
    {:name "meta-agent$delete" :kind :command
-    :description "Delete an agent you defined. A built-in has no files to delete — define one of the same name to replace it instead."
+    :description (tool-words/description "meta-agent$delete")
     :input-schema [:map [:name :string]]
     :output-schema [:or [:map [:deleted :string]] [:map [:error :string]]]
     :effects #{:fs/write}

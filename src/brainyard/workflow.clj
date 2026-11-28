@@ -34,7 +34,8 @@
 
   brainyard has no counterpart; the workbench authors and runs these
   workflows from its own UI, and this is byj's own way to, from a session."
-  (:require [brainyard.projects :as projects]
+  (:require [brainyard.tool-words :as tool-words]
+            [brainyard.projects :as projects]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
@@ -1307,19 +1308,19 @@
   (let [opt (fn [k desc] [k {:optional true} [:any {:desc desc}]])
         dir (opt :dir "the project directory; this project when absent")]
     [{:name "workflow$list" :kind :command
-      :description "This project's workflows (.brainyard/deps.edn's :workflows): each one's stages in the order a run works them and its master, the roles there are to play, and any error that would stop the spec being written. Reads only."
+      :description (tool-words/description "workflow$list")
       :input-schema [:map dir]
       :output-schema [:map [:text :string]]
       :effects #{:fs/read}
       :fn (fn [args _] (list-workflows config args))}
      {:name "workflow$show" :kind :command
-      :description "One workflow whole: its stages in order, the role each plays and what that role does, what each link hands the next stage, its master, and the errors naming it. Reads only."
+      :description (tool-words/description "workflow$show")
       :input-schema [:map dir [:id [:string {:desc "the workflow's id"}]]]
       :output-schema [:map [:text :string] [:found? :any]]
       :effects #{:fs/read}
       :fn (fn [args _] (show-workflow config args))}
      {:name "workflow$save" :kind :command
-      :description "Add a workflow, or change one, in .brainyard/deps.edn, as the person asked. Pass the id and only what changes: a field left out is kept; :stages and :links, when given, replace the workflow's whole stages and links. A stage plays the role of its id unless it names one; a role the stages or the master name that the project has not is added — give it a title and what it does in :roles. It is held to what byj deps write holds the file to (each stage plays a role, links name stages and do not go round), shown to the person, and written only on their yes. Read it first with workflow$show when changing one."
+      :description (tool-words/description "workflow$save")
       :input-schema [:map dir
                      [:id [:string {:desc "the workflow's id: letters, digits, _ . -"}]]
                      [:title {:optional true} [:string {:desc "its name, for the person"}]]
@@ -1332,26 +1333,26 @@
       :effects #{:fs/read :fs/write}
       :fn (fn [args ctx] (save-workflow config ctx args))}
      {:name "workflow$remove" :kind :command
-      :description "Remove a workflow from .brainyard/deps.edn, as the person asked: shown to them, and written only on their yes. The roles it played stay; its runs are kept."
+      :description (tool-words/description "workflow$remove")
       :input-schema [:map dir [:id [:string {:desc "the workflow's id"}]]]
       :output-schema [:map [:text :string] [:written? :any]]
       :effects #{:fs/read :fs/write}
       :fn (fn [args ctx] (remove-workflow config ctx args))}
      {:name "workflow$runs" :kind :command
-      :description "This project's workflow runs, newest first: each one's workflow, how it ended, the person's verdict, and what it worked on. Reads only."
+      :description (tool-words/description "workflow$runs")
       :input-schema [:map dir (opt :workflow "only this workflow's runs") (opt :limit "how many; 10 when absent")]
       :output-schema [:map [:text :string]]
       :effects #{:fs/read}
       :fn (fn [args _] (list-runs config args))}
      {:name "workflow$verdict" :kind :command
-      :description "Keep the person's word on how a run went — pass, changes or fail, and a note — with the run. Only what the person said."
+      :description (tool-words/description "workflow$verdict")
       :input-schema [:map dir [:run [:any {:desc "the run's number"}]] [:verdict [:string {:desc "pass, changes or fail"}]]
                      (opt :note "the person's note")]
       :output-schema [:map [:text :string]]
       :effects #{:fs/read :fs/write}
       :fn (fn [args _] (record-verdict config args))}
      {:name "workflow$start" :kind :command
-      :description "/workflow's run: open a run of a workflow on a piece of work, and give its first stage's brief — or why it cannot run."
+      :description (tool-words/description "workflow$start")
       :input-schema [:map dir (opt :workflow "the workflow's id") (opt :work "what the run works on: words, or an issue's id first: its id in beads, or #N")
                      (opt :worktree "yes to run it in a worktree of its own")
                      (opt :from "a branch or commit its worktree starts from, not HEAD; asks for a worktree of its own")
@@ -1360,25 +1361,25 @@
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (start-run config ctx args))}
      {:name "workflow$again" :kind :command
-      :description "/workflow's again: run an ended run again — the same workflow and work, where it worked — each stage told its verdict and what to change; or why it cannot."
+      :description (tool-words/description "workflow$again")
       :input-schema [:map dir (opt :run "the number of the run to run again") (opt :note "what to change, in the person's words; else the verdict's note")]
       :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (again-run config ctx args))}
      {:name "workflow$resume" :kind :command
-      :description "/workflow's resume: go on with a run waiting to be handed on, or stopped with a stage left, from the stage it is at — or why it cannot."
+      :description (tool-words/description "workflow$resume")
       :input-schema [:map dir (opt :run "the run's number") (opt :note "what the person adds for the stage, else nothing")]
       :output-schema [:map [:stop :any] [:stopped :any] [:run :any] [:brief :any] [:master :any] [:elsewhere {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (resume-run config ctx args))}
      {:name "workflow$check" :kind :command
-      :description "What a run's stage's turn left: uncommitted files, commits since the stage began, whether what it hands on is ready, and what the profile expects."
+      :description (tool-words/description "workflow$check")
       :input-schema [:map dir (opt :run "the run's number") (opt :answer "the stage's answer")]
       :output-schema [:map [:text :string]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args _] (check-stage config args))}
      {:name "workflow$settle" :kind :command
-      :description "Act on the master's judgement of a run's stage: hand on to the next stage, have it go again, or end the run."
+      :description (tool-words/description "workflow$settle")
       :input-schema [:map dir (opt :run "the run's number") (opt :status "done, retry, ask or stop")
                      (opt :question "for ask") (opt :summary "one line") (opt :answer "the stage's answer")
                      (opt :usage "the run's usage so far") (opt :stage-usage "what the stage's turn spent")]
@@ -1387,7 +1388,7 @@
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (settle-stage config ctx args))}
      {:name "workflow$report" :kind :command
-      :description "/workflow's answer: a managing turn's own, or a run's — each stage's line, why it ended, and the commits since it began."
+      :description (tool-words/description "workflow$report")
       :input-schema [:map dir (opt :run "the run's number") (opt :stopped "why it ended")
                      (opt :managing "whether the turn managed the workflows instead") (opt :answer "that turn's answer")
                      (opt :stage-usage "what that turn spent")]
@@ -1395,7 +1396,7 @@
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (report-run config ctx args))}
      {:name "workflow$delegate" :kind :command
-      :description "Have a run's stage worked in a session of its own — started for it, in a worktree of its own where its role says so — asked its brief, and waited for."
+      :description (tool-words/description "workflow$delegate")
       :input-schema [:map dir (opt :run "the run's number") (opt :brief "the stage's brief")]
       :output-schema [:map [:answer :any] [:usage :any]]
       :effects #{:fs/read :fs/write :process :session/send}

@@ -1,0 +1,15 @@
+;; What the model reads of each tool brainyard/todo.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"todo$create"
+  "Write a checklist that OUTLIVES this turn, as <slug>.md in the project's todos folder, kept outside the repository. Use it when a task has more steps than one turn should carry: the list is what lets a later turn pick up where this one stopped. An item may name how it should be done with `via`."
+ "todo$list"
+  "List the checklists this project has, with how much of each is left."
+ "todo$read"
+  "Read a checklist: every item, its index, whether it is done, and its `via` tag."
+ "todo$next"
+  "The first item not yet done. Returns :exhausted true when the list is finished, which is how a loop over a checklist knows to stop."
+ "todo$done"
+  "Mark one item done, by index or by enough of its text to be unique. Mark it only when there is evidence it IS done — a checklist that lies is worse than no checklist, because the next turn believes it."
+ "todo$add"
+  "Append items to a checklist — what a step turned out to need that the plan missed."}

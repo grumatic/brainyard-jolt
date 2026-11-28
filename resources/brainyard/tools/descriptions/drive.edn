@@ -1,0 +1,11 @@
+;; What the model reads of each tool brainyard/drive.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"drive$next"
+  "/drive's next step: the next ready bead, or GitHub issue no one is assigned, of the trackers the profile names, claimed, with its brief — or why the run stops (no profile, no tracker it works, the profile's limits, nothing ready, the person said no)."
+ "drive$check"
+  "What a bead's or GitHub issue's turn left: uncommitted files, the commits since the step began, its status, and what the profile expects. Reads only."
+ "drive$settle"
+  "Act on the judgement of a bead's or GitHub issue's turn: close it as the profile says, count a retry, set aside one whose turns are spent, or stop the run with the question for the person."
+ "drive$report"
+  "/drive's answer: each step and why it stopped; a bead the run claimed and did not settle is released."}

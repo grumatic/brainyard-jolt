@@ -1,0 +1,21 @@
+;; What the model reads of each tool brainyard/init.clj defines: its description,
+;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
+;; resource (RFC-001).
+{"profile$edit"
+  "Change this project's profile (.brainyard/profile.edn: its goal, scope, done criteria, preset, how far an agent goes on its own, its issue trackers) as the person asks you to. Pass only what changes; a field left out is kept. The person is shown each change and asked, every time; it is written, with AGENTS.md's profile block, only on their yes. Call it only for a change the person asked for — never to give yourself more room. Read the profile first with read-file. A project with no profile gets one from /init."
+ "init$check"
+  "Where this machine and a project stand for brainyard: each tool it relies on (git, bd, tmux, claude, gh, codex) — found, its version, or how to install it — and the project's AGENTS.md, CLAUDE.md import, beads setup, skills and .gitignore. Reads only; installs nothing."
+ "init$scaffold"
+  "Write a project's starting files: AGENTS.md, a CLAUDE.md that imports it, and .brainyard/.gitignore naming what is not the repository's there (.env), with .brainyard/ taken out of .gitignore. Creates what is absent; in what exists, writes only brainyard's marked blocks, the import line or the missing lines, after a snapshot — never the person's text. A second run writes nothing."
+ "init$beads"
+  "Set up beads in a project with bd itself: bd init when there is no .beads/, then bd setup claude (and codex, when installed) where bd's own check says it is missing. Run it after init$scaffold, so CLAUDE.md already imports AGENTS.md. Says what bd ran and any commit bd made of its own files."
+ "init$survey"
+  "What a project shows of itself, for drafting its AGENTS.md section: top-level entries, CI workflows, recent commits, and the head of its README and build files. Reads only."
+ "init$next"
+  "What to do next in a project brainyard was just set up in: committing /init's files, drafting AGENTS.md once there is code, example prompts to start with, beads. `prompt` is the one to suggest first. Reads only."
+ "init$onboard"
+  "File a project's starter issues in beads with bd: a 'Get started with brainyard' epic with what to do first (commit /init's files, write the project's rules in AGENTS.md, say what the project is for, draft AGENTS.md once there is code) and one issue per missing optional tool. Run after init$beads. Files nothing when they were filed before."
+ "init$profile"
+  "Show the person this project's drafted profile — what it is for, its scope, when it is done, how far an agent goes on its own — and, on their yes, write .brainyard/profile.edn, show it in AGENTS.md, and file its first issues in beads. Asks every time; headless, writes nothing."
+ "init$install"
+  "Install tools brainyard relies on, by name (codex, tmux, gh, …): each only after the person says yes, with a package manager that asks nothing (brew, npm); any other install is given for the person to run. Headless, only lists the commands."}
