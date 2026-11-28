@@ -579,3 +579,18 @@
       (is (= "/elsewhere" (echo {"PATH" (System/getenv "PATH") "BY_PROJECTS_HOME" "/elsewhere"}))))
     (testing "nothing to carry, nothing added"
       (is (nil? (fx/carried-env {"BY_PROJECTS_HOME" "x" "BY_CHANGES_SKIP_ROOT" "y"}))))))
+
+(deftest a-throwing-line-callback-is-not-forgotten
+  ;; byj-ku1.6: an on-line that threw was swallowed line by line, and nothing
+  ;; said the live view had stopped
+  (let [seen (atom [])
+        r (fx/run-value!! (fx/streaming-process {:in "" :err :string}
+                                                (fn [line] (swap! seen conj line)
+                                                  (when (= "two" line) (throw (ex-info "the view broke" {}))))
+                                                "printf" "one\ntwo\nthree\nfour"))]
+    (is (= ["one" "two" "three" "four"] @seen) "the reading goes on")
+    (is (= "one\ntwo\nthree\nfour" (:out r)))
+    (is (= {:count 1 :message "the view broke"} (:on-line-error r))))
+  (testing "and a callback that never throws leaves no trace"
+    (is (not (contains? (fx/run-value!! (fx/streaming-process {:in "" :err :string} (fn [_]) "echo" "x"))
+                        :on-line-error)))))

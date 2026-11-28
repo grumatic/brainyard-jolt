@@ -397,6 +397,8 @@
 (defn streaming-process
   "Run a subprocess, calling `on-line` with each line of stdout AS IT ARRIVES.
   Settles with `jolt.process`'s result map, `:out` holding the whole output.
+  An `on-line` that throws does not stop the reading; the result then carries
+  `:on-line-error {:count :message}`, the first failure's message.
   Cancelling destroys the process tree, as `process-task` does.
 
   Read from the raw `InputStream`, one byte buffer at a time. Both readers that
@@ -413,6 +415,15 @@
   [opts on-line & cmd]
   (fn [s f]
     (let [state (atom {:cancelled? false :proc nil})
+          ;; a callback that throws must not end the reading, but it is not
+          ;; forgotten either: the first failure and how many there were
+          ;; come back on the result as :on-line-error (byj-ku1.6)
+          line-errors (atom nil)
+          on-line (fn [text]
+                    (try (on-line text)
+                         (catch Throwable e
+                           (swap! line-errors (fn [m] {:count (inc (:count m 0))
+                                                       :message (or (:message m) (str (or (ex-message e) e)))})))))
           waiter (via-blk
                         (let [proc (apply start (assoc opts :out :stream) cmd)
                               {:keys [cancelled?]} (swap! state assoc :proc proc)]
@@ -429,7 +440,7 @@
                                               (.reset line)
                                               (.append whole text)
                                               (.append whole "\n")
-                                              (try (on-line text) (catch Throwable _ nil))))]
+                                              (on-line text)))]
                             (loop []
                               (let [n (.read is buf)]
                                 (when (pos? n)
@@ -441,8 +452,10 @@
                             (when (pos? (.size line))
                               (let [text (String. (.toByteArray line) "UTF-8")]
                                 (.append whole text)
-                                (try (on-line text) (catch Throwable _ nil))))
-                            (unless-cancelled state (assoc @proc :out (str whole)) "streaming-process")))))
+                                (on-line text)))
+                            (unless-cancelled state (cond-> (assoc @proc :out (str whole))
+                                                      @line-errors (assoc :on-line-error @line-errors))
+                              "streaming-process")))))
           cancel (waiter s f)]
       (fn []
         (let [{:keys [proc]} (swap! state assoc :cancelled? true)]

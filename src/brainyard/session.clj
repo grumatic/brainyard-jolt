@@ -2774,8 +2774,9 @@
   [{:keys [st-memory config] :as ctx}]
   (when (:persist-session? config)
     (let [id (:session-id config)]
-      (when (and id (nil? (persist/save! config id @st-memory)))
-        (emit ctx :error (str "could not save session " id))))))
+      (let [why (atom nil)]
+        (when (and id (nil? (persist/save! config id @st-memory {:on-error #(reset! why (ex-message %))})))
+          (emit ctx :error (str "could not save session " id (some->> @why (str ": ")))))))))
 
 (def ^:private tool-entry-chars
   "How much of a tool call's result, and of each argument, the transcript keeps.

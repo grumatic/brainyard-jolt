@@ -974,9 +974,12 @@
                              (or (:result result) (str/trim (str (:err r) (:out r)))))
                         {:retryable? false})))
       (events/emit! on-event :llm.cli/result
-                    {:duration-ms (- (System/currentTimeMillis) t0)
-                     :usage (anthropic-usage (:usage result))
-                     :response (:result result)})
+                    (cond-> {:duration-ms (- (System/currentTimeMillis) t0)
+                             :usage (anthropic-usage (:usage result))
+                             :response (:result result)}
+                      ;; a stream callback (the front end's on-chunk) that
+                      ;; threw: the reply is whole, the live view was not
+                      (:on-line-error r) (assoc :on-line-error (:on-line-error r))))
       (cond-> {:content (:content got)
                :source (:source got)
                ;; the CLI caches on its own, but it reports what that cost and

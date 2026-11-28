@@ -205,6 +205,9 @@
       ;; a directory, not empty, where the snapshot goes: no rename replaces it
       (.mkdirs (io/file f "in-the-way"))
       (is (nil? (persist/save! c "s1" {:turn-count 1})))
+      (let [why (atom nil)]
+        (persist/save! c "s1" {:turn-count 1} {:on-error #(reset! why (ex-message %))})
+        (is (re-find #"could not replace" (str @why)) "and the report can say why (byj-ku1.6)"))
       (is (empty? (filter #(str/ends-with? (.getName %) ".tmp") (.listFiles (.getParentFile f))))
           "and its temp file is not left behind"))
     (testing "saves of one session at once all land, and the snapshot reads"

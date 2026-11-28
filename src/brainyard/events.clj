@@ -105,7 +105,7 @@
    :llm.cli/call {:level :trace
                   :doc "A claude -p invocation, argv and stdin together — the pair that makes a call replayable; {:provider :model :args :stdin}."}
    :llm.cli/result {:level :trace
-                    :doc "What the CLI returned; {:duration-ms :usage :response}."}
+                    :doc "What the CLI returned; {:duration-ms :usage :response}, and :on-line-error {:count :message} when a stream callback threw — the reply is whole, the live view was not (byj-ku1.6)."}
 
    ;; --- the turn, narrating itself ----------------------------------------------
    :agent.iteration/start {:level :trace :doc "An iteration began; {:iteration}."}

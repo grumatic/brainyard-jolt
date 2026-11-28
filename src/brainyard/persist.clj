@@ -282,8 +282,10 @@
 
 (defn save!
   "Write the session's snapshot. Returns the file, or nil when it could not be
-  written — persistence must never take a session down with it."
-  [config id {:keys [turn-count usage previous-turns question transcript conversation-title model last-result recaps]}]
+  written — persistence must never take a session down with it. `on-error`,
+  when given, is handed what stopped it, so the report can say why."
+  [config id {:keys [turn-count usage previous-turns question transcript conversation-title model last-result recaps]}
+   & [{:keys [on-error]}]]
   (try
     (let [f (session-file config id)
           existing (when (.isFile f) (try (edn/read-string (slurp f)) (catch Throwable _ nil)))]
@@ -329,7 +331,9 @@
       ;; the folder this made has its record from the first save on
       (mark-project! config)
       f)
-    (catch Throwable _ nil)))
+    (catch Throwable e
+      (when on-error (try (on-error e) (catch Throwable _ nil)))
+      nil)))
 
 (defn numbered
   "`previous-turns` with the turn each one was, newest last ending at turn

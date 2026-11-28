@@ -14,7 +14,7 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   meanwhile.
 - **A session save that failed says so.** If the snapshot file could not be
   replaced, the save used to count as done, and the session was not saved.
-  Now the session reports it ("could not save session").
+  Now the session reports it ("could not save session") and says why.
 - **A rate-limited provider is waited out.** When a provider answers 429 or
   5xx with a `retry-after` or `retry-after-ms` header, the retry waits at
   least that long instead of hitting the limit again. A provider that asks
