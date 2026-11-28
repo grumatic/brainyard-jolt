@@ -8,6 +8,8 @@
 ;; :unbound-tool   {tools} the names called that are not bound, comma-separated
 ;; :answer-refused {reason} why the answer was refused, ending in a stop
 ;; :refused-self-next {next} the next step the model named for itself
+;; :hallucinated, :incomplete {detail} the answer check's verdict and its
+;;                 detail (brainyard's EvaluateAnswer), kept as the critique
 {:format-error "FORMAT ERROR: your previous reply could not be used ({error}). Reply with ONLY the JSON object described in the response format."
  :no-action "NO ACTION: your previous reply populated neither `tool-calls` nor `answer`. Call a tool or write the final answer."
  :unbound-tool "UNBOUND TOOL: these tool calls name tools that do not exist and were NOT run: {tools}"
@@ -17,4 +19,6 @@
  :answer-refused "ANSWER REFUSED: {reason}"
  :refused-by-check "A check this project runs on answers refused yours. Look again at what the question asks and what the tools showed, then answer again."
  :refused-self-next "You reported the goal was not achieved. Your own next step: {next}. Do it, then answer again."
- :refused-self "You reported the goal was not achieved. Find the remaining gap, get what is missing, then answer again."}
+ :refused-self "You reported the goal was not achieved. Find the remaining gap, get what is missing, then answer again."
+ :hallucinated "Your previous answer contained data no tool returned. {detail} Use ONLY what the tool results actually show — run them again and check before answering."
+ :incomplete "Your previous answer was incomplete. {detail} Close the gap, then answer again."}

@@ -115,6 +115,7 @@
             [brainyard.trajectory-export-test]
             [brainyard.toolbox-test]
             [brainyard.tool-words-test]
+            [brainyard.src-prose-test]
             [brainyard.schema-test]))
 
 (def namespaces
@@ -218,6 +219,7 @@
     brainyard.trajectory-export-test
     brainyard.toolbox-test
     brainyard.tool-words-test
+    brainyard.src-prose-test
     brainyard.schema-test])
 
 (defn run

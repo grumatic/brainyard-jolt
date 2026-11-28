@@ -179,9 +179,13 @@ config still decides, and a node without them — a project's copy of an older
 loop — reads those keys and `[:malformed :empty]`.
 
 Every notice the loop queues — `FORMAT ERROR`, `NO ACTION`, `UNBOUND TOOL`,
-`CHANNEL CONFLICT`, `TOOL CHANNEL`, `ANSWER REFUSED` and its reasons — and the
+`CHANNEL CONFLICT`, `TOOL CHANNEL`, `ANSWER REFUSED` and its reasons, the
+answer check's critique for `HALLUCINATED` and `INCOMPLETE` — and the
 thought of an iteration whose calls were recovered are
 `prompts/loop-notices.edn`'s words, each `{name}` filled by the kernel.
+The session-context zone's word on the `tool-calls` channel, and on
+discovery when it is on, are `prompts/tool-calls-channel.md`'s and
+`prompts/tool-calls-discovery.md`'s (byj-2e8.7).
 
 ### Channel conflicts
 

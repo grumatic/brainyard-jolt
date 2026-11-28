@@ -646,11 +646,8 @@
             refused? (contains? #{"HALLUCINATED" "INCOMPLETE"} verdict)]
         (when refused?
           (swap! st-memory assoc :critique
-                 (if (= "HALLUCINATED" verdict)
-                   (str "Your previous answer contained data no tool returned. " (:detail outputs)
-                        " Use ONLY what the tool results actually show — run them again and check before answering.")
-                   (str "Your previous answer was incomplete. " (:detail outputs)
-                        " Close the gap, then answer again."))))
+                 (notice (if (= "HALLUCINATED" verdict) :hallucinated :incomplete)
+                         {:detail (:detail outputs)})))
         (emit! ctx :agent.answer/evaluated {:verdict verdict :detail (:detail outputs)})
         (not refused?)))))
 
@@ -1328,11 +1325,9 @@
               (when (pos? depth) (str "- Parent: " (or (last (butlast chain)) "root") "\n"))))
        "- Session: " (or (:session-id config) "<unknown>") "\n"
        "\n## Tools\n\n"
-       "Every tool below is invoked via the JSON `tool-calls` channel (one-shot RPC, ReAct-style):\n"
-       "```\n[{\"name\": \"<id>\",\n  \"args\": {\"<arg>\": \"<val>\"}}]\n```\n"
+       (load-resource "brainyard/prompts/tool-calls-channel.md")
        (when (:tool-discovery? config)
-         (str "There is no code-blocks channel for this agent — to reach a tool not bound below, discover it with\n"
-              "`list-tools` / `get-tool-info` and call it through `tool-calls`.\n"))
+         (load-resource "brainyard/prompts/tool-calls-discovery.md"))
        ;; the listing is 56% of the prompt at full specs; one line each with
        ;; `get-tool-info` for the rest is the progressive disclosure skills
        ;; already use (RFC-003). Verbose whenever discovery is off, since then

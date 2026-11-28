@@ -92,6 +92,7 @@ today.
 | Every namespace `src` reaches by `requiring-resolve` is in the built binary: `brainyard.main` reaches it by `:require`, or `:jolt/build :include` names it. | `release-test/every-lazily-resolved-namespace-is-in-the-binary`. |
 | A built-in predictor is never redefined from disk. | `predictor-test/loading`. |
 | Moving words the model reads from `src/` into resources (byj-2e8) changes no byte it is sent unless the commit says so by re-recording the held prompts (RFC-005). | `prompt-golden-test/a-react-turn` and the six cases beside it. |
+| `src/` holds no sentence of more than a dozen words, docstrings aside, but those in `test/fixtures/src-prose.edn`, each with why: a person reads it (`:cli`, `:doc`), or the model does and moving it is a bead (`:tool`). A new one the model reads goes in `resources/brainyard/prompts`. | `src-prose-test/src-keeps-no-prose-the-model-reads`. |
 | The CLI's help names every subcommand `main` dispatches, and no other. | `cli-help-test/every-dispatched-subcommand-has-help`. |
 | Every flag a usage line or an option in the help names is one `parse-args` accepts. | `cli-help-test/every-flag-the-help-names-is-parsed`. |
 | `-h` shows the page of the command it names, by its name or an old one, wherever options stand before it: the help reads the command `parse-args` parsed, not the raw words. | `main-test/the-help-is-the-commands-wherever-the-options-stand`. |
@@ -102,3 +103,6 @@ today.
 
 ## Known gaps
 
+- A tool's argument and result descriptions, and the prose a tool returns to the
+  model, are still in `src/` (the `:tool` entries of `test/fixtures/src-prose.edn`)
+  — `byj-2e8.9`.
