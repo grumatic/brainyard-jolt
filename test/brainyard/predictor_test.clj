@@ -64,7 +64,7 @@
       (let [p (predictor/load-predictor "react/think-act" roots)]
         (is (= :builtin (:source p)))
         (is (= :cot (:strategy p)))
-        (is (str/starts-with? (get-in p [:signature :instructions]) "You are a CoAct agent"))))
+        (is (str/starts-with? (get-in p [:signature :instructions]) "You are a meta-harness agent"))))
     (testing "user/ predictors come from disk, project root first"
       (write-edn! "home/predictors/user/summarize.edn" (assoc summarize-spec :description "home"))
       (write-edn! "project/predictors/user/summarize.edn" (assoc summarize-spec :description "project"))

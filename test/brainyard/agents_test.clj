@@ -162,10 +162,10 @@
       (is (= "done" (:answer r)))
       (is (= {:agent "probe" :answer "three files" :iterations 1 :terminated-by :answer-channel}
              (dissoc (subagent-result r) :usage :subagent-id :askable? :askable-until :ask-hint))))
-    (testing "the child read the agent's instruction, not the ReAct one"
+    (testing "the child read the agent's instruction, not the default one"
       (let [child (second (:prompts r))]
         (is (str/includes? child "## Instructions\nYou are a probe agent."))
-        (is (not (str/includes? child "You are a tool-only ReAct agent")))))
+        (is (not (str/includes? child agent/react-instruction)))))
     (testing "the caller's context is part of the child's question — it has no conversation to put it in"
       (is (str/includes? (second (:prompts r)) "## Instructions")))
     (testing "the events fire: the tier chosen, the dispatch, the result"

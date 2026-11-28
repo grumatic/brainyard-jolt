@@ -93,8 +93,10 @@
   "brainyard's react-agent `react-instruction`, its tool-only overlay: the
   `## Instructions` of a turn whose config names no `:agent-instruction` (a
   subagent's persona replaces it, RFC-018). The words are
-  `prompts/react-agent-instruction.md`'s (byj-2e8.2); its last newline is the
-  file's, not the prompt's."
+  `prompts/react-agent-instruction.md`'s (byj-2e8.2), without brainyard's
+  \"You are a tool-only ReAct agent\": who the agent is is said once, in
+  think-act's instructions (divergence `meta-harness-identity`). Its last
+  newline is the file's, not the prompt's."
   (str/trim-newline (load-resource "brainyard/prompts/react-agent-instruction.md")))
 
 ;; --- helpers -----------------------------------------------------------------

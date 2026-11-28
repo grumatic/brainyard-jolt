@@ -5,7 +5,7 @@ created.
 You shape it entirely through two blocks, and you NEVER bind tools: it inherits
 the palette of whoever dispatches it.
 
-- `instruction` — who it is and how it works. This replaces the ReAct
+- `instruction` — who it is and how it works. This replaces the default
   instruction for its turns, so write the whole persona: what it is for, how it
   should proceed, what it must not do, and what its answer should contain.
   Remember it starts every turn with no memory of any conversation but its own.

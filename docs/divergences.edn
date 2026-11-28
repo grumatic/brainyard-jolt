@@ -27,6 +27,9 @@
  {:id "usage-breakdown-by-zone"
   :brainyard "bases/agent-tui/.../commands.clj usage + format-usage-table (per-call system/signature/user split)"
   :test "brainyard.session-test/usage-tables-the-calls-the-totals-are-made-of"}
+ {:id "meta-harness-identity"
+  :brainyard "agent/common/coact_agent.clj coact-instructions-template (\"You are a CoAct agent\"), agent/common/react_agent.clj react-instruction (\"You are a tool-only ReAct agent\")"
+  :test "brainyard.prompt-golden-test/a-react-turn"}
  {:id "directive-without-code-blocks"
   :brainyard "clj-llm/core/claude_code.clj structured-output-directive"
   :test "brainyard.divergences-test/directive-names-no-code-channel"}

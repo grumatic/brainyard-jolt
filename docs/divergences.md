@@ -49,6 +49,19 @@ bound, says when a composite beats a call per step (`byj-gly.242`).
 `resources/brainyard/prompts/react-instructions.md` is the tool-only render,
 adapted where the original names tools this port lacks (`task$run`).
 
+<!-- divergence: meta-harness-identity -->
+**The agent is told it is a meta-harness agent, once.** brainyard's think-act
+instructions open "You are a CoAct agent", and its react-agent's overlay under
+`## Instructions` "You are a tool-only ReAct agent": two names for one agent,
+both the names of brainyard's own classes of agent, which say nothing to the
+model about what it is for. Here `prompts/react-instructions.md` opens "You are
+a meta-harness agent" and says what that is: a harness is the loop, prompts,
+tools, memory and checks that run a model, and this one is data — files, and
+raw traces of every run — so when the task is the harness itself the agent
+finds the cause in those traces, not in a score. The overlay
+(`prompts/react-agent-instruction.md`, and `agents/general-purpose.md`, which
+opens with it) keeps its channel rules without a name.
+
 ## Session loop
 
 <!-- divergence: history-fixed-depth -->
