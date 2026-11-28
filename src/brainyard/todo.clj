@@ -195,10 +195,10 @@
   (when (:todos? config true)
     [{:name "todo$create" :kind :command
       :description (tool-words/description "todo$create")
-      :input-schema [:map [:slug [:string {:desc "File name, e.g. retry-budget."}]]
+      :input-schema [:map [:slug [:string {:desc (tool-words/description "todo$create :slug")}]]
                           [:title {:optional true} :string]
-                          [:items [:vector {:desc "Strings, or maps {text, via}."} [:or :string :map]]]
-                          [:plan {:optional true} [:string {:desc "What this came from — a path or short reference. A resumed run judges against it."}]]]
+                          [:items [:vector {:desc (tool-words/description "todo$create :items")} [:or :string :map]]]
+                          [:plan {:optional true} [:string {:desc (tool-words/description "todo$create :plan")}]]]
       :output-schema [:or [:map [:slug :string] [:path :string] [:count :int]] error-schema]
       :effects #{:fs/write}
       :fn (fn [{:keys [slug title items plan]} ctx]
@@ -231,7 +231,7 @@
      {:name "todo$next" :kind :command
       :description (tool-words/description "todo$next")
       :input-schema [:map [:slug :string]]
-      :output-schema [:or {:desc ":index and :text are nil once :exhausted"}
+      :output-schema [:or {:desc (tool-words/description "todo$next result")}
                  [:map [:index [:maybe :int]] [:text [:maybe :string]] [:via {:optional true} :string]
                   [:exhausted :boolean] [:remaining :int]]
                  error-schema]
@@ -244,8 +244,8 @@
       :description (tool-words/description "todo$done")
       :input-schema [:map [:slug :string]
                           [:index {:optional true} :int]
-                          [:text {:optional true} [:string {:desc "Enough of the item to be unique."}]]]
-      :output-schema [:or {:desc ":matches lists the items an ambiguous text matched"}
+                          [:text {:optional true} [:string {:desc (tool-words/description "todo$done :text")}]]]
+      :output-schema [:or {:desc (tool-words/description "todo$done result")}
                  [:map [:slug :string] [:done :string] [:remaining :int] [:path :string]]
                  [:map [:error :string] [:matches {:optional true} [:vector :string]]]]
       :effects #{:fs/write}

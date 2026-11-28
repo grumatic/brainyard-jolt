@@ -12,4 +12,17 @@
  "todo$done"
   "Mark one item done, by index or by enough of its text to be unique. Mark it only when there is evidence it IS done — a checklist that lies is worse than no checklist, because the next turn believes it."
  "todo$add"
-  "Append items to a checklist — what a step turned out to need that the plan missed."}
+  "Append items to a checklist — what a step turned out to need that the plan missed."
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "todo$create :slug"
+  "File name, e.g. retry-budget."
+ "todo$create :items"
+  "Strings, or maps {text, via}."
+ "todo$create :plan"
+  "What this came from — a path or short reference. A resumed run judges against it."
+ "todo$next result"
+  ":index and :text are nil once :exhausted"
+ "todo$done :text"
+  "Enough of the item to be unique."
+ "todo$done result"
+  ":matches lists the items an ambiguous text matched"}

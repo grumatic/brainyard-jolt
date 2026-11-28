@@ -12,4 +12,19 @@
  "team$resume"
   "After this session was resumed: bring the team's members back, each its own session continued, under its old role, model and worktree. Assignments that were running are lost — assign them again."
  "team$close"
-  "Close one member, or with no :member the whole team. Worktrees are left, with their branches, for merging."}
+  "Close one member, or with no :member the whole team. Worktrees are left, with their branches, for merging."
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "team$create :name"
+  "a short name for the team's work"
+ "team$spawn :name"
+  "the member's name within the team, e.g. tester"
+ "team$spawn :agent"
+  "the agent spec whose persona it takes"
+ "team$spawn :worktree"
+  "its own git worktree and branch, for editing code alongside other members"
+ "team$assign :member"
+  "a member to give it to; leave out to put it on the board"
+ "team$assign :task"
+  "a self-contained task: goal, context, where, and what to report back"
+ "team$assign :question"
+  "the same as :task"}

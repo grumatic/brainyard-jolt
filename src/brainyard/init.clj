@@ -1195,14 +1195,14 @@
   [{:name "profile$edit" :kind :command
     :description (tool-words/description "profile$edit")
     :input-schema [:map
-                   [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
-                   [:goal {:optional true} [:string {:desc "what the project is for, replacing the goal"}]]
-                   [:in {:optional true} [:string {:desc "in scope, one a line, replacing the list"}]]
-                   [:out {:optional true} [:string {:desc "out of scope, one a line, replacing the list"}]]
-                   [:done {:optional true} [:string {:desc "done criteria, one a line, replacing the list"}]]
-                   [:preset {:optional true} [:string {:desc "conservative, collaborator or autopilot"}]]
-                   [:autonomy {:optional true} [:string {:desc "\"axis level\" one a line (e.g. git/commit ask), set over the preset; \"axis preset\" drops one"}]]
-                   [:issues {:optional true} [:string {:desc "where the project's issues are kept, replacing the list: an EDN vector, one map a tracker — {:tracker :beads}, {:tracker :github :github-repo \"owner/name\"} (else the origin remote), {:tracker :linear :linear-team \"ENG\"}, {:tracker :jira :jira-site \"acme.atlassian.net\" :jira-project \"ABC\"}; :name tells two of one kind apart; [] drops them"}]]]
+                   [:dir {:optional true} [:string {:desc (tool-words/description "profile$edit :dir")}]]
+                   [:goal {:optional true} [:string {:desc (tool-words/description "profile$edit :goal")}]]
+                   [:in {:optional true} [:string {:desc (tool-words/description "profile$edit :in")}]]
+                   [:out {:optional true} [:string {:desc (tool-words/description "profile$edit :out")}]]
+                   [:done {:optional true} [:string {:desc (tool-words/description "profile$edit :done")}]]
+                   [:preset {:optional true} [:string {:desc (tool-words/description "profile$edit :preset")}]]
+                   [:autonomy {:optional true} [:string {:desc (tool-words/description "profile$edit :autonomy")}]]
+                   [:issues {:optional true} [:string {:desc (tool-words/description "profile$edit :issues")}]]]
     :output-schema [:map [:text :string] [:written? :any]]
     :effects #{:fs/write :process}
     :fn (fn [args ctx] (edit-profile config ctx args))}])
@@ -1370,64 +1370,64 @@
   [config]
   [{:name "init$check" :kind :command
     :description (tool-words/description "init$check")
-    :input-schema [:map [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]]
+    :input-schema [:map [:dir {:optional true} [:string {:desc (tool-words/description "init$check :dir")}]]]
     :output-schema [:map [:text :string] [:tools :any] [:project :any] [:missing-required :any]]
     :effects #{:fs/read :process}
     :fn (fn [args _] (check config args))}
    {:name "init$scaffold" :kind :command
     :description (tool-words/description "init$scaffold")
     :input-schema [:map
-                   [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
-                   [:dry-run {:optional true} [:any {:desc "true: say what would be written, write nothing"}]]
-                   [:notes {:optional true} [:string {:desc "the project's own section of AGENTS.md (what it is, how to build and test it, its conventions), in its own block"}]]]
+                   [:dir {:optional true} [:string {:desc (tool-words/description "init$scaffold :dir")}]]
+                   [:dry-run {:optional true} [:any {:desc (tool-words/description "init$scaffold :dry-run")}]]
+                   [:notes {:optional true} [:string {:desc (tool-words/description "init$scaffold :notes")}]]]
     :output-schema [:map [:text :string] [:writes :any] [:snapshot {:optional true} :string]]
     :effects #{:fs/read :fs/write}
     :fn (fn [args _] (scaffold config args))}
    {:name "init$beads" :kind :command
     :description (tool-words/description "init$beads")
     :input-schema [:map
-                   [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
-                   [:prefix {:optional true} [:string {:desc "the issue prefix; bd's default (the directory name) when absent"}]]]
+                   [:dir {:optional true} [:string {:desc (tool-words/description "init$beads :dir")}]]
+                   [:prefix {:optional true} [:string {:desc (tool-words/description "init$beads :prefix")}]]]
     :output-schema [:map [:text :string] [:ran {:optional true} :any] [:commits {:optional true} :any] [:skipped {:optional true} :string]]
     :effects #{:fs/write :process}
     :fn (fn [args _] (beads config args))}
    {:name "init$survey" :kind :command
     :description (tool-words/description "init$survey")
-    :input-schema [:map [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]]
+    :input-schema [:map [:dir {:optional true} [:string {:desc (tool-words/description "init$survey :dir")}]]]
     :output-schema [:map [:text :string]]
     :effects #{:fs/read :process}
     :fn (fn [args _] (survey config args))}
    {:name "init$next" :kind :command
     :description (tool-words/description "init$next")
     :input-schema [:map
-                   [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
-                   [:examples {:optional true} [:string {:desc "example requests for this project, one a line, shown in place of the generic ones"}]]]
+                   [:dir {:optional true} [:string {:desc (tool-words/description "init$next :dir")}]]
+                   [:examples {:optional true} [:string {:desc (tool-words/description "init$next :examples")}]]]
     :output-schema [:map [:text :string] [:prompt :string]]
     :effects #{:fs/read :process}
     :fn (fn [args _] (next-step config args))}
    {:name "init$onboard" :kind :command
     :description (tool-words/description "init$onboard")
-    :input-schema [:map [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]]
+    :input-schema [:map [:dir {:optional true} [:string {:desc (tool-words/description "init$onboard :dir")}]]]
     :output-schema [:map [:text :string] [:filed {:optional true} :any] [:skipped {:optional true} :string]]
     :effects #{:fs/write :process}
     :fn (fn [args _] (onboard config args))}
    {:name "init$profile" :kind :command
     :description (tool-words/description "init$profile")
     :input-schema [:map
-                   [:dir {:optional true} [:string {:desc "the project directory; this project when absent"}]]
-                   [:goal {:optional true} [:string {:desc "what the project is for"}]]
-                   [:in {:optional true} [:string {:desc "in scope, one a line"}]]
-                   [:out {:optional true} [:string {:desc "out of scope, one a line"}]]
-                   [:done {:optional true} [:string {:desc "done criteria, one a line"}]]
-                   [:preset {:optional true} [:string {:desc "conservative, collaborator or autopilot"}]]
-                   [:autonomy {:optional true} [:string {:desc "axis levels apart from the preset, \"axis level\" one a line"}]]
-                   [:issues {:optional true} [:string {:desc "the first issues, in order, one a line"}]]]
+                   [:dir {:optional true} [:string {:desc (tool-words/description "init$profile :dir")}]]
+                   [:goal {:optional true} [:string {:desc (tool-words/description "init$profile :goal")}]]
+                   [:in {:optional true} [:string {:desc (tool-words/description "init$profile :in")}]]
+                   [:out {:optional true} [:string {:desc (tool-words/description "init$profile :out")}]]
+                   [:done {:optional true} [:string {:desc (tool-words/description "init$profile :done")}]]
+                   [:preset {:optional true} [:string {:desc (tool-words/description "init$profile :preset")}]]
+                   [:autonomy {:optional true} [:string {:desc (tool-words/description "init$profile :autonomy")}]]
+                   [:issues {:optional true} [:string {:desc (tool-words/description "init$profile :issues")}]]]
     :output-schema [:map [:text :string] [:written? :any]]
     :effects #{:fs/write :process}
     :fn (fn [args ctx] (write-profile config ctx args))}
    {:name "init$install" :kind :command
     :description (tool-words/description "init$install")
-    :input-schema [:map [:tools [:any {:desc "the tools to install, by name: a list, or names separated by commas or spaces"}]]]
+    :input-schema [:map [:tools [:any {:desc (tool-words/description "init$install :tools")}]]]
     :output-schema [:map [:text :string] [:installed :any]]
     :effects #{:process :network}
     :fn (fn [args ctx] (install config ctx args))}])

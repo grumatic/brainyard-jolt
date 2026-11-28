@@ -901,14 +901,11 @@
   {:name (tool-id (:name agent))
    :kind :agent
    :description (tool-words/description "agent$<name>" {:describe (describe agent)})
-   :input-schema [:map [:question [:string {:desc "The task for this agent, stated in full."}]]
-                       [:agent-context {:optional true} [:string {:desc "Anything it needs that it cannot find for itself: paths, decisions already made, what not to touch."}]]
+   :input-schema [:map [:question [:string {:desc (tool-words/description "agent$<name> :question")}]]
+                       [:agent-context {:optional true} [:string {:desc (tool-words/description "agent$<name> :agent-context")}]]
                        ;; brainyard's router prose: a SHAPE of work, never a model
-                       [:work-tier {:optional true} [:string {:desc (str "How hard this work is: \"light\" for a lookup, a status read, a mechanical"
-                                    " transform; \"standard\" for ordinary work with a clear success test — the"
-                                    " default; \"deep\" for synthesis across sources, judgement under ambiguity,"
-                                    " or prose a person will act on. Never name a model.")}]]]
-   :output-schema [:or {:desc "the child's final answer; with :subagent-id it stays alive to be asked again"}
+                       [:work-tier {:optional true} [:string {:desc (tool-words/description "agent$<name> :work-tier")}]]]
+   :output-schema [:or {:desc (tool-words/description "agent$<name> result")}
              (into [:map [:agent :string]]
                    (concat turn-entries
                            [[:subagent-id {:optional true} :string]
@@ -979,7 +976,7 @@
 
    {:name "agent-registry$detail" :kind :command
     :description (tool-words/description "agent-registry$detail")
-    :input-schema [:map [:id [:string {:desc "Instance id, e.g. \"explore/amber-otter-42\" (the suffix alone works when it is unambiguous)."}]]]
+    :input-schema [:map [:id [:string {:desc (tool-words/description "agent-registry$detail :id")}]]]
     :output-schema [:or (into [:map] (concat instance-summary-entries
                                         [[:last-answer [:maybe :string]] [:turns :int]]))
              error-message-schema]
@@ -995,8 +992,8 @@
 
    {:name "agent-registry$ask" :kind :command
     :description (tool-words/description "agent-registry$ask")
-    :input-schema [:map [:id [:string {:desc "Instance id from a dispatch result's :subagent-id."}]]
-                        [:question [:string {:desc "The follow-up, stated in full."}]]]
+    :input-schema [:map [:id [:string {:desc (tool-words/description "agent-registry$ask :id")}]]
+                        [:question [:string {:desc (tool-words/description "agent-registry$ask :question")}]]]
     ;; the dispatch result calls it :subagent-id, and a model carries that name
     ;; forward (byj-gly.395); tools/apply-aliases, RFC-010
     :arg-aliases {:subagent-id :id}
@@ -1050,8 +1047,8 @@
 
    {:name "agent-registry$close" :kind :command
     :description (tool-words/description "agent-registry$close")
-    :input-schema [:map [:id [:string {:desc "Instance id."}]]]
-    :output-schema [:or {:desc "the instance and every instance it dispatched"}
+    :input-schema [:map [:id [:string {:desc (tool-words/description "agent-registry$close :id")}]]]
+    :output-schema [:or {:desc (tool-words/description "agent-registry$close result")}
              [:map [:closed [:vector :string]]] error-message-schema]
     :effects #{}
     :fn (fn [{:keys [id]} ctx]
@@ -1108,10 +1105,10 @@
 
 (def ^:private definition-schema
   [:map
-   [:name [:string {:desc "kebab-case, ^[a-z][a-z0-9-]*$ — it becomes agent$<name>"}]]
-   [:instruction [:string {:desc "Who this agent is and how it works; it replaces the ReAct instruction for its turns."}]]
-   [:description {:optional true} [:string {:desc "One line for the roster: what to delegate to it."}]]
-   [:tool-context {:optional true} [:string {:desc "Which of the inherited tools to reach for, and when."}]]])
+   [:name [:string {:desc (tool-words/description "meta-agent$create :name")}]]
+   [:instruction [:string {:desc (tool-words/description "meta-agent$create :instruction")}]]
+   [:description {:optional true} [:string {:desc (tool-words/description "meta-agent$create :description")}]]
+   [:tool-context {:optional true} [:string {:desc (tool-words/description "meta-agent$create :tool-context")}]]])
 
 (defn authoring-tools
   "brainyard's `meta-agent$*` (`common/user_agents.clj`), with its verbs and
@@ -1127,7 +1124,7 @@
     :description (slurp (io/resource "brainyard/prompts/meta-agent-create.md"))
     :input-schema definition-schema
     :output-schema [:or [:map [:agent :string] [:id :string] [:version :int] [:persisted :string] [:note :string]]
-             [:map {:desc "every problem, one per line"} [:error :string]]]
+             [:map {:desc (tool-words/description "meta-agent$create result error")} [:error :string]]]
     :effects #{:fs/write :agents/define}
     :fn (fn [{:keys [name] :as args} ctx]
           (let [spec (select-keys args [:name :description :instruction :tool-context])
@@ -1149,7 +1146,7 @@
    {:name "meta-agent$validate" :kind :command
     :description (tool-words/description "meta-agent$validate")
     :input-schema (conj (schema/all-optional definition-schema)
-                        [:sample {:optional true} [:string {:desc "A question to try the unsaved agent on."}]])
+                        [:sample {:optional true} [:string {:desc (tool-words/description "meta-agent$validate :sample")}]])
     :output-schema [:map [:valid :boolean] [:errors [:vector :string]] [:exists :boolean]
               [:sample-answer {:optional true} [:maybe :string]]]
     :effects #{:dynamic}

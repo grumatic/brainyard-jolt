@@ -636,8 +636,8 @@
   (when (:flows? config true)
     [{:name "flow$check" :kind :command
       :description (tool-words/description "flow$check")
-      :input-schema [:map [:tree [:string {:desc "The loop: a bundled loop's name (react, plan-act-eval), a resource path, or a file path of the loop EDN."}]]]
-      :output-schema [:map {:desc ":nodes and :hash are absent when the tree cannot be loaded; :hash is what flow$patch guards against"}
+      :input-schema [:map [:tree [:string {:desc (tool-words/description "flow$check :tree")}]]]
+      :output-schema [:map {:desc (tool-words/description "flow$check result")}
                 [:ok :boolean]
                 [:problems [:vector [:map [:node :any] [:problem :string]]]]
                 [:nodes {:optional true} :int]
@@ -657,7 +657,7 @@
 
      {:name "flow$status" :kind :command
       :description (tool-words/description "flow$status")
-      :input-schema [:map [:tree [:string {:desc "The loop: a bundled loop's name (react, plan-act-eval), a resource path, or a file path of the loop EDN."}]]]
+      :input-schema [:map [:tree [:string {:desc (tool-words/description "flow$status :tree")}]]]
       :output-schema [:or
                 [:map [:nodes :int] [:ready :int] [:missing :int] [:failing :int]
                  [:detail [:vector [:map
@@ -676,8 +676,8 @@
      {:name "flow$brief" :kind :command
       :description (tool-words/description "flow$brief")
       :input-schema [:map [:tree :string]
-                          [:node [:string {:desc "The node's :id, e.g. react/think-act."}]]]
-      :output-schema [:or {:desc "a key the caller reads when the loop ends is :exported, not :unused"}
+                          [:node [:string {:desc (tool-words/description "flow$brief :node")}]]]
+      :output-schema [:or {:desc (tool-words/description "flow$brief result")}
                 [:map
                  [:node :keyword]
                  [:kind [:enum :tool :predictor :fn]]
@@ -699,9 +699,9 @@
      {:name "flow$probe" :kind :command
       :description (tool-words/description "flow$probe")
       :input-schema [:map [:tree :string]
-                          [:node [:string {:desc "The node's :id."}]]
-                          [:memory {:optional true} [:map {:desc "Blackboard keys to seed, as a map."}]]]
-      :output-schema [:or {:desc ":wrote is every blackboard key the node changed, with its new value"}
+                          [:node [:string {:desc (tool-words/description "flow$probe :node")}]]
+                          [:memory {:optional true} [:map {:desc (tool-words/description "flow$probe :memory")}]]]
+      :output-schema [:or {:desc (tool-words/description "flow$probe result")}
                 [:map [:node :keyword] [:status [:enum "success" "failure"]]
                  [:wrote [:map-of :any :any]] [:elapsed-ms :int]]
                 [:map [:node {:optional true} :keyword] [:error :string]]]
@@ -717,10 +717,10 @@
 
      {:name "flow$patch" :kind :command
       :description (tool-words/description "flow$patch")
-      :input-schema [:map [:path [:string {:desc "File path of the loop EDN (not a bundled resource)."}]]
-                          [:expect-hash {:optional true} [:string {:desc "The hash you read; omit to skip the guard."}]]
-                          [:ops [:vector {:desc "Ops to apply in order."} :map]]]
-      :output-schema [:or {:desc "nothing is written on an error; a hash mismatch reports the tree's current :hash"}
+      :input-schema [:map [:path [:string {:desc (tool-words/description "flow$patch :path")}]]
+                          [:expect-hash {:optional true} [:string {:desc (tool-words/description "flow$patch :expect-hash")}]]
+                          [:ops [:vector {:desc (tool-words/description "flow$patch :ops")} :map]]]
+      :output-schema [:or {:desc (tool-words/description "flow$patch result")}
                 [:map [:hash :string] [:applied :int]]
                 [:map [:error :string]
                  [:hash {:optional true} :string]

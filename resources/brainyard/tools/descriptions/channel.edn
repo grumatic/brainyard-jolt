@@ -12,4 +12,17 @@
  "session$start"
   "Start a new session beside this one, in this window, with :question as its first turn: it carries on there on its own, with this project, model and permission mode, and the person can switch to it. Returns its id, which session$status and session$send take. For a session already running, use session$send."
  "session$ask"
-  "Ask another live session something and wait for its answer. It runs as a turn of THAT session, with its own history and tools, when it is next waiting; this waits up to :timeout-ms ({timeout} by default). To hand work off without waiting, use session$send."}
+  "Ask another live session something and wait for its answer. It runs as a turn of THAT session, with its own history and tools, when it is next waiting; this waits up to :timeout-ms ({timeout} by default). To hand work off without waiting, use session$send."
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "session$list :all"
+  "include byj sessions no longer live"
+ "session$ask :question"
+  "what that session should do or answer — self-contained: it has not seen this conversation"
+ "session$ask :timeout-ms"
+  "the longest to wait"
+ "session$send :question"
+  "the task — self-contained: that session has not seen this conversation"
+ "session$start :question"
+  "its first turn — self-contained: the new session has not seen this conversation"
+ "session$* :session"
+  "a live session's id, a prefix of it, or its label (session$list) — a byj session's, a Claude Code session's as claude:<id>, or a Codex session's as codex:<thread>"}

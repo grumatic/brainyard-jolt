@@ -85,7 +85,7 @@
   [_config]
   [{:name "store$get" :kind :command
     :description (tool-words/description "store$get")
-    :input-schema [:map [:key [:string {:desc "The key it was put under."}]]]
+    :input-schema [:map [:key [:string {:desc (tool-words/description "store$get :key")}]]]
     :output-schema [:or [:map [:key :string] [:found :boolean] [:value {:optional true} :any]] error-schema]
     :effects #{:fs/read :store/read}
     :fn (fn [{:keys [key]} ctx]
@@ -96,8 +96,8 @@
 
    {:name "store$put" :kind :command
     :description (tool-words/description "store$put")
-    :input-schema [:map [:key [:string {:desc "A name for it, e.g. last-scan."}]]
-                   [:value {:optional true} [:any {:desc "Any data: a map, a vector, a string, a number. Omit to forget the key."}]]]
+    :input-schema [:map [:key [:string {:desc (tool-words/description "store$put :key")}]]
+                   [:value {:optional true} [:any {:desc (tool-words/description "store$put :value")}]]]
     :output-schema [:or [:map [:key :string] [:stored {:optional true} :boolean] [:removed {:optional true} :boolean]]
                     error-schema]
     :effects #{:fs/write :store/write}
@@ -105,7 +105,7 @@
 
    {:name "store$keys" :kind :command
     :description (tool-words/description "store$keys")
-    :input-schema [:map [:prefix {:optional true} [:string {:desc "Only keys starting with this."}]]]
+    :input-schema [:map [:prefix {:optional true} [:string {:desc (tool-words/description "store$keys :prefix")}]]]
     :output-schema [:map [:keys [:vector :string]]]
     :effects #{:fs/read :store/read}
     :fn (fn [{:keys [prefix]} ctx]

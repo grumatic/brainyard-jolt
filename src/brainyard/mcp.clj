@@ -369,7 +369,7 @@
                                           {:description (or description (tool-words/description "mcp$<server>$<tool> undescribed"))
                                            :server server})
      :input-schema (input-schema inputSchema)
-     :output-schema [:or {:desc "the content blocks flattened to text; a result with no content blocks is passed through as it came"}
+     :output-schema [:or {:desc (tool-words/description "mcp$<server>$<tool> result")}
               [:map [:result [:or :string [:map-of :any :any]]]]
               [:map [:error-message :string]]]
      ;; a server that does not say it is read-only is treated as though it

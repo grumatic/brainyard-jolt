@@ -420,7 +420,7 @@
   [config]
   [{:name "team$create" :kind :command
     :description (tool-words/description "team$create")
-    :input-schema [:map [:name {:optional true} [:string {:desc "a short name for the team's work"}]]]
+    :input-schema [:map [:name {:optional true} [:string {:desc (tool-words/description "team$create :name")}]]]
     :output-schema [:or [:map [:team :string] [:protocol :string]] [:map [:error :string]]]
     :effects #{:fs/write}
     :fn (fn [{:keys [name]} _]
@@ -433,11 +433,11 @@
    {:name "team$spawn" :kind :command
     :description (tool-words/description "team$spawn")
     :input-schema [:map
-                   [:name [:string {:desc "the member's name within the team, e.g. tester"}]]
-                   [:agent {:optional true} [:string {:desc "the agent spec whose persona it takes"}]]
+                   [:name [:string {:desc (tool-words/description "team$spawn :name")}]]
+                   [:agent {:optional true} [:string {:desc (tool-words/description "team$spawn :agent")}]]
                    [:provider {:optional true} :string]
                    [:model {:optional true} :string]
-                   [:worktree {:optional true} [:boolean {:desc "its own git worktree and branch, for editing code alongside other members"}]]]
+                   [:worktree {:optional true} [:boolean {:desc (tool-words/description "team$spawn :worktree")}]]]
     :output-schema [:or [:map [:name :string] [:session-id [:maybe :string]] [:task-id :string]] [:map [:error :string]]]
     :effects #{:process :session/send}
     :fn (fn [args ctx] (spawn! ctx args))}
@@ -445,9 +445,9 @@
     :description (tool-words/description "team$assign")
     ;; `question` too, the word session$ask and session$send use: a model that
     ;; learned one of them reached for it here, and was refused
-    :input-schema [:map [:member {:optional true} [:string {:desc "a member to give it to; leave out to put it on the board"}]]
-                   [:task {:optional true} [:string {:desc "a self-contained task: goal, context, where, and what to report back"}]]
-                   [:question {:optional true} [:string {:desc "the same as :task"}]]]
+    :input-schema [:map [:member {:optional true} [:string {:desc (tool-words/description "team$assign :member")}]]
+                   [:task {:optional true} [:string {:desc (tool-words/description "team$assign :task")}]]
+                   [:question {:optional true} [:string {:desc (tool-words/description "team$assign :question")}]]]
     :output-schema [:or [:map [:member :string] [:task-id :string]]
                     [:map [:queued :int] [:dispatcher-task-id :string]]
                     [:map [:error :string]]]

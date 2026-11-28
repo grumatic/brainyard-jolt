@@ -202,7 +202,7 @@
   [config]
   [{:name "proposal$list" :kind :command
     :description (tool-words/description "proposal$list")
-    :input-schema [:map [:kind {:optional true} [:string {:desc "only this kind: skill, tool, program or loop"}]]]
+    :input-schema [:map [:kind {:optional true} [:string {:desc (tool-words/description "proposal$list :kind")}]]]
     :output-schema [:map [:proposals [:vector [:map [:id :string] [:kind :keyword] [:name :string]
                                                [:summary {:optional true} [:maybe :string]]
                                                [:score {:optional true} [:maybe number?]]
@@ -211,7 +211,7 @@
     :fn (fn [{:keys [kind]} _] {:proposals (list-all config kind)})}
    {:name "proposal$read" :kind :command
     :description (tool-words/description "proposal$read")
-    :input-schema [:map [:id [:string {:desc "the proposal's id, e.g. skill/list-twice"}]]]
+    :input-schema [:map [:id [:string {:desc (tool-words/description "proposal$read :id")}]]]
     :output-schema [:or [:map [:id :string] [:kind :keyword] [:body [:maybe :string]]] [:map [:error :string]]]
     :effects #{:fs/read}
     :fn (fn [{:keys [id]} _] (read-one config id))}])

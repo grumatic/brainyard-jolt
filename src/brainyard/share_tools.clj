@@ -290,20 +290,20 @@
     :fn (fn [_ ctx] {:status (status ctx)})}
    {:name "share$ls" :kind :command
     :description (tool-words/description "share$ls")
-    :input-schema [:map [:all {:optional true} [:boolean {:desc "Every session on this machine, not only this project's."}]]]
+    :input-schema [:map [:all {:optional true} [:boolean {:desc (tool-words/description "share$ls :all")}]]]
     :output-schema [:or [:map [:sessions :string]] err]
     :effects #{:process}
     :fn (fn [{:keys [all]} ctx] {:sessions (ls ctx all)})}
    {:name "share$start" :kind :command
     :description (tool-words/description "share$start")
     :input-schema [:map
-                   [:refs {:optional true} [:vector {:desc "What to share; none: this session."} :string]]
-                   [:target {:optional true} [:string {:desc "link (the default: invite links), or class:CODE to share into a class."}]]
-                   [:record {:optional true} [:boolean {:desc "Keep it for review when it ends; everyone watching is told."}]]
-                   [:no-input {:optional true} [:boolean {:desc "A terminal: view-only, nobody types from the page."}]]
-                   [:chat {:optional true} [:boolean {:desc "A terminal: spectators may chat too (default true)."}]]
-                   [:max-messages {:optional true} [:int {:desc "An agent: how many messages callers may send in all (default 200)."}]]
-                   [:max-cost {:optional true} [:double {:desc "An agent: how much callers' messages may cost in USD (default 10)."}]]]
+                   [:refs {:optional true} [:vector {:desc (tool-words/description "share$start :refs")} :string]]
+                   [:target {:optional true} [:string {:desc (tool-words/description "share$start :target")}]]
+                   [:record {:optional true} [:boolean {:desc (tool-words/description "share$start :record")}]]
+                   [:no-input {:optional true} [:boolean {:desc (tool-words/description "share$start :no-input")}]]
+                   [:chat {:optional true} [:boolean {:desc (tool-words/description "share$start :chat")}]]
+                   [:max-messages {:optional true} [:int {:desc (tool-words/description "share$start :max-messages")}]]
+                   [:max-cost {:optional true} [:double {:desc (tool-words/description "share$start :max-cost")}]]]
     :output-schema [:or [:map [:result :string]] err]
     :effects #{:share/publish :process}
     :fn (fn [{:keys [refs target record no-input chat max-messages max-cost]} ctx]
@@ -319,17 +319,17 @@
    {:name "share$record" :kind :command
     :description (tool-words/description "share$record")
     :input-schema [:map
-                   [:on [:boolean {:desc "true to record, false to stop recording."}]]
-                   [:ref {:optional true} [:string {:desc "Another share; none: this session's."}]]]
+                   [:on [:boolean {:desc (tool-words/description "share$record :on")}]]
+                   [:ref {:optional true} [:string {:desc (tool-words/description "share$record :ref")}]]]
     :output-schema [:or [:map [:result :string]] err]
     :effects #{:share/publish :process}
     :fn (fn [{:keys [on ref]} ctx] {:result (record! ctx (true? on) ref)})}
    {:name "share$control" :kind :command
     :description (tool-words/description "share$control")
     :input-schema [:map
-                   [:action [:enum {:desc "What to do."} "stop" "pause" "resume" "kick"]]
-                   [:ref {:optional true} [:string {:desc "Another share to act on; none: this session's."}]]
-                   [:user {:optional true} [:string {:desc "For kick: who to remove."}]]]
+                   [:action [:enum {:desc (tool-words/description "share$control :action")} "stop" "pause" "resume" "kick"]]
+                   [:ref {:optional true} [:string {:desc (tool-words/description "share$control :ref")}]]
+                   [:user {:optional true} [:string {:desc (tool-words/description "share$control :user")}]]]
     :output-schema [:or [:map [:result :string]] err]
     :effects #{:process}
     :fn (fn [{:keys [action ref user]} ctx]

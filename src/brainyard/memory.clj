@@ -303,9 +303,9 @@
      nil?
      [{:name "memory$history" :kind :command
        :description (tool-words/description "memory$history")
-       :input-schema [:map [:query [:string {:desc "Key nouns; every word of 3+ characters must appear."}]]
-                           [:limit {:optional true} [:int {:desc "Turns to return (default 5)."}]]]
-       :output-schema [:or {:desc "newest first; :when is how long ago, :question and :answer clipped"}
+       :input-schema [:map [:query [:string {:desc (tool-words/description "memory$history :query")}]]
+                           [:limit {:optional true} [:int {:desc (tool-words/description "memory$history :limit")}]]]
+       :output-schema [:or {:desc (tool-words/description "memory$history result")}
                  [:map [:turns [:vector [:map [:session :string] [:when :string]
                                          [:question :string] [:answer :string]]]]
                   [:count :int]]
@@ -322,10 +322,8 @@
       (when-let [c (and (available? config) (cmd config :memory-recall-cmd))]
         {:name "memory$recall" :kind :command
          :description (tool-words/description "memory$recall")
-         :input-schema [:map [:query [:string {:desc (str "What you are looking for. How it matches is the store's business, not"
-                                                    " this tool's: a single distinctive word usually finds more than a"
-                                                    " phrase, so if a query comes back empty, try one word from it.")}]]]
-         :output-schema [:or {:desc ":memories is the store's own output"}
+         :input-schema [:map [:query [:string {:desc (tool-words/description "memory$recall :query")}]]]
+         :output-schema [:or {:desc (tool-words/description "memory$recall result")}
                    [:map [:memories :string]]
                    [:map [:error :string]]]
          :effects #{:process}
@@ -338,7 +336,7 @@
       (when-let [c (cmd config :memory-read-cmd)]
         {:name "memory$read" :kind :command
          :description (tool-words/description "memory$read")
-         :input-schema [:map [:key [:string {:desc "The key memory$recall reported."}]]]
+         :input-schema [:map [:key [:string {:desc (tool-words/description "memory$read :key")}]]]
          :output-schema [:or [:map [:key :string] [:memory :string]]
                    [:map [:error :string]]]
          :effects #{:process}
@@ -351,11 +349,9 @@
       (when-let [c (cmd config :memory-store-cmd)]
         {:name "memory$remember" :kind :command
          :description (tool-words/description "memory$remember")
-         :input-schema [:map [:content [:string {:desc "The insight, in a sentence or two, written for someone who was not here."}]]
-                             [:key {:optional true} [:string {:desc (str "A slug naming its topic, as a person would search for it (deploy-freeze, staging-db-port);"
-                                                                          " generated from the content otherwise. A later turn is told the key and the first line"
-                                                                          " of a memory its question matches, so make the first line say the point.")}]]]
-         :output-schema [:or {:desc ":stored is the store's own output"}
+         :input-schema [:map [:content [:string {:desc (tool-words/description "memory$remember :content")}]]
+                             [:key {:optional true} [:string {:desc (tool-words/description "memory$remember :key")}]]]
+         :output-schema [:or {:desc (tool-words/description "memory$remember result")}
                    [:map [:stored :string]]
                    [:map [:error :string]]]
          :effects #{:process :fs/write}

@@ -450,7 +450,7 @@
 (defn- project-of [ctx] (let [c (:config ctx)] (or (:project-dir c) (:working-dir c) ".")))
 (defn- session-of [ctx] (some-> (:config ctx) :session-id str))
 (def ^:private err [:map [:error :string]])
-(def ^:private id-arg [:map [:id [:string {:desc "The job's id, as schedule$list gives it."}]]])
+(def ^:private id-arg [:map [:id [:string {:desc (tool-words/description "schedule$* :id")}]]])
 
 (defn- summary [s]
   (select-keys s [:id :kind :title :prompt :probe :when :every :once :cron :fire-at :enabled :next-fire
@@ -465,11 +465,11 @@
   [{:name "schedule$add" :kind :command
     :description (tool-words/description "schedule$add")
     :input-schema [:map
-                   [:prompt [:string {:desc "What to run, as the person would type it — a question, or a /command."}]]
-                   [:cron {:optional true} [:string {:desc "Recurring: 5-field cron in local time, 'min hour day-of-month month day-of-week', e.g. '*/10 * * * *' or '0 9 * * 1-5'."}]]
-                   [:in {:optional true} [:string {:desc "Once, after a delay: '90s', '20m', '2h'."}]]
-                   [:at {:optional true} [:int {:desc "Once, at this epoch-ms."}]]
-                   [:title {:optional true} [:string {:desc "A short label; it seeds the id."}]]]
+                   [:prompt [:string {:desc (tool-words/description "schedule$add :prompt")}]]
+                   [:cron {:optional true} [:string {:desc (tool-words/description "schedule$add :cron")}]]
+                   [:in {:optional true} [:string {:desc (tool-words/description "schedule$add :in")}]]
+                   [:at {:optional true} [:int {:desc (tool-words/description "schedule$add :at")}]]
+                   [:title {:optional true} [:string {:desc (tool-words/description "schedule$add :title")}]]]
     :output-schema [:or [:map [:id :string] [:next-fire [:maybe :int]] [:expires-at {:optional true} :int] [:note :string]] err]
     :effects #{:fs/write}
     :fn (fn [{:keys [prompt cron in at title]} ctx]
@@ -488,17 +488,17 @@
    {:name "schedule$watch" :kind :command
     :description (tool-words/description "schedule$watch")
     :input-schema [:map
-                   [:cmd {:optional true} [:string {:desc "A shell command to run each look, in the project, e.g. 'tail -n 5 build.log' or 'test -f out/done'."}]]
-                   [:path {:optional true} [:string {:desc "Or a file whose modification time is watched."}]]
-                   [:when {:optional true} [:enum {:desc "When it fires (default changed)."} "changed" "matches" "zero-exit" "nonzero-exit" "increased" "threshold"]]
-                   [:re {:optional true} [:string {:desc "For matches: a regex against the command's output."}]]
-                   [:cmp {:optional true} [:enum {:desc "For threshold: gt (default) ge lt le eq."} "gt" "ge" "lt" "le" "eq"]]
-                   [:value {:optional true} [:string {:desc "For threshold: the number to compare with."}]]
-                   [:every {:optional true} [:string {:desc "How often to look: '10s', '1m' (default 30s, at least 5s)."}]]
-                   [:once {:optional true} [:boolean {:desc "Stop after it fires (default true); false keeps watching."}]]
-                   [:for {:optional true} [:string {:desc "How long it lives: '30m', '2h' (default 1 day)."}]]
-                   [:title {:optional true} [:string {:desc "A short label; it seeds the id."}]]
-                   [:note {:optional true} [:string {:desc "A line to yourself, given back when it fires."}]]]
+                   [:cmd {:optional true} [:string {:desc (tool-words/description "schedule$watch :cmd")}]]
+                   [:path {:optional true} [:string {:desc (tool-words/description "schedule$watch :path")}]]
+                   [:when {:optional true} [:enum {:desc (tool-words/description "schedule$watch :when")} "changed" "matches" "zero-exit" "nonzero-exit" "increased" "threshold"]]
+                   [:re {:optional true} [:string {:desc (tool-words/description "schedule$watch :re")}]]
+                   [:cmp {:optional true} [:enum {:desc (tool-words/description "schedule$watch :cmp")} "gt" "ge" "lt" "le" "eq"]]
+                   [:value {:optional true} [:string {:desc (tool-words/description "schedule$watch :value")}]]
+                   [:every {:optional true} [:string {:desc (tool-words/description "schedule$watch :every")}]]
+                   [:once {:optional true} [:boolean {:desc (tool-words/description "schedule$watch :once")}]]
+                   [:for {:optional true} [:string {:desc (tool-words/description "schedule$watch :for")}]]
+                   [:title {:optional true} [:string {:desc (tool-words/description "schedule$watch :title")}]]
+                   [:note {:optional true} [:string {:desc (tool-words/description "schedule$watch :note")}]]]
     :output-schema [:or [:map [:id :string] [:next-fire :int] [:expires-at :int] [:note :string]] err]
     :command-params [:cmd]
     :effects #{:process :dynamic}

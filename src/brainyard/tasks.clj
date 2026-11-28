@@ -394,7 +394,7 @@
    ;; what kind of work: task$run's :bash and :tool, and whatever the kernel
    ;; starts itself — :self-improve, :team-member, :team-dispatch,
    ;; :session-ask — so an enum here goes stale with each new kind
-   [:job-type [:keyword {:desc "the kind of work: :bash, :tool, :self-improve, :team-member, :team-dispatch, :session-ask"}]]
+   [:job-type [:keyword {:desc (tool-words/description "task$detail result :job-type")}]]
    [:owner :string]
    [:created-at :int]
    [:started-at :int]
@@ -540,9 +540,9 @@
   []
   {:name "task$wakeup" :kind :command
    :description (tool-words/description "task$wakeup")
-   :input-schema [:map [:task-id {:optional true} [:string {:desc "The task to wait for."}]]
-                       [:delay-ms {:optional true} [:int {:desc "Or resume after this long, with no task."}]]
-                       [:note {:optional true} [:string {:desc "A line to yourself, given back when you resume."}]]]
+   :input-schema [:map [:task-id {:optional true} [:string {:desc (tool-words/description "task$wakeup :task-id")}]]
+                       [:delay-ms {:optional true} [:int {:desc (tool-words/description "task$wakeup :delay-ms")}]]
+                       [:note {:optional true} [:string {:desc (tool-words/description "task$wakeup :note")}]]]
    :output-schema [:or [:map [:parked :boolean] [:task-id :string] [:message :string]] error-schema]
    :effects #{}
    :fn (fn [{:keys [task-id delay-ms note]} ctx]
@@ -585,12 +585,12 @@
   []
   [{:name "task$run" :kind :command
     :description (tool-words/description "task$run")
-    :input-schema [:map [:job-type [:string {:desc "\"bash\" or \"tool\""}]]
-                        [:command {:optional true} [:string {:desc "bash: the command line"}]]
-                        [:tool-id {:optional true} [:string {:desc "tool: the tool to run"}]]
-                        [:tool-args {:optional true} [:map {:desc "tool: its arguments"}]]
-                        [:name {:optional true} [:string {:desc "A label for listings."}]]
-                        [:timeout {:optional true} [:int {:desc "ms before the job is killed (default 120000)"}]]]
+    :input-schema [:map [:job-type [:string {:desc (tool-words/description "task$run :job-type")}]]
+                        [:command {:optional true} [:string {:desc (tool-words/description "task$run :command")}]]
+                        [:tool-id {:optional true} [:string {:desc (tool-words/description "task$run :tool-id")}]]
+                        [:tool-args {:optional true} [:map {:desc (tool-words/description "task$run :tool-args")}]]
+                        [:name {:optional true} [:string {:desc (tool-words/description "task$run :name")}]]
+                        [:timeout {:optional true} [:int {:desc (tool-words/description "task$run :timeout")}]]]
     :output-schema [:or [:map [:task-id :string] [:name :string] [:job-type [:enum "bash" "tool"]]
                       [:status [:enum "running"]]]
                error-schema]
@@ -633,13 +633,13 @@
 
    {:name "task$list" :kind :command
     :description (tool-words/description "task$list")
-    :input-schema [:map [:status {:optional true} [:string {:desc "Filter: running, completed, failed, cancelled"}]]]
+    :input-schema [:map [:status {:optional true} [:string {:desc (tool-words/description "task$list :status")}]]]
     :output-schema [:map [:tasks [:vector [:map [:id :string] [:name :string]
                                      [:status [:enum :running :completed :failed :cancelled]]
                                      ;; every kind a task is, not only what task$run
                                      ;; starts: a team member, a dispatcher, a
                                      ;; session-ask are listed too (byj-gly.301)
-                                     [:job-type [:keyword {:desc "the kind of work: :bash, :tool, :team-member, :team-dispatch, :session-ask"}]]
+                                     [:job-type [:keyword {:desc (tool-words/description "task$list result :tasks :job-type")}]]
                                      [:elapsed-ms :int]]]]
                [:total :int]]
     :effects #{}
@@ -654,8 +654,8 @@
 
    {:name "task$detail" :kind :command
     :description (tool-words/description "task$detail")
-    :input-schema [:map [:task-id [:string {:desc "e.g. task-mkq8f3x2-7"}]]]
-    :output-schema [:or {:desc ":output is what it has printed so far; :result, :completed-at and :output-file arrive once it has finished"}
+    :input-schema [:map [:task-id [:string {:desc (tool-words/description "task$detail :task-id")}]]]
+    :output-schema [:or {:desc (tool-words/description "task$detail result")}
                detail-schema error-schema]
     :effects #{}
     :fn (fn [{:keys [task-id]} ctx]
@@ -666,8 +666,8 @@
    {:name "task$wait" :kind :command
     :description (tool-words/description "task$wait")
     :input-schema [:map [:task-id :string]
-                        [:timeout-ms [:int {:desc "how long to wait before giving up on waiting; at most :auto-background-timeout-ms"}]]]
-    :output-schema [:or {:desc "the task$detail shape; :still-running true when the wait timed out, and the task is not cancelled"}
+                        [:timeout-ms [:int {:desc (tool-words/description "task$wait :timeout-ms")}]]]
+    :output-schema [:or {:desc (tool-words/description "task$wait result")}
                (conj detail-schema [:still-running {:optional true} :boolean] [:note {:optional true} :string])
                error-schema]
     :effects #{:dynamic}

@@ -302,11 +302,11 @@
 
 (def ^:private definition-schema
   [:map
-   [:name [:string {:desc "lowercase-kebab tool name, e.g. count-lines"}]]
-   [:body [:string {:desc "Tool Lisp: (fn [args] ...)"}]]
-   [:description {:optional true} [:string {:desc "one-line description"}]]
-   [:input-schema {:optional true} [:string {:desc "the arguments, a malli [:map ...] as EDN, e.g. \"[:map [:path [:string {:desc \\\"File to count\\\"}]] [:min {:optional true} :int]]\"; omit for none"}]]
-   [:output-schema {:optional true} [:string {:desc "the result as a malli schema in EDN, e.g. \"[:map [:lines :int]]\", or \"[:or [:map [:lines :int]] [:map [:error-message :string]]]\" when it can also be an error; results are checked against it (tool$test says where one differs); prose is refused"}]]])
+   [:name [:string {:desc (tool-words/description "tool$create :name")}]]
+   [:body [:string {:desc (tool-words/description "tool$create :body")}]]
+   [:description {:optional true} [:string {:desc (tool-words/description "tool$create :description")}]]
+   [:input-schema {:optional true} [:string {:desc (tool-words/description "tool$create :input-schema")}]]
+   [:output-schema {:optional true} [:string {:desc (tool-words/description "tool$create :output-schema")}]]])
 
 (defn output-schema-problem
   "Why `output-schema` cannot be a NEW user tool's, or nil: it is absent, or a
@@ -364,7 +364,7 @@
     [{:name "tool$create" :kind :command
       :description (reference)
       :input-schema definition-schema
-      :output-schema [:or {:desc ":persisted is the saved file; :repaired, when the body's closers were rebuilt from its indentation; an :error lists every problem"}
+      :output-schema [:or {:desc (tool-words/description "tool$create result")}
                  [:map [:id :string] [:name :string] [:description :string] [:persisted :string]
                   [:effects [:vector :keyword]]
                   [:repaired {:optional true} [:map [:note :string] [:lines [:vector :string]]]]]
@@ -403,7 +403,7 @@
       :fn (fn [_ _] {:tools (mapv describe (user-tools reg))})}
      {:name "tool$read" :kind :command
       :description (tool-words/description "tool$read")
-      :input-schema [:map [:name [:string {:desc "tool name or id"}]]]
+      :input-schema [:map [:name [:string {:desc (tool-words/description "tool$read :name")}]]]
       :output-schema [:or [:map [:id :string] [:name :string] [:description :string]
                         [:input-schema [:vector :any]]
                         [:output-schema {:optional true} :any] [:body :string]
@@ -417,8 +417,8 @@
               {:error (str "no user tool " name)}))}
      {:name "tool$delete" :kind :command
       :description (tool-words/description "tool$delete")
-      :input-schema [:map [:name [:string {:desc "tool name or id"}]]]
-      :output-schema [:or {:desc ":dependents are the tool ids still calling it"}
+      :input-schema [:map [:name [:string {:desc (tool-words/description "tool$delete :name")}]]]
+      :output-schema [:or {:desc (tool-words/description "tool$delete result")}
                  [:map [:deleted :string] [:dependents [:vector :string]]]
                  [:map [:error :string]]]
       :effects #{:fs/write :tools/define}
@@ -433,9 +433,9 @@
                      :dependents (vec (sort (map :name (filter #(contains? (:calls %) id) (user-tools reg)))))}))))}
      {:name "tool$run" :kind :command
       :description (run-reference)
-      :input-schema [:map [:body [:string {:desc "Tool Lisp: (fn [args] ...)"}]]
-                          [:args {:optional true} [:map {:desc "the map passed to the body"}]]]
-      :output-schema "the body's value; {:error \"Invalid Tool Lisp: ...\"} listing every problem, or {:error-message \"Tool Lisp: ...\"} when it fails while running"
+      :input-schema [:map [:body [:string {:desc (tool-words/description "tool$run :body")}]]
+                          [:args {:optional true} [:map {:desc (tool-words/description "tool$run :args")}]]]
+      :output-schema (tool-words/description "tool$run result")
       :effects #{:dynamic}
       :fn (fn [{:keys [body args]} ctx]
             (let [form (try (tl/read-body body) (catch Throwable e {::problems (:problems (ex-data e) [(ex-message e)])}))
@@ -445,9 +445,9 @@
                 (run-composite reg form (get-in ctx [:config :tool-lisp-budget]) (or args {}) ctx))))}
      {:name "tool$test" :kind :command
       :description (tool-words/description "tool$test")
-      :input-schema [:map [:name [:string {:desc "tool name or id, e.g. count-lines"}]]
-                          [:args {:optional true} [:map {:desc "the tool's args"}]]]
-      :output-schema "the tool's own result; or, when its :output-schema is a schema the result does not match, {:result, :output-problems [string]}"
+      :input-schema [:map [:name [:string {:desc (tool-words/description "tool$test :name")}]]
+                          [:args {:optional true} [:map {:desc (tool-words/description "tool$test :args")}]]]
+      :output-schema (tool-words/description "tool$<name> result")
       :effects #{:dynamic}
       :fn (fn [{:keys [name args]} ctx]
             (if-let [t (or (get @reg (str name)) (some->> (user-tool-name name) tool-id (get @reg)))]

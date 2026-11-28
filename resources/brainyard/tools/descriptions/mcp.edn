@@ -8,4 +8,7 @@
  "mcp$<server>$<tool> read-only"
   "{description}  (from the MCP server `{server}`, read-only)"
  "mcp$<server>$<tool> undescribed"
-  "an MCP tool"}
+  "an MCP tool"
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "mcp$<server>$<tool> result"
+  "the content blocks flattened to text; a result with no content blocks is passed through as it came"}

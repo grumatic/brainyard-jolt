@@ -4,4 +4,21 @@
 {"log$events"
   "What this project's agent DID in earlier runs, newest first. Reach for it when something used to work, when a tool or hook is not behaving as its definition says, or when you need to know whether an earlier run hit the same problem. For what a turn concluded, prefer memory$history; this is the machinery underneath."
  "log$search"
-  "Search the event log for a phrase — a file path, a tool name, an error. Every word of 3+ characters must appear in the same event."}
+  "Search the event log for a phrase — a file path, a tool name, an error. Every word of 3+ characters must appear in the same event."
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "log$events :event"
+  "Exact event, e.g. tools/user-tool-skipped. Omit for all."
+ "log$events :level"
+  "problem | trace | quiet — problem is the one worth asking for."
+ "log$events :session"
+  "Only this session's events."
+ "log$events :limit"
+  "Events to return (default 50)."
+ "log$events result"
+  "newest first; :withheld names the conversation keys dropped from :data"
+ "log$search :query"
+  "Words that must all appear."
+ "log$search :limit"
+  "Events to return (default 20)."
+ "log$search result"
+  "newest first; :withheld names the conversation keys dropped from :data"}

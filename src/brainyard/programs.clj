@@ -623,7 +623,7 @@
     [{:name "program$list" :kind :command
       :description (tool-words/description "program$list")
       :input-schema [:map]
-      :output-schema [:map {:desc ":params is where a predictor's params come from, or \"none\"; :strategy and :params are absent for one that does not load"}
+      :output-schema [:map {:desc (tool-words/description "program$list result")}
                 [:predictors [:vector [:map [:id :string] [:datasets [:vector :string]]
                                        [:strategy {:optional true} :string]
                                        [:params {:optional true} :string]]]]
@@ -643,11 +643,11 @@
 
      {:name "program$build-dataset" :kind :command
       :description (tool-words/description "program$build-dataset")
-      :input-schema [:map [:predictor-id [:string {:desc "The predictor's id."}]]
-                          [:name [:string {:desc "Dataset name."}]]
-                          [:session-id {:optional true} [:string {:desc "One session; default every session."}]]
+      :input-schema [:map [:predictor-id [:string {:desc (tool-words/description "program$build-dataset :predictor-id")}]]
+                          [:name [:string {:desc (tool-words/description "program$build-dataset :name")}]]
+                          [:session-id {:optional true} [:string {:desc (tool-words/description "program$build-dataset :session-id")}]]
                           [:max-examples {:optional true} :int]]
-      :output-schema [:or {:desc ":examples, :records and :sessions are counts; :skipped counts the dropped records by reason"}
+      :output-schema [:or {:desc (tool-words/description "program$build-dataset result")}
                 [:map [:path :string] [:redacted :boolean] [:examples :int] [:records :int] [:sessions :int]
                  [:skipped [:map-of :keyword :int]] [:dataset-hash :string]]
                 [:map [:error :string]
@@ -663,14 +663,14 @@
       :description (tool-words/description "program$eval")
       :input-schema [:map [:predictor-id :string]
                           [:dataset :string]
-                          [:metric {:optional true} [:string {:desc "Default exact-match; program$list has the names."}]]
-                          [:split {:optional true} [:string {:desc "all|train|val|test (default all)."}]]
-                          [:repeats {:optional true} [:int {:desc "Passes over the set (default 1)."}]]
+                          [:metric {:optional true} [:string {:desc (tool-words/description "program$eval :metric")}]]
+                          [:split {:optional true} [:string {:desc (tool-words/description "program$eval :split")}]]
+                          [:repeats {:optional true} [:int {:desc (tool-words/description "program$eval :repeats")}]]
                           [:parallel {:optional true} :int]
-                          [:lm {:optional true} [:string {:desc "provider/model to measure."}]]
-                          [:tier {:optional true} [:string {:desc "light|standard|deep."}]]
-                          [:max-calls {:optional true} [:int {:desc "Spend cap."}]]
-                          [:max-tokens {:optional true} [:int {:desc "Spend cap."}]]]
+                          [:lm {:optional true} [:string {:desc (tool-words/description "program$eval :lm")}]]
+                          [:tier {:optional true} [:string {:desc (tool-words/description "program$eval :tier")}]]
+                          [:max-calls {:optional true} [:int {:desc (tool-words/description "program$eval :max-calls")}]]
+                          [:max-tokens {:optional true} [:int {:desc (tool-words/description "program$eval :max-tokens")}]]]
       :output-schema [:or
                 [:map [:report-path :string]
                  [:summary [:map
@@ -702,18 +702,18 @@
       :description (tool-words/description "program$compile")
       :input-schema [:map [:predictor-id :string]
                           [:dataset :string]
-                          [:optimizer {:optional true} [:string {:desc "labeled-few-shot|bootstrap-few-shot (default bootstrap-few-shot)."}]]
+                          [:optimizer {:optional true} [:string {:desc (tool-words/description "program$compile :optimizer")}]]
                           [:metric {:optional true} :string]
-                          [:max-bootstrapped {:optional true} [:int {:desc "Demos to keep (default 4)."}]]
+                          [:max-bootstrapped {:optional true} [:int {:desc (tool-words/description "program$compile :max-bootstrapped")}]]
                           [:repeats {:optional true} :int]
                           [:parallel {:optional true} :int]
-                          [:lm {:optional true} [:string {:desc "The student."}]]
+                          [:lm {:optional true} [:string {:desc (tool-words/description "program$compile :lm")}]]
                           [:tier {:optional true} :string]
-                          [:teacher-lm {:optional true} [:string {:desc "The teacher; default the :deep tier."}]]
+                          [:teacher-lm {:optional true} [:string {:desc (tool-words/description "program$compile :teacher-lm")}]]
                           [:teacher-tier {:optional true} :string]
                           [:max-calls {:optional true} :int]
                           [:max-tokens {:optional true} :int]]
-      :output-schema [:or {:desc ":review is the REVIEW.md path; :no-op true means zero-shot won"}
+      :output-schema [:or {:desc (tool-words/description "program$compile result")}
                 [:map [:proposal-id :string] [:review :string] [:best [:maybe :string]]
                  [:best-score [:maybe number?]] [:zero-shot-score [:maybe number?]]
                  [:teacher-score [:maybe number?]] [:demos :int] [:no-op :boolean]
@@ -733,7 +733,7 @@
      {:name "program$proposals" :kind :command
       :description (tool-words/description "program$proposals")
       :input-schema [:map [:predictor-id :string]]
-      :output-schema [:or {:desc "newest first"}
+      :output-schema [:or {:desc (tool-words/description "program$proposals result")}
                 [:map [:proposals [:vector [:map [:proposal-id :string] [:status :string]
                                             [:optimizer [:maybe :string]] [:best [:maybe :string]]
                                             [:best-score [:maybe number?]] [:zero-shot-score [:maybe number?]]

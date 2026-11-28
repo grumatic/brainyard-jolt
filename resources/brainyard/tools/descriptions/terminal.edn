@@ -12,4 +12,21 @@
  "terminal$capture"
   "What a running terminal program's screen shows now; with :lines, that many lines back from the bottom, scrollback included. The newest part, when there is more than fits."
  "terminal$context"
-  "What the person is looking at in their editor, when one of this project's terminal programs that can say runs (an entry of .brainyard/terminal.edn with :context; for Emacs, emacs$context): the file and buffer, the line and column of the cursor, whether it has unsaved edits, and the text they selected, if any. Ask when they say \"this\", \"here\" or \"the selection\" about code they are looking at."}
+  "What the person is looking at in their editor, when one of this project's terminal programs that can say runs (an entry of .brainyard/terminal.edn with :context; for Emacs, emacs$context): the file and buffer, the line and column of the cursor, whether it has unsaved edits, and the text they selected, if any. Ask when they say \"this\", \"here\" or \"the selection\" about code they are looking at."
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "terminal$start :name"
+  "The program's name, as terminal$list gives it."
+ "terminal$stop :name"
+  "The program's name."
+ "terminal$send :name"
+  "The program's name."
+ "terminal$send :text"
+  "Typed as it is."
+ "terminal$send :enter"
+  "Press Enter after :text (default true)."
+ "terminal$send :keys"
+  "A tmux key name: C-c, Enter, Up, Escape, q."
+ "terminal$capture :name"
+  "The program's name."
+ "terminal$capture :lines"
+  "How many lines back to read, scrollback included."}

@@ -14,4 +14,13 @@
  "codex$handoff"
   "Hand back a finished delegation's branch: what the session changed committed for it (it cannot commit in Codex's sandbox), its commits and changed files, and the commands that push it and open its pull request. Never pushes or merges."
  "codex$finish"
-  "Record how a delegation ended: its verdict and the report."}
+  "Record how a delegation ended: its verdict and the report."
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "codex$open :session"
+  "\"new\", or a thread id from codex$sessions"
+ "codex$open :brief"
+  "what Codex is to do, standing on its own"
+ "codex$open :args"
+  "more codex CLI options, space separated"
+ "codex$open :worktree"
+  "a new one works in a git worktree of its own, on :branch"}

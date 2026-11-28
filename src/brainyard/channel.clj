@@ -597,7 +597,7 @@
            (catch Throwable e {:status :error :error (ex-message e)})))))
 
 (def ^:private session-param
-  [:session [:string {:desc "a live session's id, a prefix of it, or its label (session$list) — a byj session's, a Claude Code session's as claude:<id>, or a Codex session's as codex:<thread>"}]])
+  [:session [:string {:desc (tool-words/description "session$* :session")}]])
 
 (defn- claude-opts [config] {:home (:claude-home config)})
 (defn- codex-opts [config] {:home (:codex-home config)})
@@ -644,7 +644,7 @@
     (into
     [{:name "session$list" :kind :command
       :description (tool-words/description "session$list")
-      :input-schema [:map [:all {:optional true} [:boolean {:desc "include byj sessions no longer live"}]]]
+      :input-schema [:map [:all {:optional true} [:boolean {:desc (tool-words/description "session$list :all")}]]]
       :output-schema [:map [:sessions [:vector :any]] [:count :int]]
       :effects #{:fs/read}
       :fn (fn [{:keys [all]} _]
@@ -669,8 +669,8 @@
      {:name "session$ask" :kind :command
       :description (tool-words/description "session$ask" {:timeout timeout})
       :input-schema [:map session-param
-                     [:question [:string {:desc "what that session should do or answer — self-contained: it has not seen this conversation"}]]
-                     [:timeout-ms {:optional true} [:int {:desc "the longest to wait"}]]]
+                     [:question [:string {:desc (tool-words/description "session$ask :question")}]]
+                     [:timeout-ms {:optional true} [:int {:desc (tool-words/description "session$ask :timeout-ms")}]]]
       :output-schema [:or [:map [:status :keyword] [:answer :string]] [:map [:status :keyword] [:error :string]]]
       :effects #{:session/send}
       :fn (fn [{:keys [session question timeout-ms]} ctx]
@@ -688,7 +688,7 @@
      {:name "session$send" :kind :command
       :description (tool-words/description "session$send")
       :input-schema [:map session-param
-                     [:question [:string {:desc "the task — self-contained: that session has not seen this conversation"}]]]
+                     [:question [:string {:desc (tool-words/description "session$send :question")}]]]
       :output-schema [:or [:map [:task-id :string] [:session-id :string]] [:map [:error :string]]]
       :effects #{:session/send}
       :fn (fn [{:keys [session question]} ctx]
@@ -747,7 +747,7 @@
      (when start-session
        [{:name "session$start" :kind :command
          :description (tool-words/description "session$start")
-         :input-schema [:map [:question [:string {:desc "its first turn — self-contained: the new session has not seen this conversation"}]]]
+         :input-schema [:map [:question [:string {:desc (tool-words/description "session$start :question")}]]]
          :output-schema [:or [:map [:session-id :string]] [:map [:error :string]]]
          :effects #{:session/send}
          :fn (fn [{:keys [question]} _]

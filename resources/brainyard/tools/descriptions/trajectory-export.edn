@@ -2,4 +2,15 @@
 ;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
 ;; resource (RFC-001).
 {"trajectory$export"
-  "Write this project's recorded turns out as a dataset — every turn's question, tool calls and answer, in the OpenAI fine-tuning shape. Secrets are redacted unless you turn that off. Use it when someone asks for training data or wants the agent's history in one file; to ASK what happened, prefer log$search or memory$history."}
+  "Write this project's recorded turns out as a dataset — every turn's question, tool calls and answer, in the OpenAI fine-tuning shape. Secrets are redacted unless you turn that off. Use it when someone asks for training data or wants the agent's history in one file; to ASK what happened, prefer log$search or memory$history."
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "trajectory$export :session-id"
+  "One session. Omit for all of them."
+ "trajectory$export :format"
+  "openai-jsonl (default) or edn (the raw records)."
+ "trajectory$export :redact"
+  "Default true. Only pass false for a file that stays on this machine."
+ "trajectory$export :turns"
+  "[from to]: only these turns of each session, inclusive, numbered as byj turns list numbers them. Omit for every turn."
+ "trajectory$export result"
+  "the file written; :turns were read, :examples written"}

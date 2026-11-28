@@ -378,7 +378,7 @@
                                       (map #(row {:name %}) (remove (set (map :name entries)) (keys live)))))}))}
      {:name "terminal$start" :kind :command
       :description (tool-words/description "terminal$start")
-      :input-schema [:map [:name [:string {:desc "The program's name, as terminal$list gives it."}]]]
+      :input-schema [:map [:name [:string {:desc (tool-words/description "terminal$start :name")}]]]
       :output-schema [:or [:map [:started :string]] err]
       :effects #{:process}
       :fn (fn [{:keys [name]} _ctx]
@@ -391,7 +391,7 @@
                 :else (if-let [problem (start! dir entry)] {:error problem} {:started name}))))}
      {:name "terminal$stop" :kind :command
       :description (tool-words/description "terminal$stop")
-      :input-schema [:map [:name [:string {:desc "The program's name."}]]]
+      :input-schema [:map [:name [:string {:desc (tool-words/description "terminal$stop :name")}]]]
       :output-schema [:or [:map [:stopped :string]] err]
       :effects #{:process}
       :fn (fn [{:keys [name]} _ctx]
@@ -401,10 +401,10 @@
      {:name "terminal$send" :kind :command
       :description (tool-words/description "terminal$send")
       :input-schema [:map
-                     [:name [:string {:desc "The program's name."}]]
-                     [:text {:optional true} [:string {:desc "Typed as it is."}]]
-                     [:enter {:optional true} [:boolean {:desc "Press Enter after :text (default true)."}]]
-                     [:keys {:optional true} [:vector [:string {:desc "A tmux key name: C-c, Enter, Up, Escape, q."}]]]]
+                     [:name [:string {:desc (tool-words/description "terminal$send :name")}]]
+                     [:text {:optional true} [:string {:desc (tool-words/description "terminal$send :text")}]]
+                     [:enter {:optional true} [:boolean {:desc (tool-words/description "terminal$send :enter")}]]
+                     [:keys {:optional true} [:vector [:string {:desc (tool-words/description "terminal$send :keys")}]]]]
       :output-schema [:or [:map [:sent :string]] err]
       :effects #{:process :terminal/input}
       :fn (fn [{:keys [name text enter keys]} _ctx]
@@ -417,8 +417,8 @@
      {:name "terminal$capture" :kind :command
       :description (tool-words/description "terminal$capture")
       :input-schema [:map
-                     [:name [:string {:desc "The program's name."}]]
-                     [:lines {:optional true} [:int {:desc "How many lines back to read, scrollback included."}]]]
+                     [:name [:string {:desc (tool-words/description "terminal$capture :name")}]]
+                     [:lines {:optional true} [:int {:desc (tool-words/description "terminal$capture :lines")}]]]
       :output-schema [:or [:map [:screen :string]] err]
       :effects #{}
       :fn (fn [{:keys [name lines]} _ctx]

@@ -403,10 +403,10 @@ that load it and bind its commands."
         {:name "emacs$read" :kind :command
          :description (tool-words/description "emacs$read" {:max-chars max-chars})
          :input-schema [:map
-                        [:file {:optional true} [:string {:desc "The file's path."}]]
-                        [:buffer {:optional true} [:string {:desc "A buffer's name, for one visiting no file."}]]
-                        [:start {:optional true} [:int {:desc "The first line, from 1."}]]
-                        [:end {:optional true} [:int {:desc "The last line."}]]]
+                        [:file {:optional true} [:string {:desc (tool-words/description "emacs$read :file")}]]
+                        [:buffer {:optional true} [:string {:desc (tool-words/description "emacs$read :buffer")}]]
+                        [:start {:optional true} [:int {:desc (tool-words/description "emacs$read :start")}]]
+                        [:end {:optional true} [:int {:desc (tool-words/description "emacs$read :end")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :path-params [:file]
@@ -418,10 +418,10 @@ that load it and bind its commands."
         {:name "emacs$show" :kind :command
          :description (tool-words/description "emacs$show")
          :input-schema [:map
-                        [:file [:string {:desc "The file's path."}]]
-                        [:line {:optional true} [:int {:desc "The first line to highlight, from 1."}]]
-                        [:end {:optional true} [:int {:desc "The last line to highlight."}]]
-                        [:message {:optional true} [:string {:desc "One line for the echo area."}]]]
+                        [:file [:string {:desc (tool-words/description "emacs$show :file")}]]
+                        [:line {:optional true} [:int {:desc (tool-words/description "emacs$show :line")}]]
+                        [:end {:optional true} [:int {:desc (tool-words/description "emacs$show :end")}]]
+                        [:message {:optional true} [:string {:desc (tool-words/description "emacs$show :message")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{:editor/display}
          :path-params [:file]
@@ -429,7 +429,7 @@ that load it and bind its commands."
                (call "show" (cond-> {:file (abs-path config file)} line (assoc :line line) end (assoc :end end) message (assoc :message message))))}
         {:name "emacs$eval" :kind :command
          :description (tool-words/description "emacs$eval")
-         :input-schema [:map [:code [:string {:desc "Emacs Lisp, one form or several."}]]]
+         :input-schema [:map [:code [:string {:desc (tool-words/description "emacs$eval :code")}]]]
          :output-schema [:or [:map [:value :string]] err]
          :effects #{:editor/eval}
          :fn (fn [{:keys [code]} _ctx]
@@ -441,12 +441,12 @@ that load it and bind its commands."
          :input-schema [:map
                         [:notes {:optional true}
                          [:vector [:map
-                                   [:file [:string {:desc "The file's path."}]]
-                                   [:line [:int {:desc "The line, from 1."}]]
-                                   [:text [:string {:desc "The note: one short sentence."}]]
-                                   [:kind {:optional true} [:string {:desc "issue, hint, good or question."}]]]]]
-                        [:clear {:optional true} [:boolean {:desc "Take notes away instead: :file's, or all."}]]
-                        [:file {:optional true} [:string {:desc "With :clear, only this file's notes."}]]]
+                                   [:file [:string {:desc (tool-words/description "emacs$note :notes :file")}]]
+                                   [:line [:int {:desc (tool-words/description "emacs$note :notes :line")}]]
+                                   [:text [:string {:desc (tool-words/description "emacs$note :notes :text")}]]
+                                   [:kind {:optional true} [:string {:desc (tool-words/description "emacs$note :notes :kind")}]]]]]
+                        [:clear {:optional true} [:boolean {:desc (tool-words/description "emacs$note :clear")}]]
+                        [:file {:optional true} [:string {:desc (tool-words/description "emacs$note :file")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{:editor/display}
          :fn (fn [{:keys [notes clear file]} _ctx]
@@ -457,9 +457,9 @@ that load it and bind its commands."
         {:name "emacs$edit" :kind :command
          :description (tool-words/description "emacs$edit")
          :input-schema [:map
-                        [:file [:string {:desc "The file's path."}]]
-                        [:old [:string {:desc "The exact text to replace, found once in the buffer."}]]
-                        [:new [:string {:desc "What replaces it."}]]]
+                        [:file [:string {:desc (tool-words/description "emacs$edit :file")}]]
+                        [:old [:string {:desc (tool-words/description "emacs$edit :old")}]]
+                        [:new [:string {:desc (tool-words/description "emacs$edit :new")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{:editor/edit}
          :path-params [:file]
@@ -470,11 +470,11 @@ that load it and bind its commands."
         {:name "emacs$xref" :kind :command
          :description (tool-words/description "emacs$xref")
          :input-schema [:map
-                        [:file [:string {:desc "A file in the language asked about: its buffer's backend answers."}]]
-                        [:identifier {:optional true} [:string {:desc "The name, as written in the file."}]]
-                        [:line {:optional true} [:int {:desc "The line the name is on, from 1."}]]
-                        [:column {:optional true} [:int {:desc "Its column, from 1, when no :identifier is given."}]]
-                        [:references {:optional true} [:boolean {:desc "Where it is used, not where it is defined."}]]]
+                        [:file [:string {:desc (tool-words/description "emacs$xref :file")}]]
+                        [:identifier {:optional true} [:string {:desc (tool-words/description "emacs$xref :identifier")}]]
+                        [:line {:optional true} [:int {:desc (tool-words/description "emacs$xref :line")}]]
+                        [:column {:optional true} [:int {:desc (tool-words/description "emacs$xref :column")}]]
+                        [:references {:optional true} [:boolean {:desc (tool-words/description "emacs$xref :references")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :path-params [:file]
@@ -490,7 +490,7 @@ that load it and bind its commands."
                                 (assoc opts :timeout-ms (:emacs-execute-timeout-ms config 60000))))))}
         {:name "emacs$diagnostics" :kind :command
          :description (tool-words/description "emacs$diagnostics")
-         :input-schema [:map [:file [:string {:desc "The file's path."}]]]
+         :input-schema [:map [:file [:string {:desc (tool-words/description "emacs$diagnostics :file")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :path-params [:file]
@@ -498,12 +498,12 @@ that load it and bind its commands."
         {:name "emacs$describe" :kind :command
          :description (tool-words/description "emacs$describe")
          :input-schema [:map
-                        [:file {:optional true} [:string {:desc "A file whose buffer's keymaps answer; else the buffer in front of the person."}]]
-                        [:key {:optional true} [:string {:desc "A key as Emacs writes it: \"C-c C-c\", \"M-x\", \"<f5>\"."}]]
-                        [:command {:optional true} [:string {:desc "A command's name."}]]
-                        [:prefix {:optional true} [:string {:desc "A prefix key, as :key."}]]
-                        [:apropos {:optional true} [:string {:desc "Words a command's name has, all of them."}]]
-                        [:modes {:optional true} [:boolean {:desc "The modes on in the buffer."}]]]
+                        [:file {:optional true} [:string {:desc (tool-words/description "emacs$describe :file")}]]
+                        [:key {:optional true} [:string {:desc (tool-words/description "emacs$describe :key")}]]
+                        [:command {:optional true} [:string {:desc (tool-words/description "emacs$describe :command")}]]
+                        [:prefix {:optional true} [:string {:desc (tool-words/description "emacs$describe :prefix")}]]
+                        [:apropos {:optional true} [:string {:desc (tool-words/description "emacs$describe :apropos")}]]
+                        [:modes {:optional true} [:boolean {:desc (tool-words/description "emacs$describe :modes")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :path-params [:file]
@@ -520,8 +520,8 @@ that load it and bind its commands."
         {:name "emacs$habits" :kind :command
          :description (tool-words/description "emacs$habits")
          :input-schema [:map
-                        [:tip {:optional true} [:string {:desc "A command you suggested, to record."}]]
-                        [:why {:optional true} [:string {:desc "With :tip: what it is better for, one line."}]]]
+                        [:tip {:optional true} [:string {:desc (tool-words/description "emacs$habits :tip")}]]
+                        [:why {:optional true} [:string {:desc (tool-words/description "emacs$habits :why")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :fn (fn [{:keys [tip why]} _ctx]
@@ -529,8 +529,8 @@ that load it and bind its commands."
         {:name "emacs$suggest" :kind :command
          :description (tool-words/description "emacs$suggest")
          :input-schema [:map
-                        [:command [:string {:desc "The command's name."}]]
-                        [:why {:optional true} [:string {:desc "What it does for them, one line."}]]]
+                        [:command [:string {:desc (tool-words/description "emacs$suggest :command")}]]
+                        [:why {:optional true} [:string {:desc (tool-words/description "emacs$suggest :why")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{:editor/display}
          :fn (fn [{:keys [command why]} _ctx]
@@ -540,10 +540,10 @@ that load it and bind its commands."
         {:name "emacs$features" :kind :command
          :description (tool-words/description "emacs$features")
          :input-schema [:map
-                        [:features {:optional true} [:vector [:string {:desc "A feature, as require names it."}]]]
-                        [:packages {:optional true} [:vector [:string {:desc "A package's name."}]]]
-                        [:programs {:optional true} [:vector [:string {:desc "A program's name."}]]]
-                        [:file {:optional true} [:string {:desc "A file whose mode and language server to look at."}]]]
+                        [:features {:optional true} [:vector [:string {:desc (tool-words/description "emacs$features :features")}]]]
+                        [:packages {:optional true} [:vector [:string {:desc (tool-words/description "emacs$features :packages")}]]]
+                        [:programs {:optional true} [:vector [:string {:desc (tool-words/description "emacs$features :programs")}]]]
+                        [:file {:optional true} [:string {:desc (tool-words/description "emacs$features :file")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :path-params [:file]
@@ -552,7 +552,7 @@ that load it and bind its commands."
                                   file (assoc :file (abs-path config file)))))}
         {:name "emacs$lessons" :kind :command
          :description (tool-words/description "emacs$lessons")
-         :input-schema [:map [:name {:optional true} [:string {:desc "A lesson's name."}]]]
+         :input-schema [:map [:name {:optional true} [:string {:desc (tool-words/description "emacs$lessons :name")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :fn (fn [{:keys [name]} _ctx]
@@ -563,14 +563,14 @@ that load it and bind its commands."
                        {:error (str "no lesson " name "; there are " (str/join ", " (map :name ls)))}))))}
         {:name "emacs$org-outline" :kind :command
          :description (tool-words/description "emacs$org-outline")
-         :input-schema [:map [:file [:string {:desc "The org file."}]]]
+         :input-schema [:map [:file [:string {:desc (tool-words/description "emacs$org-outline :file")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{}
          :path-params [:file]
          :fn (fn [{:keys [file]} _ctx] (call "org-outline" {:file (abs-path config file)}))}
         {:name "emacs$org-tangle" :kind :command
          :description (tool-words/description "emacs$org-tangle")
-         :input-schema [:map [:file [:string {:desc "The org file."}]]]
+         :input-schema [:map [:file [:string {:desc (tool-words/description "emacs$org-tangle :file")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{:fs/write}
          :path-params [:file]
@@ -588,10 +588,10 @@ that load it and bind its commands."
         {:name "emacs$org-execute" :kind :command
          :description (tool-words/description "emacs$org-execute")
          :input-schema [:map
-                        [:file [:string {:desc "The org file."}]]
-                        [:name {:optional true} [:string {:desc "The block's #+name."}]]
-                        [:line {:optional true} [:int {:desc "A line inside the block, from 1."}]]
-                        [:save {:optional true} [:boolean {:desc "Save the org file after (default false); refused over unsaved edits."}]]]
+                        [:file [:string {:desc (tool-words/description "emacs$org-execute :file")}]]
+                        [:name {:optional true} [:string {:desc (tool-words/description "emacs$org-execute :name")}]]
+                        [:line {:optional true} [:int {:desc (tool-words/description "emacs$org-execute :line")}]]
+                        [:save {:optional true} [:boolean {:desc (tool-words/description "emacs$org-execute :save")}]]]
          :output-schema [:or [:map-of :keyword :any] err]
          :effects #{:editor/execute :process}
          :path-params [:file]

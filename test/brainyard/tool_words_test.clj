@@ -2,9 +2,10 @@
 ;; SPDX-License-Identifier: MIT
 
 (ns brainyard.tool-words-test
-  "A built-in tool's description is a resource (byj-2e8.5): the source is
-  read as data, every tool map in it is found, and its `:description` is
-  checked to be a `tool-words/description` call naming words that exist."
+  "A built-in tool's description is a resource (byj-2e8.5), and so are its
+  arguments' and result's (byj-2e8.9): the source is read as data, every tool
+  map in it is found, and its `:description` and every `:desc` are checked to
+  be a `tool-words/description` call naming words that exist."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
@@ -50,6 +51,20 @@
     (is (empty? in-src)
         (str "these tools keep their description in src; it goes in resources/brainyard/tools/descriptions/ "
              "and is read with tool-words/description: " (pr-str (map (juxt first second) in-src))))))
+
+(deftest no-desc-in-src-is-a-string
+  ;; an argument's or a result field's :desc is read by the model through
+  ;; get-tool-info, so a resource like the tool's own (byj-2e8.9); a :desc
+  ;; built from a value, as an MCP server's, is not words of src's
+  (let [literal? (fn [v] (or (string? v) (and (seq? v) (= 'str (first v)) (some string? (rest v)))))
+        in-src (for [[file form] (forms)
+                     :when (not= "schema.clj" file)
+                     node (nodes form)
+                     :when (and (map? node) (literal? (:desc node)))]
+                 [file (:desc node)])]
+    (is (empty? in-src)
+        (str ":desc written in src; it goes in resources/brainyard/tools/descriptions/ as \"<tool> :arg\" "
+             "and is read with tool-words/description: " (pr-str in-src)))))
 
 (deftest every-description-is-asked-for-and-every-one-asked-for-is-there
   ;; an id is the call's first argument, or a string in it: `(if read-only?

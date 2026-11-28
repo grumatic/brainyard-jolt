@@ -316,7 +316,7 @@
   is nil; `:latency`, `:cache`, `:tools` and `:rework` are there only with
   `detail: full`."
   (let [score [:maybe :double]]
-    [:or {:desc "scores are 0–100; a metric with no data is nil; latency, cache, tools and rework only with detail full"}
+    [:or {:desc (tool-words/description "session$analytics result")}
      [:map
       [:turns :int]
       [:sessions [:vector :string]]
@@ -360,8 +360,8 @@
   (when (seq (trajectory/sessions config))
     [{:name "session$analytics" :kind :command
       :description (tool-words/description "session$analytics")
-      :input-schema [:map [:session-id {:optional true} [:string {:desc "One session. Omit for all of them."}]]
-                          [:detail {:optional true} [:string {:desc "summary (default) for the headline numbers, full for every metric."}]]]
+      :input-schema [:map [:session-id {:optional true} [:string {:desc (tool-words/description "session$analytics :session-id")}]]
+                          [:detail {:optional true} [:string {:desc (tool-words/description "session$analytics :detail")}]]]
       :output-schema returns
       :effects #{:fs/read}
       :fn (fn [{:keys [session-id detail]} ctx]

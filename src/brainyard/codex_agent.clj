@@ -416,12 +416,12 @@
    {:name "codex$open" :kind :command
     :description (tool-words/description "codex$open")
     :input-schema [:map
-                   [:session [:string {:desc "\"new\", or a thread id from codex$sessions"}]]
-                   [:brief [:string {:desc "what Codex is to do, standing on its own"}]]
+                   [:session [:string {:desc (tool-words/description "codex$open :session")}]]
+                   [:brief [:string {:desc (tool-words/description "codex$open :brief")}]]
                    [:model {:optional true} :string]
-                   [:args {:optional true} [:string {:desc "more codex CLI options, space separated"}]]
+                   [:args {:optional true} [:string {:desc (tool-words/description "codex$open :args")}]]
                    [:task {:optional true} :string]
-                   [:worktree {:optional true} [:any {:desc "a new one works in a git worktree of its own, on :branch"}]]
+                   [:worktree {:optional true} [:any {:desc (tool-words/description "codex$open :worktree")}]]
                    [:bead {:optional true} :string]
                    [:branch {:optional true} :string]]
     :output-schema [:or [:map [:session-id :string] [:dir :string] [:how :string] [:where :string] [:branch :string]] [:map [:error :string]]]

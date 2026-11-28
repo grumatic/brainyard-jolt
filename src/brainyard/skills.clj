@@ -330,8 +330,8 @@
   {:name id
    :kind :skill
    :description (describe skill)
-   :input-schema [:map [:question {:optional true} [:string {:desc "What you intend to use the skill for. Optional, except for a skill that runs itself in an agent — then it is the task."}]]]
-   :output-schema [:or {:desc ":content is the whole SKILL.md to follow; a skill that runs in an agent returns its :answer instead"}
+   :input-schema [:map [:question {:optional true} [:string {:desc (tool-words/description "skill$<name> :question")}]]]
+   :output-schema [:or {:desc (tool-words/description "skill$<name> result")}
              [:map [:skill :string] [:type :string] [:path :string] [:content :string]
               [:loaded :boolean] [:note {:optional true} :string]
               [:resources {:optional true} [:map-of :string :string]]]
@@ -409,7 +409,7 @@
    [:tags {:optional true} [:vector :string]]])
 
 (def ^:private type-param
-  [:type {:optional true} [:string {:desc "brainyard | claude | agents | builtin (omit for all)"}]])
+  [:type {:optional true} [:string {:desc (tool-words/description "skills$* :type")}]])
 
 (defn commands
   "brainyard's read subset: list, find and read, in brainyard's shapes
@@ -419,8 +419,8 @@
   [{:name "skills$list" :kind :command
     :description (tool-words/description "skills$list")
     :input-schema [:map type-param
-                        [:scope {:optional true} [:string {:desc "project | user | builtin (omit for all)"}]]]
-    :output-schema [:map {:desc "most local first; a shadowed skill names the one that shadows it"}
+                        [:scope {:optional true} [:string {:desc (tool-words/description "skills$list :scope")}]]]
+    :output-schema [:map {:desc (tool-words/description "skills$list result")}
               [:result [:vector (into [:map] (conj skill-entry [:path :string]))]]
               [:count :int]]
     :effects #{:fs/read}
@@ -429,10 +429,10 @@
             {:result (mapv #(assoc (summary %) :path (:path %)) ss) :count (count ss)}))}
    {:name "skills$find"  :kind :command
     :description (tool-words/description "skills$find")
-    :input-schema [:map [:query [:string {:desc "key nouns of the task"}]]
+    :input-schema [:map [:query [:string {:desc (tool-words/description "skills$find :query")}]]
                         type-param
-                        [:limit {:optional true} [:int {:desc "max matches (default 20)"}]]]
-    :output-schema [:or {:desc "best first; one hit per name, the most local, with :also-in naming where else it is installed"}
+                        [:limit {:optional true} [:int {:desc (tool-words/description "skills$find :limit")}]]]
+    :output-schema [:or {:desc (tool-words/description "skills$find result")}
               [:map [:result [:vector (into [:map] (conj skill-entry [:score :int]
                                                          [:also-in {:optional true} [:vector :string]]))]]
                [:count :int]]
@@ -451,9 +451,9 @@
                :count (count hits)})))}
    {:name "skills$read" :kind :command
     :description (tool-words/description "skills$read")
-    :input-schema [:map [:skill-name [:string {:desc "skill name"}]]
+    :input-schema [:map [:skill-name [:string {:desc (tool-words/description "skills$read :skill-name")}]]
                         type-param
-                        [:scope {:optional true} [:string {:desc "project | user | builtin"}]]]
+                        [:scope {:optional true} [:string {:desc (tool-words/description "skills$read :scope")}]]]
     :output-schema [:or [:map [:name :string] [:title :string] [:description :string]
                    [:content :string] [:path :string]
                    [:type [:enum "brainyard" "claude" "agents" "builtin"]] [:scope [:maybe :string]] [:size :int]]
@@ -784,10 +784,10 @@
     :description (tool-words/description "skills$write")
     :input-schema [:map
                    [:op [:enum "create" "update" "remove"]]
-                   [:skill-name [:string {:desc "lowercase-kebab; other characters are dropped"}]]
-                   [:content {:optional true} [:string {:desc "the whole SKILL.md: frontmatter (name, description) then the procedure"}]]
-                   [:type {:optional true} [:string {:desc "brainyard (the only type written)"}]]
-                   [:scope {:optional true} [:string {:desc "project (default for create) | user"}]]
+                   [:skill-name [:string {:desc (tool-words/description "skills$write :skill-name")}]]
+                   [:content {:optional true} [:string {:desc (tool-words/description "skills$write :content")}]]
+                   [:type {:optional true} [:string {:desc (tool-words/description "skills$write :type")}]]
+                   [:scope {:optional true} [:string {:desc (tool-words/description "skills$write :scope")}]]
                    [:scripts {:optional true} [:map-of :string :string]]
                    [:resources {:optional true} [:map-of :string :string]]]
     :output-schema [:or [:map [:name {:optional true} :string] [:title {:optional true} :string]
@@ -807,25 +807,25 @@
     :fn (fn [_ _] (refresh! config reg run-turn))}
    {:name "skills$install" :kind :command
     :description (tool-words/description "skills$install")
-    :input-schema [:map [:package [:string {:desc "owner/repo or owner/repo@skill"}]]
-                   [:agent {:optional true} [:string {:desc "the agents to link it into, e.g. claude-code or codex, * for all; omit for the ones the CLI finds"}]]]
+    :input-schema [:map [:package [:string {:desc (tool-words/description "skills$install :package")}]]
+                   [:agent {:optional true} [:string {:desc (tool-words/description "skills$install :agent")}]]]
     :output-schema [:or [:map [:result :string] [:registered [:vector :string]]]
                     [:map [:error :string]]]
     :effects #{:process :net/http :fs/write :tools/define}
     :fn (fn [args _] (install! config reg run-turn args))}
    {:name "skills$search" :kind :command
     :description (tool-words/description "skills$search")
-    :input-schema [:map [:query [:string {:desc "what the skill should do, e.g. typescript, pdf, deploy"}]]
-                   [:owner {:optional true} [:string {:desc "only packages from this GitHub owner"}]]]
+    :input-schema [:map [:query [:string {:desc (tool-words/description "skills$search :query")}]]
+                   [:owner {:optional true} [:string {:desc (tool-words/description "skills$search :owner")}]]]
     :output-schema [:or [:map [:result :string] [:packages [:vector [:map [:package :string] [:installs {:optional true} :string]]]]]
                     [:map [:error :string]]]
     :effects #{:process :net/http}
     :fn (fn [args _] (search! args))}
    {:name "skills$import" :kind :command
     :description (tool-words/description "skills$import")
-    :input-schema [:map [:path [:string {:desc "a SKILL.md, or a directory holding one"}]]
-                   [:name {:optional true} [:string {:desc "the skill's name; else the frontmatter's name, else the directory's"}]]
-                   [:scope {:optional true} [:enum {:desc "project (default) or user"} "project" "user"]]]
+    :input-schema [:map [:path [:string {:desc (tool-words/description "skills$import :path")}]]
+                   [:name {:optional true} [:string {:desc (tool-words/description "skills$import :name")}]]
+                   [:scope {:optional true} [:enum {:desc (tool-words/description "skills$import :scope")} "project" "user"]]]
     :output-schema [:or [:map [:name {:optional true} :string] [:title {:optional true} :string]
                          [:description {:optional true} :string] [:type :string] [:scope :string]
                          [:path {:optional true} :string] [:id {:optional true} :string]

@@ -501,28 +501,28 @@
   (let [any-arg (fn [k desc] [k {:optional true} [:any {:desc desc}]])]
     [{:name "drive$next" :kind :command
       :description (tool-words/description "drive$next")
-      :input-schema [:map (any-arg :dir "the project directory") (any-arg :failures "failures in a row so far")
-                     (any-arg :usage "the run's usage so far") (any-arg :since "when the run began")
-                     (any-arg :retry "a bead to work again") (any-arg :retry-note "what it lacked")
-                     (any-arg :retry-progress "what its last turn ended saying") (any-arg :attempts "the turns it has had")
-                     (any-arg :log "the run's log so far")]
+      :input-schema [:map (any-arg :dir (tool-words/description "drive$next :dir")) (any-arg :failures (tool-words/description "drive$next :failures"))
+                     (any-arg :usage (tool-words/description "drive$next :usage")) (any-arg :since (tool-words/description "drive$next :since"))
+                     (any-arg :retry (tool-words/description "drive$next :retry")) (any-arg :retry-note (tool-words/description "drive$next :retry-note"))
+                     (any-arg :retry-progress (tool-words/description "drive$next :retry-progress")) (any-arg :attempts (tool-words/description "drive$next :attempts"))
+                     (any-arg :log (tool-words/description "drive$next :log"))]
       :output-schema [:map [:stop :any] [:stopped :any] [:bead :any] [:brief :any] [:log {:optional true} :any]
                       [:title {:optional true} :any] [:head {:optional true} :any] [:since {:optional true} :any]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args ctx] (next-bead config ctx args))}
      {:name "drive$check" :kind :command
       :description (tool-words/description "drive$check")
-      :input-schema [:map (any-arg :dir "the project directory") (any-arg :bead "the bead") (any-arg :head "HEAD when the step began")]
+      :input-schema [:map (any-arg :dir (tool-words/description "drive$check :dir")) (any-arg :bead (tool-words/description "drive$check :bead")) (any-arg :head (tool-words/description "drive$check :head"))]
       :output-schema [:map [:text :string] [:clean? :any] [:committed? :any] [:status :any] [:dependencies {:optional true} :any]]
       :effects #{:fs/read :process}
       :fn (fn [args _] (check-bead config args))}
      {:name "drive$settle" :kind :command
       :description (tool-words/description "drive$settle")
-      :input-schema [:map (any-arg :dir "the project directory") (any-arg :bead "the bead") (any-arg :title "its title")
-                     (any-arg :status "done, retry, ask or stop") (any-arg :question "for ask") (any-arg :summary "one line")
-                     (any-arg :bead-status "the bead's status after the turn") (any-arg :failures "failures so far")
-                     (any-arg :log "the run's log so far") (any-arg :work-usage "what the bead's turn spent")
-                     (any-arg :attempts "the turns the bead had before this one") (any-arg :work "the turn's answer")]
+      :input-schema [:map (any-arg :dir (tool-words/description "drive$settle :dir")) (any-arg :bead (tool-words/description "drive$settle :bead")) (any-arg :title (tool-words/description "drive$settle :title"))
+                     (any-arg :status (tool-words/description "drive$settle :status")) (any-arg :question (tool-words/description "drive$settle :question")) (any-arg :summary (tool-words/description "drive$settle :summary"))
+                     (any-arg :bead-status (tool-words/description "drive$settle :bead-status")) (any-arg :failures (tool-words/description "drive$settle :failures"))
+                     (any-arg :log (tool-words/description "drive$settle :log")) (any-arg :work-usage (tool-words/description "drive$settle :work-usage"))
+                     (any-arg :attempts (tool-words/description "drive$settle :attempts")) (any-arg :work (tool-words/description "drive$settle :work"))]
       :output-schema [:map [:failures :any] [:stop :any] [:stopped :any] [:log :any]
                       [:retry :any] [:retry-note :any] [:attempts :any] [:progress :any]
                       [:usage-cost-usd {:optional true} :any]]
@@ -530,8 +530,8 @@
       :fn (fn [args ctx] (settle config ctx args))}
      {:name "drive$report" :kind :command
       :description (tool-words/description "drive$report")
-      :input-schema [:map (any-arg :dir "the project directory") (any-arg :log "the run's log") (any-arg :stopped "why it stopped")
-                     (any-arg :since "when the run began")]
+      :input-schema [:map (any-arg :dir (tool-words/description "drive$report :dir")) (any-arg :log (tool-words/description "drive$report :log")) (any-arg :stopped (tool-words/description "drive$report :stopped"))
+                     (any-arg :since (tool-words/description "drive$report :since"))]
       :output-schema [:map [:text :string]]
       :effects #{:fs/read :fs/write :process}
       :fn (fn [args _] (report config args))}]))

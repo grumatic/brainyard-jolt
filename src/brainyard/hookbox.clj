@@ -307,13 +307,13 @@
 
 (def ^:private definition-schema
   [:map
-   [:id [:string {:desc "lowercase-kebab hook id, e.g. bash-command-log"}]]
-   [:event [:string {:desc "event from hook$events, e.g. agent.tool-use/post"}]]
-   [:match [:map {:desc "scope: {\"tool-name\": \"bash\"}, {\"agent-id\": \"react-agent\"} or {\"global\": true}"}]]
-   [:body [:string {:desc "Tool Lisp: (fn [event] ...)"}]]
-   [:doc {:optional true} [:string {:desc "one-line description"}]]
-   [:priority {:optional true} [:int {:desc "higher runs first; default 0 (built-in guards are 100)"}]]
-   [:on-error {:optional true} [:string {:desc "gated events only: what a failing body decides — allow (default) or block"}]]])
+   [:id [:string {:desc (tool-words/description "hook$create :id")}]]
+   [:event [:string {:desc (tool-words/description "hook$create :event")}]]
+   [:match [:map {:desc (tool-words/description "hook$create :match")}]]
+   [:body [:string {:desc (tool-words/description "hook$create :body")}]]
+   [:doc {:optional true} [:string {:desc (tool-words/description "hook$create :doc")}]]
+   [:priority {:optional true} [:int {:desc (tool-words/description "hook$create :priority")}]]
+   [:on-error {:optional true} [:string {:desc (tool-words/description "hook$create :on-error")}]]])
 
 (defn authoring-tools
   "The hook$* commands over `hook-reg`, validating bodies against `tool-reg`
@@ -322,7 +322,7 @@
   [{:name "hook$events" :kind :command
     :description (tool-words/description "hook$events")
     :input-schema [:map]
-    :output-schema [:map {:desc "a hook on a gated event returns a decision"}
+    :output-schema [:map {:desc (tool-words/description "hook$events result")}
               [:events [:vector [:map [:event :string] [:payload-keys [:vector :keyword]]
                                  [:gated? :boolean] [:doc :string]]]]]
     :effects #{}
@@ -333,7 +333,7 @@
    {:name "hook$create" :kind :command
     :description (slurp (io/resource "brainyard/prompts/hook-create.md"))
     :input-schema definition-schema
-    :output-schema [:or {:desc "the error lists every problem"}
+    :output-schema [:or {:desc (tool-words/description "hook$create result")}
               [:map [:id :string] [:event :string] [:persisted :string]]
               [:map [:error :string]]]
     :effects #{:fs/write :hooks/define}
@@ -348,12 +348,12 @@
                 {:id (:id entry) :event (subs (str (:event entry)) 1) :persisted path}))))}
    {:name "hook$validate" :kind :command
     :description (tool-words/description "hook$validate")
-    :input-schema [:map [:body [:string {:desc "Tool Lisp: (fn [event] ...)"}]]
+    :input-schema [:map [:body [:string {:desc (tool-words/description "hook$validate :body")}]]
                         [:id {:optional true} :string]
                         [:event {:optional true} :string]
                         [:match {:optional true} :map]
-                        [:sample {:optional true} [:map {:desc "a payload to run the body on"}]]]
-    :output-schema [:map {:desc ":sample-result is what the body returned on the sample, or {:error string}"}
+                        [:sample {:optional true} [:map {:desc (tool-words/description "hook$validate :sample")}]]]
+    :output-schema [:map {:desc (tool-words/description "hook$validate result")}
               [:valid :boolean] [:id-ok :boolean] [:event-ok :boolean] [:event-gated :boolean]
               [:match-ok :boolean] [:body-ok :boolean] [:collision :boolean]
               [:errors [:vector :string]]
@@ -396,7 +396,7 @@
                            (:doc e) (assoc :doc (:doc e)))))})}
    {:name "hook$read" :kind :command
     :description (tool-words/description "hook$read")
-    :input-schema [:map [:id [:string {:desc "hook id"}]]]
+    :input-schema [:map [:id [:string {:desc (tool-words/description "hook$read :id")}]]]
     :output-schema [:or
               [:map [:id :string] [:event :string] [:match [:map-of :keyword :any]] [:priority :int]
                [:body :string] [:doc {:optional true} :string] [:on-error {:optional true} :keyword]]
@@ -410,7 +410,7 @@
             {:error (str "no user hook named \"" id "\"")}))}
    {:name "hook$delete" :kind :command
     :description (tool-words/description "hook$delete")
-    :input-schema [:map [:id [:string {:desc "hook id"}]]]
+    :input-schema [:map [:id [:string {:desc (tool-words/description "hook$delete :id")}]]]
     :output-schema [:or [:map [:deleted :string]] [:map [:error :string]]]
     :effects #{:fs/write :hooks/define}
     :fn (fn [{:keys [id]} _]

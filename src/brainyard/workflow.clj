@@ -1315,26 +1315,26 @@
       :fn (fn [args _] (list-workflows config args))}
      {:name "workflow$show" :kind :command
       :description (tool-words/description "workflow$show")
-      :input-schema [:map dir [:id [:string {:desc "the workflow's id"}]]]
+      :input-schema [:map dir [:id [:string {:desc (tool-words/description "workflow$show :id")}]]]
       :output-schema [:map [:text :string] [:found? :any]]
       :effects #{:fs/read}
       :fn (fn [args _] (show-workflow config args))}
      {:name "workflow$save" :kind :command
       :description (tool-words/description "workflow$save")
       :input-schema [:map dir
-                     [:id [:string {:desc "the workflow's id: letters, digits, _ . -"}]]
-                     [:title {:optional true} [:string {:desc "its name, for the person"}]]
-                     [:does {:optional true} [:string {:desc "what it is for, a sentence"}]]
-                     [:master {:optional true} [:string {:desc "the role that supervises its runs: it judges each handoff; none drops it"}]]
-                     [:stages {:optional true} [:any {:desc "EDN map of stage id to {:role :title :does}, each key optional, e.g. {:design {} :fix {:role :implement}}"}]]
-                     [:links {:optional true} [:any {:desc "EDN vector of {:from :to :gives}, a give one of {:kind :file :paths [\"glob\"]} {:kind :issue :id \"#42\"} {:kind :issue :tracker :beads :id \"x-1\"} {:kind :issue :tracker :beads :parent \"x\"} {:kind :branch} {:kind :note}"}]]
-                     [:roles {:optional true} [:any {:desc "EDN map of role id to {:title :does}: roles to add or change"}]]]
+                     [:id [:string {:desc (tool-words/description "workflow$save :id")}]]
+                     [:title {:optional true} [:string {:desc (tool-words/description "workflow$save :title")}]]
+                     [:does {:optional true} [:string {:desc (tool-words/description "workflow$save :does")}]]
+                     [:master {:optional true} [:string {:desc (tool-words/description "workflow$save :master")}]]
+                     [:stages {:optional true} [:any {:desc (tool-words/description "workflow$save :stages")}]]
+                     [:links {:optional true} [:any {:desc (tool-words/description "workflow$save :links")}]]
+                     [:roles {:optional true} [:any {:desc (tool-words/description "workflow$save :roles")}]]]
       :output-schema [:map [:text :string] [:written? :any]]
       :effects #{:fs/read :fs/write}
       :fn (fn [args ctx] (save-workflow config ctx args))}
      {:name "workflow$remove" :kind :command
       :description (tool-words/description "workflow$remove")
-      :input-schema [:map dir [:id [:string {:desc "the workflow's id"}]]]
+      :input-schema [:map dir [:id [:string {:desc (tool-words/description "workflow$remove :id")}]]]
       :output-schema [:map [:text :string] [:written? :any]]
       :effects #{:fs/read :fs/write}
       :fn (fn [args ctx] (remove-workflow config ctx args))}
@@ -1346,7 +1346,7 @@
       :fn (fn [args _] (list-runs config args))}
      {:name "workflow$verdict" :kind :command
       :description (tool-words/description "workflow$verdict")
-      :input-schema [:map dir [:run [:any {:desc "the run's number"}]] [:verdict [:string {:desc "pass, changes or fail"}]]
+      :input-schema [:map dir [:run [:any {:desc (tool-words/description "workflow$verdict :run")}]] [:verdict [:string {:desc (tool-words/description "workflow$verdict :verdict")}]]
                      (opt :note "the person's note")]
       :output-schema [:map [:text :string]]
       :effects #{:fs/read :fs/write}

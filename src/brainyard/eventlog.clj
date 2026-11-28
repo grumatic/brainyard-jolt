@@ -247,11 +247,11 @@
   (when (log-file config)
     [{:name "log$events" :kind :command
       :description (tool-words/description "log$events")
-      :input-schema [:map [:event {:optional true} [:string {:desc "Exact event, e.g. tools/user-tool-skipped. Omit for all."}]]
-                          [:level {:optional true} [:string {:desc "problem | trace | quiet — problem is the one worth asking for."}]]
-                          [:session {:optional true} [:string {:desc "Only this session's events."}]]
-                          [:limit {:optional true} [:int {:desc "Events to return (default 50)."}]]]
-      :output-schema [:or {:desc "newest first; :withheld names the conversation keys dropped from :data"}
+      :input-schema [:map [:event {:optional true} [:string {:desc (tool-words/description "log$events :event")}]]
+                          [:level {:optional true} [:string {:desc (tool-words/description "log$events :level")}]]
+                          [:session {:optional true} [:string {:desc (tool-words/description "log$events :session")}]]
+                          [:limit {:optional true} [:int {:desc (tool-words/description "log$events :limit")}]]]
+      :output-schema [:or {:desc (tool-words/description "log$events result")}
                 [:map [:events [:vector [:map [:ts :int] [:event :keyword] [:level :keyword]
                                           [:session {:optional true} :string]
                                           [:turn {:optional true} :any]
@@ -293,9 +293,9 @@
 
      {:name "log$search" :kind :command
       :description (tool-words/description "log$search")
-      :input-schema [:map [:query [:string {:desc "Words that must all appear."}]]
-                          [:limit {:optional true} [:int {:desc "Events to return (default 20)."}]]]
-      :output-schema [:or {:desc "newest first; :withheld names the conversation keys dropped from :data"}
+      :input-schema [:map [:query [:string {:desc (tool-words/description "log$search :query")}]]
+                          [:limit {:optional true} [:int {:desc (tool-words/description "log$search :limit")}]]]
+      :output-schema [:or {:desc (tool-words/description "log$search result")}
                 [:map [:events [:vector [:map [:ts :int] [:event :keyword] [:level :keyword]
                                           [:session {:optional true} :string]
                                           [:turn {:optional true} :any]

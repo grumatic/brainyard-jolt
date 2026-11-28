@@ -2,4 +2,11 @@
 ;; by tool id (brainyard.tool-words, byj-2e8.5). Read by the model, so a
 ;; resource (RFC-001).
 {"session$analytics"
-  "How this project's agent has been doing: success rate, iterations per turn, latency, cache hit rate, tool use and what it cost, over the recorded turns. Reach for it when asked whether something is working well or where time or money is going — not to find out WHAT happened, which is log$search and memory$history."}
+  "How this project's agent has been doing: success rate, iterations per turn, latency, cache hit rate, tool use and what it cost, over the recorded turns. Reach for it when asked whether something is working well or where time or money is going — not to find out WHAT happened, which is log$search and memory$history."
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "session$analytics :session-id"
+  "One session. Omit for all of them."
+ "session$analytics :detail"
+  "summary (default) for the headline numbers, full for every metric."
+ "session$analytics result"
+  "scores are 0–100; a metric with no data is nil; latency, cache, tools and rework only with detail full"}

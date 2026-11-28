@@ -463,9 +463,9 @@
   (into
    [{:name "config$read" :kind :command
      :description (tool-words/description "config$read")
-     :input-schema [:map [:key {:optional true} [:string {:desc "One key, e.g. max-iterations. Omit for all."}]]
-                         [:family {:optional true} [:string {:desc "Only this family: tools, permissions, session, context, hooks…"}]]]
-     :output-schema [:or {:desc "one row per key; :source is the layer it came from (default, user, project, caller, env), :default what unsetting it gives back, :files the config.edn files that exist"}
+     :input-schema [:map [:key {:optional true} [:string {:desc (tool-words/description "config$read :key")}]]
+                         [:family {:optional true} [:string {:desc (tool-words/description "config$read :family")}]]]
+     :output-schema [:or {:desc (tool-words/description "config$read result")}
                [:map
                 [:keys [:vector [:map [:key :keyword] [:value :any] [:default :any]
                                  [:changed? {:optional true} :boolean]
@@ -490,7 +490,7 @@
     {:name "config$reload" :kind :command
      :description (tool-words/description "config$reload")
      :input-schema [:map]
-     :output-schema [:map {:desc ":changed is in force from the next turn; :shadowed is changed on disk but outranked by a flag or the environment"}
+     :output-schema [:map {:desc (tool-words/description "config$reload result")}
                [:changed [:vector [:map [:key :keyword] [:from :any] [:to :any]
                                    [:in-force? :boolean] [:outranked-by :nil]]]]
                [:shadowed [:vector [:map [:key :keyword] [:from :any] [:to :any]
@@ -511,8 +511,8 @@
 
     {:name "config$snapshots" :kind :command
      :description (tool-words/description "config$snapshots")
-     :input-schema [:map [:scope {:optional true} [:string {:desc "project | user | auto (default auto)"}]]]
-     :output-schema [:map {:desc "newest first"}
+     :input-schema [:map [:scope {:optional true} [:string {:desc (tool-words/description "config$snapshots :scope")}]]]
+     :output-schema [:map {:desc (tool-words/description "config$snapshots result")}
                [:snapshots [:vector [:map [:path :string] [:name :string] [:bytes :int] [:mtime :int]]]]
                [:count :int]]
      :effects #{:fs/read}
@@ -523,12 +523,12 @@
    (when (:config-write? cfg true)
      [{:name "config$set" :kind :command
        :description (tool-words/description "config$set")
-       :input-schema [:map [:key [:string {:desc "The key, e.g. max-iterations."}]]
-                           [:value [:string {:desc "The new value, as text; coerced by the key's type."}]]
-                           [:reason [:string {:desc "Why — it names the snapshot."}]]
-                           [:scope {:optional true} [:string {:desc "project | user | auto (default auto)"}]]
-                           [:expected-mtime {:optional true} [:int {:desc "Refuse if config.edn changed since you read it."}]]]
-       :output-schema [:or {:desc "a refusal or a failed write says which stage stopped it; a write that did not read back was reverted"}
+       :input-schema [:map [:key [:string {:desc (tool-words/description "config$set :key")}]]
+                           [:value [:string {:desc (tool-words/description "config$set :value")}]]
+                           [:reason [:string {:desc (tool-words/description "config$set :reason")}]]
+                           [:scope {:optional true} [:string {:desc (tool-words/description "config$set :scope")}]]
+                           [:expected-mtime {:optional true} [:int {:desc (tool-words/description "config$set :expected-mtime")}]]]
+       :output-schema [:or {:desc (tool-words/description "config$set result")}
                  [:map [:ok? :boolean] [:path :string] [:scope :keyword] [:key :keyword]
                   [:was :any] [:now :any] [:unset? :boolean] [:mtime :int]
                   [:snapshot [:maybe :string]]]
@@ -550,10 +550,10 @@
 
       {:name "config$unset" :kind :command
        :description (tool-words/description "config$unset")
-       :input-schema [:map [:key [:string {:desc "The key to remove."}]]
-                           [:reason [:string {:desc "Why — it names the snapshot."}]]
-                           [:scope {:optional true} [:string {:desc "project | user | auto (default auto)"}]]]
-       :output-schema [:or {:desc "a refusal or a failed write says which stage stopped it"}
+       :input-schema [:map [:key [:string {:desc (tool-words/description "config$unset :key")}]]
+                           [:reason [:string {:desc (tool-words/description "config$unset :reason")}]]
+                           [:scope {:optional true} [:string {:desc (tool-words/description "config$unset :scope")}]]]
+       :output-schema [:or {:desc (tool-words/description "config$unset result")}
                  [:map [:ok? :boolean] [:path :string] [:scope :keyword] [:key :keyword]
                   [:was :any] [:now :nil] [:unset? :boolean] [:mtime :int]
                   [:snapshot [:maybe :string]]]
@@ -571,10 +571,10 @@
 
       {:name "config$revert" :kind :command
        :description (tool-words/description "config$revert")
-       :input-schema [:map [:steps {:optional true} [:int {:desc "1 is the most recent snapshot."}]]
-                           [:path {:optional true} [:string {:desc "An exact snapshot path from config$snapshots."}]]
-                           [:scope {:optional true} [:string {:desc "project | user | auto (default auto)"}]]]
-       :output-schema [:or {:desc ":snapshot is the copy taken of the file before it was put back"}
+       :input-schema [:map [:steps {:optional true} [:int {:desc (tool-words/description "config$revert :steps")}]]
+                           [:path {:optional true} [:string {:desc (tool-words/description "config$revert :path")}]]
+                           [:scope {:optional true} [:string {:desc (tool-words/description "config$revert :scope")}]]]
+       :output-schema [:or {:desc (tool-words/description "config$revert result")}
                  [:map [:ok? :boolean] [:restored-from :string] [:path :string]
                   [:scope :keyword] [:snapshot [:maybe :string]]]
                  [:map [:ok? :boolean] [:error :string]]]

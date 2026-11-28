@@ -824,22 +824,22 @@
     :fn (fn [_ _] (sessions config))}
    {:name "claude$worktree" :kind :command
     :description (tool-words/description "claude$worktree")
-    :input-schema [:map [:branch [:string {:desc "the branch, e.g. bd/byj-123"}]]]
+    :input-schema [:map [:branch [:string {:desc (tool-words/description "claude$worktree :branch")}]]]
     :output-schema [:or [:map [:dir :string] [:branch :string]] [:map [:error :string]]]
     :effects #{:fs/write :process}
     :fn (fn [{:keys [branch]} _] (add-worktree config branch))}
    {:name "claude$open" :kind :command
     :description (tool-words/description "claude$open")
     :input-schema [:map
-                   [:session [:string {:desc "\"new\", or a session id from claude$sessions"}]]
-                   [:brief [:string {:desc "what Claude Code is to do, standing on its own"}]]
-                   [:dir {:optional true} [:string {:desc "where a new one works; the project when absent"}]]
+                   [:session [:string {:desc (tool-words/description "claude$open :session")}]]
+                   [:brief [:string {:desc (tool-words/description "claude$open :brief")}]]
+                   [:dir {:optional true} [:string {:desc (tool-words/description "claude$open :dir")}]]
                    [:model {:optional true} :string]
-                   [:args {:optional true} [:string {:desc "more claude CLI options, space separated"}]]
+                   [:args {:optional true} [:string {:desc (tool-words/description "claude$open :args")}]]
                    [:task {:optional true} :string]
-                   [:worktree {:optional true} [:boolean {:desc "a new one works in a git worktree of its own, on :branch"}]]
-                   [:bead {:optional true} [:string {:desc "the bead the work is for, noted when it ends"}]]
-                   [:publish {:optional true} [:any {:desc "the task tells it to push and open the pull request itself"}]]
+                   [:worktree {:optional true} [:boolean {:desc (tool-words/description "claude$open :worktree")}]]
+                   [:bead {:optional true} [:string {:desc (tool-words/description "claude$open :bead")}]]
+                   [:publish {:optional true} [:any {:desc (tool-words/description "claude$open :publish")}]]
                    [:branch {:optional true} :string]]
     :output-schema [:or [:map [:session-id :string] [:dir :string] [:how :string] [:where :string] [:branch :string]] [:map [:error :string]]]
     :effects #{:process :fs/write}
@@ -868,8 +868,8 @@
    {:name "claude$handoff" :kind :command
     :description (tool-words/description "claude$handoff")
     :input-schema [:map [:session-id :string]
-                   [:publish {:optional true} [:any {:desc "the task told the session to push and open the pull request"}]]
-                   [:cleanup {:optional true} [:any {:desc "the task asked for the worktree and branch to be removed once published"}]]
+                   [:publish {:optional true} [:any {:desc (tool-words/description "claude$handoff :publish")}]]
+                   [:cleanup {:optional true} [:any {:desc (tool-words/description "claude$handoff :cleanup")}]]
                    [:title {:optional true} :string]
                    [:body {:optional true} :string]]
     :output-schema [:map [:summary :string] [:pr-url {:optional true} :string]]

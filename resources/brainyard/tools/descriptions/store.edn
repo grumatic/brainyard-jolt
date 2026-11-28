@@ -6,4 +6,13 @@
  "store$put"
   "Keep a value under a key, for a later call or session of this project to read with store$get; with no value, forget the key. EDN data only. A Tool Lisp body has no atoms: this is where it keeps state."
  "store$keys"
-  "The keys store$put has kept, sorted; with a prefix, only those starting so."}
+  "The keys store$put has kept, sorted; with a prefix, only those starting so."
+ ;; arguments, as "<tool> :arg", and result fields, as "<tool> result :field" (byj-2e8.9)
+ "store$get :key"
+  "The key it was put under."
+ "store$put :key"
+  "A name for it, e.g. last-scan."
+ "store$put :value"
+  "Any data: a map, a vector, a string, a number. Omit to forget the key."
+ "store$keys :prefix"
+  "Only keys starting with this."}

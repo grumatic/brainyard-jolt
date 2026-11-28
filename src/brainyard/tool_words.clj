@@ -3,7 +3,8 @@
 
 (ns brainyard.tool-words
   "What the model reads of a built-in tool: its description, by tool id
-  (byj-2e8.5). The words are `resources/brainyard/tools/descriptions/`'s, a
+  (byj-2e8.5), and its arguments' and result's, as \"<tool> :arg\" and
+  \"<tool> result :field\" (byj-2e8.9). The words are `resources/brainyard/tools/descriptions/`'s, a
   file per namespace that defines tools, named in that folder's `index.edn`;
   the tool's body, schema and effects stay where they are, in the namespace
   that runs it. A primitive tool's whole spec is already a resource

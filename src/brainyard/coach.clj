@@ -89,10 +89,10 @@
   [{:name "coach$set" :kind :command
     :description (tool-words/description "coach$set")
     :input-schema [:map
-                   [:goal {:optional true} [:string {:desc "What the person wants to be able to do, in their words."}]]
-                   [:level {:optional true} [:string {:desc "beginner or practitioner."}]]
-                   [:subject {:optional true} [:string {:desc "code (the default) or emacs, for learning Emacs itself."}]]
-                   [:stop {:optional true} [:boolean {:desc "End coaching."}]]]
+                   [:goal {:optional true} [:string {:desc (tool-words/description "coach$set :goal")}]]
+                   [:level {:optional true} [:string {:desc (tool-words/description "coach$set :level")}]]
+                   [:subject {:optional true} [:string {:desc (tool-words/description "coach$set :subject")}]]
+                   [:stop {:optional true} [:boolean {:desc (tool-words/description "coach$set :stop")}]]]
     :output-schema [:map-of :keyword :any]
     :effects #{}
     :fn (fn [args _ctx] (set-stance! config args))}])

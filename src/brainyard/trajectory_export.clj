@@ -202,11 +202,11 @@
   (when (seq (trajectory/sessions config))
     [{:name "trajectory$export" :kind :command
       :description (tool-words/description "trajectory$export")
-      :input-schema [:map [:session-id {:optional true} [:string {:desc "One session. Omit for all of them."}]]
-                          [:format {:optional true} [:string {:desc "openai-jsonl (default) or edn (the raw records)."}]]
-                          [:redact {:optional true} [:boolean {:desc "Default true. Only pass false for a file that stays on this machine."}]]
-                          [:turns {:optional true} [:vector {:desc "[from to]: only these turns of each session, inclusive, numbered as byj turns list numbers them. Omit for every turn."} :int]]]
-      :output-schema [:or {:desc "the file written; :turns were read, :examples written"}
+      :input-schema [:map [:session-id {:optional true} [:string {:desc (tool-words/description "trajectory$export :session-id")}]]
+                          [:format {:optional true} [:string {:desc (tool-words/description "trajectory$export :format")}]]
+                          [:redact {:optional true} [:boolean {:desc (tool-words/description "trajectory$export :redact")}]]
+                          [:turns {:optional true} [:vector {:desc (tool-words/description "trajectory$export :turns")} :int]]]
+      :output-schema [:or {:desc (tool-words/description "trajectory$export result")}
                [:map [:path :string] [:format [:enum "openai-jsonl" "edn"]] [:sessions [:vector :string]]
                      [:turns :int] [:examples :int] [:redacted :boolean]
                      [:unnumbered {:optional true} :int]]
