@@ -164,6 +164,10 @@ stdin: the user message          env: CLAUDECODE removed
 cwd: the session's project (:dir)
 ```
 
+`structured-output-directive` is `prompts/structured-output.md`'s words,
+after a blank line (byj-2e8.4); `prompt-golden-test/a-claude-cli-call-with-a-schema`
+holds the argv it ends up in.
+
 **It runs in the session's project.** Claude Code tells the model its own
 working directory and whether it is a git repository, even under
 `--system-prompt`. Started in this process's cwd, `byj run -C DIR` launched from

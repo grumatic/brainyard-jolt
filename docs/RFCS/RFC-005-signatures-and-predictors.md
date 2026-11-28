@@ -93,6 +93,14 @@ User — `name: value` per input in declared order, then *"Respond with a JSON
 object containing the output fields, starting with the field `reasoning`, then
 …"*.
 
+**The words around the fields are a prompt.** Everything above that is not a
+field, a zone or a predictor's own instructions — the two list headings, the
+response format, the respond line, the demos' lead-in and layout, the
+objective line, the user message's closing request, and the CoT `reasoning`
+description — is `prompts/signature.edn`'s, brainyard's words, read once for
+every call (byj-2e8.4). Each `{name}` is filled in one pass, so a field
+description or an instruction holding braces is sent as written.
+
 **Zones come from the tree, not the predictor.** The think-act node declares
 `:zones [:agent-core :session-context :history-context :user-context]`; each
 zone's text is st-memory's value for that key if the loop set one this turn,
@@ -381,6 +389,7 @@ mem-key}`, `:out {mem-key field}`, `:zones`).
 | A params file on disk can move a call to another model, and carries no credential. | `predictor-test/a-params-file-can-choose-the-model` |
 | A tree node naming `:lm` runs its own step on that model, not the session's. | `predictor-test/a-node-may-pin-its-own-model` |
 | With no params record, the prompt is byte-identical to the spec alone. | Checked by hand against the commit before predictors (223 lines, identical but the timestamp). No test pins the full prompt. |
+| The words a signature wraps around its fields are `prompts/signature.edn`'s, filled in one pass: a value with `{braces}` in it is sent as written. | `predictor-test/the-signature-words-are-a-prompt` |
 | What byj sends a model is held byte for byte at seven moments — a ReAct turn's first call; the call after a FORMAT ERROR, after a NO ACTION and after a refused tool; a subagent's and a skill-agent's first call; and the `claude -p` argv and stdin of a call with a schema — as `test/fixtures/prompts/<case>.txt`, with only the directory, home, user, host, shell and clock written as names. A change that means to change those words writes them again (`BYJ_PROMPT_RECORD=1`) in the same commit, and its diff is what changed. | `prompt-golden-test/a-react-turn`, `prompt-golden-test/the-call-after-a-format-error`, `prompt-golden-test/the-call-after-no-action`, `prompt-golden-test/the-call-after-a-refused-tool`, `prompt-golden-test/a-subagents-first-call`, `prompt-golden-test/a-skill-agents-first-call`, `prompt-golden-test/a-claude-cli-call-with-a-schema` |
 | A `:system-one` spec declares exactly ONE output, and is refused when it declares zones, demos or a `tool-calls` output. | Nothing yet — `byj-gly.114`. |
 | `:inputs` order is part of the request: reordering two inputs is a behaviour change, and a decision's pinned fingerprint covers it. | `dev/brainyard/dev/system_one_verify.clj` (not a test — it needs a running lev). |

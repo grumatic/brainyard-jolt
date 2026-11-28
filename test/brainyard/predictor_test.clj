@@ -2,13 +2,15 @@
 ;; SPDX-License-Identifier: MIT
 
 (ns brainyard.predictor-test
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [brainyard.agent :as agent]
             [brainyard.json :as json]
             [brainyard.llm :as llm]
-            [brainyard.predictor :as predictor]))
+            [brainyard.predictor :as predictor]
+            [brainyard.signature :as sig]))
 
 (def tmp (str (System/getProperty "user.dir") "/target/predictor-test"))
 
@@ -101,6 +103,23 @@
         (is (= ["`instructions` should be a string"] (:problems (first (:skipped r)))))))
     (is (thrown-with-msg? Exception #"invalid dynamic params"
                           (resolve {:params {"user/summarize" {:bogus 1}}})))))
+
+(deftest the-signature-words-are-a-prompt
+  ;; byj-2e8.4: the words around a predictor's fields are a resource, and
+  ;; filling them reads a filled-in value for names never
+  (let [words (edn/read-string (slurp (io/resource "brainyard/prompts/signature.edn")))
+        s {:inputs [[:question {:desc "the {question} as {asked}"} :string]]
+           :outputs [[:answer {:desc "one {skeleton}"} :string]]
+           :instructions "Answer {it}; {instructions} stays."}
+        [system user] (sig/build-messages s {:question "Q {x}"} [])]
+    (testing "the framing is the resource's"
+      (is (str/includes? (:content system) (:respond-all words)))
+      (is (str/includes? (:content system) (str/replace (:objective words) "{instructions}" "Answer {it}; {instructions} stays.")))
+      (is (str/includes? (:content user) (str/replace (:user-tail words) "{fields}" "`reasoning`, then `answer`"))))
+    (testing "braces in a description, an instruction or an input are sent as written"
+      (is (str/includes? (:content system) "the {question} as {asked}"))
+      (is (str/includes? (:content system) "one {skeleton}") "a schema holding a later name keeps it")
+      (is (str/includes? (:content user) "question: Q {x}")))))
 
 (deftest params-shape-the-prompt
   (let [p (predictor/compile-spec summarize-spec)

@@ -693,18 +693,12 @@
   code-blocks sentence is dropped — this port has no code channel, and the
   no-tools sentence says the prompt's tools exist (divergence
   `native-tool-calls-recovered`): brainyard's \"You have NO tools\" was quoted
-  back by haiku as the reason a listed tool was unavailable."
-  (str "\n\n=== STRUCTURED OUTPUT — MANDATORY ===\n"
-       "You are a headless structured-output endpoint, NOT an interactive assistant. "
-       "Return your ENTIRE response by calling the StructuredOutput tool with a single "
-       "JSON object matching the schema. Never reply in prose, markdown, or natural "
-       "language, and never narrate a plan.\n"
-       "You can call NO tool directly except StructuredOutput, and you have NO filesystem "
-       "access: never write files, never run shell or heredocs (e.g. `cat > file <<'EOF'`), "
-       "and never perform the task yourself. The tools named in the prompt DO exist: they "
-       "run when you list them in `tool-calls`.\n"
-       "If you still need information, populate `tool-calls`. Populate `answer` ONLY when "
-       "the task is complete."))
+  back by haiku as the reason a listed tool was unavailable. The words are
+  `prompts/structured-output.md`'s (byj-2e8.4), set off from the prompt by a
+  blank line."
+  (str "\n\n" (str/trim-newline
+                (slurp (or (io/resource "brainyard/prompts/structured-output.md")
+                           (throw (ex-info "resource not found: brainyard/prompts/structured-output.md" {})))))))
 
 (def claude-code-max-turns
   "brainyard's default-max-turns. Must be > 1: the CLI spends the model's first

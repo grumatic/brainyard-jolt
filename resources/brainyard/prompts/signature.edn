@@ -1,0 +1,40 @@
+;; The words a predictor's signature wraps around its fields (RFC-005):
+;; brainyard's clj-llm prompt (`json-schema-instruction`, the field lists, the
+;; objective line, render-demos), the same for every predictor. Read by the
+;; model, so a resource (RFC-001); signature.clj fills each {name} in one pass,
+;; so a filled-in value is never read for names again (byj-2e8.4).
+;;
+;; {schema} the reply's JSON Schema; {skeleton} the reply's shape with
+;; <placeholders>; {fields} the numbered field list, or, in :user-tail, the
+;; output fields in order joined by :field-sep; {instructions} the predictor's
+;; own; {examples} the rendered :demo of each, a blank line apart; {n} {inputs}
+;; {output} one demonstration.
+{:reasoning-desc "Brief reasoning leading to the answer: at most 3 short sentences (~60 words). Plain prose only; no headings, no bullet lists, no code blocks. State the decision and why; do not restate the inputs, narrate what you are about to do, or explain the output format."
+ :input-fields "Your input fields are:
+{fields}"
+ :output-fields "Your output fields are:
+{fields}"
+ :response-format "## Response format
+Reply with a single JSON object that IS your answer. The JSON Schema below describes that object's shape: the top level of your reply is the object itself, never the schema.
+
+JSON Schema:
+{schema}
+
+Shape of your reply — each <placeholder> stands for a value of that type (numbers and booleans unquoted):
+{skeleton}
+
+A field you have nothing for stays empty: an empty string is written \"\" (not \"\\\"\\\"\"), an empty array []. Output only the JSON object: no text before or after it, no markdown fences. Use exactly the field names shown."
+ :respond-all "Respond with a JSON object containing all output fields."
+ :respond "Respond with a JSON object containing the output fields."
+ :demos "Here are examples of inputs and the JSON object to respond with:
+
+{examples}"
+ :demo "Example {n}
+Input:
+{inputs}
+Output:
+{output}"
+ :objective "In adhering to this structure, your objective is:
+{instructions}"
+ :user-tail "Respond with a JSON object containing the output fields, starting with the field {fields}."
+ :field-sep ", then "}

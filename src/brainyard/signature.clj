@@ -22,7 +22,9 @@
   prepends `reasoning`) → JSON schema → format line → demos → instructions →
   the context zones. User: `name: value` lines in declared order, then a
   reminder of the output field order."
-  (:require [clojure.string :as str]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             ;; before malli: malli.transform builds a DateTimeFormatter at
             ;; load, and brainyard.json is what installs java.time
             [brainyard.json :as json]
@@ -30,11 +32,25 @@
             [malli.transform :as mt]
             [brainyard.schema :as schema]))
 
+(def ^:private words
+  "brainyard's clj-llm prompt words, `prompts/signature.edn` (byj-2e8.4): read
+  once, since every predictor call builds its messages from them."
+  (delay (edn/read-string (slurp (or (io/resource "brainyard/prompts/signature.edn")
+                                     (throw (ex-info "resource not found: brainyard/prompts/signature.edn" {})))))))
+
+(defn- said
+  "Words `k` of `prompts/signature.edn`, each `{name}` filled from `m` in one
+  pass: a value filled in — a field's description, a predictor's instructions,
+  a schema — is never read for names again, whatever braces it holds."
+  ([k] (said k {}))
+  ([k m]
+   (str/replace (or (get @words k) (throw (ex-info (str "no signature words " k) {:words k})))
+                #"\{([a-z-]+)\}"
+                (fn [[whole n]] (if-let [[_ v] (find m (keyword n))] (str v) whole)))))
+
 (def reasoning-field-desc
-  (str "Brief reasoning leading to the answer: at most 3 short sentences (~60 words). "
-       "Plain prose only; no headings, no bullet lists, no code blocks. "
-       "State the decision and why; do not restate the inputs, narrate what you "
-       "are about to do, or explain the output format."))
+  "brainyard's CoT reasoning description, `prompts/signature.edn`'s."
+  (said :reasoning-desc))
 
 (defn- reasoning-field-of [desc]
   ;; brainyard's CoT augments the schema with this description too
@@ -125,19 +141,12 @@
     "number" "<number>"
     "<string>"))
 
-(defn json-schema-instruction [schema]
-  (str "## Response format\n"
-       "Reply with a single JSON object that IS your answer. The JSON Schema below "
-       "describes that object's shape: the top level of your reply is the object "
-       "itself, never the schema.\n\n"
-       "JSON Schema:\n" (json/write-str schema) "\n\n"
-       "Shape of your reply — each <placeholder> stands for a value of that type "
-       "(numbers and booleans unquoted):\n"
-       (json/write-str (skeleton schema)) "\n\n"
-       "A field you have nothing for stays empty: an empty string is written \"\" "
-       "(not \"\\\"\\\"\"), an empty array []. "
-       "Output only the JSON object: no text before or after it, no markdown fences. "
-       "Use exactly the field names shown."))
+(defn json-schema-instruction
+  "brainyard's `json-schema-instruction`: the reply's schema and its shape,
+  in `prompts/signature.edn`'s `:response-format` words."
+  [schema]
+  (said :response-format {:schema (json/write-str schema)
+                          :skeleton (json/write-str (skeleton schema))}))
 
 (defn cot-outputs
   "The outputs as the model is asked for them: `reasoning` first unless the
@@ -162,24 +171,23 @@
   [signature demos]
   (when (seq demos)
     (let [cot? (not (false? (:chain-of-thought? signature)))]
-      (str "Here are examples of inputs and the JSON object to respond with:\n\n"
-           (str/join
-            "\n\n"
-            (map-indexed
+      (said :demos
+            {:examples
+             (str/join
+              "\n\n"
+              (map-indexed
              (fn [i {:keys [inputs outputs reasoning]}]
                (let [pairs (cond-> []
                              (and cot? reasoning) (conj ["reasoning" reasoning])
                              true (into (for [[k] (:outputs signature)
                                               :when (contains? outputs k)]
                                           [(name k) (get outputs k)])))]
-                 (str "Example " (inc i) "\n"
-                      "Input:\n"
-                      (str/join "\n" (for [[k] (:inputs signature)
-                                           :when (contains? inputs k)]
-                                       (input-line k (get inputs k))))
-                      "\nOutput:\n"
-                      (json/write-str (apply array-map (mapcat identity pairs))))))
-             demos))))))
+                 (said :demo {:n (inc i)
+                              :inputs (str/join "\n" (for [[k] (:inputs signature)
+                                                           :when (contains? inputs k)]
+                                                       (input-line k (get inputs k))))
+                              :output (json/write-str (apply array-map (mapcat identity pairs)))})))
+              demos))}))))
 
 (defn system-parts
   "The system message as ordered `[[label text] ...]`: the signature preamble,
@@ -193,14 +201,12 @@
          preamble (str/join "\n\n"
                             (concat
                              (when (seq (:inputs signature))
-                               [(str "Your input fields are:\n" (indexed-fields (:inputs signature)))])
-                             [(str "Your output fields are:\n" (indexed-fields outputs))
+                               [(said :input-fields {:fields (indexed-fields (:inputs signature))})])
+                             [(said :output-fields {:fields (indexed-fields outputs)})
                               (json-schema-instruction (output-json-schema outputs))
-                              (if (false? (:chain-of-thought? signature))
-                                "Respond with a JSON object containing the output fields."
-                                "Respond with a JSON object containing all output fields.")]
+                              (said (if (false? (:chain-of-thought? signature)) :respond :respond-all))]
                              (when demo-text [demo-text])
-                             [(str "In adhering to this structure, your objective is:\n" (:instructions signature))]))]
+                             [(said :objective {:instructions (:instructions signature)})]))]
      (into [["preamble" preamble]]
            (for [[title text] context-blocks
                  :when (not (str/blank? text))]
@@ -217,9 +223,9 @@
   (str (str/join "\n" (for [[k] (:inputs signature)
                             :when (contains? inputs k)]
                         (input-line k (get inputs k))))
-       "\n\nRespond with a JSON object containing the output fields, starting with the field "
-       (str/join ", then " (map #(str "`" (name (first %)) "`") (cot-outputs signature)))
-       "."))
+       "\n\n"
+       (said :user-tail {:fields (str/join (said :field-sep)
+                                           (map #(str "`" (name (first %)) "`") (cot-outputs signature)))})))
 
 (defn build-messages
   "opts: :demos — [{:inputs :outputs :reasoning?}] rendered into the system message."
