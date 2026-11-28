@@ -213,6 +213,32 @@
         (is (every? some? (map deref saves)))
         (is (contains? (set (range 8)) (:turn-count (persist/read-session c "s2"))))))))
 
+(deftest notes-left-at-once-are-all-taken
+  ;; byj-ku1.3: note! read the notes, added one and wrote them all back, so of
+  ;; two notes left at once one was lost; take-notes! deleted a file it could
+  ;; not read, with whatever it held
+  (let [dir (fresh-dir "notes")
+        c (config dir)]
+    (persist/save! c "s1" {:turn-count 1})
+    (testing "notes left from many writers at once are all there, in no lost order"
+      (let [go (promise)
+            writers (mapv (fn [w] (future @go (doseq [i (range 25)] (persist/note! c "s1" (str w "-" i)))))
+                          (range 8))]
+        (deliver go true)
+        (run! deref writers)
+        (let [taken (persist/take-notes! c "s1")]
+          (is (= 200 (count taken)))
+          (is (= (set (for [w (range 8) i (range 25)] (str w "-" i))) (set taken))))
+        (is (nil? (persist/take-notes! c "s1")) "and none are left behind")))
+    (testing "a file an older byj wrote, one vector, still reads"
+      (spit (persist/notes-file c "s1") (pr-str ["older" "notes"]))
+      (is (= ["older" "notes"] (persist/take-notes! c "s1"))))
+    (testing "a file that does not all read is kept, and what read is handed on"
+      (spit (persist/notes-file c "s1") (str (pr-str "kept") "\n\"torn\n"))
+      (is (= ["kept"] (persist/take-notes! c "s1")))
+      (is (= 1 (count (filter #(str/ends-with? (.getName %) ".bad")
+                              (.listFiles (.getParentFile (persist/notes-file c "s1"))))))))))
+
 (defn- reply [m] (json/write-str (merge {:reasoning "r" :tool-calls [] :answer ""} m)))
 
 (defn- run-session [dir inputs & {:as cfg}]

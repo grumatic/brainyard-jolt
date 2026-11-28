@@ -19,6 +19,10 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
   5xx with a `retry-after` or `retry-after-ms` header, the retry waits at
   least that long instead of hitting the limit again. A provider that asks
   for more than two minutes fails at once and says how long it asked for.
+- **Notes left for a session from outside are no longer lost.** Two notes
+  left at once (from `byj turns rewind`, or a `/fork` that put the files
+  back) could lose one. And a notes file that could not be read was deleted
+  along with its notes; it is now kept.
 
 ## v0.3.22 — 2026-11-28
 

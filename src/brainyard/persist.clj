@@ -617,24 +617,48 @@
   whether the session is live in another process or resumed later: what
   was done to its work tree from outside it (`byj turns rewind`, a `/fork`
   that put the files back). Only for a session there is: saved, or held by
-  a live process. True when left."
+  a live process. True when left.
+
+  Each note is one line appended to `notes.edn`, its string as EDN: notes
+  come from other processes, and a read, a conj and a write of the whole
+  file lost one of two notes left at once (byj-ku1.3). An append of a line
+  this short is one write, which no other append splits."
   [config id line]
   (when (or (.isFile (session-file config id)) (.isFile (lock-file config id)))
-    (let [f (notes-file config id)
-          old (try (when (.isFile f) (edn/read-string (slurp f))) (catch Throwable _ nil))]
+    (let [f (notes-file config id)]
       ;; nil, not true, when it could not be written: the note was not left
-      (try (write-edn! f (conj (if (vector? old) old []) (str line)))
+      (try (io/make-parents f)
+           (spit f (str (pr-str (str line)) "\n") :append true)
            true
            (catch Throwable _ nil)))))
 
+(defn- read-notes
+  "The notes in a notes file's text, and whether any of it did not read: a
+  line per note, or — written by a byj before byj-ku1.3 — one vector."
+  [text]
+  (let [t (str/trim (str text))]
+    (if (str/starts-with? t "[")
+      (let [v (try (edn/read-string t) (catch Throwable _ nil))]
+        (if (vector? v) [(filterv string? v) false] [[] true]))
+      (let [read (for [l (str/split-lines t) :when (not (str/blank? l))]
+                   (try (let [x (edn/read-string l)] (if (string? x) x ::bad)) (catch Throwable _ ::bad)))]
+        [(filterv string? read) (boolean (some #{::bad} read))]))))
+
 (defn take-notes!
-  "Session `id`'s notes, oldest first, and none left behind."
+  "Session `id`'s notes, oldest first, and none left behind. The file is
+  moved aside before it is read, so a note left meanwhile starts a file of
+  its own for the turn after. A file that does not all read is kept, beside
+  the session as `notes.<time>.bad`, rather than deleted with what it held;
+  the notes that did read are handed on."
   [config id]
-  (let [f (notes-file config id)]
-    (when (.isFile f)
-      (let [notes (try (edn/read-string (slurp f)) (catch Throwable _ nil))]
-        (.delete f)
-        (when (vector? notes) (filterv string? notes))))))
+  (let [f (notes-file config id)
+        taking (io/file (.getParentFile f) (str "notes." (random-uuid) ".taking"))]
+    (when (and (.isFile f) (.renameTo f taking))
+      (let [[notes bad?] (read-notes (slurp taking))]
+        (if bad?
+          (.renameTo taking (io/file (.getParentFile f) (str "notes." (System/currentTimeMillis) ".bad")))
+          (.delete taking))
+        (not-empty notes)))))
 
 ;; --- pruning --------------------------------------------------------------------
 

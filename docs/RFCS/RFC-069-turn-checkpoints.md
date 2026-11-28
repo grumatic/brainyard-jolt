@@ -232,6 +232,14 @@ would have told it. One mechanism serves a session live in another process
 and one resumed later. A note is left only for a session there is, saved or
 held by a live process, and is not one in `session list`.
 
+Each note is a line appended to `notes.edn`, its string as EDN, because
+notes come from other processes: reading the notes, adding one and writing
+them back lost one of two notes left at once (`byj-ku1.3`). Taking them moves
+the file aside first, so a note left meanwhile waits for the turn after. A
+file that does not all read is kept beside the session as
+`notes.<time>.bad`, and the notes that did read are handed on. A file an
+older byj wrote, one vector, still reads.
+
 | done | from | the session told | words |
 |---|---|---|---|
 | `byj turns rewind`, `undo-turn`, `undo` | the CLI | that session | `:rewind`, `:undo-turn`, `:undo-rewind` in `:outside` |
@@ -369,6 +377,7 @@ ACP (RFC-053): `_byj/turns/list|diff|rewind|undoTurn|undoRewind`, and
 | `/fork K` makes that session, puts the files back to K's start, and opens it beside where a front end can. | `session-test/a-session-is-forked-before-a-turn-with-its-files`, `main-test/byj-turns-lists-a-session-s-turns-and-diffs-one` |
 | A turn marks its work tree while it runs, and no longer; a rewind, an undone turn or an undone rewind changes nothing while another process's turn, or another session's, runs there, and names it; the asker's own does not hold it back; a mark whose process is gone is removed. | `changes-test/a-turn-running-in-the-work-tree-holds-a-rewind-back`, `main-test/byj-turns-lists-a-session-s-turns-and-diffs-one` |
 | What `byj turns` does to a session's files is told at its next turn, saying it came from outside; `/fork K` tells the session forked from at its next turn; a fork that kept the files tells the new session at its first, once. A note is left only for a session there is, and is not a session. | `main-test/byj-turns-lists-a-session-s-turns-and-diffs-one`, `session-test/a-session-is-forked-before-a-turn-with-its-files`, `persist-test/a-note-is-left-for-a-session-s-next-turn` |
+| Notes left from many writers at once are all taken, once; a notes file an older byj wrote still reads; one that does not all read is kept aside and what read is handed on. | `persist-test/notes-left-at-once-are-all-taken` |
 | The suite leaves no `refs/byj/` in this repository, nor a session in this repository's folder of the run's sessions home, nor do named namespaces run through the runner (`jolt -M:test NS…`) or `brainyard.dev/test-ns`. | `test-runner/run` (`own-sessions`) |
 | A fork into a worktree of its own: a new worktree on a new branch from HEAD, its files the turn's start left uncommitted; the new session written, listed and run there, and told where it works; the project's work tree, the session forked from and its rewinds untouched; one that cannot be made (no `forkFrom`, `keepFiles`, a turn not kept) is refused with no worktree left. | `acp-test/a-session-is-forked-before-a-turn-into-a-worktree-of-its-own-over-acp` |
 
