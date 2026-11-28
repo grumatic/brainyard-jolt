@@ -13,7 +13,8 @@
             [brainyard.cost :as cost]
             [brainyard.llm :as llm]
             [brainyard.predictor :as predictor]
-            [brainyard.signature :as sig]))
+            [brainyard.signature :as sig]
+            [jolt.http-client :as http]))
 
 (defn- scratch
   "A project dir of this test's own — a turn under the git root leaves a
@@ -264,3 +265,32 @@
                                 {:output {:message {:content [{:reasoningContent {:reasoningText {:text "r"}}} {:text "{\"a\":1}"}]}}
                                  :usage {:inputTokens 1 :outputTokens 1}})))
       "the text block, after the reasoning"))
+
+(deftest a-providers-retry-after-is-waited-out
+  ;; byj-ku1.5: the backoff took ex-data :retry-after-ms, and nothing put it
+  ;; there: a 429 was retried on the base delay and met the limit again
+  (testing "the headers' ask, in ms or in seconds, whatever their case"
+    (is (= 1500 (llm/retry-after-ms {"retry-after-ms" "1500"})))
+    (is (= 2000 (llm/retry-after-ms {"Retry-After" "2"})))
+    (is (= 500 (llm/retry-after-ms {"retry-after" "0.5"})))
+    (is (nil? (llm/retry-after-ms {"retry-after" "Wed, 21 Oct 2026 07:28:00 GMT"})) "the date form is not read")
+    (is (nil? (llm/retry-after-ms {}))))
+  (let [lm {:provider :anthropic :format :anthropic :model "claude-x" :base-url "http://127.0.0.1:9" :api-key "k"
+            :max-retries 2 :base-delay-ms 5 :timeout-ms 5000}
+        ok {:status 200 :headers {}
+            :body (json/write-str {:content [{:type "text" :text "hi"}] :usage {:input_tokens 1 :output_tokens 1}})}]
+    (testing "a 429 that asks for a second is retried after a second, not the base delay"
+      (let [answers (atom [{:status 429 :headers {"retry-after" "1"} :body "{\"error\":{\"message\":\"rate limited\"}}"} ok])
+            t0 (System/currentTimeMillis)
+            r (with-redefs [http/post (fn [_ _] (let [a (first @answers)] (swap! answers rest) a))]
+                (llm/chat lm [{:role "user" :content "q"}]))]
+        (is (= "hi" (:content r)))
+        (is (>= (- (System/currentTimeMillis) t0) 1000))))
+    (testing "one that asks for longer than a call waits fails at once, saying how long"
+      (let [calls (atom 0)
+            e (with-redefs [http/post (fn [_ _] (swap! calls inc)
+                                        {:status 429 :headers {"retry-after" "3600"} :body "{}"})]
+                (try (llm/chat lm [{:role "user" :content "q"}]) nil (catch Exception e e)))]
+        (is (= 1 @calls))
+        (is (re-find #"wait 3600 s" (ex-message e)))
+        (is (= 3600000 (:retry-after-ms (ex-data e))))))))

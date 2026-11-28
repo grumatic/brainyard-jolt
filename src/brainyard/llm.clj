@@ -266,14 +266,37 @@
        (or (= "insufficient_quota" (get-in decoded [:error :code]))
            (boolean (re-find #"(?i)no credits|insufficient.quota|credit balance|billing" (str msg))))))
 
-(defn- api-error [provider status body]
+(def max-retry-wait-ms
+  "The longest wait a provider may ask for before a retry is still worth
+  making within the call: one asking for more fails now, saying how long it
+  asked, rather than holding the turn for it."
+  120000)
+
+(defn retry-after-ms
+  "The wait a response's headers ask for before a retry, in ms, or nil:
+  `retry-after-ms` (OpenAI's), else `retry-after` in seconds (Anthropic's,
+  and HTTP's; the HTTP-date form is not read). Header names are matched
+  whatever their case."
+  [headers]
+  (let [h (into {} (map (fn [[k v]] [(str/lower-case (name k)) (str/trim (str v))])) headers)
+        num (fn [s] (try (Double/parseDouble s) (catch Throwable _ nil)))]
+    (some-> (or (some-> (h "retry-after-ms") num)
+                (some-> (h "retry-after") num (* 1000)))
+            long
+            (max 0))))
+
+(defn- api-error [provider status body headers]
   (let [decoded (try (json/read-str body) (catch Throwable _ nil))
         msg (or (get-in decoded [:error :message]) (:message decoded)
-                (subs (str body) 0 (min 300 (count (str body)))))]
-    (ex-info (str (name provider) " API error " status ": " msg)
-             {:status status
-              :retryable? (and (retryable-status? status) (not (usage-cap? status decoded msg)))
-              :fatal? (usage-cap? status decoded msg)})))
+                (subs (str body) 0 (min 300 (count (str body)))))
+        wait (retry-after-ms headers)
+        too-long? (and wait (> wait max-retry-wait-ms))]
+    (ex-info (cond-> (str (name provider) " API error " status ": " msg)
+               too-long? (str " (it asks to wait " (quot wait 1000) " s before trying again)"))
+             (cond-> {:status status
+                      :retryable? (and (retryable-status? status) (not (usage-cap? status decoded msg)) (not too-long?))
+                      :fatal? (usage-cap? status decoded msg)}
+               wait (assoc :retry-after-ms wait)))))
 
 (defn with-retry
   "Call f, retrying on ex-data :retryable? with exponential backoff and jitter.
@@ -283,12 +306,16 @@
   the backoff. A cancellation is never retried.
 
   opts: :max-retries (3), :base-delay-ms (1000), :on-retry
-  (fn [{:attempt :max :delay-ms :error}]), fired before each wait."
+  (fn [{:attempt :max :delay-ms :error}]), fired before each wait. An
+  error's `:retry-after-ms` — what the provider's Retry-After asked for — is
+  the least the wait may be."
   [{:keys [max-retries base-delay-ms on-retry] :or {max-retries 3 base-delay-ms 1000}} f]
   (fx/run-value!!
    (fx/retry-backoff {:max-retries max-retries
                       :base-delay-ms base-delay-ms
                       :retryable? #(boolean (:retryable? (ex-data %)))
+                      ;; the provider's Retry-After floors the wait (byj-ku1.5)
+                      :retry-after-ms #(:retry-after-ms (ex-data %))
                       :on-retry on-retry}
                      (fx/task-of f))))
 
@@ -336,7 +363,7 @@
                          :duration-ms (- (System/currentTimeMillis) t0)
                          :body (:body resp)})
           (json/read-str (:body resp)))
-      (let [e (api-error (:provider lm) (:status resp) (:body resp))]
+      (let [e (api-error (:provider lm) (:status resp) (:body resp) (:headers resp))]
         (events/emit! on-event :llm.wire/failed
                       {:status (:status resp)
                        :duration-ms (- (System/currentTimeMillis) t0)

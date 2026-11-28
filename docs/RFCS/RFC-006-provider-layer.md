@@ -118,7 +118,8 @@ form, which would read `gemma4:12b` as a provider named gemma4.
 | failure | retryable? | fatal? |
 |---|---|---|
 | network error | yes | — |
-| 408, 429, 5xx | yes | — |
+| 408, 429, 5xx | yes, after at least the wait a `retry-after-ms` or `retry-after` header asks for | — |
+| 429 or 5xx asking to wait longer than `max-retry-wait-ms` (2 min) | no — it fails at once, saying how long it asked | — |
 | 429 that is a usage cap (`insufficient_quota`, "no credits", billing) | no | **yes** — retrying spends time against a wall (samizdat `usage-cap?`, provenance P-4) |
 | other 4xx | no | — |
 | claude CLI missing | no | yes |
@@ -523,6 +524,7 @@ brainyard-playground-apps' Desktop (`claude-usage.ts`).
 | A Claude 4.5 or later has 32000 tokens to reply in unless asked otherwise, any other model 8192 (`sampling.edn`); `:max-output-tokens`, set, is every model's; a subagent on another model asks its own model's. | `wire-test/a-claude-model-has-room-to-write-several-files`, `agents-test/a-child-on-another-model-asks-that-models-reply-size` |
 | An LM carries no parameter its provider cannot send, and an explicitly requested one is announced rather than dropped in silence. | `wire-test/a-parameter-the-provider-cannot-send-is-not-in-the-lm-map`, `wire-test/a-sampling-parameter-that-cannot-be-sent-is-announced` |
 | Retries are an effect: retryable failures retry with reported waits, others throw at once, a cancellation ends the call, a cancel mid-backoff ends it at once. | `cancellation-test/with-retry-is-an-effect` |
+| A provider's Retry-After (ms or seconds, any case) floors the wait before a retry; one asking for more than a call waits fails at once, saying how long (`byj-ku1.5`). Bedrock is called through the aws CLI, which retries on its own. | `cache-test/a-providers-retry-after-is-waited-out` |
 | A cancelled turn kills the claude CLI. | `cancellation-test/a-cancelled-turn-kills-the-claude-cli` |
 | Exactly one Anthropic auth header is sent. | `anthropic-headers` (`cond->` on api-key, then auth-token only when no key). No test. |
 | A usage-cap 429 is fatal and not retried. | `usage-cap?` in `api-error`; exercised live (OpenAI "no credits"). No test. |
@@ -549,4 +551,3 @@ brainyard-playground-apps' Desktop (`claude-usage.ts`).
   on `byj-gly.113`. It is reached over HTTP rather than as a `deps.edn` entry so
   that `jolt build:byj` stays self-contained and `dev/cold-load.sh` keeps loading
   every namespace without lev's natives present.
-- No `retry-after` honouring: `retry-backoff` accepts `:retry-after-ms`, but no provider parses the header yet.
