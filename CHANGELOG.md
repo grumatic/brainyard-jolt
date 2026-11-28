@@ -6,6 +6,13 @@ into `CHANGELOG-latest.md` when it is published (RFC-029 "Releasing").
 
 ## Unreleased
 
+- **Two processes no longer both take one session.** A session's lock is
+  taken by creating its file exclusively. Before, a process checked that
+  the session was free and then wrote the lock, so two processes starting
+  together could both hold it. A lock file still being written is respected,
+  and a stale one is replaced without losing a lock another process took
+  meanwhile.
+
 ## v0.3.22 — 2026-11-28
 
 - **`/init` no longer puts back an older byj's words.** The block it writes

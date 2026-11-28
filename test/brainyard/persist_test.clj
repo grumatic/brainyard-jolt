@@ -165,6 +165,35 @@
       (persist/unlock! c "s1")
       (is (not (.isFile (persist/lock-file c "s1")))))))
 
+(deftest one-of-many-racing-processes-takes-a-free-session
+  ;; byj-ku1.2: lock! once checked holder and then wrote, so two processes
+  ;; that both found the session free both took it. Each racer here claims
+  ;; as a live process of its own (a child's pid), all released at once.
+  (let [dir (fresh-dir "lock-race")
+        c (config dir)
+        kids (vec (repeatedly 6 #(p/process {:out :string :err :string} "sleep" "30")))]
+    (try
+      (let [pids (mapv #(str (.pid (:proc %))) kids)]
+        (doseq [round (range 5)]
+          (let [id (str "race-" round)
+                go (promise)
+                racers (mapv (fn [pid] (future @go (persist/lock! c id pid))) pids)
+                _ (deliver go true)
+                won (mapv deref racers)]
+            (is (= 1 (count (filter true? won))) (str "round " round ": " won))
+            (is (contains? (set pids) (persist/holder c id)) "and the lock names the winner")
+            (is (empty? (filter #(str/ends-with? (.getName %) ".stale")
+                                (.listFiles (.getParentFile (persist/lock-file c id)))))
+                "nothing left aside"))))
+      (testing "a lock that does not parse is being written: held for a moment, then stale"
+        (let [f (persist/lock-file c "torn")]
+          (io/make-parents f)
+          (spit f "{:pid")
+          (is (false? (persist/lock! c "torn")))
+          (.setLastModified f (- (System/currentTimeMillis) 60000))
+          (is (true? (persist/lock! c "torn")))))
+      (finally (doseq [k kids] (p/destroy-tree k))))))
+
 (defn- reply [m] (json/write-str (merge {:reasoning "r" :tool-calls [] :answer ""} m)))
 
 (defn- run-session [dir inputs & {:as cfg}]

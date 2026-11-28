@@ -221,6 +221,16 @@ still answers `kill -0`, and a session whose headless byj ended so was held for
 good, refused to load (`byj-974`). A clean close removes the lock; a crash
 leaves one, and the next run takes it over once the pid is gone.
 
+Taking the lock is the lock file's exclusive create (`createNewFile`), so of
+two processes that both find a session free only one gets it; checking the
+holder and then writing let both (`byj-ku1.2`). A lock file that is there is
+the holder's: ours (taken again), a live pid's (refused), or stale. Stale is a
+dead pid's, or a file that has not parsed for five seconds; a younger one is
+taken to be a lock being written, and so held. A stale lock is renamed aside
+to a name of the taker's own and read back. If what was moved is not the
+stale lock that was judged, another process took the session in between: its
+lock is put back.
+
 Every live session is locked, a fresh one as well as a resumed one, and so is
 each session started beside the first in the session list. The lock is what
 says a session is live, which the session channel relies on (RFC-031,
@@ -343,6 +353,7 @@ someone with three and then shows them one (`byj-gly.75`).
 | Sessions list newest first; a broken one is listed with its problem and is never "latest". | `persist-test/listing-and-latest` |
 | A run's set comes back in order with the one in front, only what is still saved; a front that is gone falls back to the first; the record is not a session; a snapshot's last question is its last turn's. | `persist-test/a-run-remembers-the-set-it-had-open` |
 | A live foreign pid holds a session; our own lock does not block us; a zombie and a dead pid are stale; unlocking removes the file. | `persist-test/one-live-process-per-session` |
+| Of processes racing for a free session exactly one takes it, and nothing is left aside; a lock file that does not parse is held while it may be being written, then stale. | `persist-test/one-of-many-racing-processes-takes-a-free-session` |
 | A session survives a restart: the turns come back, the count continues, the history is re-derived, and an unreadable snapshot starts fresh rather than refusing. | `persist-test/a-session-survives-a-restart` |
 | `:persist-session? false` writes nothing at all. | `persist-test/persistence-can-be-switched-off` |
 | Pruning removes only what is past the TTL, outside the keep count, not this run's and not held by a live process — whole tree, both trees. | `persist-test/pruning-removes-only-what-it-may` |

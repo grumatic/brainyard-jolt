@@ -544,15 +544,52 @@
         (when (and pid (not= (str pid) (own-pid)) (alive? pid))
           pid)))))
 
+(def ^:private lock-write-grace-ms
+  "How long a lock file that does not parse is taken to be one being written —
+  created, its content not yet in — and so held."
+  5000)
+
+(defn- read-lock [^java.io.File f]
+  (try (let [m (edn/read-string (slurp f))] (when (map? m) m)) (catch Throwable _ nil)))
+
 (defn lock!
-  "Claim `id` for this process. Returns true, or false when another live
-  process holds it."
-  [config id]
-  (if (holder config id)
-    false
-    (do (write-edn! (lock-file config id) {:pid (own-pid) :at (System/currentTimeMillis)})
-        (mark-project! config)
-        true)))
+  "Claim `id` for this process (or for `pid`, which a test names). Returns
+  true, or false when another live process holds it.
+
+  The claim is the lock file's exclusive create, so of two processes that
+  find the session free only one takes it: checking `holder` and then
+  writing let both (byj-ku1.2). A file that is there is the holder's: ours
+  (taken again), a live process's (false), or stale — a dead pid's, or one
+  that has not parsed for `lock-write-grace-ms` — which is moved aside and
+  the create tried again. The move is a rename to a name of our own, and
+  what it moved is read back: a lock another process took in between is put
+  back, not lost."
+  ([config id] (lock! config id (own-pid)))
+  ([config id pid]
+   (let [f (lock-file config id)
+         claim! (fn [] (write-edn! f {:pid pid :at (System/currentTimeMillis)})
+                  (mark-project! config)
+                  true)]
+     (io/make-parents f)
+     (loop [tries 0]
+       (if (.createNewFile f)
+         (claim!)
+         (let [m (read-lock f)]
+           (cond
+             (and m (= (str (:pid m)) (str pid))) (claim!)
+             (and m (:pid m) (alive? (:pid m))) false
+             (and (nil? m) (< (- (System/currentTimeMillis) (.lastModified f)) lock-write-grace-ms)) false
+             (>= tries 2) false
+             :else
+             (let [aside (io/file (.getParentFile f) (str "lock." (random-uuid) ".stale"))]
+               (when (.renameTo f aside)
+                 (let [moved (read-lock aside)]
+                   (if (= moved m)
+                     (.delete aside)
+                     ;; not the stale lock we judged: someone took it meanwhile
+                     (do (when (.createNewFile f) (spit f (slurp aside)))
+                         (.delete aside)))))
+               (recur (inc tries))))))))))
 
 (defn unlock!
   "Release the lock if it is ours. A clean exit leaves no lock file."
