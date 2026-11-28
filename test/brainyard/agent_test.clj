@@ -5,6 +5,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [clojure.walk :as walk]
             [brainyard.agent :as agent]
             [brainyard.trajectory :as trajectory]
             [brainyard.bt :as bt]
@@ -301,6 +302,34 @@
   (let [r (run [(reply {}) (reply {}) (reply {:reasoning "stuck"})])]
     (is (= :none-channel-loop-guard (:terminated-by r)))
     (is (str/includes? (:answer r) "stuck"))))
+
+(deftest how-often-to-repair-is-the-repair-nodes
+  ;; byj-2e8.3: the policy is in the tree, beside the node it governs
+  (let [tree (fn [opts] (walk/postwalk #(if (and (map? %) (= :react/repair (:fn %))) (merge % opts) %)
+                                       (agent/load-tree nil @scratch)))]
+    (testing "one reply with no action ends the turn when the node says one"
+      (let [r (run [(reply {}) (reply {:answer "late"})] :tree (tree {:max-no-action 1}))]
+        (is (= :none-channel-loop-guard (:terminated-by r)))
+        (is (= 1 (:iterations r)))))
+    (testing "a malformed reply of a kind the node does not name is not told to the model"
+      (let [seen (atom nil)
+            r (run ["not json at all"
+                    (fn [messages] (reset! seen (:content (second messages))) (reply {:answer "ok"}))]
+                   :tree (tree {:notice-kinds []}))]
+        (is (= "ok" (:answer r)))
+        (is (not (str/includes? @seen "FORMAT ERROR")))))
+    (testing "the bundled tree names the config keys, so the config still decides"
+      (let [r (run [(reply {}) (reply {:answer "late"})]
+                   :config {:max-iterations 5 :working-dir "." :project-dir @scratch
+                            :max-retries-on-llm-no-action 1})]
+        (is (= :none-channel-loop-guard (:terminated-by r)))))
+    (testing "and a node without the opts, a project's copy of an older loop, reads the config"
+      (let [bare (walk/postwalk #(if (and (map? %) (= :react/repair (:fn %)))
+                                   (dissoc % :max-failures :max-no-action :notice-kinds) %)
+                                (agent/load-tree nil @scratch))
+            r (run [(reply {}) (reply {}) (reply {})] :tree bare)]
+        (is (= :none-channel-loop-guard (:terminated-by r)))
+        (is (= 3 (:iterations r)))))))
 
 (deftest unbound-tool-is-dropped
   (let [r (run [(reply {:tool-calls [{:tool-name "noop" :tool-args {}}]})

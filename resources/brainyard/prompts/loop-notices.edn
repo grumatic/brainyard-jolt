@@ -1,0 +1,20 @@
+;; What the ReAct loop tells the model about its previous reply, queued as a
+;; notice for the next iteration's prompt (RFC-003), and the thought it
+;; records for an iteration whose calls it recovered. Read by the model, so a
+;; resource (RFC-001); agent.clj fills each {name} (byj-2e8.3).
+;;
+;; :format-error   {error} what was wrong with the reply (brainyard's
+;;                 coact-repair-action)
+;; :unbound-tool   {tools} the names called that are not bound, comma-separated
+;; :answer-refused {reason} why the answer was refused, ending in a stop
+;; :refused-self-next {next} the next step the model named for itself
+{:format-error "FORMAT ERROR: your previous reply could not be used ({error}). Reply with ONLY the JSON object described in the response format."
+ :no-action "NO ACTION: your previous reply populated neither `tool-calls` nor `answer`. Call a tool or write the final answer."
+ :unbound-tool "UNBOUND TOOL: these tool calls name tools that do not exist and were NOT run: {tools}"
+ :channel-conflict "CHANNEL CONFLICT: your previous reply populated `answer` together with `tool-calls`. The tools ran and the answer was DISCARDED — it was written before the tools' output existed, so any results it described were invented. Read the actual results above, then answer in a reply of its own, leaving `tool-calls` empty."
+ :native-tool-call "TOOL CHANNEL: your previous reply called tools directly, which fails with \"No such tool available\" — that error does NOT mean the tool is missing. Those calls were run for you from `tool-calls`; their results are above. Always call tools by listing them in `tool-calls`."
+ :recovered-thought "Called tools natively; the model CLI refused them (\"No such tool available\"), so they were run from tool-calls instead."
+ :answer-refused "ANSWER REFUSED: {reason}"
+ :refused-by-check "A check this project runs on answers refused yours. Look again at what the question asks and what the tools showed, then answer again."
+ :refused-self-next "You reported the goal was not achieved. Your own next step: {next}. Do it, then answer again."
+ :refused-self "You reported the goal was not achieved. Find the remaining gap, get what is missing, then answer again."}

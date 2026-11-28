@@ -99,6 +99,29 @@
   newline is the file's, not the prompt's."
   (str/trim-newline (load-resource "brainyard/prompts/react-agent-instruction.md")))
 
+(def ^:private loop-notices
+  (delay (edn/read-string (load-resource "brainyard/prompts/loop-notices.edn"))))
+
+(defn- notice
+  "What the loop tells the model, `prompts/loop-notices.edn`'s notice `k`
+  with each `{name}` filled from `m` (byj-2e8.3)."
+  ([k] (notice k {}))
+  ([k m]
+   (reduce-kv (fn [t n v] (str/replace t (str "{" (name n) "}") (str v)))
+              (or (get @loop-notices k)
+                  (throw (ex-info (str "no loop notice " k " in prompts/loop-notices.edn") {:notice k})))
+              m)))
+
+(defn- node-opt
+  "The node's opt `k`: a value, or a `:config/…` key read from the run's
+  config, as `bt` resolves a composite's; `default` when the node has none —
+  a project's copy of a loop from before the opt keeps its behaviour."
+  [{:keys [node config]} k default]
+  (let [v (get node k)]
+    (cond (nil? v) default
+          (and (keyword? v) (= "config" (namespace v))) (get config (keyword (name v)) default)
+          :else v)))
+
 ;; --- helpers -----------------------------------------------------------------
 
 (defn- mem [ctx] @(:st-memory ctx))
@@ -654,21 +677,18 @@
                  (not (str/blank? (str (:critique m)))) (str (:critique m))
                  (not (str/blank? (str ext))) (str ext)
                  (not self?)
-                 (str "A check this project runs on answers refused yours. Look again at what the "
-                      "question asks and what the tools showed, then answer again.")
+                 (notice :refused-by-check)
                  ;; the model said it was not done and named its own next step
                  (not (str/blank? np))
-                 (str "You reported the goal was not achieved. Your own next step: "
-                      np ". Do it, then answer again.")
+                 (notice :refused-self-next {:next np})
                  :else
-                 (str "You reported the goal was not achieved. Find the remaining gap, "
-                      "get what is missing, then answer again."))
+                 (notice :refused-self))
         reason (cond-> (str/trim reason) (not (re-find #"[.!?]$" (str/trim reason))) (str "."))]
     (swap! st-memory #(-> %
                           (assoc :answer "" :goal-achieved false :critique nil)
                           (dissoc :ext/critique)
                           (update :refinements (fnil inc 0))
-                          (queue-notice (str "ANSWER REFUSED: " reason))))
+                          (queue-notice (notice :answer-refused {:reason reason}))))
     (emit! ctx :agent.answer/refused {:reason reason :self-reported self?})
     :success))
 
@@ -755,18 +775,16 @@
     :success))
 
 (def native-tool-call-notice
-  (str "TOOL CHANNEL: your previous reply called tools directly, which fails with "
-       "\"No such tool available\" — that error does NOT mean the tool is missing. "
-       "Those calls were run for you from `tool-calls`; their results are above. "
-       "Always call tools by listing them in `tool-calls`."))
+  "What the model is told when its natively called tools were run from
+  `tool-calls` for it (`prompts/loop-notices.edn`)."
+  (notice :native-tool-call))
 
 (def recovered-thought
   "An iteration's thought once its calls are recovered: what the model wrote
   then, believing the CLI's refusal (\"the bash tool is not bound\"), was
   shown to the person before a call that then ran, and stayed in the history
   the model reads (byj-gly.339)."
-  (str "Called tools natively; the model CLI refused them (\"No such tool available\"), "
-       "so they were run from tool-calls instead."))
+  (notice :recovered-thought))
 
 (defn unwrapped-args
   "A natively refused call's arguments as the tool takes them: an input that
@@ -830,8 +848,7 @@
         {bound true unbound false} (group-by #(contains? @tools (:tool-name %)) tool-calls)]
     (when (seq unbound)
       (swap! st-memory #(-> % (assoc :tool-calls (vec bound))
-                            (queue-notice (str "UNBOUND TOOL: these tool calls name tools that do not exist and were NOT run: "
-                                               (str/join ", " (map :tool-name unbound)))))))))
+                            (queue-notice (notice :unbound-tool {:tools (str/join ", " (map :tool-name unbound))})))))))
 
 (defn ^{:reads #{:answer} :writes #{}}
   answer-non-blank? [ctx]
@@ -843,11 +860,9 @@
   (boolean (seq (:tool-calls (mem ctx)))))
 
 (def premature-answer-notice
-  (str "CHANNEL CONFLICT: your previous reply populated `answer` together with "
-       "`tool-calls`. The tools ran and the answer was DISCARDED — it was written "
-       "before the tools' output existed, so any results it described were invented. "
-       "Read the actual results above, then answer in a reply of its own, leaving "
-       "`tool-calls` empty."))
+  "What the model is told when its answer came beside tool calls and was
+  discarded (`prompts/loop-notices.edn`)."
+  (notice :channel-conflict))
 
 (defn ^{:reads #{:answer :tool-calls} :writes #{:answer :goal-achieved :pending-notices}}
   resolve-channel-conflicts-action [ctx]
@@ -934,7 +949,15 @@
    - when a valid reply populated no channel: count the no-action streak and
      end the turn past its budget, otherwise nudge.
   Runs at most once per iteration, so the router's none-path does not
-  double-count an iteration the llm-guard already repaired."
+  double-count an iteration the llm-guard already repaired.
+
+  How often is the node's (byj-2e8.3): `:max-failures` and `:max-no-action`,
+  each a number or a `:config/…` key (react.edn names
+  `:max-retries-on-llm-failure` and `:max-retries-on-llm-no-action`), and
+  `:notice-kinds`, the failures the model is told about — a reply it can fix,
+  where a failed call has nothing to tell it (provenance P-5). A node without
+  them reads the config and `[:malformed :empty]`. The words are
+  `prompts/loop-notices.edn`'s."
   [{:keys [st-memory config] :as ctx}]
   (let [{:keys [iteration-count repaired-iter] err :bt/error} @st-memory]
     (when-not (= repaired-iter iteration-count)
@@ -945,14 +968,12 @@
           (emit! ctx :agent.repair/llm-error (assoc err :attempt n))
           (cond
             (or (get-in err [:data :fatal?])
-                (>= n (:max-retries-on-llm-failure config)))
+                (>= n (node-opt ctx :max-failures (:max-retries-on-llm-failure config))))
             (abort! st-memory (:message err) :llm-error)
 
             ;; The model replied, but unusably: tell it what was wrong.
-            (#{:malformed :empty} kind)
-            (swap! st-memory queue-notice
-                   (str "FORMAT ERROR: your previous reply could not be used (" (:message err) "). "
-                        "Reply with ONLY the JSON object described in the response format."))
+            (contains? (set (node-opt ctx :notice-kinds [:malformed :empty])) kind)
+            (swap! st-memory queue-notice (notice :format-error {:error (:message err)}))
 
             ;; The call itself failed (network, provider error, refusal): the
             ;; model produced nothing, so there is nothing to tell it. Replaying
@@ -963,14 +984,12 @@
             (swap! st-memory assoc :last-channel :llm-error :last-error (:message err))))
         (let [n (:no-action-streak (swap! st-memory update :no-action-streak inc))]
           (emit! ctx :agent.repair/no-action {:streak n})
-          (if (>= n (:max-retries-on-llm-no-action config))
+          (if (>= n (node-opt ctx :max-no-action (:max-retries-on-llm-no-action config)))
             (abort! st-memory (str "no tool call or answer for " n " consecutive iterations."
                                    (when-let [r (:last-reasoning @st-memory)]
                                      (str "\n\nLast reasoning: " r)))
                     :none-channel-loop-guard)
-            (swap! st-memory queue-notice
-                   (str "NO ACTION: your previous reply populated neither `tool-calls` nor `answer`. "
-                        "Call a tool or write the final answer."))))))))
+            (swap! st-memory queue-notice (notice :no-action))))))))
 
 (defn- untimed
   "An iteration record without its calls' `:started-at` and `:elapsed-ms`:

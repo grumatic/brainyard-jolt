@@ -52,7 +52,13 @@
      [:action {:id :react/think-act :fn :react/think-act
                :predictor "react/think-act"
                :zones [:agent-core :session-context :history-context :user-context]}]
-     [:action {:id :react/repair-llm :fn :react/repair}]]
+     ;; how often a reply is repaired before the turn ends, and which
+     ;; failures the model is told about: one it can fix by replying again,
+     ;; where a failed call has nothing to tell it (provenance P-5)
+     [:action {:id :react/repair-llm :fn :react/repair
+               :max-failures :config/max-retries-on-llm-failure
+               :max-no-action :config/max-retries-on-llm-no-action
+               :notice-kinds [:malformed :empty]}]]
     ;; tools the model called natively and was told do not exist (provenance
     ;; P-12). :lookups are what it calls next to find a tool it was told is
     ;; missing: left out of a batch that calls anything else (byj-gly.352)
@@ -115,7 +121,10 @@
                    :on-failure :ignore}]
       [:action {:id :react/fold-ext-notices :fn :react/fold-ext-notices}]]
      ;; Path D — nothing populated
-     [:action {:id :react/repair :fn :react/repair}]]
+     [:action {:id :react/repair :fn :react/repair
+               :max-failures :config/max-retries-on-llm-failure
+               :max-no-action :config/max-retries-on-llm-no-action
+               :notice-kinds [:malformed :empty]}]]
     [:action {:id :react/accumulate :fn :react/accumulate}]
     [:action {:id :react/hook-iteration-post :fn :hooks/fire :event :agent.iteration/post
               :payload {:iteration :iteration-count :max-iterations :config/max-iterations

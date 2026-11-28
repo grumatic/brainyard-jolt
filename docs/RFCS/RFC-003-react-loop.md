@@ -149,8 +149,8 @@ the tool takes an `args` input (`unwrapped-args`, byj-gly.352). Not in brainyard
 | `:terminated-by` | when |
 |---|---|
 | `:answer-channel` | a non-blank answer (quote-only strings count as blank) |
-| `:llm-error` | `:max-retries-on-llm-failure` (3) consecutive failed or unusable calls, or one fatal error (usage cap, missing CLI) |
-| `:none-channel-loop-guard` | `:max-retries-on-llm-no-action` (3) consecutive replies with neither tool calls nor answer |
+| `:llm-error` | the repair node's `:max-failures` (`:max-retries-on-llm-failure`, 3) consecutive failed or unusable calls, or one fatal error (usage cap, missing CLI) |
+| `:none-channel-loop-guard` | the repair node's `:max-no-action` (`:max-retries-on-llm-no-action`, 3) consecutive replies with neither tool calls nor answer |
 | `:max-iterations-exhausted` | the repeat ran out; the answer carries the latest thought |
 | `:loop-error` | the repeat itself failed (loop-fallback) |
 | — | the turn Task was cancelled: `ask-task` fails with the cancellation; in a session the cancellable scope records `:on-cancel` (`:cancelled`, RFC-004) |
@@ -169,6 +169,19 @@ the llm-guard or the router's path D.
   provider's error text into every later prompt bloats it, and a refusal's
   text can trip the same check again (provenance P-5).
 - **No action**: queue a `NO ACTION` nudge.
+
+How often is the node's, in the tree (byj-2e8.3): `:max-failures` and
+`:max-no-action` end the turn (`:llm-error`, `:none-channel-loop-guard`), and
+`:notice-kinds` names the failures the model is told about, `[:malformed
+:empty]`. Each is a value or a `:config/…` key; `loops/react.edn` names
+`:max-retries-on-llm-failure` and `:max-retries-on-llm-no-action`, so the
+config still decides, and a node without them — a project's copy of an older
+loop — reads those keys and `[:malformed :empty]`.
+
+Every notice the loop queues — `FORMAT ERROR`, `NO ACTION`, `UNBOUND TOOL`,
+`CHANNEL CONFLICT`, `TOOL CHANNEL`, `ANSWER REFUSED` and its reasons — and the
+thought of an iteration whose calls were recovered are
+`prompts/loop-notices.edn`'s words, each `{name}` filled by the kernel.
 
 ### Channel conflicts
 
@@ -352,6 +365,8 @@ that is the case in which this gate would earn its call.
 | The loop's slots are empty unless a project attaches to them. What is attached after the tools is heard in the next iteration, and its failure costs the turn nothing. | `agent-test/the-bundled-loop-offers-its-slots-empty`, `agent-test/an-attachment-after-the-tools-is-heard-next-iteration`, `agent-test/an-attachment-after-the-tools-that-fails-costs-the-turn-nothing` |
 | A project's answer check runs before every stamp, refuses for its own reason on each path that accepts, and stops refusing at `:max-answer-checks`. | `agent-test/the-answer-check-sits-before-every-stamp`, `agent-test/a-projects-answer-check-refuses-on-every-path-that-accepts` |
 | A malformed reply is repaired with a notice and the loop continues. | `agent-test/malformed-reply-is-repaired` |
+| How often a reply is repaired, and which failures the model hears of, are the repair node's opts; the bundled tree names the config keys, and a node without them reads the config. | `agent-test/how-often-to-repair-is-the-repair-nodes` |
+| The loop's notices are `prompts/loop-notices.edn`'s words, and moving them there changed none the model is sent. | `prompt-golden-test/the-call-after-a-format-error`, `prompt-golden-test/the-call-after-no-action` |
 | Three consecutive failures abort with `:llm-error`. | `agent-test/repeated-llm-failure-aborts` |
 | Three consecutive no-action replies abort with `:none-channel-loop-guard`. | `agent-test/no-action-guard` |
 | An unbound tool call is dropped, visibly. | `agent-test/unbound-tool-is-dropped` |
